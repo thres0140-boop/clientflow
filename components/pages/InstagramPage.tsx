@@ -490,9 +490,22 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   const [saved, setSaved] = useState(false);
 
   async function transcribe() {
+    if (!reel.media_url) {
+      setTranscript("No video URL available for this reel.");
+      return;
+    }
     setTranscribing(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    setTranscript(reel.caption || "Transcript will appear here once AssemblyAI is connected.");
+    try {
+      const res = await fetch("/api/instagram/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaUrl: reel.media_url }),
+      });
+      const data = await res.json();
+      setTranscript(data.transcript || "No speech detected.");
+    } catch {
+      setTranscript("Transcription failed. Please try again.");
+    }
     setTranscribing(false);
   }
 
