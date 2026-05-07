@@ -21,7 +21,8 @@ type IGReel = {
   reach?: number;
   saved?: number;
   shares?: number;
-  handle?: string; // for competitor reels
+  handle?: string;
+  instagramUrl?: string;
 };
 
 type IGProfile = {
@@ -315,7 +316,6 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
 }
 
 type CompSubTab = "list" | "reels";
-type TimeFilter = "7" | "14" | "30" | "90" | "all";
 
 function CompetitorsTab({ client }: { client: Client }) {
   const [subTab, setSubTab] = useState<CompSubTab>("list");
@@ -325,20 +325,18 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Reels sub-tab state
-  const [allReels, setAllReels] = useState<IGReel[]>([]);
-  const [fetchErrors, setFetchErrors] = useState<{ handle: string; error: string }[]>([]);
-  const [loadingReels, setLoadingReels] = useState(false);
-  const [reelsFetched, setReelsFetched] = useState(false);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  // Reels sub-tab state (manually tracked)
+  const storageKey = `competitor_reels_${client.id}`;
+  const [trackedReels, setTrackedReels] = useState<IGReel[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`competitor_reels_${client.id}`) || "[]"); } catch { return []; }
+  });
   const [reelSort, setReelSort] = useState<"recent" | "best">("recent");
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
+  const [showAddReel, setShowAddReel] = useState(false);
 
   const reload = useCallback(async () => {
     const data = await fetch(`/api/competitors?clientId=${client.id}`).then((r) => r.json());
     setCompetitors(data);
-    setReelsFetched(false);
-    setAllReels([]);
   }, [client.id]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -371,39 +369,18 @@ function CompetitorsTab({ client }: { client: Client }) {
     setSuggesting(false);
   }
 
-  async function fetchAllReels() {
-    if (competitors.length === 0) return;
-    setLoadingReels(true);
-    setAllReels([]);
-    setFetchErrors([]);
-    const results = await Promise.allSettled(
-      competitors.map(async (c) => {
-        const res = await fetch(`/api/instagram/competitor-reels?clientId=${client.id}&handle=${encodeURIComponent(c.handle)}`);
-        const data = await res.json();
-        if (data.error) return { handle: c.handle, reels: [], error: data.error as string };
-        return { handle: c.handle, reels: (data.reels || []).map((r: IGReel) => ({ ...r, handle: c.handle })), error: null };
-      })
-    );
-    const reels = results.flatMap((r) => r.status === "fulfilled" ? r.value.reels : []);
-    const errors = results.flatMap((r) => r.status === "fulfilled" && r.value.error ? [{ handle: r.value.handle, error: r.value.error }] : []);
-    setAllReels(reels);
-    setFetchErrors(errors);
-    setLoadingReels(false);
-    setReelsFetched(true);
+  function saveTracked(reels: IGReel[]) {
+    setTrackedReels(reels);
+    try { localStorage.setItem(storageKey, JSON.stringify(reels)); } catch { /* ignore */ }
   }
 
-  useEffect(() => {
-    if (subTab === "reels" && !reelsFetched && competitors.length > 0) fetchAllReels();
-  }, [subTab, reelsFetched, competitors.length]);
+  function removeTracked(id: string) {
+    saveTracked(trackedReels.filter((r) => r.id !== id));
+  }
 
-  const now = Date.now();
-  const days = timeFilter === "all" ? Infinity : parseInt(timeFilter);
-  const filteredReels = allReels.filter((r) =>
-    days === Infinity || now - new Date(r.timestamp).getTime() < days * 24 * 60 * 60 * 1000
-  );
   const sortedReels = reelSort === "best"
-    ? [...filteredReels].sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0))
-    : [...filteredReels].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    ? [...trackedReels].sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0))
+    : [...trackedReels].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
     <div className="space-y-4">
@@ -470,90 +447,79 @@ function CompetitorsTab({ client }: { client: Client }) {
 
       {subTab === "reels" && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
-              {(["7", "14", "30", "90", "all"] as TimeFilter[]).map((d) => (
-                <button key={d} onClick={() => setTimeFilter(d)}
-                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                    timeFilter === d ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-700"
-                  }`}>
-                  {d === "all" ? "All time" : `${d}d`}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-3">
             <button onClick={() => setReelSort(reelSort === "best" ? "recent" : "best")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 reelSort === "best" ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
               }`}>
               🏆 Best Performing
             </button>
-            <button onClick={() => { setReelsFetched(false); }}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200">
-              ↺ Refresh
+            <span className="text-xs text-slate-400">{trackedReels.length} tracked reels</span>
+            <button onClick={() => setShowAddReel(true)}
+              className="ml-auto px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700">
+              + Add Reel
             </button>
-            <span className="text-xs text-slate-400 ml-auto">{sortedReels.length} reels from {competitors.length} accounts</span>
           </div>
 
-          {fetchErrors.length > 0 && (
-            <div className="space-y-1.5">
-              {fetchErrors.map((e) => (
-                <div key={e.handle} className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
-                  <span className="text-red-400 text-xs font-bold flex-shrink-0 mt-0.5">!</span>
-                  <div>
-                    <span className="text-xs font-semibold text-red-700">@{e.handle}</span>
-                    <span className="text-xs text-red-500 ml-2">{e.error}</span>
-                  </div>
+          {trackedReels.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-16 flex flex-col items-center gap-4 text-center">
+              <div className="text-3xl">🎬</div>
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Track competitor reels manually</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                  Paste an Instagram reel URL — we'll grab the thumbnail automatically. Add likes/comments to sort by performance.
+                </p>
+              </div>
+              <button onClick={() => setShowAddReel(true)}
+                className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700">
+                + Add your first reel
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-1.5">
+              {sortedReels.map((reel) => (
+                <div key={reel.id} className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group">
+                  <button className="absolute inset-0 w-full h-full" onClick={() => setSelectedReel(reel)}>
+                    {reel.thumbnail_url
+                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+                          <span className="text-3xl opacity-30">▶</span>
+                        </div>
+                    }
+                    {reel.handle && (
+                      <div className="absolute top-2 left-2">
+                        <span className="text-[10px] font-semibold text-white bg-black/50 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
+                          @{reel.handle}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
+                          <span className="opacity-70">♥</span><span>{reel.like_count > 0 ? fmt(reel.like_count) : "—"}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
+                          <span className="opacity-70">💬</span><span>{reel.comments_count > 0 ? fmt(reel.comments_count) : "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                  <button onClick={() => removeTracked(reel.id)}
+                    className="absolute top-2 right-2 w-5 h-5 rounded-full bg-black/50 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500">
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
           )}
 
-          {loadingReels ? (
-            <div className="flex flex-col items-center justify-center h-48 gap-3">
-              <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-slate-400">Fetching reels from {competitors.length} accounts…</p>
-            </div>
-          ) : competitors.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center">
-              <p className="text-sm text-slate-500">Add competitors in the List tab first.</p>
-            </div>
-          ) : sortedReels.length === 0 && fetchErrors.length === 0 ? (
-            <div className="text-center py-16 text-slate-400 text-sm">
-              No reels found in the selected time window. Try "All time".
-            </div>
-          ) : sortedReels.length === 0 ? null : (
-            <div className="grid grid-cols-4 gap-1.5">
-              {sortedReels.map((reel) => (
-                <button key={reel.id} onClick={() => setSelectedReel(reel)}
-                  className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group">
-                  {reel.thumbnail_url
-                    ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
-                        <span className="text-3xl opacity-30">▶</span>
-                      </div>
-                  }
-                  <div className="absolute top-2 left-2">
-                    <span className="text-[10px] font-semibold text-white bg-black/50 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
-                      @{reel.handle}
-                    </span>
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                  <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                      <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
-                        <span className="opacity-70">♥</span><span>{fmt(reel.like_count)}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
-                        <span className="opacity-70">💬</span><span>{fmt(reel.comments_count)}</span>
-                      </div>
-                    </div>
-                    <p className="text-white text-[10px] opacity-60 mt-1">
-                      {new Date(reel.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
+          {showAddReel && (
+            <AddCompetitorReelModal
+              competitors={competitors}
+              onClose={() => setShowAddReel(false)}
+              onSaved={(reel) => { saveTracked([reel, ...trackedReels]); setShowAddReel(false); }}
+            />
           )}
         </div>
       )}
@@ -562,6 +528,119 @@ function CompetitorsTab({ client }: { client: Client }) {
       {editing && <CompetitorModal clientId={client.id} competitor={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
       {selectedReel && <ReelDetailPanel reel={selectedReel} client={client} onClose={() => setSelectedReel(null)} />}
     </div>
+  );
+}
+
+function AddCompetitorReelModal({ competitors, onClose, onSaved }: {
+  competitors: Competitor[];
+  onClose: () => void;
+  onSaved: (reel: IGReel) => void;
+}) {
+  const [url, setUrl] = useState("");
+  const [handle, setHandle] = useState(competitors[0]?.handle || "");
+  const [likes, setLikes] = useState("");
+  const [comments, setComments] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState<{ thumbnail_url?: string; author_name?: string; title?: string } | null>(null);
+
+  async function fetchPreview(u: string) {
+    if (!u.includes("instagram.com")) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/instagram/oembed?url=${encodeURIComponent(u)}`);
+      const data = await res.json();
+      if (data.error) { setError("Could not load preview — check URL"); }
+      else {
+        setPreview(data);
+        if (data.author_name) setHandle(data.author_name);
+      }
+    } catch { setError("Could not load preview"); }
+    setLoading(false);
+  }
+
+  function extractShortcode(u: string) {
+    const m = u.match(/\/(reel|p)\/([A-Za-z0-9_-]+)/);
+    return m ? m[2] : String(Date.now());
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!url.includes("instagram.com")) { setError("Please enter a valid Instagram URL"); return; }
+    const shortcode = extractShortcode(url);
+    const reel: IGReel = {
+      id: shortcode,
+      thumbnail_url: preview?.thumbnail_url,
+      caption: preview?.title || url,
+      timestamp: new Date().toISOString(),
+      like_count: parseInt(likes) || 0,
+      comments_count: parseInt(comments) || 0,
+      handle: handle || undefined,
+      instagramUrl: url,
+    };
+    onSaved(reel);
+  }
+
+  return (
+    <Modal title="Track Competitor Reel" onClose={onClose}>
+      <form onSubmit={save} className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Instagram Reel URL *</label>
+          <input
+            required
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onBlur={() => fetchPreview(url)}
+            placeholder="https://www.instagram.com/reel/ABC123..."
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          {loading && <p className="text-xs text-slate-400 mt-1">Loading preview…</p>}
+          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        </div>
+
+        {preview?.thumbnail_url && (
+          <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+            <img src={preview.thumbnail_url} alt="" className="w-12 h-20 object-cover rounded-lg flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-700">@{preview.author_name}</p>
+              {preview.title && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{preview.title}</p>}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Account handle</label>
+          <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+            <span className="px-3 py-2 bg-slate-50 text-slate-400 text-sm border-r border-slate-200">@</span>
+            <input value={handle} onChange={(e) => setHandle(e.target.value.replace("@", ""))}
+              list="compHandleList" placeholder="username"
+              className="flex-1 px-3 py-2 text-sm focus:outline-none" />
+            <datalist id="compHandleList">
+              {competitors.map((c) => <option key={c.id} value={c.handle} />)}
+            </datalist>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Likes</label>
+            <input type="number" value={likes} onChange={(e) => setLikes(e.target.value)} placeholder="e.g. 4200"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Comments</label>
+            <input type="number" value={comments} onChange={(e) => setComments(e.target.value)} placeholder="e.g. 87"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-1">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Reel</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -777,18 +856,26 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
         <div className="flex-1 overflow-y-auto">
           <div className="relative bg-slate-900 aspect-[9/16] max-h-72 w-full flex items-center justify-center overflow-hidden">
             {reel.media_url
-              ? <video
-                  src={reel.media_url}
-                  poster={reel.thumbnail_url}
-                  controls
-                  className="w-full h-full object-contain"
-                />
-              : reel.thumbnail_url
-                ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                : <div className="flex flex-col items-center gap-2 text-slate-600">
-                    <span className="text-4xl opacity-20">▶</span>
-                    <p className="text-xs opacity-40">No preview available</p>
-                  </div>
+              ? <video src={reel.media_url} poster={reel.thumbnail_url} controls className="w-full h-full object-contain" />
+              : reel.instagramUrl
+                ? <a href={reel.instagramUrl} target="_blank" rel="noopener noreferrer" className="relative w-full h-full flex items-center justify-center group">
+                    {reel.thumbnail_url
+                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />
+                    }
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span className="text-4xl">▶</span>
+                        <p className="text-white text-xs font-medium opacity-80">Open on Instagram</p>
+                      </div>
+                    </div>
+                  </a>
+                : reel.thumbnail_url
+                  ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  : <div className="flex flex-col items-center gap-2 text-slate-600">
+                      <span className="text-4xl opacity-20">▶</span>
+                      <p className="text-xs opacity-40">No preview available</p>
+                    </div>
             }
           </div>
           <div className="p-5 space-y-5">
