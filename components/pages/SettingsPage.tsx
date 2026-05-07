@@ -97,8 +97,8 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
 
       {showAdd && (
         <ClientModal
-          onClose={() => setShowAdd(false)}
-          onSaved={() => { setShowAdd(false); refreshClients(); }}
+          onClose={() => { setShowAdd(false); refreshClients(); }}
+          onSaved={() => refreshClients()}
         />
       )}
       {editing && (
@@ -143,10 +143,11 @@ function ClientModal({
     if (!client) {
       const data = await res.json();
       setNewClientId(data.id);
-      setStep("connect");
       onSaved();
+      setStep("connect");
     } else {
       onSaved();
+      onClose();
     }
   }
 
