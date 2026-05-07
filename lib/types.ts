@@ -42,7 +42,26 @@ export type Client = {
   language: string;
   scriptAlternatives: number;
   generationInterval: number;
+  bookingLink?: string | null;
   createdAt: string;
+};
+
+export type AnalyticsEntry = {
+  id: number;
+  clientId: number;
+  date: string;
+  conceptId?: number | null;
+  views: number;
+  likes: number;
+  shares: number;
+  follows: number;
+  messagesSent: number;
+  messagesAnswered: number;
+  linksSent: number;
+  bookedCalls: number;
+  createdAt: string;
+  updatedAt: string;
+  concept?: { id: number; name: string } | null;
 };
 
 export type ScriptDraft = {

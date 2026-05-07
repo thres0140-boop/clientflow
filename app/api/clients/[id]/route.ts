@@ -14,6 +14,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       notes: body.notes || null,
       captionStyle: body.captionStyle !== undefined ? (body.captionStyle || null) : undefined,
       dayTemplate: body.dayTemplate !== undefined ? (body.dayTemplate || null) : undefined,
+      bookingLink: body.bookingLink !== undefined ? (body.bookingLink || null) : undefined,
     },
   });
   return NextResponse.json(client);

@@ -23,6 +23,8 @@ model Client {
   generationInterval Int      @default(2)
   createdAt          DateTime @default(now())
 
+  bookingLink           String?
+
   concepts              Concept[]
   contentPieces         ContentPiece[]
   trackedVideos         TrackedVideo[]
@@ -33,6 +35,7 @@ model Client {
   competitors           Competitor[]
   board                 Board?
   instagramConnection   InstagramConnection?
+  analyticsEntries      AnalyticsEntry[]
 }
 
 model InstagramConnection {
@@ -170,10 +173,11 @@ model Concept {
   notes          String?
   createdAt      DateTime @default(now())
 
-  client        Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  contentPieces ContentPiece[]
-  trackedVideos TrackedVideo[]
-  scriptDrafts  ScriptDraft[]
+  client           Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contentPieces    ContentPiece[]
+  trackedVideos    TrackedVideo[]
+  scriptDrafts     ScriptDraft[]
+  analyticsEntries AnalyticsEntry[]
 }
 
 model ScriptDraft {
@@ -240,4 +244,26 @@ model TrackedVideo {
 
   client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   concept Concept? @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+}
+
+model AnalyticsEntry {
+  id               Int      @id @default(autoincrement())
+  clientId         Int
+  date             String   // YYYY-MM-DD
+  conceptId        Int?
+  views            Int      @default(0)
+  likes            Int      @default(0)
+  shares           Int      @default(0)
+  follows          Int      @default(0)
+  messagesSent     Int      @default(0)
+  messagesAnswered Int      @default(0)
+  linksSent        Int      @default(0)
+  bookedCalls      Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept Concept? @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, date])
 }
