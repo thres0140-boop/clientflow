@@ -13,15 +13,15 @@ export async function GET(req: NextRequest) {
   const { accessToken, igUserId } = conn;
 
   const mediaRes = await fetch(
-    `https://graph.instagram.com/v21.0/me/media?fields=id,caption,media_type,thumbnail_url,media_url,timestamp,like_count,comments_count&limit=50&access_token=${accessToken}`
+    `https://graph.instagram.com/v21.0/me/media?fields=id,caption,media_type,media_product_type,thumbnail_url,media_url,timestamp,like_count,comments_count&limit=50&access_token=${accessToken}`
   );
   const mediaData = await mediaRes.json();
-  console.log("Media API response:", JSON.stringify(mediaData).slice(0, 500));
   if (!mediaData.data) return NextResponse.json([]);
 
-  // In the new Instagram API, reels are returned as VIDEO type
+  // Only true Reels (media_product_type === "REELS") support plays/reach/saved/shares insights
   const reels = mediaData.data.filter(
-    (m: { media_type: string }) => m.media_type === "VIDEO" || m.media_type === "REEL"
+    (m: { media_type: string; media_product_type?: string }) =>
+      m.media_product_type === "REELS" || m.media_type === "REEL"
   );
 
   const reelsWithInsights = await Promise.all(
@@ -31,7 +31,6 @@ export async function GET(req: NextRequest) {
           `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=plays,reach,saved,shares&period=lifetime&access_token=${accessToken}`
         );
         const insightData = await insightRes.json();
-        console.log("Insights for", reel.id, JSON.stringify(insightData).slice(0, 300));
         const insights: Record<string, number> = {};
         for (const item of insightData.data || []) {
           insights[item.name] = item.values?.[0]?.value ?? item.value ?? 0;
