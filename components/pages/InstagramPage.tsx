@@ -485,7 +485,10 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
 }
 
 function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Client; onClose: () => void }) {
-  const [transcript, setTranscript] = useState<string | null>(null);
+  const storageKey = `reel_transcript_${reel.id}`;
+  const [transcript, setTranscript] = useState<string | null>(() => {
+    try { return localStorage.getItem(storageKey); } catch { return null; }
+  });
   const [transcribing, setTranscribing] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -502,8 +505,11 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
         body: JSON.stringify({ mediaUrl: reel.media_url }),
       });
       const data = await res.json();
-      if (data.error) setTranscript(`Error: ${data.error}`);
-      else setTranscript(data.transcript || "No speech detected.");
+      const text = data.error ? `Error: ${data.error}` : (data.transcript || "No speech detected.");
+      setTranscript(text);
+      if (!data.error) {
+        try { localStorage.setItem(storageKey, text); } catch { /* ignore */ }
+      }
     } catch {
       setTranscript("Transcription failed. Please try again.");
     }
@@ -605,7 +611,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
                           <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
                           <p className="text-xs text-slate-400">Transcribing audio…</p>
                         </div>
-                      : <p className="text-xs text-slate-400">Click to auto-transcribe via AssemblyAI</p>
+                      : <p className="text-xs text-slate-400">Click to auto-transcribe via Whisper</p>
                     }
                   </div>
               }
