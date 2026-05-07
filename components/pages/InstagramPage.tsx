@@ -327,9 +327,10 @@ function CompetitorsTab({ client }: { client: Client }) {
 
   // Reels sub-tab state
   const [allReels, setAllReels] = useState<IGReel[]>([]);
+  const [fetchErrors, setFetchErrors] = useState<{ handle: string; error: string }[]>([]);
   const [loadingReels, setLoadingReels] = useState(false);
   const [reelsFetched, setReelsFetched] = useState(false);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("30");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [reelSort, setReelSort] = useState<"recent" | "best">("recent");
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
 
@@ -374,15 +375,19 @@ function CompetitorsTab({ client }: { client: Client }) {
     if (competitors.length === 0) return;
     setLoadingReels(true);
     setAllReels([]);
+    setFetchErrors([]);
     const results = await Promise.allSettled(
       competitors.map(async (c) => {
         const res = await fetch(`/api/instagram/competitor-reels?clientId=${client.id}&handle=${encodeURIComponent(c.handle)}`);
         const data = await res.json();
-        return (data.reels || []).map((r: IGReel) => ({ ...r, handle: c.handle }));
+        if (data.error) return { handle: c.handle, reels: [], error: data.error as string };
+        return { handle: c.handle, reels: (data.reels || []).map((r: IGReel) => ({ ...r, handle: c.handle })), error: null };
       })
     );
-    const reels = results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
+    const reels = results.flatMap((r) => r.status === "fulfilled" ? r.value.reels : []);
+    const errors = results.flatMap((r) => r.status === "fulfilled" && r.value.error ? [{ handle: r.value.handle, error: r.value.error }] : []);
     setAllReels(reels);
+    setFetchErrors(errors);
     setLoadingReels(false);
     setReelsFetched(true);
   }
@@ -489,6 +494,20 @@ function CompetitorsTab({ client }: { client: Client }) {
             <span className="text-xs text-slate-400 ml-auto">{sortedReels.length} reels from {competitors.length} accounts</span>
           </div>
 
+          {fetchErrors.length > 0 && (
+            <div className="space-y-1.5">
+              {fetchErrors.map((e) => (
+                <div key={e.handle} className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                  <span className="text-red-400 text-xs font-bold flex-shrink-0 mt-0.5">!</span>
+                  <div>
+                    <span className="text-xs font-semibold text-red-700">@{e.handle}</span>
+                    <span className="text-xs text-red-500 ml-2">{e.error}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {loadingReels ? (
             <div className="flex flex-col items-center justify-center h-48 gap-3">
               <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
@@ -498,11 +517,11 @@ function CompetitorsTab({ client }: { client: Client }) {
             <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center">
               <p className="text-sm text-slate-500">Add competitors in the List tab first.</p>
             </div>
-          ) : sortedReels.length === 0 ? (
+          ) : sortedReels.length === 0 && fetchErrors.length === 0 ? (
             <div className="text-center py-16 text-slate-400 text-sm">
-              No reels found in the selected time window.
+              No reels found in the selected time window. Try "All time".
             </div>
-          ) : (
+          ) : sortedReels.length === 0 ? null : (
             <div className="grid grid-cols-4 gap-1.5">
               {sortedReels.map((reel) => (
                 <button key={reel.id} onClick={() => setSelectedReel(reel)}
