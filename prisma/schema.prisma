@@ -1,10 +1,12 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../app/generated/prisma"
+  output   = "../app/generated/prisma/client"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 model Client {
@@ -136,16 +138,16 @@ model Board {
 }
 
 model Concept {
-  id         Int      @id @default(autoincrement())
-  clientId   Int?
-  name       String
-  hookType   String?
-  textHook   String?
-  audioHook  String?
-  videoType  String?
-  angle      String?
-  structure  String?
-  guidelines String?
+  id             Int      @id @default(autoincrement())
+  clientId       Int?
+  name           String
+  hookType       String?
+  textHook       String?
+  audioHook      String?
+  videoType      String?
+  angle          String?
+  structure      String?
+  guidelines     String?
   exampleUrl     String?
   scriptExamples String?
   timesUsed      Int      @default(0)
@@ -175,8 +177,8 @@ model ScriptDraft {
   generatedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  client  Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  concept Concept       @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  client  Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept Concept        @relation(fields: [conceptId], references: [id], onDelete: Cascade)
   stage   WorkflowStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
 }
 
