@@ -1,0 +1,225 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Client {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  platform           String
+  profileUrl         String?
+  color              String   @default("#6366f1")
+  notes              String?
+  captionStyle       String?
+  dayTemplate        String?
+  language           String   @default("nl")
+  scriptAlternatives Int      @default(5)
+  generationInterval Int      @default(2)
+  createdAt          DateTime @default(now())
+
+  concepts       Concept[]
+  contentPieces  ContentPiece[]
+  trackedVideos  TrackedVideo[]
+  workflowStages WorkflowStage[]
+  scriptDrafts   ScriptDraft[]
+  creators       Creator[]
+  messages       Message[]
+  competitors    Competitor[]
+  board          Board?
+}
+
+model Creator {
+  id              Int      @id @default(autoincrement())
+  clientId        Int
+  name            String
+  email           String?
+  instagramHandle String?
+  color           String   @default("#6366f1")
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  content   String
+  author    String   @default("owner")
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model TeamMember {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String?
+  role       String?
+  color      String   @default("#6366f1")
+  pageAccess String   @default("all")
+  createdAt  DateTime @default(now())
+
+  stageAssignments WorkflowStage[]
+  notifications    Notification[]
+  stageCompletions StageHistory[]
+}
+
+model WorkflowStage {
+  id           Int      @id @default(autoincrement())
+  clientId     Int?
+  name         String
+  order        Int
+  color        String   @default("#6366f1")
+  assignedToId Int?
+  createdAt    DateTime @default(now())
+
+  client     Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedTo TeamMember?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  history    StageHistory[]
+  drafts     ScriptDraft[]
+}
+
+model StageHistory {
+  id            Int       @id @default(autoincrement())
+  contentId     Int
+  stageId       Int
+  completedAt   DateTime?
+  completedById Int?
+  notes         String?
+  rawContentUrl String?
+  createdAt     DateTime  @default(now())
+
+  content     ContentPiece  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  stage       WorkflowStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  completedBy TeamMember?   @relation(fields: [completedById], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  memberId  Int
+  contentId Int
+  stageId   Int
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  member  TeamMember   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  content ContentPiece @relation(fields: [contentId], references: [id], onDelete: Cascade)
+}
+
+model Competitor {
+  id            Int      @id @default(autoincrement())
+  clientId      Int
+  handle        String
+  name          String?
+  niche         String?
+  followerCount Int?
+  notes         String?
+  profileUrl    String?
+  createdAt     DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Board {
+  id        Int      @id @default(autoincrement())
+  clientId  Int      @unique
+  snapshot  String   @default("{}")
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Concept {
+  id         Int      @id @default(autoincrement())
+  clientId   Int?
+  name       String
+  hookType   String?
+  textHook   String?
+  audioHook  String?
+  videoType  String?
+  angle      String?
+  structure  String?
+  guidelines String?
+  exampleUrl     String?
+  scriptExamples String?
+  timesUsed      Int      @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  client        Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contentPieces ContentPiece[]
+  trackedVideos TrackedVideo[]
+  scriptDrafts  ScriptDraft[]
+}
+
+model ScriptDraft {
+  id          Int      @id @default(autoincrement())
+  clientId    Int
+  conceptId   Int
+  stageId     Int?
+  title       String
+  hook        String?
+  script      String
+  caption     String?
+  weekLabel   String
+  dayLabel    String?
+  status      String   @default("pending")
+  isSavedIdea Boolean  @default(false)
+  resurfaceAt String?
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept Concept       @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  stage   WorkflowStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
+}
+
+model ContentPiece {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  conceptId      Int?
+  title          String
+  script         String?
+  contentType    String   @default("video")
+  status         String   @default("scripted")
+  platform       String?
+  scheduledDate  String?
+  hook           String?
+  caption        String?
+  notes          String?
+  currentStageId Int?
+  rawContentUrl  String?
+  createdAt      DateTime @default(now())
+
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept       Concept?       @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  stageHistory  StageHistory[]
+  notifications Notification[]
+}
+
+model TrackedVideo {
+  id         Int      @id @default(autoincrement())
+  clientId   Int
+  conceptId  Int?
+  title      String
+  url        String?
+  views      Int      @default(0)
+  likes      Int      @default(0)
+  comments   Int      @default(0)
+  shares     Int      @default(0)
+  saves      Int      @default(0)
+  hookUsed   String?
+  hookType   String?
+  datePosted String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept Concept? @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+}
