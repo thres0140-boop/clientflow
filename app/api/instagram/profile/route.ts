@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const res = await fetch(
-      `https://graph.facebook.com/v19.0/${igUserId}?fields=username,followers_count,media_count,profile_picture_url,biography&access_token=${accessToken}`
+      `https://graph.instagram.com/v21.0/${igUserId}?fields=username,followers_count,media_count,profile_picture_url,biography&access_token=${accessToken}`
     );
     const data = await res.json();
     return NextResponse.json({

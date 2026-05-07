@@ -11,53 +11,57 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${origin}/?ig_error=auth_failed`);
   }
 
-  const appId = process.env.META_APP_ID!;
-  const appSecret = process.env.META_APP_SECRET!;
+  const appId = process.env.INSTAGRAM_APP_ID!;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET!;
   const redirectUri = `${origin}/api/auth/instagram/callback`;
 
   try {
-    // 1. Exchange code for short-lived user token
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${appSecret}&code=${code}`
-    );
+    // 1. Exchange code for short-lived token
+    const tokenRes = await fetch("https://api.instagram.com/oauth/access_token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: appId,
+        client_secret: appSecret,
+        grant_type: "authorization_code",
+        redirect_uri: redirectUri,
+        code,
+      }),
+    });
     const tokenData = await tokenRes.json();
     if (!tokenData.access_token) throw new Error(`No access token: ${JSON.stringify(tokenData)}`);
 
+    const shortToken = tokenData.access_token;
+    const igUserId = String(tokenData.user_id);
+
     // 2. Exchange for long-lived token (60 days)
     const longRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${tokenData.access_token}`
+      `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_id=${appId}&client_secret=${appSecret}&access_token=${shortToken}`
     );
     const longData = await longRes.json();
-    const longToken = longData.access_token || tokenData.access_token;
+    const longToken = longData.access_token || shortToken;
 
-    let igUserId: string | null = null;
-    let igUsername: string | null = null;
-    let followers: number | null = null;
-
-    // 3. Get Instagram Business accounts linked to this user
-    const igAccountsRes = await fetch(
-      `https://graph.facebook.com/v19.0/me/instagram_business_accounts?fields=id,username,followers_count&access_token=${longToken}`
+    // 3. Get profile info
+    const profileRes = await fetch(
+      `https://graph.instagram.com/v21.0/me?fields=username,followers_count&access_token=${longToken}`
     );
-    const igAccountsData = await igAccountsRes.json();
-
-    if (igAccountsData.data?.length > 0) {
-      const account = igAccountsData.data[0];
-      igUserId = account.id;
-      igUsername = account.username || null;
-      followers = account.followers_count || null;
-    }
-
-    // Fallback: use FB user ID
-    if (!igUserId) {
-      const meRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id&access_token=${longToken}`);
-      const meData = await meRes.json();
-      igUserId = meData.id;
-    }
+    const profileData = await profileRes.json();
 
     await prisma.instagramConnection.upsert({
       where: { clientId: parseInt(clientId) },
-      create: { clientId: parseInt(clientId), accessToken: longToken, igUserId: igUserId!, igUsername, followers },
-      update: { accessToken: longToken, igUserId: igUserId!, igUsername, followers },
+      create: {
+        clientId: parseInt(clientId),
+        accessToken: longToken,
+        igUserId,
+        igUsername: profileData.username || null,
+        followers: profileData.followers_count || null,
+      },
+      update: {
+        accessToken: longToken,
+        igUserId,
+        igUsername: profileData.username || null,
+        followers: profileData.followers_count || null,
+      },
     });
 
     return NextResponse.redirect(`${origin}/?ig_connected=1`);
