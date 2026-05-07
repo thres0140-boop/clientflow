@@ -18,24 +18,33 @@ export async function GET(req: NextRequest) {
   const mediaData = await mediaRes.json();
   if (!mediaData.data) return NextResponse.json([]);
 
-  // Only true Reels (media_product_type === "REELS") support plays/reach/saved/shares insights
+  // Show all videos/reels
   const reels = mediaData.data.filter(
-    (m: { media_type: string; media_product_type?: string }) =>
-      m.media_product_type === "REELS" || m.media_type === "REEL"
+    (m: { media_type: string }) => m.media_type === "VIDEO" || m.media_type === "REEL"
   );
 
   const reelsWithInsights = await Promise.all(
     reels.map(async (reel: { id: string; [key: string]: unknown }) => {
       try {
-        const insightRes = await fetch(
+        // Try Reels metrics first (plays), fall back to video_views for older videos
+        let insightRes = await fetch(
           `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=plays,reach,saved,shares&period=lifetime&access_token=${accessToken}`
         );
-        const insightData = await insightRes.json();
+        let insightData = await insightRes.json();
+
+        if (insightData.error) {
+          insightRes = await fetch(
+            `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=video_views,reach,saved,shares&period=lifetime&access_token=${accessToken}`
+          );
+          insightData = await insightRes.json();
+        }
+
         const insights: Record<string, number> = {};
         for (const item of insightData.data || []) {
           insights[item.name] = item.values?.[0]?.value ?? item.value ?? 0;
         }
-        return { ...reel, plays: insights.plays, reach: insights.reach, saved: insights.saved, shares: insights.shares };
+        const plays = insights.plays ?? insights.video_views;
+        return { ...reel, plays, reach: insights.reach, saved: insights.saved, shares: insights.shares };
       } catch {
         return reel;
       }
