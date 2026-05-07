@@ -23,15 +23,29 @@ model Client {
   generationInterval Int      @default(2)
   createdAt          DateTime @default(now())
 
-  concepts       Concept[]
-  contentPieces  ContentPiece[]
-  trackedVideos  TrackedVideo[]
-  workflowStages WorkflowStage[]
-  scriptDrafts   ScriptDraft[]
-  creators       Creator[]
-  messages       Message[]
-  competitors    Competitor[]
-  board          Board?
+  concepts              Concept[]
+  contentPieces         ContentPiece[]
+  trackedVideos         TrackedVideo[]
+  workflowStages        WorkflowStage[]
+  scriptDrafts          ScriptDraft[]
+  creators              Creator[]
+  messages              Message[]
+  competitors           Competitor[]
+  board                 Board?
+  instagramConnection   InstagramConnection?
+}
+
+model InstagramConnection {
+  id          Int      @id @default(autoincrement())
+  clientId    Int      @unique
+  accessToken String
+  igUserId    String
+  igUsername  String?
+  followers   Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 model Creator {

@@ -11,7 +11,7 @@ type Props = {
 
 type IGReel = {
   id: string;
-  thumbnail_url: string;
+  thumbnail_url?: string;
   media_url?: string;
   caption?: string;
   timestamp: string;
@@ -23,22 +23,14 @@ type IGReel = {
   shares?: number;
 };
 
-const MOCK_REELS: IGReel[] = Array.from({ length: 12 }, (_, i) => ({
-  id: `mock_${i}`,
-  thumbnail_url: "",
-  caption: i % 3 === 0
-    ? "Did you know most PTs fail online because they do this one thing wrong? 👇"
-    : i % 3 === 1
-    ? "From 0 to fully booked in 90 days — here's exactly how we did it"
-    : "The #1 mistake coaches make when trying to go online (and how to fix it)",
-  timestamp: new Date(Date.now() - i * 3 * 24 * 60 * 60 * 1000).toISOString(),
-  like_count: Math.floor(Math.random() * 3000) + 200,
-  comments_count: Math.floor(Math.random() * 200) + 10,
-  plays: Math.floor(Math.random() * 80000) + 5000,
-  reach: Math.floor(Math.random() * 60000) + 3000,
-  saved: Math.floor(Math.random() * 800) + 50,
-  shares: Math.floor(Math.random() * 400) + 20,
-}));
+type IGProfile = {
+  igUserId: string;
+  username?: string;
+  followers?: number;
+  mediaCount?: number;
+  biography?: string;
+  profilePictureUrl?: string;
+};
 
 function fmt(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
@@ -50,9 +42,74 @@ type Tab = "reels" | "competitors";
 
 export default function InstagramPage({ clients, selectedClientId }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
-  const isConnected = false; // TODO: check client.instagramToken
   const [tab, setTab] = useState<Tab>("reels");
+  const [profile, setProfile] = useState<IGProfile | null>(null);
+  const [reels, setReels] = useState<IGReel[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingReels, setLoadingReels] = useState(false);
   const [selected, setSelected] = useState<IGReel | null>(null);
+  const [connected, setConnected] = useState(false);
+
+  const fetchProfile = useCallback(async () => {
+    if (!client) return;
+    setLoadingProfile(true);
+    try {
+      const res = await fetch(`/api/instagram/profile?clientId=${client.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(data);
+        setConnected(true);
+      } else {
+        setProfile(null);
+        setConnected(false);
+      }
+    } catch {
+      setConnected(false);
+    }
+    setLoadingProfile(false);
+  }, [client]);
+
+  const fetchReels = useCallback(async () => {
+    if (!client || !connected) return;
+    setLoadingReels(true);
+    try {
+      const res = await fetch(`/api/instagram/media?clientId=${client.id}`);
+      if (res.ok) setReels(await res.json());
+    } catch {/* ignore */}
+    setLoadingReels(false);
+  }, [client, connected]);
+
+  useEffect(() => {
+    setProfile(null);
+    setReels([]);
+    setConnected(false);
+    fetchProfile();
+  }, [fetchProfile]);
+
+  useEffect(() => {
+    if (connected) fetchReels();
+  }, [connected, fetchReels]);
+
+  // Check for OAuth success/error in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("ig_connected") === "1") {
+      fetchProfile();
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("ig_error")) {
+      alert("Instagram connection failed. Make sure your account is a Business or Creator account.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [fetchProfile]);
+
+  async function disconnect() {
+    if (!client || !confirm("Disconnect Instagram?")) return;
+    await fetch(`/api/instagram/disconnect?clientId=${client.id}`, { method: "DELETE" });
+    setConnected(false);
+    setProfile(null);
+    setReels([]);
+  }
 
   if (!client) {
     return (
@@ -64,10 +121,15 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Profile header */}
-      <ProfileHeader client={client} reelCount={MOCK_REELS.length} isConnected={isConnected} />
+      <ProfileHeader
+        client={client}
+        profile={profile}
+        reelCount={reels.length}
+        isConnected={connected}
+        loading={loadingProfile}
+        onDisconnect={disconnect}
+      />
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
         {([["reels", "📱 Reels"], ["competitors", "🔍 Competitors"]] as [Tab, string][]).map(([id, label]) => (
           <button
@@ -83,22 +145,23 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
       </div>
 
       {tab === "reels" && (
-        isConnected
-          ? <>
-              <ReelsGrid reels={MOCK_REELS} onSelect={setSelected} />
-              {selected && <ReelDetailPanel reel={selected} client={client} onClose={() => setSelected(null)} />}
-            </>
+        connected
+          ? loadingReels
+            ? <div className="flex items-center justify-center h-40 text-slate-400 text-sm">Loading reels…</div>
+            : reels.length > 0
+              ? <>
+                  <ReelsGrid reels={reels} onSelect={setSelected} />
+                  {selected && <ReelDetailPanel reel={selected} client={client} onClose={() => setSelected(null)} />}
+                </>
+              : <div className="text-center py-16 text-slate-400 text-sm">No reels found on this account.</div>
           : <NotConnectedReels client={client} />
       )}
 
-      {tab === "competitors" && (
-        <CompetitorsTab client={client} />
-      )}
+      {tab === "competitors" && <CompetitorsTab client={client} />}
     </div>
   );
 }
 
-/* ── Not connected ── */
 function NotConnectedReels({ client }: { client: Client }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-16 flex flex-col items-center text-center gap-5">
@@ -111,58 +174,84 @@ function NotConnectedReels({ client }: { client: Client }) {
           Link the Instagram Business or Creator account to browse Reels, view analytics, and save content as concepts.
         </p>
       </div>
-      <div className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 text-left max-w-sm w-full space-y-2">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">What you'll need</p>
-        {["Meta Developer App (App ID + Secret)", "Instagram Business or Creator account", "AssemblyAI key (for auto-transcription)"].map((item) => (
-          <div key={item} className="flex items-start gap-2 text-xs text-slate-600">
-            <span className="text-slate-300 mt-0.5">○</span>
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-left max-w-sm w-full">
+        <p className="text-xs font-semibold text-amber-700 mb-2">Requirements</p>
+        {[
+          "Instagram Business or Creator account",
+          "Linked to a Facebook Page",
+          "Added as tester in Meta Developer App",
+        ].map((item) => (
+          <div key={item} className="flex items-start gap-2 text-xs text-amber-700 mt-1">
+            <span className="mt-0.5">•</span>
             {item}
           </div>
         ))}
       </div>
-      <button disabled className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-xl opacity-50 cursor-not-allowed">
-        Connect Instagram — coming soon
-      </button>
+      <a
+        href={`/api/auth/instagram?clientId=${client.id}`}
+        className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-xl hover:opacity-90 transition-opacity shadow-lg"
+      >
+        Connect Instagram via Meta
+      </a>
     </div>
   );
 }
 
-/* ── Profile header ── */
-function ProfileHeader({ client, reelCount, isConnected }: { client: Client; reelCount: number; isConnected: boolean }) {
+function ProfileHeader({
+  client, profile, reelCount, isConnected, loading, onDisconnect,
+}: {
+  client: Client;
+  profile: IGProfile | null;
+  reelCount: number;
+  isConnected: boolean;
+  loading: boolean;
+  onDisconnect: () => void;
+}) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 px-6 py-5 flex items-center gap-6">
-      <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0 shadow"
-        style={{ backgroundColor: client.color }}>
-        {client.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-      </div>
+      {profile?.profilePictureUrl
+        ? <img src={profile.profilePictureUrl} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0 shadow" />
+        : <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0 shadow" style={{ backgroundColor: client.color }}>
+            {client.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+          </div>
+      }
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <h2 className="text-base font-bold text-slate-800">
-            {client.profileUrl?.replace("https://instagram.com/", "@") || client.name}
+            {profile?.username ? `@${profile.username}` : client.name}
           </h2>
-          <span className="text-[10px] bg-blue-100 text-blue-600 font-semibold px-1.5 py-0.5 rounded-full">Creator</span>
+          {isConnected && <span className="text-[10px] bg-blue-100 text-blue-600 font-semibold px-1.5 py-0.5 rounded-full">Business</span>}
         </div>
-        <p className="text-xs text-slate-400">{client.name}</p>
+        <p className="text-xs text-slate-400 line-clamp-1">{profile?.biography || client.name}</p>
       </div>
       <div className="flex gap-8 flex-shrink-0">
-        {[{ label: "Reels", value: reelCount }, { label: "Followers", value: "—" }, { label: "Following", value: "—" }].map(({ label, value }) => (
+        {[
+          { label: "Reels", value: reelCount || (profile?.mediaCount ?? "—") },
+          { label: "Followers", value: profile?.followers ? fmt(profile.followers) : "—" },
+        ].map(({ label, value }) => (
           <div key={label} className="text-center">
-            <p className="text-base font-bold text-slate-800">{value}</p>
+            <p className="text-base font-bold text-slate-800">{loading ? "…" : value}</p>
             <p className="text-xs text-slate-400">{label}</p>
           </div>
         ))}
       </div>
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 ${
-        isConnected ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-      }`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-amber-400"}`} />
-        {isConnected ? "Connected" : "Not connected"}
-      </span>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
+          isConnected ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-amber-400"}`} />
+          {isConnected ? "Connected" : "Not connected"}
+        </span>
+        {isConnected && (
+          <button onClick={onDisconnect} className="text-xs text-slate-400 hover:text-red-500 transition-colors">
+            Disconnect
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
-/* ── Reels grid ── */
 function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel) => void }) {
   return (
     <div>
@@ -180,12 +269,9 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="flex items-center gap-2 text-white text-xs font-semibold">
-                <span>▶ {fmt(reel.plays ?? 0)}</span>
+                {reel.plays != null && <span>▶ {fmt(reel.plays)}</span>}
                 <span>♥ {fmt(reel.like_count)}</span>
               </div>
-            </div>
-            <div className="absolute top-2 right-2 opacity-70">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
             </div>
           </button>
         ))}
@@ -194,7 +280,6 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
   );
 }
 
-/* ── Competitors tab ── */
 function CompetitorsTab({ client }: { client: Client }) {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -256,7 +341,6 @@ function CompetitorsTab({ client }: { client: Client }) {
         </div>
       </div>
 
-      {/* AI suggestions strip */}
       {suggestions.length > 0 && (
         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
           <p className="text-xs font-semibold text-indigo-700 mb-2.5">Suggested accounts to track:</p>
@@ -287,12 +371,8 @@ function CompetitorsTab({ client }: { client: Client }) {
         </div>
       )}
 
-      {showAdd && (
-        <CompetitorModal clientId={client.id} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); reload(); }} />
-      )}
-      {editing && (
-        <CompetitorModal clientId={client.id} competitor={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />
-      )}
+      {showAdd && <CompetitorModal clientId={client.id} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); reload(); }} />}
+      {editing && <CompetitorModal clientId={client.id} competitor={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
     </div>
   );
 }
@@ -323,9 +403,7 @@ function CompetitorCard({ competitor, onEdit, onDelete }: { competitor: Competit
           ))}
         </div>
       )}
-      {competitor.notes && (
-        <p className="text-xs text-slate-500 line-clamp-2 mb-3">{competitor.notes}</p>
-      )}
+      {competitor.notes && <p className="text-xs text-slate-500 line-clamp-2 mb-3">{competitor.notes}</p>}
       <div className="flex gap-2">
         <a href={competitor.profileUrl || `https://instagram.com/${competitor.handle}`}
           target="_blank" rel="noopener noreferrer"
@@ -356,10 +434,7 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
     e.preventDefault();
     const method = competitor ? "PUT" : "POST";
     const url = competitor ? `/api/competitors/${competitor.id}` : "/api/competitors";
-    await fetch(url, {
-      method, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, clientId }),
-    });
+    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, clientId }) });
     onSaved();
   }
 
@@ -390,13 +465,12 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Niche / Tags <span className="text-slate-300 font-normal">(comma separated)</span></label>
           <input value={form.niche} onChange={(e) => set("niche", e.target.value)}
-            placeholder="e.g. fitness, online coaching, Dutch content"
+            placeholder="e.g. fitness, online coaching"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">What's working for them?</label>
           <textarea rows={3} value={form.notes} onChange={(e) => set("notes", e.target.value)}
-            placeholder="Hook styles, content formats, posting frequency, topics that perform well…"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div className="flex justify-end gap-3 pt-2">
@@ -410,7 +484,6 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
   );
 }
 
-/* ── Reel detail panel ── */
 function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Client; onClose: () => void }) {
   const [transcript, setTranscript] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState(false);
@@ -430,8 +503,12 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
       body: JSON.stringify({
         clientId: client.id,
         name: reel.caption?.slice(0, 60) || `Reel ${new Date(reel.timestamp).toLocaleDateString()}`,
-        exampleUrl: reel.id,
-        notes: `Plays: ${fmt(reel.plays ?? 0)} · Likes: ${fmt(reel.like_count)} · Saved: ${fmt(reel.saved ?? 0)}`,
+        exampleUrl: `https://instagram.com/reel/${reel.id}`,
+        notes: [
+          reel.plays != null ? `Plays: ${fmt(reel.plays)}` : null,
+          `Likes: ${fmt(reel.like_count)}`,
+          reel.saved != null ? `Saved: ${fmt(reel.saved)}` : null,
+        ].filter(Boolean).join(" · "),
         scriptExamples: transcript || "",
       }),
     });
@@ -439,12 +516,12 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   }
 
   const stats = [
-    { label: "Plays", value: reel.plays ?? 0, icon: "▶" },
-    { label: "Reach", value: reel.reach ?? 0, icon: "👁" },
+    { label: "Plays", value: reel.plays, icon: "▶" },
+    { label: "Reach", value: reel.reach, icon: "👁" },
     { label: "Likes", value: reel.like_count, icon: "♥" },
     { label: "Comments", value: reel.comments_count, icon: "💬" },
-    { label: "Saved", value: reel.saved ?? 0, icon: "🔖" },
-    { label: "Shares", value: reel.shares ?? 0, icon: "↗" },
+    { label: "Saved", value: reel.saved, icon: "🔖" },
+    { label: "Shares", value: reel.shares, icon: "↗" },
   ];
 
   return (
@@ -468,7 +545,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
               ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
               : <div className="flex flex-col items-center gap-2 text-slate-600">
                   <span className="text-4xl opacity-20">▶</span>
-                  <p className="text-xs opacity-40">Preview loads with real API</p>
+                  <p className="text-xs opacity-40">No thumbnail available</p>
                 </div>
             }
           </div>
@@ -485,7 +562,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
                 {stats.map(({ label, value, icon }) => (
                   <div key={label} className="bg-slate-50 rounded-xl p-3 text-center">
                     <p className="text-[11px] text-slate-400 mb-0.5">{icon} {label}</p>
-                    <p className="text-base font-bold text-slate-800">{fmt(value)}</p>
+                    <p className="text-base font-bold text-slate-800">{value != null ? fmt(value) : "—"}</p>
                   </div>
                 ))}
               </div>
@@ -519,7 +596,12 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${saved ? "bg-green-100 text-green-700 cursor-default" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
             {saved ? "✓ Saved as Concept" : "💡 Save as Concept"}
           </button>
-          <a href="#" className="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200">Open ↗</a>
+          {reel.media_url && (
+            <a href={reel.media_url} target="_blank" rel="noopener noreferrer"
+              className="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200">
+              Open ↗
+            </a>
+          )}
         </div>
       </div>
     </div>
