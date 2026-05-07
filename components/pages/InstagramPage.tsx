@@ -540,13 +540,20 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <div className="relative bg-slate-900 aspect-[9/16] max-h-64 w-full flex items-center justify-center overflow-hidden">
-            {reel.thumbnail_url
-              ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
-              : <div className="flex flex-col items-center gap-2 text-slate-600">
-                  <span className="text-4xl opacity-20">▶</span>
-                  <p className="text-xs opacity-40">No thumbnail available</p>
-                </div>
+          <div className="relative bg-slate-900 aspect-[9/16] max-h-72 w-full flex items-center justify-center overflow-hidden">
+            {reel.media_url
+              ? <video
+                  src={reel.media_url}
+                  poster={reel.thumbnail_url}
+                  controls
+                  className="w-full h-full object-contain"
+                />
+              : reel.thumbnail_url
+                ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                : <div className="flex flex-col items-center gap-2 text-slate-600">
+                    <span className="text-4xl opacity-20">▶</span>
+                    <p className="text-xs opacity-40">No preview available</p>
+                  </div>
             }
           </div>
           <div className="p-5 space-y-5">

@@ -28,12 +28,13 @@ export async function GET(req: NextRequest) {
     reels.map(async (reel: { id: string; [key: string]: unknown }) => {
       try {
         const insightRes = await fetch(
-          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=plays,reach,saved,shares&access_token=${accessToken}`
+          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=plays,reach,saved,shares&period=lifetime&access_token=${accessToken}`
         );
         const insightData = await insightRes.json();
+        console.log("Insights for", reel.id, JSON.stringify(insightData).slice(0, 300));
         const insights: Record<string, number> = {};
         for (const item of insightData.data || []) {
-          insights[item.name] = item.values?.[0]?.value ?? 0;
+          insights[item.name] = item.values?.[0]?.value ?? item.value ?? 0;
         }
         return { ...reel, plays: insights.plays, reach: insights.reach, saved: insights.saved, shares: insights.shares };
       } catch {
