@@ -4,9 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("POSTGRES_PRISMA_URL")
-  directUrl = env("POSTGRES_URL_NON_POOLING")
+  provider = "postgresql"
 }
 
 model Client {
@@ -47,6 +45,7 @@ model InstagramConnection {
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
+
 
 model Creator {
   id              Int      @id @default(autoincrement())
@@ -165,6 +164,7 @@ model Concept {
   exampleUrl     String?
   scriptExamples String?
   timesUsed      Int      @default(0)
+  isIdea         Boolean  @default(false)
   notes          String?
   createdAt      DateTime @default(now())
 

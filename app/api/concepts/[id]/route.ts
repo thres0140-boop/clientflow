@@ -19,6 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       exampleUrl: body.exampleUrl || null,
       scriptExamples: body.scriptExamples || null,
       notes: body.notes || null,
+      ...(body.isIdea !== undefined ? { isIdea: body.isIdea } : {}),
     },
     include: { client: { select: { name: true, color: true } } },
   });

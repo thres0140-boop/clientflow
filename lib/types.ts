@@ -124,6 +124,7 @@ export type Concept = {
   exampleUrl?: string | null;
   scriptExamples?: string | null;
   timesUsed: number;
+  isIdea: boolean;
   notes?: string | null;
   createdAt: string;
   client?: { name: string; color: string } | null;

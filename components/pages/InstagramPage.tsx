@@ -490,6 +490,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
     try { return localStorage.getItem(storageKey); } catch { return null; }
   });
   const [transcribing, setTranscribing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   async function transcribe() {
@@ -516,22 +517,42 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
     setTranscribing(false);
   }
 
-  async function saveAsConcept() {
+  async function saveAsConceptIdea() {
+    setSaving(true);
+    let finalTranscript = transcript;
+    if (!finalTranscript && reel.media_url) {
+      try {
+        const res = await fetch("/api/instagram/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mediaUrl: reel.media_url }),
+        });
+        const data = await res.json();
+        if (!data.error) {
+          finalTranscript = data.transcript || "";
+          setTranscript(finalTranscript);
+          try { localStorage.setItem(storageKey, finalTranscript!); } catch { /* ignore */ }
+        }
+      } catch { /* save without transcript */ }
+    }
     await fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clientId: client.id,
-        name: reel.caption?.slice(0, 60) || `Reel ${new Date(reel.timestamp).toLocaleDateString()}`,
+        name: reel.caption?.slice(0, 80) || `Reel ${new Date(reel.timestamp).toLocaleDateString()}`,
         exampleUrl: `https://instagram.com/reel/${reel.id}`,
         notes: [
-          reel.plays != null ? `Plays: ${fmt(reel.plays)}` : null,
+          reel.plays != null ? `Views: ${fmt(reel.plays)}` : null,
+          reel.reach != null ? `Reach: ${fmt(reel.reach)}` : null,
           `Likes: ${fmt(reel.like_count)}`,
           reel.saved != null ? `Saved: ${fmt(reel.saved)}` : null,
         ].filter(Boolean).join(" · "),
-        scriptExamples: transcript || "",
+        scriptExamples: finalTranscript || "",
+        isIdea: true,
       }),
     });
+    setSaving(false);
     setSaved(true);
   }
 
@@ -619,9 +640,9 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
           </div>
         </div>
         <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 flex gap-2.5">
-          <button onClick={saveAsConcept} disabled={saved}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${saved ? "bg-green-100 text-green-700 cursor-default" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
-            {saved ? "✓ Saved as Concept" : "💡 Save as Concept"}
+          <button onClick={saveAsConceptIdea} disabled={saved || saving}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${saved ? "bg-green-100 text-green-700 cursor-default" : "bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"}`}>
+            {saved ? "✓ Saved as Concept Idea" : saving ? "Saving…" : "💡 Save as Concept Idea"}
           </button>
           {reel.media_url && (
             <a href={reel.media_url} target="_blank" rel="noopener noreferrer"

@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
-  const where = clientId
+  const isIdea = req.nextUrl.searchParams.get("isIdea");
+  const where: Record<string, unknown> = clientId
     ? { OR: [{ clientId: parseInt(clientId) }, { clientId: null }] }
     : {};
+  if (isIdea !== null) where.isIdea = isIdea === "true";
   const concepts = await prisma.concept.findMany({
     where,
     include: { client: { select: { name: true, color: true } } },
@@ -30,6 +32,7 @@ export async function POST(req: NextRequest) {
       exampleUrl: body.exampleUrl || null,
       scriptExamples: body.scriptExamples || null,
       notes: body.notes || null,
+      isIdea: body.isIdea === true,
     },
     include: { client: { select: { name: true, color: true } } },
   });
