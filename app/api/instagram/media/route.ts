@@ -25,29 +25,39 @@ export async function GET(req: NextRequest) {
 
   const reelsWithInsights = await Promise.all(
     reels.map(async (reel: { id: string; [key: string]: unknown }) => {
+      const insights: Record<string, number> = {};
+
+      // Fetch reach, saved, shares (work for all video types)
       try {
-        // Try Reels metrics first (plays), fall back to video_views for older videos
-        let insightRes = await fetch(
-          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=plays,reach,saved,shares&period=lifetime&access_token=${accessToken}`
+        const baseRes = await fetch(
+          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=reach,saved,shares&period=lifetime&access_token=${accessToken}`
         );
-        let insightData = await insightRes.json();
-
-        if (insightData.error) {
-          insightRes = await fetch(
-            `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=video_views,reach,saved,shares&period=lifetime&access_token=${accessToken}`
-          );
-          insightData = await insightRes.json();
-        }
-
-        const insights: Record<string, number> = {};
-        for (const item of insightData.data || []) {
+        const baseData = await baseRes.json();
+        for (const item of baseData.data || []) {
           insights[item.name] = item.values?.[0]?.value ?? item.value ?? 0;
         }
-        const plays = insights.plays ?? insights.video_views;
-        return { ...reel, plays, reach: insights.reach, saved: insights.saved, shares: insights.shares };
-      } catch {
-        return reel;
-      }
+      } catch { /* ignore */ }
+
+      // Fetch views separately — try plays (Reels) then video_views (older videos)
+      try {
+        const playsRes = await fetch(
+          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=plays&period=lifetime&access_token=${accessToken}`
+        );
+        const playsData = await playsRes.json();
+        if (!playsData.error && playsData.data?.[0]) {
+          insights.plays = playsData.data[0].values?.[0]?.value ?? playsData.data[0].value ?? 0;
+        } else {
+          const viewsRes = await fetch(
+            `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=video_views&period=lifetime&access_token=${accessToken}`
+          );
+          const viewsData = await viewsRes.json();
+          if (!viewsData.error && viewsData.data?.[0]) {
+            insights.plays = viewsData.data[0].values?.[0]?.value ?? viewsData.data[0].value ?? 0;
+          }
+        }
+      } catch { /* ignore */ }
+
+      return { ...reel, plays: insights.plays, reach: insights.reach, saved: insights.saved, shares: insights.shares };
     })
   );
 
