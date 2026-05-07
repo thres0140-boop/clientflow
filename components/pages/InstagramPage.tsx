@@ -502,7 +502,8 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
         body: JSON.stringify({ mediaUrl: reel.media_url }),
       });
       const data = await res.json();
-      setTranscript(data.transcript || "No speech detected.");
+      if (data.error) setTranscript(`Error: ${data.error}`);
+      else setTranscript(data.transcript || "No speech detected.");
     } catch {
       setTranscript("Transcription failed. Please try again.");
     }

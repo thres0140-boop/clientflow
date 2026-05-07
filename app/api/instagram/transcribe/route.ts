@@ -8,16 +8,23 @@ export async function POST(req: NextRequest) {
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY not set" }, { status: 500 });
 
   try {
-    // Download the video from Instagram's CDN
+    // Download the video
     const videoRes = await fetch(mediaUrl);
-    if (!videoRes.ok) throw new Error("Failed to fetch video");
-    const videoBlob = await videoRes.blob();
+    if (!videoRes.ok) throw new Error(`Failed to fetch video: ${videoRes.status}`);
 
-    // Send to OpenAI Whisper
+    const videoBuffer = await videoRes.arrayBuffer();
+    const sizeMB = videoBuffer.byteLength / (1024 * 1024);
+    console.log("Video size:", sizeMB.toFixed(1), "MB");
+
+    // Whisper limit is 25MB
+    if (sizeMB > 24) {
+      return NextResponse.json({ error: "Video too large for transcription (max 25MB)" }, { status: 413 });
+    }
+
     const formData = new FormData();
-    formData.append("file", new File([videoBlob], "reel.mp4", { type: "video/mp4" }));
+    formData.append("file", new File([videoBuffer], "reel.mp4", { type: "video/mp4" }));
     formData.append("model", "whisper-1");
-    formData.append("response_format", "text");
+    // No language specified = auto-detect (handles Dutch, English, etc.)
 
     const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
@@ -25,15 +32,14 @@ export async function POST(req: NextRequest) {
       body: formData,
     });
 
-    if (!whisperRes.ok) {
-      const err = await whisperRes.text();
-      throw new Error(err);
-    }
+    const result = await whisperRes.json();
+    console.log("Whisper result:", JSON.stringify(result).slice(0, 200));
 
-    const transcript = await whisperRes.text();
-    return NextResponse.json({ transcript: transcript.trim() });
+    if (!whisperRes.ok) throw new Error(result.error?.message || "Whisper API error");
+
+    return NextResponse.json({ transcript: result.text?.trim() || "" });
   } catch (err) {
     console.error("Transcribe error:", err);
-    return NextResponse.json({ error: "Transcription failed" }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
