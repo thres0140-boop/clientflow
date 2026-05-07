@@ -12,24 +12,21 @@ export async function GET(req: NextRequest) {
 
   const { accessToken, igUserId } = conn;
 
-  // Fetch media list
   const mediaRes = await fetch(
-    `https://graph.facebook.com/v19.0/${igUserId}/media?fields=id,caption,media_type,thumbnail_url,media_url,timestamp,like_count,comments_count&limit=50&access_token=${accessToken}`
+    `https://graph.instagram.com/v21.0/${igUserId}/media?fields=id,caption,media_type,thumbnail_url,media_url,timestamp,like_count,comments_count&limit=50&access_token=${accessToken}`
   );
   const mediaData = await mediaRes.json();
   if (!mediaData.data) return NextResponse.json([]);
 
-  // Filter for videos/reels only
   const reels = mediaData.data.filter(
     (m: { media_type: string }) => m.media_type === "VIDEO" || m.media_type === "REEL"
   );
 
-  // Fetch insights for each reel (plays, reach, saved, shares)
   const reelsWithInsights = await Promise.all(
     reels.map(async (reel: { id: string; [key: string]: unknown }) => {
       try {
         const insightRes = await fetch(
-          `https://graph.facebook.com/v19.0/${reel.id}/insights?metric=plays,reach,saved,shares&access_token=${accessToken}`
+          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=plays,reach,saved,shares&access_token=${accessToken}`
         );
         const insightData = await insightRes.json();
         const insights: Record<string, number> = {};

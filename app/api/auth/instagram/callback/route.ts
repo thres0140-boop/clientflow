@@ -11,79 +11,56 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${origin}/?ig_error=auth_failed`);
   }
 
-  const appId = process.env.META_APP_ID!;
-  const appSecret = process.env.META_APP_SECRET!;
+  const appId = process.env.INSTAGRAM_APP_ID!;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET!;
   const redirectUri = `${origin}/api/auth/instagram/callback`;
 
   try {
-    // 1. Exchange code for short-lived user token
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${appSecret}&code=${code}`
-    );
+    // 1. Exchange code for short-lived token
+    const tokenRes = await fetch("https://api.instagram.com/oauth/access_token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: appId,
+        client_secret: appSecret,
+        grant_type: "authorization_code",
+        redirect_uri: redirectUri,
+        code,
+      }),
+    });
     const tokenData = await tokenRes.json();
     if (!tokenData.access_token) throw new Error(`No access token: ${JSON.stringify(tokenData)}`);
 
-    // 2. Exchange short-lived token for long-lived token (60 days)
+    const shortToken = tokenData.access_token;
+    const igUserId = String(tokenData.user_id);
+
+    // 2. Exchange for long-lived token (60 days)
     const longRes = await fetch(
-      `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${tokenData.access_token}`
+      `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_id=${appId}&client_secret=${appSecret}&access_token=${shortToken}`
     );
     const longData = await longRes.json();
-    const longToken = longData.access_token || tokenData.access_token;
+    const longToken = longData.access_token || shortToken;
 
-    let igUserId: string | null = null;
-    let igUsername: string | null = null;
-    let followers: number | null = null;
-    let finalToken = longToken;
-
-    // 3. Get Facebook Pages → find linked Instagram Business Account
-    const pagesRes = await fetch(
-      `https://graph.facebook.com/v19.0/me/accounts?access_token=${longToken}`
+    // 3. Get profile info
+    const profileRes = await fetch(
+      `https://graph.instagram.com/v21.0/me?fields=username,followers_count&access_token=${longToken}`
     );
-    const pagesData = await pagesRes.json();
-    const pages = pagesData.data || [];
-
-    for (const page of pages) {
-      const igRes = await fetch(
-        `https://graph.facebook.com/v19.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
-      );
-      const igData = await igRes.json();
-      if (igData.instagram_business_account?.id) {
-        igUserId = igData.instagram_business_account.id;
-        finalToken = page.access_token;
-
-        const profileRes = await fetch(
-          `https://graph.facebook.com/v19.0/${igUserId}?fields=username,followers_count&access_token=${finalToken}`
-        );
-        const profileData = await profileRes.json();
-        igUsername = profileData.username || null;
-        followers = profileData.followers_count || null;
-        break;
-      }
-    }
-
-    // Fallback: use FB user ID if no page/IG account found
-    if (!igUserId) {
-      const meRes = await fetch(
-        `https://graph.facebook.com/v19.0/me?fields=id&access_token=${longToken}`
-      );
-      const meData = await meRes.json();
-      igUserId = meData.id;
-    }
+    const profileData = await profileRes.json();
 
     await prisma.instagramConnection.upsert({
       where: { clientId: parseInt(clientId) },
       create: {
         clientId: parseInt(clientId),
-        accessToken: finalToken,
-        igUserId: igUserId!,
-        igUsername,
-        followers,
+        accessToken: longToken,
+        igUserId,
+        igUsername: profileData.username || null,
+        followers: profileData.followers_count || null,
       },
       update: {
-        accessToken: finalToken,
-        igUserId: igUserId!,
-        igUsername,
-        followers,
+        accessToken: longToken,
+        igUserId,
+        igUsername: profileData.username || null,
+        followers: profileData.followers_count || null,
       },
     });
 
