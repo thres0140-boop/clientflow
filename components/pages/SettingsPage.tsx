@@ -119,6 +119,8 @@ function ClientModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [step, setStep] = useState<"details" | "connect">("details");
+  const [newClientId, setNewClientId] = useState<number | null>(null);
   const [form, setForm] = useState({
     name: client?.name ?? "",
     platform: client?.platform ?? "instagram",
@@ -133,16 +135,100 @@ function ClientModal({
     e.preventDefault();
     const method = client ? "PUT" : "POST";
     const url = client ? `/api/clients/${client.id}` : "/api/clients";
-    await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    onSaved();
+    if (!client) {
+      const data = await res.json();
+      setNewClientId(data.id);
+      setStep("connect");
+      onSaved();
+    } else {
+      onSaved();
+    }
   }
 
+  // Step 2: connect Instagram after creating client
+  if (step === "connect" && newClientId) {
+    return (
+      <Modal title="Connect Instagram" onClose={onClose}>
+        <div className="flex flex-col items-center text-center gap-5 py-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center text-2xl shadow-lg">
+            📸
+          </div>
+          <div>
+            <p className="text-base font-bold text-slate-800 mb-1">{form.name} added!</p>
+            <p className="text-sm text-slate-500 max-w-xs">
+              Connect their Instagram Business account to pull in real reels and analytics.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 w-full">
+            <a
+              href={`/api/auth/instagram?clientId=${newClientId}`}
+              className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-xl hover:opacity-90 transition-opacity shadow"
+            >
+              Connect Instagram via Meta
+            </a>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 text-sm text-slate-500 hover:text-slate-700"
+            >
+              Skip for now
+            </button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  // Adding a new client — just name + color
+  if (!client) {
+    return (
+      <Modal title="Add Client" onClose={onClose}>
+        <form onSubmit={submit} className="space-y-5">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Client name *</label>
+            <input
+              required
+              autoFocus
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+              placeholder="e.g. John Smith"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Brand color</label>
+            <div className="flex flex-wrap gap-2">
+              {COLORS.map((c) => (
+                <button key={c} type="button" onClick={() => set("color", c)}
+                  className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`}
+                  style={{ backgroundColor: c }} />
+              ))}
+            </div>
+          </div>
+          {form.name && (
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+              <ClientAvatar name={form.name} color={form.color} size="md" />
+              <p className="text-sm font-semibold text-slate-800">{form.name}</p>
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-1">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+              Add Client →
+            </button>
+          </div>
+        </form>
+      </Modal>
+    );
+  }
+
+  // Editing existing client — full settings
   return (
-    <Modal title={client ? "Edit Client" : "Add Client"} onClose={onClose}>
+    <Modal title="Edit Client" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Name *</label>
@@ -166,44 +252,27 @@ function ClientModal({
           <label className="block text-xs font-medium text-slate-600 mb-2">Brand Color</label>
           <div className="flex flex-wrap gap-2">
             {COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => set("color", c)}
+              <button key={c} type="button" onClick={() => set("color", c)}
                 className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`}
-                style={{ backgroundColor: c }}
-              />
+                style={{ backgroundColor: c }} />
             ))}
           </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
-          <textarea rows={3} value={form.notes} onChange={(e) => set("notes", e.target.value)}
+          <textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Caption Style / Voice Training ✨</label>
-          <p className="text-[10px] text-slate-400 mb-1.5">Paste example captions or describe the tone. Used to auto-generate captions in this client's voice.</p>
-          <textarea rows={5} value={form.captionStyle} onChange={(e) => set("captionStyle", e.target.value)}
-            placeholder={"Example captions:\n\n\"Living proof that hard work pays off 💪 #fitness\"\n\"Sunday reset loading... ☕\"\n\nTone: casual, motivational, uses emojis, short sentences."}
+          <p className="text-[10px] text-slate-400 mb-1.5">Paste example captions or describe the tone.</p>
+          <textarea rows={4} value={form.captionStyle} onChange={(e) => set("captionStyle", e.target.value)}
+            placeholder={"Example captions:\n\n\"Living proof that hard work pays off 💪 #fitness\"\n\nTone: casual, motivational, uses emojis."}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs" />
         </div>
-
-        {form.name && (
-          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-            <ClientAvatar name={form.name} color={form.color} size="md" />
-            <div>
-              <p className="text-sm font-medium text-slate-800">{form.name}</p>
-              <p className="text-xs text-slate-400">{form.platform}</p>
-            </div>
-          </div>
-        )}
-
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-            {client ? "Save Changes" : "Add Client"}
-          </button>
+          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Changes</button>
         </div>
       </form>
     </Modal>
