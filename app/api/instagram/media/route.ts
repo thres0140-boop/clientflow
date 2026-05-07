@@ -13,11 +13,13 @@ export async function GET(req: NextRequest) {
   const { accessToken, igUserId } = conn;
 
   const mediaRes = await fetch(
-    `https://graph.instagram.com/v21.0/${igUserId}/media?fields=id,caption,media_type,thumbnail_url,media_url,timestamp,like_count,comments_count&limit=50&access_token=${accessToken}`
+    `https://graph.instagram.com/v21.0/me/media?fields=id,caption,media_type,thumbnail_url,media_url,timestamp,like_count,comments_count&limit=50&access_token=${accessToken}`
   );
   const mediaData = await mediaRes.json();
+  console.log("Media API response:", JSON.stringify(mediaData).slice(0, 500));
   if (!mediaData.data) return NextResponse.json([]);
 
+  // In the new Instagram API, reels are returned as VIDEO type
   const reels = mediaData.data.filter(
     (m: { media_type: string }) => m.media_type === "VIDEO" || m.media_type === "REEL"
   );
