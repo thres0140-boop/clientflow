@@ -269,7 +269,7 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="flex items-center gap-2 text-white text-xs font-semibold">
-                {reel.plays != null && <span>▶ {fmt(reel.plays)}</span>}
+                {reel.plays != null && <span>👁 {fmt(reel.plays)}</span>}
                 <span>♥ {fmt(reel.like_count)}</span>
               </div>
             </div>
@@ -516,7 +516,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   }
 
   const stats = [
-    { label: "Plays", value: reel.plays, icon: "▶" },
+    { label: "Views", value: reel.plays, icon: "▶" },
     { label: "Reach", value: reel.reach, icon: "👁" },
     { label: "Likes", value: reel.like_count, icon: "♥" },
     { label: "Comments", value: reel.comments_count, icon: "💬" },
