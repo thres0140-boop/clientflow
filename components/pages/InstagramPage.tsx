@@ -157,6 +157,7 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
           : <NotConnectedReels client={client} />
       )}
 
+
       {tab === "competitors" && <CompetitorsTab client={client} />}
     </div>
   );
@@ -253,24 +254,56 @@ function ProfileHeader({
 }
 
 function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel) => void }) {
+  const [sort, setSort] = useState<"recent" | "best">("recent");
+
+  const sorted = sort === "best"
+    ? [...reels].sort((a, b) => (b.plays ?? b.like_count ?? 0) - (a.plays ?? a.like_count ?? 0))
+    : reels;
+
   return (
     <div>
-      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Reels · {reels.length}</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reels · {reels.length}</p>
+        <button
+          onClick={() => setSort(sort === "recent" ? "best" : "recent")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            sort === "best"
+              ? "bg-amber-400 text-white"
+              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+          }`}
+        >
+          🏆 {sort === "best" ? "Best Performing" : "Best Performing"}
+        </button>
+      </div>
       <div className="grid grid-cols-4 gap-1.5">
-        {reels.map((reel) => (
+        {sorted.map((reel) => (
           <button key={reel.id} onClick={() => onSelect(reel)}
-            className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group hover:opacity-90 transition-opacity">
+            className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group">
             {reel.thumbnail_url
-              ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+              ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
               : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
                   <span className="text-3xl opacity-30">▶</span>
                 </div>
             }
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="flex items-center gap-2 text-white text-xs font-semibold">
-                {reel.plays != null && <span>👁 {fmt(reel.plays)}</span>}
-                <span>♥ {fmt(reel.like_count)}</span>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+            <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
+                  <span className="opacity-70">▶</span>
+                  <span>{reel.plays != null ? fmt(reel.plays) : "—"}</span>
+                </div>
+                <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
+                  <span className="opacity-70">♥</span>
+                  <span>{fmt(reel.like_count)}</span>
+                </div>
+                <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
+                  <span className="opacity-70">🔖</span>
+                  <span>{reel.saved != null ? fmt(reel.saved) : "—"}</span>
+                </div>
+                <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
+                  <span className="opacity-70">💬</span>
+                  <span>{fmt(reel.comments_count)}</span>
+                </div>
               </div>
             </div>
           </button>
