@@ -35,51 +35,36 @@ export async function GET(req: NextRequest) {
     let followers: number | null = null;
     let finalToken = longToken;
 
-    // 3a. Try Facebook Login for Business path: /me/instagram_business_accounts
-    const igAccountsRes = await fetch(
-      `https://graph.facebook.com/v19.0/me/instagram_business_accounts?fields=id,username,followers_count&access_token=${longToken}`
+    // 3. Get Facebook Pages → find linked Instagram Business Account
+    const pagesRes = await fetch(
+      `https://graph.facebook.com/v19.0/me/accounts?access_token=${longToken}`
     );
-    const igAccountsData = await igAccountsRes.json();
+    const pagesData = await pagesRes.json();
+    const pages = pagesData.data || [];
 
-    if (igAccountsData.data && igAccountsData.data.length > 0) {
-      const account = igAccountsData.data[0];
-      igUserId = account.id;
-      igUsername = account.username || null;
-      followers = account.followers_count || null;
-    }
-
-    // 3b. Fallback: try through Facebook Pages (classic path)
-    if (!igUserId) {
-      const pagesRes = await fetch(
-        `https://graph.facebook.com/v19.0/me/accounts?access_token=${longToken}`
+    for (const page of pages) {
+      const igRes = await fetch(
+        `https://graph.facebook.com/v19.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
       );
-      const pagesData = await pagesRes.json();
-      const pages = pagesData.data || [];
+      const igData = await igRes.json();
+      if (igData.instagram_business_account?.id) {
+        igUserId = igData.instagram_business_account.id;
+        finalToken = page.access_token;
 
-      for (const page of pages) {
-        const igRes = await fetch(
-          `https://graph.facebook.com/v19.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
+        const profileRes = await fetch(
+          `https://graph.facebook.com/v19.0/${igUserId}?fields=username,followers_count&access_token=${finalToken}`
         );
-        const igData = await igRes.json();
-        if (igData.instagram_business_account?.id) {
-          igUserId = igData.instagram_business_account.id;
-          finalToken = page.access_token;
-
-          const profileRes = await fetch(
-            `https://graph.facebook.com/v19.0/${igUserId}?fields=username,followers_count&access_token=${finalToken}`
-          );
-          const profileData = await profileRes.json();
-          igUsername = profileData.username || null;
-          followers = profileData.followers_count || null;
-          break;
-        }
+        const profileData = await profileRes.json();
+        igUsername = profileData.username || null;
+        followers = profileData.followers_count || null;
+        break;
       }
     }
 
-    // 3c. Last resort: use the FB user ID directly
+    // Fallback: use FB user ID if no page/IG account found
     if (!igUserId) {
       const meRes = await fetch(
-        `https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${longToken}`
+        `https://graph.facebook.com/v19.0/me?fields=id&access_token=${longToken}`
       );
       const meData = await meRes.json();
       igUserId = meData.id;
