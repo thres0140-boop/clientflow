@@ -175,7 +175,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               <div key={msg.id} className={`flex gap-2 group ${isMe ? "justify-start" : "justify-end"}`}>
                 {isMe && (
                   <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 flex-shrink-0 mt-0.5">
-                    {currentUserName[0]?.toUpperCase()}
+                    {isOwnerSession ? ownerName[0]?.toUpperCase() : (clientName?.[0]?.toUpperCase() ?? "C")}
                   </div>
                 )}
                 <div className={`max-w-[72%] ${isMe ? "items-start" : "items-end"} flex flex-col gap-0.5`}>
