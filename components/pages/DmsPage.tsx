@@ -101,7 +101,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     setInboxError(null);
     try {
       const data = await fetch(`/api/instagram/conversations?clientId=${selectedClientId}`).then((r) => r.json());
-      if (data.error) { setInboxError(data.error); }
+      if (data.error) { setInboxError(`${data.error}${data.code ? ` (code ${data.code}${data.subcode ? `.${data.subcode}` : ""})` : ""}${data.type ? ` [${data.type}]` : ""}`); }
       else { setConversations(data.conversations ?? []); }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);

@@ -23,8 +23,9 @@ export async function GET(req: NextRequest) {
     const data = await res.json();
 
     if (data.error) {
+      console.error("Instagram conversations error:", JSON.stringify(data.error));
       return NextResponse.json(
-        { error: data.error.message, code: data.error.code, type: data.error.type },
+        { error: data.error.message, code: data.error.code, type: data.error.type, subcode: data.error.error_subcode },
         { status: 400 }
       );
     }
