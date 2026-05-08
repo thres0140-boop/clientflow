@@ -166,7 +166,7 @@ export default function ChatPage({ clients, selectedClientId, currentUserName = 
           </div>
         ) : (
           messages.map((msg) => {
-            const isMe = msg.author === currentUserName || (isOwnerSession && msg.author === "owner");
+            const isMe = msg.author.toLowerCase() === currentUserName.toLowerCase() || (isOwnerSession && msg.author === "owner");
             const displayName = (msg.author === "owner" && isOwnerSession) ? currentUserName : msg.author;
             const initial = displayName[0]?.toUpperCase() ?? "?";
             return (
