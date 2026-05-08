@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const res = await fetch(
-      `https://graph.instagram.com/v21.0/${igUserId}/messages`,
+      `https://graph.facebook.com/v21.0/${igUserId}/messages`,
       {
         method: "POST",
         headers: {

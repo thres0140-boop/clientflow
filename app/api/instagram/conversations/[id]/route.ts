@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const res = await fetch(
-      `https://graph.instagram.com/v21.0/${id}/messages` +
+      `https://graph.facebook.com/v21.0/${id}/messages` +
       `?fields=id,message,from,created_time,attachments` +
       `&limit=50` +
       `&access_token=${accessToken}`
