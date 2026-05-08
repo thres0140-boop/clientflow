@@ -8,8 +8,13 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = clientId ? { clientId: parseInt(clientId) } : {};
 
+  const staged = req.nextUrl.searchParams.get("staged");
+
   if (scheduled === "true") {
     where.scheduledDate = { not: null };
+    where.stageId = { not: null };
+  } else if (staged === "true") {
+    // All drafts currently in a stage (scheduled or not)
     where.stageId = { not: null };
   } else {
     // Only show pending/saved drafts; saved ideas only if resurfaceAt <= today

@@ -37,6 +37,7 @@ model Client {
   instagramConnection   InstagramConnection?
   analyticsEntries      AnalyticsEntry[]
   dmLeads               DmLead[]
+  conceptFeedbacks      ConceptFeedback[]
 }
 
 model InstagramConnection {
@@ -187,6 +188,7 @@ model Concept {
   trackedVideos    TrackedVideo[]
   scriptDrafts     ScriptDraft[]
   analyticsEntries AnalyticsEntry[]
+  feedbacks        ConceptFeedback[]
 }
 
 model ScriptDraft {
@@ -316,4 +318,19 @@ model DmLead {
   updatedAt DateTime @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ConceptFeedback {
+  id            Int      @id @default(autoincrement())
+  conceptId     Int
+  clientId      Int
+  title         String
+  hook          String?
+  scriptSnippet String?
+  reasonType    String   // others_better | wrong_angle | hook_bad | too_long | too_short | off_brand | custom
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  concept Concept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }

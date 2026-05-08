@@ -25,7 +25,35 @@ export async function POST(req: NextRequest) {
 
   const created = [];
 
+  const REASON_LABELS: Record<string, string> = {
+    others_better: "Others were better",
+    wrong_angle: "Wrong angle / topic",
+    hook_bad: "Hook doesn't land",
+    too_long: "Too long",
+    too_short: "Too short",
+    off_brand: "Off-brand",
+    custom: "Custom feedback",
+  };
+
   for (const concept of concepts) {
+    // Load rejection history for this concept to feed into the prompt
+    const feedbacks = await prisma.conceptFeedback.findMany({
+      where: { conceptId: concept.id, clientId: clientData.id },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    });
+    let feedbackSection = "";
+    if (feedbacks.length > 0) {
+      const lines = feedbacks.map((f: { reasonType: string; reason: string | null; hook: string | null; scriptSnippet: string | null }) => {
+        const label = REASON_LABELS[f.reasonType] || f.reasonType;
+        const detail = f.reason ? ` — "${f.reason}"` : "";
+        const hook = f.hook ? ` | Rejected hook: "${f.hook.slice(0, 80)}"` : "";
+        const snippet = f.scriptSnippet ? ` | Script start: "${f.scriptSnippet.slice(0, 80)}"` : "";
+        return `• [${label}]${detail}${hook}${snippet}`;
+      });
+      feedbackSection = `\n\nREJECTION HISTORY — learn from these, do NOT repeat these patterns:\n${lines.join("\n")}`;
+    }
+
     const prompt = `
 You are writing ${count} alternative scripts for a social media video.
 
@@ -36,7 +64,7 @@ Text Hook: ${concept.textHook || "Not specified"}
 Angle: ${concept.angle || "Not specified"}
 Structure: ${concept.structure || "Not specified"}
 Guidelines: ${concept.guidelines || "Not specified"}
-Week: ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}
+Week: ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}${feedbackSection}
 
 Generate EXACTLY ${count} completely different script alternatives. Each should have a different hook angle but follow the same concept framework. 80–130 words each. ${langInstruction}
 

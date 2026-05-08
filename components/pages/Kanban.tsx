@@ -87,6 +87,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [creators, setCreators] = useState<Creator[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<number | null>(null);
   const [detailDraft, setDetailDraft] = useState<ScriptDraft | null>(null);
+  const [rejectDraftData, setRejectDraftData] = useState<ScriptDraft | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
   const [showStageManager, setShowStageManager] = useState(false);
 
@@ -138,9 +139,31 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     reload();
   }
 
-  async function rejectDraft(draftId: number) {
-    await fetch(`/api/script-drafts/${draftId}`, { method: "DELETE" });
-    setDetailDraft(null);
+  function rejectDraft(draftId: number) {
+    const draft = drafts.find((d) => d.id === draftId) || detailDraft;
+    if (draft) {
+      setRejectDraftData(draft);
+      setDetailDraft(null);
+    }
+  }
+
+  async function confirmReject(draft: ScriptDraft, reasonType: string, reason: string) {
+    // Save feedback before deleting
+    await fetch("/api/concept-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conceptId: draft.conceptId,
+        clientId: draft.clientId,
+        title: draft.title,
+        hook: draft.hook || null,
+        scriptSnippet: draft.script ? draft.script.slice(0, 150) : null,
+        reasonType,
+        reason: reason.trim() || null,
+      }),
+    });
+    await fetch(`/api/script-drafts/${draft.id}`, { method: "DELETE" });
+    setRejectDraftData(null);
     reload();
   }
 
@@ -405,6 +428,15 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             // update the draft in the list without a full reload
             setDrafts((ds) => ds.map((d) => d.id === detailDraft.id ? { ...d, rawContentUrls: JSON.stringify(urls) } : d));
           }}
+        />
+      )}
+
+      {/* Rejection reason modal */}
+      {rejectDraftData && (
+        <RejectModal
+          draft={rejectDraftData}
+          onCancel={() => { setRejectDraftData(null); setDetailDraft(rejectDraftData); }}
+          onConfirm={(reasonType, reason) => confirmReject(rejectDraftData, reasonType, reason)}
         />
       )}
 
@@ -1148,6 +1180,87 @@ function StageManagerModal({ client, stages, team, creators, onClose, onSaved }:
           <button onClick={onSaved}
             className="px-5 py-2 text-sm font-semibold bg-slate-800 text-white rounded-xl hover:bg-slate-900">
             Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Rejection Reason Modal ─────────────────────────────────────────────────
+
+const REJECT_REASONS = [
+  { value: "others_better", label: "Others were better", emoji: "🏆" },
+  { value: "wrong_angle",   label: "Wrong angle / topic", emoji: "🎯" },
+  { value: "hook_bad",      label: "Hook doesn't land", emoji: "🪝" },
+  { value: "too_long",      label: "Too long", emoji: "📏" },
+  { value: "too_short",     label: "Too short", emoji: "✂️" },
+  { value: "off_brand",     label: "Off-brand", emoji: "🚫" },
+  { value: "custom",        label: "Other reason…", emoji: "✏️" },
+];
+
+function RejectModal({
+  draft, onCancel, onConfirm,
+}: {
+  draft: ScriptDraft;
+  onCancel: () => void;
+  onConfirm: (reasonType: string, reason: string) => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [customText, setCustomText] = useState("");
+
+  function handleConfirm() {
+    if (!selected) return;
+    onConfirm(selected, selected === "custom" ? customText : "");
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div>
+          <h2 className="text-base font-bold text-slate-800">Why are you rejecting this?</h2>
+          <p className="text-xs text-slate-400 mt-0.5 truncate">"{draft.title}"</p>
+          <p className="text-[10px] text-indigo-500 mt-0.5">Claude will learn from this for future scripts on this concept.</p>
+        </div>
+
+        <div className="space-y-2">
+          {REJECT_REASONS.map((r) => (
+            <button
+              key={r.value}
+              onClick={() => setSelected(r.value)}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm text-left transition-all ${
+                selected === r.value
+                  ? "border-red-400 bg-red-50 text-red-700 font-semibold"
+                  : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              <span>{r.emoji}</span>
+              <span>{r.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {selected === "custom" && (
+          <textarea
+            autoFocus
+            placeholder="Describe what didn't work…"
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            rows={3}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
+          />
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={onCancel} className="flex-1 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl">
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!selected || (selected === "custom" && !customText.trim())}
+            className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl disabled:opacity-40 transition-colors"
+          >
+            ✗ Reject & Delete
           </button>
         </div>
       </div>

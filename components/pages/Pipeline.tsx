@@ -61,10 +61,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [scheduledDrafts, setScheduledDrafts] = useState<ScriptDraft[]>([]);
+  const [stagedDrafts, setStagedDrafts] = useState<ScriptDraft[]>([]);
   const [selectedDraft, setSelectedDraft] = useState<ScriptDraft | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [selected, setSelected] = useState<ContentPiece | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [dragDraftId, setDragDraftId] = useState<number | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [showScheduleBoard, setShowScheduleBoard] = useState(true);
 
   const [calView, setCalView] = useState<CalendarView>("month");
   const [planMode, setPlanMode] = useState<PlanningMode>("calendar");
@@ -96,18 +100,20 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
 
   const reload = useCallback(async () => {
     const qs = selectedClientId ? `?clientId=${selectedClientId}` : "";
-    const [c, co, s, t, sd] = await Promise.all([
+    const [c, co, s, t, staged] = await Promise.all([
       fetch(`/api/content${qs}`).then((r) => r.json()),
       fetch(`/api/concepts${selectedClientId ? `?clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
       fetch("/api/workflow").then((r) => r.json()),
       fetch("/api/team").then((r) => r.json()),
-      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&scheduled=true`).then((r) => r.json()) : Promise.resolve([]),
+      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&staged=true`).then((r) => r.json()) : Promise.resolve([]),
     ]);
     setContent(c);
     setConcepts(co.filter((c: Concept) => !c.isIdea));
     setStages(s);
     setTeam(t);
-    setScheduledDrafts((sd || []).filter((d: ScriptDraft) => d.stageId && d.scheduledDate));
+    const allStaged: ScriptDraft[] = staged || [];
+    setStagedDrafts(allStaged);
+    setScheduledDrafts(allStaged.filter((d: ScriptDraft) => d.scheduledDate));
   }, [selectedClientId]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -149,6 +155,36 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...activeClient, dayTemplate: JSON.stringify(updated) }),
     });
+  }
+
+  async function scheduleDraftOnDate(draftId: number, date: string) {
+    await fetch(`/api/script-drafts/${draftId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledDate: date }),
+    });
+    reload();
+  }
+
+  async function unscheduleDraft(draftId: number) {
+    await fetch(`/api/script-drafts/${draftId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledDate: null }),
+    });
+    reload();
+  }
+
+  function handleDraftDragStart(draftId: number) {
+    setDragDraftId(draftId);
+  }
+
+  function handleCalendarDrop(date: string) {
+    if (dragDraftId) {
+      scheduleDraftOnDate(dragDraftId, date);
+      setDragDraftId(null);
+      setDragOverDate(null);
+    }
   }
 
   async function deleteContent(id: number) {
@@ -297,13 +333,17 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 const pieces = date ? content.filter((c) => c.scheduledDate === date) : [];
                 const draftsOnDay = date ? scheduledDrafts.filter((d) => d.scheduledDate === date) : [];
                 const isToday = date === todayStr;
+                const isDragTarget = date === dragOverDate && dragDraftId !== null;
                 const dow = date ? (new Date(date).getDay() + 6) % 7 : -1; // 0=Mon
                 const templateConceptId = dow >= 0 ? dayTemplate[dow] : null;
                 const templateConcept = templateConceptId ? concepts.find((c) => c.id === templateConceptId) : null;
                 return (
                   <div
                     key={idx}
-                    className={`min-h-[100px] border-r border-b border-slate-100 last:border-r-0 p-1.5 ${isToday ? "bg-indigo-50/40" : ""} ${!date ? "bg-slate-50/50" : ""}`}
+                    className={`min-h-[100px] border-r border-b border-slate-100 last:border-r-0 p-1.5 transition-colors ${isToday ? "bg-indigo-50/40" : ""} ${!date ? "bg-slate-50/50" : ""} ${isDragTarget ? "bg-indigo-100/60 ring-2 ring-inset ring-indigo-400" : ""}`}
+                    onDragOver={date ? (e) => { e.preventDefault(); setDragOverDate(date); } : undefined}
+                    onDragLeave={() => setDragOverDate(null)}
+                    onDrop={date ? () => handleCalendarDrop(date) : undefined}
                   >
                     {date && (
                       <>
@@ -376,18 +416,24 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             <p className="text-[9px] text-slate-400 pl-1">+{pieces.length - 3} more</p>
                           )}
                           {draftsOnDay.map((draft) => (
-                            <button
+                            <div
                               key={`d-${draft.id}`}
-                              onClick={() => setSelectedDraft(draft)}
-                              className="w-full text-left rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight hover:opacity-90 transition-opacity"
+                              className="w-full rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight group/draft relative"
                               style={{ backgroundColor: "#6366f115", borderLeft: "2px solid #6366f1", color: "#1e293b" }}
                             >
-                              <div className="truncate font-semibold">{draft.title}</div>
-                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                {draft.concept && <span className="bg-indigo-100 text-indigo-600 rounded px-1 text-[9px]">💡 {draft.concept.name}</span>}
-                                {draft.stage && <span className="bg-slate-100 text-slate-500 rounded px-1 text-[9px]">📍 {draft.stage.name}</span>}
-                              </div>
-                            </button>
+                              <button onClick={() => setSelectedDraft(draft)} className="w-full text-left">
+                                <div className="truncate font-semibold pr-4">{draft.title}</div>
+                                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                  {draft.concept && <span className="bg-indigo-100 text-indigo-600 rounded px-1 text-[9px]">💡 {draft.concept.name}</span>}
+                                  {draft.stage && <span className="bg-slate-100 text-slate-500 rounded px-1 text-[9px]">📍 {draft.stage.name}</span>}
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => unscheduleDraft(draft.id)}
+                                className="absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 text-slate-400 hover:text-red-500 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center"
+                                title="Remove from calendar"
+                              >×</button>
+                            </div>
                           ))}
                         </div>
                       </>
@@ -403,11 +449,18 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 const pieces = content.filter((c) => c.scheduledDate === date);
                 const draftsOnDay = scheduledDrafts.filter((d) => d.scheduledDate === date);
                 const isToday = date === todayStr;
+                const isDragTargetWeek = date === dragOverDate && dragDraftId !== null;
                 const templateConceptId = dayTemplate[i];
                 const templateConcept = templateConceptId ? concepts.find((c) => c.id === templateConceptId) : null;
                 const d = new Date(date);
                 return (
-                  <div key={date} className={`min-h-[420px] p-2 flex flex-col ${isToday ? "bg-indigo-50/40" : ""}`}>
+                  <div
+                    key={date}
+                    className={`min-h-[420px] p-2 flex flex-col transition-colors ${isToday ? "bg-indigo-50/40" : ""} ${isDragTargetWeek ? "bg-indigo-100/60 ring-2 ring-inset ring-indigo-400" : ""}`}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverDate(date); }}
+                    onDragLeave={() => setDragOverDate(null)}
+                    onDrop={() => handleCalendarDrop(date)}
+                  >
                     <div className={`text-center mb-2`}>
                       <p className="text-[10px] font-semibold text-slate-400 uppercase">{DAYS[i]}</p>
                       <span className={`text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full mx-auto ${isToday ? "bg-indigo-600 text-white" : "text-slate-700"}`}>
@@ -437,16 +490,22 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         </button>
                       ))}
                       {draftsOnDay.map((draft) => (
-                        <button
+                        <div
                           key={`d-${draft.id}`}
-                          onClick={() => setSelectedDraft(draft)}
-                          className="w-full text-left rounded-lg px-2 py-2 text-xs hover:opacity-90 transition-opacity"
+                          className="w-full rounded-lg px-2 py-2 text-xs group/wdraft relative"
                           style={{ backgroundColor: "#6366f115", borderLeft: "3px solid #6366f1" }}
                         >
-                          <p className="font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
-                          {draft.concept && <p className="text-indigo-500 truncate text-[10px] mt-0.5">💡 {draft.concept.name}</p>}
-                          {draft.stage && <p className="text-slate-400 truncate text-[10px]">📍 {draft.stage.name}</p>}
-                        </button>
+                          <button onClick={() => setSelectedDraft(draft)} className="w-full text-left">
+                            <p className="font-semibold text-slate-800 truncate leading-snug pr-4">{draft.title}</p>
+                            {draft.concept && <p className="text-indigo-500 truncate text-[10px] mt-0.5">💡 {draft.concept.name}</p>}
+                            {draft.stage && <p className="text-slate-400 truncate text-[10px]">📍 {draft.stage.name}</p>}
+                          </button>
+                          <button
+                            onClick={() => unscheduleDraft(draft.id)}
+                            className="absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 text-slate-400 hover:text-red-500 transition-all text-sm leading-none"
+                            title="Remove from calendar"
+                          >×</button>
+                        </div>
                       ))}
                     </div>
                     {!isClient && (
@@ -519,6 +578,70 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           </div>
         )}
       </div>
+
+      {/* ── Schedule Board: drag staged drafts onto the calendar ── */}
+      {selectedClientId && stagedDrafts.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-slate-700">Schedule Board</h2>
+              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                drag onto calendar to schedule
+              </span>
+            </div>
+            <button
+              onClick={() => setShowScheduleBoard((v) => !v)}
+              className="text-xs text-slate-400 hover:text-slate-600"
+            >
+              {showScheduleBoard ? "Hide" : "Show"}
+            </button>
+          </div>
+          {showScheduleBoard && (() => {
+            const unscheduled = stagedDrafts.filter((d) => !d.scheduledDate);
+            const stagesWithDrafts = stages.filter((st) => unscheduled.some((d) => d.stageId === st.id));
+            if (unscheduled.length === 0) {
+              return (
+                <p className="px-5 py-8 text-center text-sm text-slate-400">All staged drafts are scheduled ✓</p>
+              );
+            }
+            return (
+              <div className="overflow-x-auto">
+                <div className="flex gap-0 min-w-max">
+                  {stagesWithDrafts.map((stage) => {
+                    const draftsInStage = unscheduled.filter((d) => d.stageId === stage.id);
+                    return (
+                      <div key={stage.id} className="w-56 border-r border-slate-100 last:border-r-0 flex-shrink-0">
+                        <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
+                          <span className="text-xs font-semibold text-slate-700 truncate">{stage.name}</span>
+                          <span className="ml-auto text-[10px] text-slate-400">{draftsInStage.length}</span>
+                        </div>
+                        <div className="p-2 space-y-1.5 max-h-56 overflow-y-auto">
+                          {draftsInStage.map((draft) => (
+                            <div
+                              key={draft.id}
+                              draggable
+                              onDragStart={() => handleDraftDragStart(draft.id)}
+                              onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
+                              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50 transition-colors select-none"
+                            >
+                              <p className="text-xs font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
+                              {draft.concept && (
+                                <p className="text-[10px] text-indigo-500 truncate mt-0.5">💡 {draft.concept.name}</p>
+                              )}
+                              <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {showAdd && (
         <AddContentModal

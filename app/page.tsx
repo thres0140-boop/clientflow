@@ -12,6 +12,7 @@ import Kanban from "@/components/pages/Kanban";
 import InstagramPage from "@/components/pages/InstagramPage";
 import BoardPage from "@/components/pages/BoardPage";
 import DmsPage from "@/components/pages/DmsPage";
+import ContextPage from "@/components/pages/ContextPage";
 import { Client, Notification, TeamMember } from "@/lib/types";
 import type { SessionPayload } from "@/lib/session";
 
@@ -25,7 +26,8 @@ export type Page =
   | "board"
   | "team"
   | "chat"
-  | "settings";
+  | "settings"
+  | "context";
 
 export default function App() {
   const [page, setPage] = useState<Page>("pipeline");
@@ -122,8 +124,8 @@ export default function App() {
   // Compute which pages the active profile can see
   const activeProfile = team.find((m) => m.id === activeProfileId) ?? null;
   const allowedPages: Page[] = (() => {
-    if (!activeProfile) return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings"];
-    if (activeProfile.pageAccess === "all") return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings"];
+    if (!activeProfile) return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
+    if (activeProfile.pageAccess === "all") return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
     const pages = activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
     // Always give client logins access to chat
     if (session?.type === "member" && !pages.includes("chat")) pages.push("chat");
@@ -151,6 +153,7 @@ export default function App() {
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} />;
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} />;
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} />;
+      case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
     }
   }
 
