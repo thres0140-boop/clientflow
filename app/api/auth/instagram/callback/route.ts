@@ -41,24 +41,25 @@ export async function GET(req: NextRequest) {
     const longData = await longRes.json();
     const longToken = longData.access_token || shortToken;
 
-    // 3. Get profile info
+    // 3. Get profile info — use id from /me as the canonical igUserId (tokenData.user_id can differ)
     const profileRes = await fetch(
-      `https://graph.instagram.com/v21.0/me?fields=username,followers_count&access_token=${longToken}`
+      `https://graph.instagram.com/v21.0/me?fields=id,username,followers_count&access_token=${longToken}`
     );
     const profileData = await profileRes.json();
+    const canonicalUserId = profileData.id ? String(profileData.id) : igUserId;
 
     await prisma.instagramConnection.upsert({
       where: { clientId: parseInt(clientId) },
       create: {
         clientId: parseInt(clientId),
         accessToken: longToken,
-        igUserId,
+        igUserId: canonicalUserId,
         igUsername: profileData.username || null,
         followers: profileData.followers_count || null,
       },
       update: {
         accessToken: longToken,
-        igUserId,
+        igUserId: canonicalUserId,
         igUsername: profileData.username || null,
         followers: profileData.followers_count || null,
       },
