@@ -245,7 +245,7 @@ export default function Sidebar({
                     👑
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-700">Owner</p>
+                    <p className="text-xs font-semibold text-slate-700">{session?.name || "Owner"}</p>
                     <p className="text-[10px] text-slate-400">Full access</p>
                   </div>
                 </>
@@ -264,7 +264,7 @@ export default function Sidebar({
                 >
                   <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">👑</div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-700">Owner</p>
+                    <p className="text-xs font-semibold text-slate-700">{session?.name || "Owner"}</p>
                     <p className="text-[10px] text-slate-400">Full access</p>
                   </div>
                   {activeProfile === null && <span className="text-indigo-500 text-xs">✓</span>}

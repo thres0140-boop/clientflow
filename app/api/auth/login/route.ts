@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     if (password !== ownerPassword) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
-    const token = await createSessionToken({ type: "owner", memberId: null, name: "Owner" });
+    const token = await createSessionToken({ type: "owner", memberId: null, name: process.env.OWNER_NAME || "Owner" });
     const res = NextResponse.json({ ok: true, type: "owner" });
     setCookie(res, token);
     return res;
