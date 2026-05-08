@@ -82,7 +82,7 @@ export default function App() {
     if (!appReady) return;
     setTransitioning(true);
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
-    transitionTimer.current = setTimeout(() => setTransitioning(false), 250);
+    transitionTimer.current = setTimeout(() => setTransitioning(false), 500);
   }, [selectedClientId, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function switchProfile(id: number | null) {
@@ -171,7 +171,7 @@ export default function App() {
         ? <>{transitioning ? null : renderPage()}</>
         : <main className="flex-1 ml-64 p-8 min-w-0">
             {transitioning
-              ? <div className="flex items-center justify-center h-64"><div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
+              ? <div className="flex items-center justify-center" style={{height: "calc(100vh - 4rem)"}}><div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
               : renderPage()
             }
           </main>
