@@ -475,26 +475,26 @@ function CompetitorsTab({ client }: { client: Client }) {
               }`}>
               🏆 Best Performing
             </button>
-            <span className="text-xs text-slate-400">{trackedReels.length} tracked reels</span>
-            <button onClick={() => setShowAddReel(true)}
-              className="ml-auto px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700">
-              + Add Reel
+            <span className="text-xs text-slate-400">{sortedReels.length} reels</span>
+            <button onClick={fetchAllReels} disabled={loadingReels}
+              className="ml-auto px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-200 disabled:opacity-50">
+              {loadingReels ? "Loading…" : "↻ Refresh"}
             </button>
           </div>
 
-          {trackedReels.length === 0 ? (
+          {sortedReels.length === 0 ? (
             <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-16 flex flex-col items-center gap-4 text-center">
               <div className="text-3xl">🎬</div>
               <div>
-                <p className="text-sm font-semibold text-slate-700">Track competitor reels manually</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {loadingReels ? "Fetching reels…" : competitors.length === 0 ? "Add competitors first" : "No reels found"}
+                </p>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                  Paste an Instagram reel URL — we'll grab the thumbnail automatically. Add likes/comments to sort by performance.
+                  {competitors.length === 0
+                    ? "Go to the List tab and add competitor accounts to track."
+                    : "Reels are auto-fetched from competitor accounts via the scraper API."}
                 </p>
               </div>
-              <button onClick={() => setShowAddReel(true)}
-                className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700">
-                + Add your first reel
-              </button>
             </div>
           ) : (
             <div className="grid grid-cols-4 gap-1.5">
@@ -526,21 +526,9 @@ function CompetitorsTab({ client }: { client: Client }) {
                       </div>
                     </div>
                   </button>
-                  <button onClick={() => removeTracked(reel.id)}
-                    className="absolute top-2 right-2 w-5 h-5 rounded-full bg-black/50 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500">
-                    ✕
-                  </button>
                 </div>
               ))}
             </div>
-          )}
-
-          {showAddReel && (
-            <AddCompetitorReelModal
-              competitors={competitors}
-              onClose={() => setShowAddReel(false)}
-              onSaved={(reel) => { saveTracked([reel, ...trackedReels]); setShowAddReel(false); }}
-            />
           )}
         </div>
       )}
@@ -552,118 +540,6 @@ function CompetitorsTab({ client }: { client: Client }) {
   );
 }
 
-function AddCompetitorReelModal({ competitors, onClose, onSaved }: {
-  competitors: Competitor[];
-  onClose: () => void;
-  onSaved: (reel: IGReel) => void;
-}) {
-  const [url, setUrl] = useState("");
-  const [handle, setHandle] = useState(competitors[0]?.handle || "");
-  const [likes, setLikes] = useState("");
-  const [comments, setComments] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [preview, setPreview] = useState<{ thumbnail_url?: string; author_name?: string; title?: string } | null>(null);
-
-  async function fetchPreview(u: string) {
-    if (!u.includes("instagram.com")) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/instagram/oembed?url=${encodeURIComponent(u)}`);
-      const data = await res.json();
-      if (data.error) { setError("Could not load preview — check URL"); }
-      else {
-        setPreview(data);
-        if (data.author_name) setHandle(data.author_name);
-      }
-    } catch { setError("Could not load preview"); }
-    setLoading(false);
-  }
-
-  function extractShortcode(u: string) {
-    const m = u.match(/\/(reel|p)\/([A-Za-z0-9_-]+)/);
-    return m ? m[2] : String(Date.now());
-  }
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    if (!url.includes("instagram.com")) { setError("Please enter a valid Instagram URL"); return; }
-    const shortcode = extractShortcode(url);
-    const reel: IGReel = {
-      id: shortcode,
-      thumbnail_url: preview?.thumbnail_url,
-      caption: preview?.title || url,
-      timestamp: new Date().toISOString(),
-      like_count: parseInt(likes) || 0,
-      comments_count: parseInt(comments) || 0,
-      handle: handle || undefined,
-      instagramUrl: url,
-    };
-    onSaved(reel);
-  }
-
-  return (
-    <Modal title="Track Competitor Reel" onClose={onClose}>
-      <form onSubmit={save} className="space-y-4">
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Instagram Reel URL *</label>
-          <input
-            required
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onBlur={() => fetchPreview(url)}
-            placeholder="https://www.instagram.com/reel/ABC123..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          {loading && <p className="text-xs text-slate-400 mt-1">Loading preview…</p>}
-          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-        </div>
-
-        {preview?.thumbnail_url && (
-          <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
-            <img src={preview.thumbnail_url} alt="" className="w-12 h-20 object-cover rounded-lg flex-shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-700">@{preview.author_name}</p>
-              {preview.title && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{preview.title}</p>}
-            </div>
-          </div>
-        )}
-
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Account handle</label>
-          <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
-            <span className="px-3 py-2 bg-slate-50 text-slate-400 text-sm border-r border-slate-200">@</span>
-            <input value={handle} onChange={(e) => setHandle(e.target.value.replace("@", ""))}
-              list="compHandleList" placeholder="username"
-              className="flex-1 px-3 py-2 text-sm focus:outline-none" />
-            <datalist id="compHandleList">
-              {competitors.map((c) => <option key={c.id} value={c.handle} />)}
-            </datalist>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Likes</label>
-            <input type="number" value={likes} onChange={(e) => setLikes(e.target.value)} placeholder="e.g. 4200"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Comments</label>
-            <input type="number" value={comments} onChange={(e) => setComments(e.target.value)} placeholder="e.g. 87"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 pt-1">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Reel</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
 
 function CompetitorCard({ competitor, onEdit, onDelete }: { competitor: Competitor; onEdit: () => void; onDelete: () => void }) {
   return (
