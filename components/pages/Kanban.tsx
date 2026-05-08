@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { upload } from "@vercel/blob/client";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, closestCenter,
@@ -428,11 +429,10 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
     if (!files.length) return;
     setUploading(true);
     try {
-      const fd = new FormData();
-      files.forEach((f) => fd.append("file", f));
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (data.urls) onUploaded([...existing, ...data.urls]);
+      const urls = await Promise.all(
+        files.map((f) => upload(f.name, f, { access: "public", handleUploadUrl: "/api/upload" }).then((b) => b.url))
+      );
+      onUploaded([...existing, ...urls]);
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -664,12 +664,10 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
     setUploading(true);
     setError("");
     try {
-      const fd = new FormData();
-      files.forEach((f) => fd.append("file", f));
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || `Upload failed (${res.status})`); return; }
-      if (data.urls?.length) onUploaded([...urls, ...data.urls]);
+      const newUrls = await Promise.all(
+        files.map((f) => upload(f.name, f, { access: "public", handleUploadUrl: "/api/upload" }).then((b) => b.url))
+      );
+      onUploaded([...urls, ...newUrls]);
     } catch (err) {
       setError(String(err));
     } finally {
