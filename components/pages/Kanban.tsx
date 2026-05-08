@@ -56,12 +56,12 @@ function CardContent({ draft }: { draft: ScriptDraft }) {
         <p className="text-[11px] text-slate-600 mt-1.5 line-clamp-2 italic">"{draft.hook}"</p>
       )}
       <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-3 leading-relaxed">{draft.script}</p>
-      {draft.rawContentUrl && (
+      {(() => { const n = JSON.parse(draft.rawContentUrls || "[]").length; return n > 0 ? (
         <div className="mt-2 flex items-center gap-1 text-[10px] text-green-600 font-medium">
           <span>📎</span>
-          <span>Raw content uploaded</span>
+          <span>{n} file{n > 1 ? "s" : ""} uploaded</span>
         </div>
-      )}
+      ) : null; })()}
     </div>
   );
 }
@@ -335,11 +335,11 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                         <DraggableCard draft={draft} onClick={() => setDetailDraft(draft)} />
                         {/* Per-card actions for assignees */}
                         <div className="flex gap-1.5">
-                          <FileUploadButton draft={draft} onUploaded={(url) => {
+                          <FileUploadButton draft={draft} onUploaded={(urls) => {
                             fetch(`/api/script-drafts/${draft.id}`, {
                               method: "PUT",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ rawContentUrl: url }),
+                              body: JSON.stringify({ rawContentUrls: urls }),
                             }).then(reload);
                           }} />
                           <button
@@ -382,13 +382,13 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           }}
           onProceed={() => { proceedToNextStage(detailDraft); setDetailDraft(null); }}
           getNextStage={(id) => getNextStage(id)}
-          onUploaded={(url) => {
+          onUploaded={(urls) => {
             fetch(`/api/script-drafts/${detailDraft.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ rawContentUrl: url }),
+              body: JSON.stringify({ rawContentUrls: urls }),
             }).then(reload);
-            setDetailDraft((d) => d ? { ...d, rawContentUrl: url } : null);
+            setDetailDraft((d) => d ? { ...d, rawContentUrls: JSON.stringify(urls) } : null);
           }}
         />
       )}
@@ -418,20 +418,21 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 }
 
 // ─── File upload button ─────────────────────────────────────────────────────
-function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
+function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (urls: string[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const existing: string[] = JSON.parse(draft.rawContentUrls || "[]");
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
     setUploading(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      files.forEach((f) => fd.append("file", f));
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.url) onUploaded(data.url);
+      if (data.urls) onUploaded([...existing, ...data.urls]);
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -440,17 +441,17 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 
   return (
     <>
-      <input ref={inputRef} type="file" accept="video/*,image/*" className="hidden" onChange={handleFile} />
+      <input ref={inputRef} type="file" accept="video/*,image/*" multiple className="hidden" onChange={handleFiles} />
       <button
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        title={draft.rawContentUrl ? "Replace raw content" : "Upload raw content"}
+        title="Upload raw content"
         className={`px-2 py-1 text-[10px] font-semibold rounded-lg transition-colors ${
-          draft.rawContentUrl
+          existing.length > 0
             ? "text-green-600 bg-green-50 hover:bg-green-100"
             : "text-slate-500 bg-slate-100 hover:bg-slate-200"
         }`}>
-        {uploading ? "…" : draft.rawContentUrl ? "📎" : "⬆ Upload"}
+        {uploading ? "…" : existing.length > 0 ? `📎 ${existing.length}` : "⬆ Upload"}
       </button>
     </>
   );
@@ -497,7 +498,7 @@ function DraftDetailPanel({
   onScriptUpdated: (script: string, hook: string | null) => void;
   onProceed: () => void;
   getNextStage: (stageId: number) => WorkflowStage | null;
-  onUploaded: (url: string) => void;
+  onUploaded: (urls: string[]) => void;
 }) {
   const [script, setScript] = useState(draft.script);
   const [hook, setHook] = useState(draft.hook || "");
@@ -651,43 +652,50 @@ function DraftDetailPanel({
 }
 
 // ─── Raw content upload in detail panel ─────────────────────────────────────
-function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
+function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (urls: string[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const urls: string[] = JSON.parse(draft.rawContentUrls || "[]");
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
     setUploading(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      files.forEach((f) => fd.append("file", f));
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.url) onUploaded(data.url);
+      if (data.urls) onUploaded([...urls, ...data.urls]);
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
 
+  function removeFile(idx: number) {
+    onUploaded(urls.filter((_, i) => i !== idx));
+  }
+
   return (
     <div className="space-y-2">
-      {draft.rawContentUrl && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-          <span className="text-green-500">📎</span>
-          <a href={draft.rawContentUrl} target="_blank" rel="noopener noreferrer"
+      {urls.map((url, i) => (
+        <div key={i} className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+          <span className="text-green-500 text-sm">📎</span>
+          <a href={url} target="_blank" rel="noopener noreferrer"
             className="text-xs text-green-700 hover:underline flex-1 truncate">
-            View uploaded file ↗
+            {url.split("/").pop() || `File ${i + 1}`} ↗
           </a>
+          <button onClick={() => removeFile(i)}
+            className="text-slate-400 hover:text-red-500 text-xs flex-shrink-0">✕</button>
         </div>
-      )}
-      <input ref={inputRef} type="file" accept="video/*,image/*" className="hidden" onChange={handleFile} />
+      ))}
+      <input ref={inputRef} type="file" accept="video/*,image/*" multiple className="hidden" onChange={handleFiles} />
       <button
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
         className="w-full py-2 text-sm font-medium border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
-        {uploading ? "Uploading…" : draft.rawContentUrl ? "⬆ Replace file" : "⬆ Upload raw content"}
+        {uploading ? "Uploading…" : "⬆ Add files"}
       </button>
     </div>
   );
