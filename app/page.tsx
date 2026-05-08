@@ -121,7 +121,10 @@ export default function App() {
   const allowedPages: Page[] = (() => {
     if (!activeProfile) return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings"];
     if (activeProfile.pageAccess === "all") return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings"];
-    return activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
+    const pages = activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
+    // Always give client logins access to chat
+    if (session?.type === "member" && !pages.includes("chat")) pages.push("chat");
+    return pages;
   })();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
