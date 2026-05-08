@@ -228,8 +228,24 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
     guidelines: "",
   });
   const [promoting, setPromoting] = useState(false);
+  const [generatingGuidelines, setGeneratingGuidelines] = useState(false);
 
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+
+  async function generateGuidelines() {
+    if (!idea.scriptExamples?.trim()) return;
+    setGeneratingGuidelines(true);
+    try {
+      const data = await fetch("/api/ai/generate-guidelines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: idea.scriptExamples, conceptName: form.name }),
+      }).then((r) => r.json());
+      if (data.guidelines) set("guidelines", data.guidelines);
+    } finally {
+      setGeneratingGuidelines(false);
+    }
+  }
 
   async function promote(e: React.FormEvent) {
     e.preventDefault();
@@ -342,7 +358,15 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Guidelines</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-slate-600">Guidelines</label>
+                {idea.scriptExamples?.trim() && (
+                  <button type="button" onClick={generateGuidelines} disabled={generatingGuidelines}
+                    className="text-[11px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors font-medium">
+                    {generatingGuidelines ? "Generating…" : "✨ AI Generate"}
+                  </button>
+                )}
+              </div>
               <textarea rows={2} value={form.guidelines} onChange={(e) => set("guidelines", e.target.value)}
                 placeholder="Pacing, energy, what to include/avoid..."
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
