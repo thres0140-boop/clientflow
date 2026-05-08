@@ -325,14 +325,14 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Reels sub-tab state (manually tracked)
-  const storageKey = `competitor_reels_${client.id}`;
-  const [trackedReels, setTrackedReels] = useState<IGReel[]>(() => {
-    try { return JSON.parse(localStorage.getItem(`competitor_reels_${client.id}`) || "[]"); } catch { return []; }
-  });
+  // Reels sub-tab state
+  const [allReels, setAllReels] = useState<IGReel[]>([]);
+  const [fetchErrors, setFetchErrors] = useState<{ handle: string; error: string }[]>([]);
+  const [loadingReels, setLoadingReels] = useState(false);
+  const [reelsFetched, setReelsFetched] = useState(false);
+  const [timeFilter, setTimeFilter] = useState<"7" | "14" | "30" | "90" | "all">("all");
   const [reelSort, setReelSort] = useState<"recent" | "best">("recent");
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
-  const [showAddReel, setShowAddReel] = useState(false);
 
   const reload = useCallback(async () => {
     const data = await fetch(`/api/competitors?clientId=${client.id}`).then((r) => r.json());
@@ -369,18 +369,39 @@ function CompetitorsTab({ client }: { client: Client }) {
     setSuggesting(false);
   }
 
-  function saveTracked(reels: IGReel[]) {
-    setTrackedReels(reels);
-    try { localStorage.setItem(storageKey, JSON.stringify(reels)); } catch { /* ignore */ }
+  async function fetchAllReels() {
+    if (competitors.length === 0) return;
+    setLoadingReels(true);
+    setAllReels([]);
+    setFetchErrors([]);
+    const results = await Promise.allSettled(
+      competitors.map(async (c) => {
+        const res = await fetch(`/api/instagram/competitor-reels?handle=${encodeURIComponent(c.handle)}`);
+        const data = await res.json();
+        if (data.error) return { handle: c.handle, reels: [] as IGReel[], error: data.error as string };
+        return { handle: c.handle, reels: (data.reels || []) as IGReel[], error: null };
+      })
+    );
+    const reels = results.flatMap((r) => r.status === "fulfilled" ? r.value.reels : []);
+    const errors = results.flatMap((r) => r.status === "fulfilled" && r.value.error ? [{ handle: r.value.handle, error: r.value.error }] : []);
+    setAllReels(reels);
+    setFetchErrors(errors);
+    setLoadingReels(false);
+    setReelsFetched(true);
   }
 
-  function removeTracked(id: string) {
-    saveTracked(trackedReels.filter((r) => r.id !== id));
-  }
+  useEffect(() => {
+    if (subTab === "reels" && !reelsFetched && competitors.length > 0) fetchAllReels();
+  }, [subTab, reelsFetched, competitors.length]);
 
+  const now = Date.now();
+  const days = timeFilter === "all" ? Infinity : parseInt(timeFilter);
+  const filteredReels = allReels.filter((r) =>
+    days === Infinity || now - new Date(r.timestamp).getTime() < days * 24 * 60 * 60 * 1000
+  );
   const sortedReels = reelSort === "best"
-    ? [...trackedReels].sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0))
-    : [...trackedReels].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    ? [...filteredReels].sort((a, b) => (b.plays ?? b.like_count ?? 0) - (a.plays ?? a.like_count ?? 0))
+    : [...filteredReels].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
     <div className="space-y-4">

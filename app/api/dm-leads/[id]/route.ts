@@ -7,10 +7,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const lead = await prisma.dmLead.update({
     where: { id: parseInt(id) },
     data: {
-      name:   body.name   !== undefined ? body.name   : undefined,
-      handle: body.handle !== undefined ? (body.handle || null) : undefined,
-      status: body.status !== undefined ? body.status : undefined,
-      notes:  body.notes  !== undefined ? (body.notes || null) : undefined,
+      name:   body.name   !== undefined ? body.name              : undefined,
+      handle: body.handle !== undefined ? (body.handle || null)  : undefined,
+      status: body.status !== undefined ? body.status            : undefined,
+      date:   body.date   !== undefined ? (body.date   || null)  : undefined,
+      notes:  body.notes  !== undefined ? (body.notes  || null)  : undefined,
     },
   });
   return NextResponse.json(lead);

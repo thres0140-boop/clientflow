@@ -274,7 +274,8 @@ model DmLead {
   clientId  Int
   name      String
   handle    String?
-  status    String   @default("messaged") // messaged | link_sent | booked | showed | no_show
+  status    String   @default("messaged") // messaged | link_sent | booked | showed | no_show | closed
+  date      String?  // YYYY-MM-DD date first messaged
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

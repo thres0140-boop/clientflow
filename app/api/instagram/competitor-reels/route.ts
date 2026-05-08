@@ -1,60 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  const clientId = req.nextUrl.searchParams.get("clientId");
   const handle = req.nextUrl.searchParams.get("handle");
-  if (!clientId || !handle) return NextResponse.json({ error: "clientId and handle required" }, { status: 400 });
+  if (!handle) return NextResponse.json({ error: "handle required" }, { status: 400 });
 
-  const conn = await prisma.instagramConnection.findUnique({ where: { clientId: parseInt(clientId) } });
-  if (!conn) return NextResponse.json({ error: "not_connected" }, { status: 404 });
-
-  const { accessToken, igUserId } = conn;
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) return NextResponse.json({ error: "RAPIDAPI_KEY not set" }, { status: 500 });
 
   try {
-    const mediaFields = "id,media_type,media_product_type,thumbnail_url,media_url,timestamp,like_count,comments_count,caption";
-    const fields = `business_discovery.fields(username,followers_count,media_count,media{${mediaFields}})`;
-
-    // Try with igUserId first, then fall back to "me"
-    const urls = [
-      `https://graph.instagram.com/v21.0/${igUserId}?fields=${encodeURIComponent(fields)}&username=${encodeURIComponent(handle)}&access_token=${accessToken}`,
-      `https://graph.instagram.com/v21.0/me?fields=${encodeURIComponent(fields)}&username=${encodeURIComponent(handle)}&access_token=${accessToken}`,
-    ];
-
-    let data: Record<string, unknown> = {};
-    for (const url of urls) {
-      const res = await fetch(url);
-      data = await res.json();
-      console.log(`Business Discovery for @${handle}:`, JSON.stringify(data).slice(0, 300));
-      if (!data.error) break;
-    }
-
-    if (data.error) {
-      const err = data.error as { message?: string };
-      return NextResponse.json({ error: err.message || String(data.error) }, { status: 400 });
-    }
-
-    const bd = data.business_discovery as { username?: string; followers_count?: number; media?: { data: unknown[] } } | undefined;
-
-    if (!bd) {
-      return NextResponse.json({ error: "Business Discovery not available — account may not be a Business/Creator account", reels: [] }, { status: 200 });
-    }
-
-    const allMedia = bd?.media?.data || [];
-    // Return all video types (don't over-filter — Instagram API can return VIDEO or REEL)
-    const reels = allMedia.filter(
-      (m) => {
-        const media = m as { media_type?: string };
-        return media.media_type === "VIDEO" || media.media_type === "REEL" || media.media_type === "CAROUSEL_ALBUM";
+    const res = await fetch(
+      `https://instagram-scraper-api2.p.rapidapi.com/v1.2/reels?username_or_id_or_url=${encodeURIComponent(handle)}`,
+      {
+        headers: {
+          "X-RapidAPI-Key": apiKey,
+          "X-RapidAPI-Host": "instagram-scraper-api2.p.rapidapi.com",
+        },
+        next: { revalidate: 300 }, // cache 5 min
       }
     );
 
-    return NextResponse.json({
-      username: bd?.username || handle,
-      followers: bd?.followers_count,
-      total: allMedia.length,
-      reels,
+    const data = await res.json();
+
+    if (data.detail || data.error) {
+      return NextResponse.json({ error: data.detail || data.error }, { status: 400 });
+    }
+
+    // Normalise response — the scraper returns items with slightly different shapes
+    const raw: unknown[] = data?.data?.items ?? data?.items ?? data?.reels ?? [];
+
+    const reels = raw.map((item) => {
+      const m = item as Record<string, unknown>;
+      const user = (m.user as Record<string, unknown>) ?? {};
+      const caption = (m.caption as Record<string, unknown> | null);
+      return {
+        id: String(m.id ?? m.pk ?? Math.random()),
+        thumbnail_url: (m.thumbnail_url as string) || (m.image_versions2 as Record<string, unknown> | undefined)?.candidates?.[0] as string | undefined,
+        media_url: (m.video_url as string) || (m.video_versions as unknown[])?.at?.(0) && ((m.video_versions as Record<string, unknown>[])[0]?.url as string),
+        caption: (caption?.text as string) || (m.caption as string) || "",
+        timestamp: (m.taken_at as string) || (m.timestamp as string) || new Date().toISOString(),
+        like_count: Number(m.like_count ?? m.likes_count ?? 0),
+        comments_count: Number(m.comment_count ?? m.comments_count ?? 0),
+        plays: Number(m.play_count ?? m.view_count ?? 0) || undefined,
+        handle: (user.username as string) || handle,
+      };
     });
+
+    return NextResponse.json({ reels });
   } catch (err) {
     console.error("competitor-reels error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

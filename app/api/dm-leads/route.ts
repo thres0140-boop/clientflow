@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       name: body.name,
       handle: body.handle || null,
       status: body.status || "messaged",
+      date: body.date || null,
       notes: body.notes || null,
     },
   });
