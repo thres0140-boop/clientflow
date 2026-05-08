@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
       const caption = (m.caption as Record<string, unknown> | null);
       return {
         id: String(m.id ?? m.pk ?? Math.random()),
-        thumbnail_url: (m.thumbnail_url as string) || (m.image_versions2 as Record<string, unknown> | undefined)?.candidates?.[0] as string | undefined,
-        media_url: (m.video_url as string) || (m.video_versions as unknown[])?.at?.(0) && ((m.video_versions as Record<string, unknown>[])[0]?.url as string),
+        thumbnail_url: (m.thumbnail_url as string) || ((m.image_versions2 as { candidates?: { url?: string }[] } | undefined)?.candidates?.[0]?.url) || undefined,
+        media_url: (m.video_url as string) || ((m.video_versions as { url?: string }[] | undefined)?.[0]?.url) || undefined,
         caption: (caption?.text as string) || (m.caption as string) || "",
         timestamp: (m.taken_at as string) || (m.timestamp as string) || new Date().toISOString(),
         like_count: Number(m.like_count ?? m.likes_count ?? 0),
