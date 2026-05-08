@@ -32,7 +32,8 @@ export default function App() {
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
-  const [activeProfileId, setActiveProfileId] = useState<number | null>(null); // null = owner/all-access
+  const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
+  const [appReady, setAppReady] = useState(false);
 
   const fetchClients = useCallback(async () => {
     const data: Client[] = await fetch("/api/clients").then((r) => r.json());
@@ -60,11 +61,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    fetchClients();
-    fetchNotifications();
-    fetchTeam();
     const saved = localStorage.getItem("cf_active_profile");
     if (saved) setActiveProfileId(parseInt(saved));
+    Promise.all([fetchClients(), fetchNotifications(), fetchTeam()]).finally(() => setAppReady(true));
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [fetchClients, fetchNotifications, fetchTeam]);
@@ -117,6 +116,15 @@ export default function App() {
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} />;
     }
   }
+
+  if (!appReady) return (
+    <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm text-slate-400 font-medium">Loading...</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex h-full min-h-screen bg-slate-50">
