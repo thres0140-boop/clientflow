@@ -135,7 +135,7 @@ export default function App() {
     }
     const props = { clients, selectedClientId, refreshClients: fetchClients };
     switch (page) {
-      case "pipeline": return <Pipeline {...props} refreshNotifications={fetchNotifications} />;
+      case "pipeline": return <Pipeline {...props} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} />;
       case "concepts": return <Concepts {...props} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;

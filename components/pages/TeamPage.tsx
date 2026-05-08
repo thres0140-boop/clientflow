@@ -19,7 +19,7 @@ const ALL_PAGES = [
   { id: "settings",  label: "Settings",            icon: "⚙️" },
 ];
 
-const CLIENT_PAGES = ["pipeline", "kanban", "analytics", "dms"];
+const CLIENT_PAGES = ["pipeline", "kanban", "analytics", "dms", "chat"];
 
 function parseAccess(pageAccess: string): string[] {
   if (pageAccess === "all") return ALL_PAGES.map((p) => p.id);

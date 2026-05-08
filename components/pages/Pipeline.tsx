@@ -14,6 +14,7 @@ type Props = {
   selectedClientId: number | null;
   refreshClients: () => void;
   refreshNotifications: () => void;
+  isClient?: boolean;
 };
 
 type CalendarView = "month" | "week";
@@ -54,7 +55,7 @@ function parseDayTemplate(raw: string | null | undefined): Record<number, number
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-export default function Pipeline({ clients, selectedClientId, refreshNotifications }: Props) {
+export default function Pipeline({ clients, selectedClientId, refreshNotifications, isClient }: Props) {
   const [content, setContent] = useState<ContentPiece[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [stages, setStages] = useState<WorkflowStage[]>([]);
@@ -199,12 +200,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         </div>
         <div className="flex items-center gap-2">
           <PlanModeSelector current={planMode} onChange={changePlanMode} />
-          <button
-            onClick={() => setShowAdd(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
-          >
-            + Add Content
-          </button>
+          {!isClient && (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              + Add Content
+            </button>
+          )}
         </div>
       </div>
 
@@ -451,10 +454,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         </div>
         {filteredContent.length === 0 ? (
           <div className="px-5 py-10 text-center">
-            <p className="text-slate-400 text-sm mb-3">No content yet. Add your first piece!</p>
-            <button onClick={() => setShowAdd(true)} className="text-sm bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700">
-              + Add Content
-            </button>
+            <p className="text-slate-400 text-sm mb-3">{isClient ? "No content yet." : "No content yet. Add your first piece!"}</p>
+            {!isClient && <button onClick={() => setShowAdd(true)} className="text-sm bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700">+ Add Content</button>}
           </div>
         ) : (
           <div className="divide-y divide-slate-50">
