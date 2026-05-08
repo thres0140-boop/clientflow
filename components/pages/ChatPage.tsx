@@ -6,8 +6,8 @@ import { Client, Message, Concept, TrackedVideo } from "@/lib/types";
 type Props = {
   clients: Client[];
   selectedClientId: number | null;
-  ownerName?: string;
-  authorName?: string;
+  currentUserName?: string;
+  isOwnerSession?: boolean;
 };
 
 type MentionItem = {
@@ -17,7 +17,7 @@ type MentionItem = {
   sub?: string;
 };
 
-export default function ChatPage({ clients, selectedClientId, ownerName = "Owner", authorName = "owner" }: Props) {
+export default function ChatPage({ clients, selectedClientId, currentUserName = "owner", isOwnerSession = false }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -107,7 +107,7 @@ export default function ChatPage({ clients, selectedClientId, ownerName = "Owner
     await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: selectedClientId, content, author: authorName }),
+      body: JSON.stringify({ clientId: selectedClientId, content, author: currentUserName }),
     });
     fetchMessages();
   }
@@ -166,8 +166,8 @@ export default function ChatPage({ clients, selectedClientId, ownerName = "Owner
           </div>
         ) : (
           messages.map((msg) => {
-            const isMe = msg.author === authorName;
-            const displayName = msg.author === "owner" ? ownerName : msg.author;
+            const isMe = msg.author === currentUserName || (isOwnerSession && msg.author === "owner");
+            const displayName = (msg.author === "owner" && isOwnerSession) ? currentUserName : msg.author;
             const initial = displayName[0]?.toUpperCase() ?? "?";
             return (
               <div key={msg.id} className={`flex gap-2 group ${isMe ? "justify-end" : "justify-start"}`}>
@@ -197,7 +197,7 @@ export default function ChatPage({ clients, selectedClientId, ownerName = "Owner
                 </div>
                 {isMe && (
                   <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 flex-shrink-0 mt-0.5">
-                    {authorName === "owner" ? ownerName[0]?.toUpperCase() : authorName[0]?.toUpperCase()}
+                    {currentUserName[0]?.toUpperCase()}
                   </div>
                 )}
               </div>

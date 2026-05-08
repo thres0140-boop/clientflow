@@ -5,5 +5,6 @@ export async function GET(req: NextRequest) {
   const token = req.cookies.get("cf_session")?.value;
   if (!token) return NextResponse.json(null);
   const session = await verifySessionToken(token);
-  return NextResponse.json(session);
+  if (!session) return NextResponse.json(null);
+  return NextResponse.json({ ...session, ownerName: process.env.OWNER_NAME ?? "Owner" });
 }

@@ -142,7 +142,7 @@ export default function App() {
       case "concepts": return <Concepts {...props} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
-      case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} ownerName={process.env.NEXT_PUBLIC_OWNER_NAME ?? "Owner"} authorName={session?.type === "member" ? (session.name ?? "client") : "owner"} />;
+      case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} currentUserName={session?.name ?? "owner"} isOwnerSession={session?.type === "owner"} />;
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
       case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} team={team} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} />;
