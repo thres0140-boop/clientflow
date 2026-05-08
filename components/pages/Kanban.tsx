@@ -390,6 +390,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             }).then(reload);
             setDetailDraft((d) => d ? { ...d, script, hook } : null);
           }}
+          activeProfileId={activeProfileId}
           onProceed={() => { proceedToNextStage(detailDraft); setDetailDraft(null); }}
           getNextStage={(id) => getNextStage(id)}
           onUploaded={(urls) => {
@@ -506,7 +507,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded,
+  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, activeProfileId,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[];
   onClose: () => void; onAccept: () => void; onReject: () => void;
@@ -515,6 +516,7 @@ function DraftDetailPanel({
   onProceed: () => void;
   getNextStage: (stageId: number) => WorkflowStage | null;
   onUploaded: (urls: string[]) => void;
+  activeProfileId: number | null;
 }) {
   const [script, setScript] = useState(draft.script);
   const [hook, setHook] = useState(draft.hook || "");
@@ -522,10 +524,21 @@ function DraftDetailPanel({
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [refining, setRefining] = useState(false);
   const [saveWeeks, setSaveWeeks] = useState(2);
+  const [notes, setNotes] = useState<{ id: number; author: string; content: string; createdAt: string }[]>([]);
+  const [changes, setChanges] = useState<{ id: number; field: string; before: string; after: string; author: string; createdAt: string }[]>([]);
+  const [noteInput, setNoteInput] = useState("");
+  const [prevHook, setPrevHook] = useState(draft.hook || "");
+  const [prevScript, setPrevScript] = useState(draft.script);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const inStage = !!draft.stageId;
   const nextStage = draft.stageId ? getNextStage(draft.stageId) : null;
+  const authorName = activeProfileId ? "client" : "owner";
+
+  useEffect(() => {
+    fetch(`/api/draft-notes?draftId=${draft.id}`).then(r => r.json()).then(setNotes);
+    fetch(`/api/draft-changes?draftId=${draft.id}`).then(r => r.json()).then(setChanges);
+  }, [draft.id]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -573,7 +586,16 @@ function DraftDetailPanel({
           {/* Hook */}
           <div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Text Hook</label>
-            <input value={hook} onChange={(e) => { setHook(e.target.value); onScriptUpdated(script, e.target.value); }}
+            <input value={hook}
+              onChange={(e) => { setHook(e.target.value); onScriptUpdated(script, e.target.value); }}
+              onBlur={(e) => {
+                if (inStage && e.target.value !== prevHook) {
+                  fetch("/api/draft-changes", { method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ draftId: draft.id, field: "hook", before: prevHook, after: e.target.value, author: authorName }) })
+                    .then(r => r.json()).then(c => { if (c) setChanges(prev => [...prev, c]); });
+                  setPrevHook(e.target.value);
+                }
+              }}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
@@ -582,6 +604,14 @@ function DraftDetailPanel({
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Script</label>
             <textarea rows={8} value={script}
               onChange={(e) => { setScript(e.target.value); onScriptUpdated(e.target.value, hook || null); }}
+              onBlur={(e) => {
+                if (inStage && e.target.value !== prevScript) {
+                  fetch("/api/draft-changes", { method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ draftId: draft.id, field: "script", before: prevScript, after: e.target.value, author: authorName }) })
+                    .then(r => r.json()).then(c => { if (c) setChanges(prev => [...prev, c]); });
+                  setPrevScript(e.target.value);
+                }
+              }}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
             <p className="text-[10px] text-slate-400 mt-1">{script.split(" ").filter(Boolean).length} words</p>
           </div>
@@ -594,39 +624,99 @@ function DraftDetailPanel({
             </div>
           )}
 
-          {/* Chat refine */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-              Refine with Claude
-            </label>
-            {messages.length > 0 && (
-              <div className="mb-3 space-y-2 max-h-48 overflow-y-auto">
-                {messages.map((m, i) => (
-                  <div key={i} className={`text-xs px-3 py-2 rounded-lg ${
-                    m.role === "user"
-                      ? "bg-indigo-50 text-indigo-800 ml-6"
-                      : "bg-slate-50 text-slate-700 mr-6"
-                  }`}>
-                    <pre className="whitespace-pre-wrap font-sans">{m.content}</pre>
-                  </div>
-                ))}
-                <div ref={chatEndRef} />
+          {/* Chat refine — only in Ideas stage */}
+          {!inStage && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                Refine with Claude
+              </label>
+              {messages.length > 0 && (
+                <div className="mb-3 space-y-2 max-h-48 overflow-y-auto">
+                  {messages.map((m, i) => (
+                    <div key={i} className={`text-xs px-3 py-2 rounded-lg ${
+                      m.role === "user"
+                        ? "bg-indigo-50 text-indigo-800 ml-6"
+                        : "bg-slate-50 text-slate-700 mr-6"
+                    }`}>
+                      <pre className="whitespace-pre-wrap font-sans">{m.content}</pre>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); refine(); } }}
+                  placeholder="Make the hook funnier, shorter, more Dutch…"
+                  className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button onClick={refine} disabled={refining || !chatInput.trim()}
+                  className="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                  {refining ? "…" : "Send"}
+                </button>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Notes */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Notes</label>
+            <div className="space-y-2 mb-2">
+              {notes.length === 0 && <p className="text-xs text-slate-400">No notes yet.</p>}
+              {notes.map((n) => (
+                <div key={n.id} className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  <p className="text-xs text-slate-700">{n.content}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{n.author} · {new Date(n.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                </div>
+              ))}
+            </div>
             <div className="flex gap-2">
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); refine(); } }}
-                placeholder="Make the hook funnier, shorter, more Dutch…"
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <button onClick={refine} disabled={refining || !chatInput.trim()}
-                className="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                {refining ? "…" : "Send"}
-              </button>
+              <input value={noteInput} onChange={(e) => setNoteInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault();
+                  if (!noteInput.trim()) return;
+                  fetch("/api/draft-notes", { method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ draftId: draft.id, content: noteInput.trim(), author: authorName }) })
+                    .then(r => r.json()).then(n => { setNotes(prev => [...prev, n]); setNoteInput(""); });
+                }}}
+                placeholder="Add a note…"
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+              <button onClick={() => {
+                if (!noteInput.trim()) return;
+                fetch("/api/draft-notes", { method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ draftId: draft.id, content: noteInput.trim(), author: authorName }) })
+                  .then(r => r.json()).then(n => { setNotes(prev => [...prev, n]); setNoteInput(""); });
+              }} className="px-3 py-2 text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600">Add</button>
             </div>
           </div>
+
+          {/* Change history */}
+          {inStage && changes.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Change History</label>
+              <div className="space-y-2">
+                {changes.map((c) => (
+                  <div key={c.id} className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+                      <span className="font-semibold text-slate-600 capitalize">{c.field} edited</span>
+                      <span className="text-slate-400">{c.author} · {new Date(c.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-slate-200">
+                      <div className="px-3 py-2 bg-red-50">
+                        <p className="text-[10px] font-semibold text-red-400 mb-1">Before</p>
+                        <p className="text-slate-600 whitespace-pre-wrap line-clamp-4">{c.before}</p>
+                      </div>
+                      <div className="px-3 py-2 bg-green-50">
+                        <p className="text-[10px] font-semibold text-green-500 mb-1">After</p>
+                        <p className="text-slate-600 whitespace-pre-wrap line-clamp-4">{c.after}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}

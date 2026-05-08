@@ -211,6 +211,8 @@ model ScriptDraft {
   client  Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   concept Concept        @relation(fields: [conceptId], references: [id], onDelete: Cascade)
   stage   WorkflowStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  notes   DraftNote[]
+  changes DraftChange[]
 }
 
 model ContentPiece {
@@ -277,6 +279,28 @@ model AnalyticsEntry {
   concept Concept? @relation(fields: [conceptId], references: [id], onDelete: SetNull)
 
   @@unique([clientId, date])
+}
+
+model DraftNote {
+  id        Int      @id @default(autoincrement())
+  draftId   Int
+  content   String
+  author    String
+  createdAt DateTime @default(now())
+
+  draft ScriptDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+}
+
+model DraftChange {
+  id        Int      @id @default(autoincrement())
+  draftId   Int
+  field     String
+  before    String
+  after     String
+  author    String
+  createdAt DateTime @default(now())
+
+  draft ScriptDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 }
 
 model DmLead {
