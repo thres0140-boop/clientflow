@@ -160,6 +160,7 @@ model Concept {
   id             Int      @id @default(autoincrement())
   clientId       Int?
   name           String
+  conceptType    String?
   hookType       String?
   textHook       String?
   audioHook      String?

@@ -219,6 +219,7 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
 }) {
   const [form, setForm] = useState({
     name: idea.name || "",
+    conceptType: "",
     hookType: "",
     textHook: "",
     audioHook: "",
@@ -307,6 +308,25 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
               <label className="block text-xs font-medium text-slate-600 mb-1">Concept Name *</label>
               <input required value={form.name} onChange={(e) => set("name", e.target.value)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Concept Type</label>
+              <div className="flex gap-2 flex-wrap">
+                {["Viral", "Trust", "Authentic", "Value"].map((t) => (
+                  <button key={t} type="button" onClick={() => set("conceptType", form.conceptType === t ? "" : t)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                      form.conceptType === t
+                        ? t === "Viral" ? "bg-pink-500 text-white border-pink-500"
+                          : t === "Trust" ? "bg-blue-500 text-white border-blue-500"
+                          : t === "Authentic" ? "bg-amber-500 text-white border-amber-500"
+                          : "bg-green-500 text-white border-green-500"
+                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                    }`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

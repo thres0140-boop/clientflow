@@ -9,6 +9,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     data: {
       clientId: body.clientId ? parseInt(body.clientId) : null,
       name: body.name,
+      conceptType: body.conceptType || null,
       hookType: body.hookType || null,
       textHook: body.textHook || null,
       audioHook: body.audioHook || null,
