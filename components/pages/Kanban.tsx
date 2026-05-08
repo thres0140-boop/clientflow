@@ -433,7 +433,7 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
         files.map((f) => upload(f.name, f, {
           access: "public",
           handleUploadUrl: "/api/upload",
-          onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+          onUploadProgress: ({ percentage }) => setProgress((p) => Math.max(p ?? 0, Math.round(percentage))),
         }).then((b) => b.url))
       );
       onUploaded([...existing, ...urls]);
@@ -672,7 +672,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
         files.map((f) => upload(f.name, f, {
           access: "public",
           handleUploadUrl: "/api/upload",
-          onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+          onUploadProgress: ({ percentage }) => setProgress((p) => Math.max(p ?? 0, Math.round(percentage))),
         }).then((b) => b.url))
       );
       onUploaded([...urls, ...newUrls]);
