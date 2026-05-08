@@ -9,7 +9,7 @@ const NAV_GROUPS = [
   {
     label: "WORK",
     items: [
-      { id: "pipeline" as Page, label: "Content Pipeline", icon: "📅" },
+      { id: "pipeline" as Page, label: "Content Scheduling", icon: "📅" },
       { id: "kanban" as Page, label: "Script Kanban", icon: "📋" },
       { id: "concepts" as Page, label: "Concept Library", icon: "💡" },
       { id: "analytics" as Page, label: "Analytics", icon: "📊" },

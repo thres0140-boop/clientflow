@@ -7,16 +7,19 @@ import Modal from "@/components/ui/Modal";
 type Props = { clients: Client[]; selectedClientId: number | null };
 
 const ALL_PAGES = [
-  { id: "pipeline",  label: "Content Pipeline", icon: "📅" },
-  { id: "kanban",    label: "Script Kanban",    icon: "📋" },
-  { id: "concepts",  label: "Concept Library",  icon: "💡" },
-  { id: "analytics", label: "Analytics",        icon: "📊" },
-  { id: "instagram", label: "Instagram",        icon: "📸" },
-  { id: "board",     label: "Strategy Board",   icon: "🗂️" },
-  { id: "team",      label: "Team",             icon: "🤝" },
-  { id: "chat",      label: "Client Chat",      icon: "💬" },
-  { id: "settings",  label: "Settings",         icon: "⚙️" },
+  { id: "pipeline",  label: "Content Scheduling", icon: "📅" },
+  { id: "kanban",    label: "Script Kanban",       icon: "📋" },
+  { id: "concepts",  label: "Concept Library",     icon: "💡" },
+  { id: "analytics", label: "Analytics",           icon: "📊" },
+  { id: "dms",       label: "DM Pipeline",         icon: "💌" },
+  { id: "instagram", label: "Instagram",           icon: "📸" },
+  { id: "board",     label: "Strategy Board",      icon: "🗂️" },
+  { id: "team",      label: "Team",                icon: "🤝" },
+  { id: "chat",      label: "Client Chat",         icon: "💬" },
+  { id: "settings",  label: "Settings",            icon: "⚙️" },
 ];
+
+const CLIENT_PAGES = ["pipeline", "kanban", "analytics", "dms"];
 
 function parseAccess(pageAccess: string): string[] {
   if (pageAccess === "all") return ALL_PAGES.map((p) => p.id);
@@ -185,6 +188,7 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
 // ── Member Modal ────────────────────────────────────────────────────────────
 
 function MemberModal({ member, onClose, onSaved }: { member?: TeamMember; onClose: () => void; onSaved: () => void }) {
+  const [memberType, setMemberType] = useState<"team" | "client">("team");
   const initialPages = member ? parseAccess(member.pageAccess) : ALL_PAGES.map((p) => p.id);
   const [form, setForm] = useState({ name: member?.name || "", email: member?.email || "", role: member?.role || "", color: member?.color || "#6366f1" });
   const [selectedPages, setSelectedPages] = useState<string[]>(initialPages);
@@ -192,62 +196,108 @@ function MemberModal({ member, onClose, onSaved }: { member?: TeamMember; onClos
   function togglePage(id: string) { setSelectedPages((prev) => prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]); }
   function toggleAll() { setSelectedPages(selectedPages.length === ALL_PAGES.length ? [] : ALL_PAGES.map((p) => p.id)); }
 
+  function switchType(t: "team" | "client") {
+    setMemberType(t);
+    if (t === "client") setSelectedPages(CLIENT_PAGES);
+    else setSelectedPages(ALL_PAGES.map((p) => p.id));
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const pageAccess = selectedPages.length === ALL_PAGES.length ? "all" : selectedPages.join(",");
+    const pages = memberType === "client" ? CLIENT_PAGES : selectedPages;
+    const pageAccess = memberType === "client" ? CLIENT_PAGES.join(",") : (pages.length === ALL_PAGES.length ? "all" : pages.join(","));
     const method = member ? "PUT" : "POST";
     const url = member ? `/api/team/${member.id}` : "/api/team";
     await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, pageAccess }) });
     onSaved();
   }
 
+  const isClient = memberType === "client";
+
   return (
-    <Modal title={member ? "Edit Member" : "Add Team Member"} onClose={onClose}>
+    <Modal title={member ? "Edit Member" : "Add Member"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
+
+        {/* Type toggle — only shown when adding new */}
+        {!member && (
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+            <button type="button" onClick={() => switchType("team")}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${!isClient ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              🤝 Team
+            </button>
+            <button type="button" onClick={() => switchType("client")}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${isClient ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              🎬 Client
+            </button>
+          </div>
+        )}
+
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Name *</label>
           <input required value={form.name} onChange={(e) => set("name", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Role</label>
-          <input value={form.role} onChange={(e) => set("role", e.target.value)} placeholder="e.g. Editor, Account Manager..." className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
-          <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        </div>
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-medium text-slate-600">Page Access</label>
-            <button type="button" onClick={toggleAll} className="text-xs text-indigo-600 hover:underline">{selectedPages.length === ALL_PAGES.length ? "Deselect all" : "Select all"}</button>
+
+        {!isClient && (
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Role</label>
+            <input value={form.role} onChange={(e) => set("role", e.target.value)} placeholder="e.g. Editor, Account Manager..." className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {ALL_PAGES.map((page) => {
-              const checked = selectedPages.includes(page.id);
-              return (
-                <button key={page.id} type="button" onClick={() => togglePage(page.id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${checked ? "bg-indigo-50 border-indigo-300 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>
-                  <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${checked ? "bg-indigo-600 border-indigo-600" : "border-slate-300 bg-white"}`}>
-                    {checked && <span className="text-white text-[9px] font-bold">✓</span>}
-                  </span>
-                  <span>{page.icon}</span>
-                  <span className="truncate">{page.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        )}
+
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-2">Color</label>
-          <div className="flex flex-wrap gap-2">
-            {MEMBER_COLORS.map((c) => (
-              <button key={c} type="button" onClick={() => set("color", c)} className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`} style={{ backgroundColor: c }} />
-            ))}
-          </div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Email{isClient ? " *" : ""}</label>
+          <input type="email" required={isClient} value={form.email} onChange={(e) => set("email", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
+
+        {isClient ? (
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+            <p className="text-xs font-medium text-slate-600 mb-2">Page Access (preset)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {ALL_PAGES.filter((p) => CLIENT_PAGES.includes(p.id)).map((p) => (
+                <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                  {p.icon} {p.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-medium text-slate-600">Page Access</label>
+              <button type="button" onClick={toggleAll} className="text-xs text-indigo-600 hover:underline">{selectedPages.length === ALL_PAGES.length ? "Deselect all" : "Select all"}</button>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {ALL_PAGES.map((page) => {
+                const checked = selectedPages.includes(page.id);
+                return (
+                  <button key={page.id} type="button" onClick={() => togglePage(page.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${checked ? "bg-indigo-50 border-indigo-300 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>
+                    <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${checked ? "bg-indigo-600 border-indigo-600" : "border-slate-300 bg-white"}`}>
+                      {checked && <span className="text-white text-[9px] font-bold">✓</span>}
+                    </span>
+                    <span>{page.icon}</span>
+                    <span className="truncate">{page.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!isClient && (
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Color</label>
+            <div className="flex flex-wrap gap-2">
+              {MEMBER_COLORS.map((c) => (
+                <button key={c} type="button" onClick={() => set("color", c)} className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`} style={{ backgroundColor: c }} />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700">{member ? "Save Changes" : "Add Member"}</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700">{member ? "Save Changes" : (isClient ? "Add Client" : "Add Member")}</button>
         </div>
       </form>
     </Modal>
