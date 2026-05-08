@@ -388,8 +388,10 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ rawContentUrls: urls }),
-            }).then(reload);
+            });
             setDetailDraft((d) => d ? { ...d, rawContentUrls: JSON.stringify(urls) } : null);
+            // update the draft in the list without a full reload
+            setDrafts((ds) => ds.map((d) => d.id === detailDraft.id ? { ...d, rawContentUrls: JSON.stringify(urls) } : d));
           }}
         />
       )}
@@ -668,13 +670,19 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
     setProgress(0);
     setError("");
     try {
-      const newUrls = await Promise.all(
-        files.map((f) => upload(f.name, f, {
+      const newUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const blob = await upload(f.name, f, {
           access: "public",
           handleUploadUrl: "/api/upload",
-          onUploadProgress: ({ percentage }) => setProgress((p) => Math.max(p ?? 0, Math.round(percentage))),
-        }).then((b) => b.url))
-      );
+          onUploadProgress: ({ percentage }) => {
+            const overall = ((i / files.length) + percentage / 100 / files.length) * 100;
+            setProgress(Math.round(overall));
+          },
+        });
+        newUrls.push(blob.url);
+      }
       onUploaded([...urls, ...newUrls]);
     } catch (err) {
       setError(String(err));
@@ -688,22 +696,40 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
     onUploaded(urls.filter((_, i) => i !== idx));
   }
 
+  function isVideo(url: string) {
+    return /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(url.split("?")[0]);
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {error && (
         <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
       )}
-      {urls.map((url, i) => (
-        <div key={i} className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-          <span className="text-green-500 text-sm">📎</span>
-          <a href={url} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-green-700 hover:underline flex-1 truncate">
-            {url.split("/").pop() || `File ${i + 1}`} ↗
-          </a>
-          <button onClick={() => removeFile(i)}
-            className="text-slate-400 hover:text-red-500 text-xs flex-shrink-0">✕</button>
+
+      {urls.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {urls.map((url, i) => (
+            <div key={i} className="relative group rounded-xl overflow-hidden bg-slate-900 aspect-square">
+              {isVideo(url) ? (
+                <video src={url} controls className="w-full h-full object-cover" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={url} alt={`File ${i + 1}`} className="w-full h-full object-cover" />
+              )}
+              <button
+                onClick={() => removeFile(i)}
+                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
+                ✕
+              </button>
+              <a href={url} target="_blank" rel="noopener noreferrer"
+                className="absolute bottom-1.5 left-1.5 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                Open ↗
+              </a>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
       <input ref={inputRef} type="file" accept="video/*,image/*" multiple className="hidden" onChange={handleFiles} />
       {progress !== null ? (
         <div className="w-full rounded-lg border-2 border-indigo-200 bg-indigo-50 px-3 py-2">
