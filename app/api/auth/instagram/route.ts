@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const url = new URL("https://www.instagram.com/oauth/authorize");
   url.searchParams.set("client_id", appId);
   url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("scope", "instagram_business_basic,instagram_business_manage_insights");
+  url.searchParams.set("scope", "instagram_business_basic,instagram_business_manage_insights,instagram_business_manage_messages");
   url.searchParams.set("state", clientId);
   url.searchParams.set("response_type", "code");
 
