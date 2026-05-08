@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import Pipeline from "@/components/pages/Pipeline";
 import Concepts from "@/components/pages/Concepts";
@@ -34,6 +34,8 @@ export default function App() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
   const [appReady, setAppReady] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchClients = useCallback(async () => {
     const data: Client[] = await fetch("/api/clients").then((r) => r.json());
@@ -74,6 +76,14 @@ export default function App() {
       localStorage.setItem("cf_active_client", String(selectedClientId));
     }
   }, [selectedClientId]);
+
+  // Brief loading flash when switching client or page
+  useEffect(() => {
+    if (!appReady) return;
+    setTransitioning(true);
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    transitionTimer.current = setTimeout(() => setTransitioning(false), 250);
+  }, [selectedClientId, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function switchProfile(id: number | null) {
     setActiveProfileId(id);
@@ -158,8 +168,13 @@ export default function App() {
         }}
       />
       {page === "board"
-        ? <>{renderPage()}</>
-        : <main className="flex-1 ml-64 p-8 min-w-0">{renderPage()}</main>
+        ? <>{transitioning ? null : renderPage()}</>
+        : <main className="flex-1 ml-64 p-8 min-w-0">
+            {transitioning
+              ? <div className="flex items-center justify-center h-64"><div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
+              : renderPage()
+            }
+          </main>
       }
     </div>
   );
