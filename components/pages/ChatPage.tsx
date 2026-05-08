@@ -45,8 +45,8 @@ export default function ChatPage({ clients, selectedClientId }: Props) {
   }, [messages]);
 
   const mentionItems: MentionItem[] = [
-    ...concepts.map((c) => ({ type: "concept" as const, id: c.id, label: c.name, sub: "concept" })),
-    ...videos.map((v) => ({ type: "video" as const, id: v.id, label: v.title, sub: "video" })),
+    ...concepts.filter((c) => !c.isIdea).map((c) => ({ type: "concept" as const, id: c.id, label: c.name, sub: "Concept" })),
+    ...videos.map((v) => ({ type: "video" as const, id: v.id, label: v.title, sub: "Video" })),
   ];
 
   const filteredMentions = mention
@@ -141,7 +141,7 @@ export default function ChatPage({ clients, selectedClientId }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
+    <div className="flex flex-col h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)]">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6 flex-shrink-0">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold"
