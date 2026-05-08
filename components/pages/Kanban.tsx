@@ -6,12 +6,14 @@ import {
   PointerSensor, useSensor, useSensors, closestCenter,
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { Client, Concept, WorkflowStage, ScriptDraft } from "@/lib/types";
+import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember } from "@/lib/types";
 
 type Props = {
   clients: Client[];
   selectedClientId: number | null;
   onSelectClient: (id: number | null) => void;
+  activeProfileId: number | null;
+  team: TeamMember[];
 };
 
 const WEEK_NUMBER = Math.ceil(
@@ -34,7 +36,7 @@ function DraggableCard({ draft, onClick }: { draft: ScriptDraft; onClick: () => 
   );
 }
 
-// ─── Card content (used in both DraggableCard and DragOverlay) ──────────────
+// ─── Card content ────────────────────────────────────────────────────────────
 function CardContent({ draft }: { draft: ScriptDraft }) {
   return (
     <div className={`bg-white rounded-xl border p-3 shadow-sm hover:shadow-md transition-all select-none ${
@@ -54,6 +56,12 @@ function CardContent({ draft }: { draft: ScriptDraft }) {
         <p className="text-[11px] text-slate-600 mt-1.5 line-clamp-2 italic">"{draft.hook}"</p>
       )}
       <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-3 leading-relaxed">{draft.script}</p>
+      {draft.rawContentUrl && (
+        <div className="mt-2 flex items-center gap-1 text-[10px] text-green-600 font-medium">
+          <span>📎</span>
+          <span>Raw content uploaded</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -69,7 +77,7 @@ function DroppableColumn({ id, children, className }: { id: string; children: Re
 }
 
 // ─── Main Kanban ────────────────────────────────────────────────────────────
-export default function Kanban({ clients, selectedClientId, onSelectClient }: Props) {
+export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, team }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -95,6 +103,14 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
 
   useEffect(() => { reload(); }, [reload]);
 
+  // Active profile member
+  const activeProfile = team.find((m) => m.id === activeProfileId) ?? null;
+
+  // If logged in as a team member, only show stages assigned to them
+  const visibleStages = activeProfile
+    ? stages.filter((s) => s.assignedToId === activeProfile.id)
+    : stages;
+
   const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId);
   const savedDrafts   = drafts.filter((d) => d.status === "saved");
   const ideaColumn    = [...pendingDrafts, ...savedDrafts];
@@ -104,13 +120,12 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
   }
 
   async function moveDraft(draftId: number, targetStageId: number | null) {
-    const isAccepting = targetStageId !== null;
     await fetch(`/api/script-drafts/${draftId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         stageId: targetStageId,
-        status: isAccepting ? "accepted" : "pending",
+        status: targetStageId !== null ? "accepted" : "pending",
         isSavedIdea: false,
       }),
     });
@@ -137,6 +152,17 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
       }),
     });
     reload();
+  }
+
+  function getNextStage(currentStageId: number): WorkflowStage | null {
+    const idx = stages.findIndex((s) => s.id === currentStageId);
+    return idx >= 0 && idx < stages.length - 1 ? stages[idx + 1] : null;
+  }
+
+  async function proceedToNextStage(draft: ScriptDraft) {
+    if (!draft.stageId) return;
+    const next = getNextStage(draft.stageId);
+    await moveDraft(draft.id, next?.id ?? null);
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -194,14 +220,18 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowStageManager(true)}
-            className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
-            ⚙ Stages
-          </button>
-          <button onClick={() => setShowGenerate(true)}
-            className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-1.5">
-            ✨ Generate Scripts
-          </button>
+          {!activeProfile && (
+            <button onClick={() => setShowStageManager(true)}
+              className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+              ⚙ Stages
+            </button>
+          )}
+          {!activeProfile && (
+            <button onClick={() => setShowGenerate(true)}
+              className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-1.5">
+              ✨ Generate Scripts
+            </button>
+          )}
         </div>
       </div>
 
@@ -209,53 +239,52 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
       <DndContext sensors={sensors} collisionDetection={closestCenter}
         onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
-          {/* Idea column */}
-          <DroppableColumn id="idea-column"
-            className="flex-shrink-0 w-64 bg-white border border-slate-200 rounded-2xl flex flex-col">
-            <div className="px-4 py-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="text-base">💡</span>
-                <span className="text-sm font-semibold text-slate-700">Ideas</span>
-                {ideaColumn.length > 0 && (
-                  <span className="ml-auto text-xs font-semibold bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
-                    {ideaColumn.length}
-                  </span>
+          {/* Idea column — hidden for assignees */}
+          {!activeProfile && (
+            <DroppableColumn id="idea-column"
+              className="flex-shrink-0 w-64 bg-white border border-slate-200 rounded-2xl flex flex-col">
+              <div className="px-4 py-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">💡</span>
+                  <span className="text-sm font-semibold text-slate-700">Ideas</span>
+                  {ideaColumn.length > 0 && (
+                    <span className="ml-auto text-xs font-semibold bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
+                      {ideaColumn.length}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+                {ideaColumn.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">
+                    No ideas yet.<br />Click ✨ Generate Scripts to start.
+                  </p>
+                ) : (
+                  ideaColumn.map((draft) => (
+                    <div key={draft.id}>
+                      <DraggableCard draft={draft} onClick={() => setDetailDraft(draft)} />
+                      <div className="flex gap-1.5 mt-1.5">
+                        <button onClick={() => moveDraft(draft.id, stages[0]?.id ?? null)}
+                          disabled={stages.length === 0}
+                          className="flex-1 py-1 text-[10px] font-semibold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 disabled:opacity-40">
+                          ✓ Accept
+                        </button>
+                        <SaveIdeaButton draft={draft} interval={client.generationInterval}
+                          onSave={(weeks) => saveAsIdea(draft.id, weeks)} />
+                        <button onClick={() => rejectDraft(draft.id)}
+                          className="px-2 py-1 text-[10px] font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100">
+                          ✗
+                        </button>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-              {ideaColumn.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">
-                  No ideas yet.<br />Click ✨ Generate Scripts to start.
-                </p>
-              ) : (
-                ideaColumn.map((draft) => (
-                  <div key={draft.id}>
-                    <DraggableCard draft={draft} onClick={() => setDetailDraft(draft)} />
-                    {/* Quick action buttons */}
-                    <div className="flex gap-1.5 mt-1.5">
-                      <button onClick={() => moveDraft(draft.id, stages[0]?.id ?? null)}
-                        disabled={stages.length === 0}
-                        title="Accept — move to first stage"
-                        className="flex-1 py-1 text-[10px] font-semibold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 disabled:opacity-40">
-                        ✓ Accept
-                      </button>
-                      <SaveIdeaButton draft={draft} interval={client.generationInterval}
-                        onSave={(weeks) => saveAsIdea(draft.id, weeks)} />
-                      <button onClick={() => rejectDraft(draft.id)}
-                        title="Reject"
-                        className="px-2 py-1 text-[10px] font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100">
-                        ✗
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </DroppableColumn>
+            </DroppableColumn>
+          )}
 
           {/* Workflow stage columns */}
-          {stages.length === 0 ? (
+          {visibleStages.length === 0 && !activeProfile ? (
             <div className="flex-shrink-0 w-56 flex flex-col items-center justify-center text-center py-8 bg-white border border-dashed border-slate-300 rounded-2xl">
               <p className="text-xs text-slate-400 mb-3">No stages set up yet</p>
               <button onClick={() => setShowStageManager(true)}
@@ -263,9 +292,15 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
                 + Add stages
               </button>
             </div>
+          ) : visibleStages.length === 0 && activeProfile ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+              <p className="text-slate-400 text-sm">No stages assigned to you yet.</p>
+            </div>
           ) : (
-            stages.map((stage) => {
+            visibleStages.map((stage) => {
               const stageDrafts = draftsForStage(stage.id);
+              const stageIdx = stages.indexOf(stage);
+              const nextStage = stageIdx < stages.length - 1 ? stages[stageIdx + 1] : null;
               return (
                 <DroppableColumn key={stage.id} id={String(stage.id)}
                   className="flex-shrink-0 w-64 bg-white border border-slate-200 rounded-2xl flex flex-col">
@@ -274,7 +309,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
                     <div className="flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: stage.color }}>
-                        {stages.indexOf(stage) + 1}
+                        {stageIdx + 1}
                       </span>
                       <span className="text-sm font-semibold text-slate-700 truncate">{stage.name}</span>
                       {stageDrafts.length > 0 && (
@@ -284,11 +319,36 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
                         </span>
                       )}
                     </div>
+                    {stage.assignedTo && (
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <div className="w-4 h-4 rounded-full flex-shrink-0 text-[8px] font-bold text-white flex items-center justify-center"
+                          style={{ backgroundColor: stage.assignedTo.color }}>
+                          {stage.assignedTo.name[0]}
+                        </div>
+                        <span className="text-[10px] text-slate-400">{stage.assignedTo.name}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-[120px]">
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
                     {stageDrafts.map((draft) => (
-                      <DraggableCard key={draft.id} draft={draft}
-                        onClick={() => setDetailDraft(draft)} />
+                      <div key={draft.id} className="space-y-1.5">
+                        <DraggableCard draft={draft} onClick={() => setDetailDraft(draft)} />
+                        {/* Per-card actions for assignees */}
+                        <div className="flex gap-1.5">
+                          <FileUploadButton draft={draft} onUploaded={(url) => {
+                            fetch(`/api/script-drafts/${draft.id}`, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ rawContentUrl: url }),
+                            }).then(reload);
+                          }} />
+                          <button
+                            onClick={() => proceedToNextStage(draft)}
+                            className="flex-1 py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100">
+                            {nextStage ? `→ ${nextStage.name}` : "✓ Done"}
+                          </button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </DroppableColumn>
@@ -320,6 +380,16 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
             }).then(reload);
             setDetailDraft((d) => d ? { ...d, script, hook } : null);
           }}
+          onProceed={() => { proceedToNextStage(detailDraft); setDetailDraft(null); }}
+          getNextStage={(id) => getNextStage(id)}
+          onUploaded={(url) => {
+            fetch(`/api/script-drafts/${detailDraft.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rawContentUrl: url }),
+            }).then(reload);
+            setDetailDraft((d) => d ? { ...d, rawContentUrl: url } : null);
+          }}
         />
       )}
 
@@ -338,6 +408,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
         <StageManagerModal
           client={client}
           stages={stages}
+          team={team}
           onClose={() => setShowStageManager(false)}
           onSaved={() => { setShowStageManager(false); reload(); }}
         />
@@ -346,7 +417,46 @@ export default function Kanban({ clients, selectedClientId, onSelectClient }: Pr
   );
 }
 
-// ─── Save-as-Idea button with inline week picker ────────────────────────────
+// ─── File upload button ─────────────────────────────────────────────────────
+function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.url) onUploaded(data.url);
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="video/*,image/*" className="hidden" onChange={handleFile} />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        title={draft.rawContentUrl ? "Replace raw content" : "Upload raw content"}
+        className={`px-2 py-1 text-[10px] font-semibold rounded-lg transition-colors ${
+          draft.rawContentUrl
+            ? "text-green-600 bg-green-50 hover:bg-green-100"
+            : "text-slate-500 bg-slate-100 hover:bg-slate-200"
+        }`}>
+        {uploading ? "…" : draft.rawContentUrl ? "📎" : "⬆ Upload"}
+      </button>
+    </>
+  );
+}
+
+// ─── Save-as-Idea button ────────────────────────────────────────────────────
 function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; interval: number; onSave: (weeks: number) => void }) {
   const [open, setOpen] = useState(false);
   const [weeks, setWeeks] = useState(interval);
@@ -379,12 +489,15 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated,
+  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[];
   onClose: () => void; onAccept: () => void; onReject: () => void;
   onSaveAsIdea: (weeks: number) => void;
   onScriptUpdated: (script: string, hook: string | null) => void;
+  onProceed: () => void;
+  getNextStage: (stageId: number) => WorkflowStage | null;
+  onUploaded: (url: string) => void;
 }) {
   const [script, setScript] = useState(draft.script);
   const [hook, setHook] = useState(draft.hook || "");
@@ -393,6 +506,9 @@ function DraftDetailPanel({
   const [refining, setRefining] = useState(false);
   const [saveWeeks, setSaveWeeks] = useState(2);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const inStage = !!draft.stageId;
+  const nextStage = draft.stageId ? getNextStage(draft.stageId) : null;
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -453,6 +569,14 @@ function DraftDetailPanel({
             <p className="text-[10px] text-slate-400 mt-1">{script.split(" ").filter(Boolean).length} words</p>
           </div>
 
+          {/* Raw content upload — shown when in a stage */}
+          {inStage && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Raw Content</label>
+              <RawContentUpload draft={draft} onUploaded={onUploaded} />
+            </div>
+          )}
+
           {/* Chat refine */}
           <div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
@@ -490,29 +614,81 @@ function DraftDetailPanel({
 
         {/* Actions */}
         <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 space-y-2">
-          <div className="flex gap-2">
-            <button onClick={onAccept}
-              className="flex-1 py-2 text-sm font-semibold text-white bg-green-500 rounded-xl hover:bg-green-600">
-              ✓ Accept
+          {inStage ? (
+            <button onClick={onProceed}
+              className="w-full py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700">
+              {nextStage ? `→ Proceed to ${nextStage.name}` : "✓ Mark as Done"}
             </button>
-            <button onClick={onReject}
-              className="px-4 py-2 text-sm font-semibold text-red-500 bg-red-50 rounded-xl hover:bg-red-100">
-              ✗ Reject
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">💡 Save idea, resurface in</span>
-            <input type="number" min={1} max={52} value={saveWeeks}
-              onChange={(e) => setSaveWeeks(parseInt(e.target.value) || 1)}
-              className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-amber-400" />
-            <span className="text-xs text-slate-500">weeks</span>
-            <button onClick={() => onSaveAsIdea(saveWeeks)}
-              className="ml-auto px-3 py-1.5 text-xs font-semibold text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100">
-              Save
-            </button>
-          </div>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={onAccept}
+                className="flex-1 py-2 text-sm font-semibold text-white bg-green-500 rounded-xl hover:bg-green-600">
+                ✓ Accept
+              </button>
+              <button onClick={onReject}
+                className="px-4 py-2 text-sm font-semibold text-red-500 bg-red-50 rounded-xl hover:bg-red-100">
+                ✗ Reject
+              </button>
+            </div>
+          )}
+          {!inStage && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">💡 Save idea, resurface in</span>
+              <input type="number" min={1} max={52} value={saveWeeks}
+                onChange={(e) => setSaveWeeks(parseInt(e.target.value) || 1)}
+                className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-amber-400" />
+              <span className="text-xs text-slate-500">weeks</span>
+              <button onClick={() => onSaveAsIdea(saveWeeks)}
+                className="ml-auto px-3 py-1.5 text-xs font-semibold text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100">
+                Save
+              </button>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Raw content upload in detail panel ─────────────────────────────────────
+function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.url) onUploaded(data.url);
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {draft.rawContentUrl && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+          <span className="text-green-500">📎</span>
+          <a href={draft.rawContentUrl} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-green-700 hover:underline flex-1 truncate">
+            View uploaded file ↗
+          </a>
+        </div>
+      )}
+      <input ref={inputRef} type="file" accept="video/*,image/*" className="hidden" onChange={handleFile} />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="w-full py-2 text-sm font-medium border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+        {uploading ? "Uploading…" : draft.rawContentUrl ? "⬆ Replace file" : "⬆ Upload raw content"}
+      </button>
     </div>
   );
 }
@@ -565,7 +741,6 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
         <div className="px-6 py-5 space-y-5">
           {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
-          {/* Concepts */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-semibold text-slate-600">Concepts</label>
@@ -597,7 +772,6 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
             )}
           </div>
 
-          {/* Week / Day */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Week label</label>
@@ -612,11 +786,8 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
             </div>
           </div>
 
-          {/* Count */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              Alternatives per concept
-            </label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Alternatives per concept</label>
             <div className="flex items-center gap-3">
               {[2, 3, 5, 7].map((n) => (
                 <button key={n} onClick={() => setCount(n)}
@@ -650,31 +821,48 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
   );
 }
 
-// ─── Stage manager modal (per-client) ──────────────────────────────────────
-function StageManagerModal({ client, stages, onClose, onSaved }: {
-  client: Client; stages: WorkflowStage[]; onClose: () => void; onSaved: () => void;
+// ─── Stage manager modal ────────────────────────────────────────────────────
+function StageManagerModal({ client, stages, team, onClose, onSaved }: {
+  client: Client; stages: WorkflowStage[]; team: TeamMember[];
+  onClose: () => void; onSaved: () => void;
 }) {
   const [list, setList] = useState(stages);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("#6366f1");
+  const [newAssignedToId, setNewAssignedToId] = useState<number | null>(null);
   const COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#3b82f6"];
-  const [saving, setSaving] = useState(false);
 
   async function addStage() {
     if (!newName.trim()) return;
     const res = await fetch("/api/workflow", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: client.id, name: newName.trim(), color: newColor }),
+      body: JSON.stringify({
+        clientId: client.id,
+        name: newName.trim(),
+        color: newColor,
+        assignedToId: newAssignedToId,
+      }),
     });
     const stage = await res.json();
     setList((l) => [...l, stage]);
     setNewName("");
+    setNewAssignedToId(null);
   }
 
   async function deleteStage(id: number) {
     await fetch(`/api/workflow/${id}`, { method: "DELETE" });
     setList((l) => l.filter((s) => s.id !== id));
+  }
+
+  async function updateAssignee(stageId: number, assignedToId: number | null) {
+    const updated = list.map((s) => s.id === stageId ? { ...s, assignedToId, assignedTo: team.find((m) => m.id === assignedToId) ?? null } : s);
+    setList(updated);
+    await fetch("/api/workflow", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: client.id, stages: updated }),
+    });
   }
 
   async function reorder(from: number, to: number) {
@@ -692,16 +880,25 @@ function StageManagerModal({ client, stages, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-[420px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-[480px] max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-800">⚙ Stages · {client.name}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
         </div>
-        <div className="px-6 py-5 space-y-3">
+        <div className="px-6 py-5 space-y-2">
           {list.map((stage, i) => (
-            <div key={stage.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+            <div key={stage.id} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl">
               <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
-              <span className="flex-1 text-sm text-slate-700 font-medium">{stage.name}</span>
+              <span className="text-sm text-slate-700 font-medium w-28 truncate">{stage.name}</span>
+              <select
+                value={stage.assignedToId ?? ""}
+                onChange={(e) => updateAssignee(stage.id, e.target.value ? parseInt(e.target.value) : null)}
+                className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white text-slate-600">
+                <option value="">Unassigned</option>
+                {team.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
               <button onClick={() => i > 0 && reorder(i, i - 1)} disabled={i === 0}
                 className="text-slate-400 hover:text-slate-600 disabled:opacity-30 text-xs px-1">↑</button>
               <button onClick={() => i < list.length - 1 && reorder(i, i + 1)} disabled={i === list.length - 1}
@@ -712,7 +909,7 @@ function StageManagerModal({ client, stages, onClose, onSaved }: {
           ))}
 
           {/* Add new stage */}
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+          <div className="pt-3 border-t border-slate-100 space-y-2">
             <div className="flex gap-1">
               {COLORS.map((c) => (
                 <button key={c} onClick={() => setNewColor(c)}
@@ -720,16 +917,21 @@ function StageManagerModal({ client, stages, onClose, onSaved }: {
                   style={{ backgroundColor: c }} />
               ))}
             </div>
-          </div>
-          <div className="flex gap-2">
-            <input value={newName} onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addStage()}
-              placeholder="Stage name…"
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <button onClick={addStage} disabled={!newName.trim()}
-              className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-              Add
-            </button>
+            <div className="flex gap-2">
+              <input value={newName} onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addStage()}
+                placeholder="Stage name…"
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <select value={newAssignedToId ?? ""} onChange={(e) => setNewAssignedToId(e.target.value ? parseInt(e.target.value) : null)}
+                className="border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-600">
+                <option value="">Unassigned</option>
+                {team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <button onClick={addStage} disabled={!newName.trim()}
+                className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                Add
+              </button>
+            </div>
           </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end">

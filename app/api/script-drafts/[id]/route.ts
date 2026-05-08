@@ -15,6 +15,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.script !== undefined) data.script = body.script;
   if (body.caption !== undefined) data.caption = body.caption;
   if (body.title !== undefined) data.title = body.title;
+  if (body.rawContentUrl !== undefined) data.rawContentUrl = body.rawContentUrl;
 
   const draft = await prisma.scriptDraft.update({
     where: { id: parseInt(id) },

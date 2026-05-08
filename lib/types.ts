@@ -78,6 +78,7 @@ export type ScriptDraft = {
   status: string;
   isSavedIdea: boolean;
   resurfaceAt?: string | null;
+  rawContentUrl?: string | null;
   generatedAt: string;
   concept?: { name: string; color?: string } | null;
   client?: { name: string; color: string };

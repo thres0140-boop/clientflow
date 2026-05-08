@@ -120,7 +120,7 @@ export default function App() {
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
       case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} />;
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
-      case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} />;
+      case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} team={team} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} />;
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} />;
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} />;

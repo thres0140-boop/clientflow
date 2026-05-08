@@ -194,9 +194,10 @@ model ScriptDraft {
   weekLabel   String
   dayLabel    String?
   status      String   @default("pending")
-  isSavedIdea Boolean  @default(false)
-  resurfaceAt String?
-  generatedAt DateTime @default(now())
+  isSavedIdea    Boolean  @default(false)
+  resurfaceAt    String?
+  rawContentUrl  String?
+  generatedAt    DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   client  Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
