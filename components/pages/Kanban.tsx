@@ -15,6 +15,7 @@ type Props = {
   onSelectClient: (id: number | null) => void;
   activeProfileId: number | null;
   team: TeamMember[];
+  ownerName?: string;
 };
 
 const WEEK_NUMBER = Math.ceil(
@@ -78,7 +79,7 @@ function DroppableColumn({ id, children, className }: { id: string; children: Re
 }
 
 // ─── Main Kanban ────────────────────────────────────────────────────────────
-export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, team }: Props) {
+export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, team, ownerName = "Owner" }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -391,6 +392,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             setDetailDraft((d) => d ? { ...d, script, hook } : null);
           }}
           activeProfileId={activeProfileId}
+          ownerName={ownerName}
           onProceed={() => { proceedToNextStage(detailDraft); setDetailDraft(null); }}
           getNextStage={(id) => getNextStage(id)}
           onUploaded={(urls) => {
@@ -507,7 +509,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, activeProfileId,
+  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, activeProfileId, ownerName = "Owner",
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[];
   onClose: () => void; onAccept: () => void; onReject: () => void;
@@ -517,6 +519,7 @@ function DraftDetailPanel({
   getNextStage: (stageId: number) => WorkflowStage | null;
   onUploaded: (urls: string[]) => void;
   activeProfileId: number | null;
+  ownerName?: string;
 }) {
   const [script, setScript] = useState(draft.script);
   const [hook, setHook] = useState(draft.hook || "");
@@ -533,7 +536,7 @@ function DraftDetailPanel({
 
   const inStage = !!draft.stageId;
   const nextStage = draft.stageId ? getNextStage(draft.stageId) : null;
-  const authorName = activeProfileId ? "client" : "owner";
+  const authorName = activeProfileId ? "client" : ownerName;
 
   useEffect(() => {
     fetch(`/api/draft-notes?draftId=${draft.id}`).then(r => r.json()).then(setNotes);
@@ -696,24 +699,34 @@ function DraftDetailPanel({
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Change History</label>
               <div className="space-y-2">
-                {changes.map((c) => (
-                  <div key={c.id} className="border border-slate-200 rounded-lg overflow-hidden text-xs">
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200">
-                      <span className="font-semibold text-slate-600 capitalize">{c.field} edited</span>
-                      <span className="text-slate-400">{c.author} · {new Date(c.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                    </div>
-                    <div className="grid grid-cols-2 divide-x divide-slate-200">
-                      <div className="px-3 py-2 bg-red-50">
-                        <p className="text-[10px] font-semibold text-red-400 mb-1">Before</p>
-                        <p className="text-slate-600 whitespace-pre-wrap line-clamp-4">{c.before}</p>
+                {changes.map((c) => {
+                  // Find only the changed region with context
+                  let i = 0;
+                  while (i < c.before.length && i < c.after.length && c.before[i] === c.after[i]) i++;
+                  let j = 0;
+                  while (j < c.before.length - i && j < c.after.length - i && c.before[c.before.length - 1 - j] === c.after[c.after.length - 1 - j]) j++;
+                  const CTX = 40;
+                  const beforeSnip = (i > CTX ? "…" : "") + c.before.slice(Math.max(0, i - CTX), c.before.length - j || undefined) + (j > CTX ? "…" : "");
+                  const afterSnip = (i > CTX ? "…" : "") + c.after.slice(Math.max(0, i - CTX), c.after.length - j || undefined) + (j > CTX ? "…" : "");
+                  return (
+                    <div key={c.id} className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+                        <span className="font-semibold text-slate-600 capitalize">{c.field} edited</span>
+                        <span className="text-slate-400">{c.author} · {new Date(c.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
-                      <div className="px-3 py-2 bg-green-50">
-                        <p className="text-[10px] font-semibold text-green-500 mb-1">After</p>
-                        <p className="text-slate-600 whitespace-pre-wrap line-clamp-4">{c.after}</p>
+                      <div className="grid grid-cols-2 divide-x divide-slate-200">
+                        <div className="px-3 py-2 bg-red-50">
+                          <p className="text-[10px] font-semibold text-red-400 mb-1">Removed</p>
+                          <p className="text-slate-600 whitespace-pre-wrap">{beforeSnip || "—"}</p>
+                        </div>
+                        <div className="px-3 py-2 bg-green-50">
+                          <p className="text-[10px] font-semibold text-green-500 mb-1">Added</p>
+                          <p className="text-slate-600 whitespace-pre-wrap">{afterSnip || "—"}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
