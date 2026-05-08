@@ -6,6 +6,8 @@ import { Client, Message, Concept, TrackedVideo } from "@/lib/types";
 type Props = {
   clients: Client[];
   selectedClientId: number | null;
+  ownerName?: string;
+  authorName?: string;
 };
 
 type MentionItem = {
@@ -15,7 +17,7 @@ type MentionItem = {
   sub?: string;
 };
 
-export default function ChatPage({ clients, selectedClientId }: Props) {
+export default function ChatPage({ clients, selectedClientId, ownerName = "Owner", authorName = "owner" }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -105,7 +107,7 @@ export default function ChatPage({ clients, selectedClientId }: Props) {
     await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: selectedClientId, content, author: "owner" }),
+      body: JSON.stringify({ clientId: selectedClientId, content, author: authorName }),
     });
     fetchMessages();
   }
@@ -164,17 +166,19 @@ export default function ChatPage({ clients, selectedClientId }: Props) {
           </div>
         ) : (
           messages.map((msg) => {
-            const isOwner = msg.author === "owner";
+            const isOwner = msg.author === "owner" || msg.author === ownerName;
+            const displayName = isOwner ? ownerName : msg.author;
+            const initial = displayName[0]?.toUpperCase() ?? "?";
             return (
               <div key={msg.id} className={`flex gap-2 group ${isOwner ? "justify-end" : "justify-start"}`}>
                 {!isOwner && (
                   <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0 mt-0.5">
-                    {msg.author[0]?.toUpperCase()}
+                    {initial}
                   </div>
                 )}
                 <div className={`max-w-[72%] ${isOwner ? "items-end" : "items-start"} flex flex-col gap-0.5`}>
                   {!isOwner && (
-                    <span className="text-[10px] text-slate-400 px-1">{msg.author}</span>
+                    <span className="text-[10px] text-slate-400 px-1">{displayName}</span>
                   )}
                   <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isOwner ? "bg-indigo-600 text-white rounded-br-sm" : "bg-slate-100 text-slate-800 rounded-bl-sm"}`}>
                     {renderContent(msg.content)}
@@ -193,7 +197,7 @@ export default function ChatPage({ clients, selectedClientId }: Props) {
                 </div>
                 {isOwner && (
                   <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 flex-shrink-0 mt-0.5">
-                    👑
+                    {ownerName[0]?.toUpperCase()}
                   </div>
                 )}
               </div>
