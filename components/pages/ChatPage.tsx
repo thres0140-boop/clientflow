@@ -141,7 +141,7 @@ export default function ChatPage({ clients, selectedClientId }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)]">
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6 flex-shrink-0">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold"
