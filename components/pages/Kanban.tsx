@@ -700,14 +700,13 @@ function DraftDetailPanel({
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Change History</label>
               <div className="space-y-2">
                 {changes.map((c) => {
-                  // Find only the changed region with context
+                  // Find exact changed region only — no surrounding context
                   let i = 0;
                   while (i < c.before.length && i < c.after.length && c.before[i] === c.after[i]) i++;
                   let j = 0;
                   while (j < c.before.length - i && j < c.after.length - i && c.before[c.before.length - 1 - j] === c.after[c.after.length - 1 - j]) j++;
-                  const CTX = 40;
-                  const beforeSnip = (i > CTX ? "…" : "") + c.before.slice(Math.max(0, i - CTX), c.before.length - j || undefined) + (j > CTX ? "…" : "");
-                  const afterSnip = (i > CTX ? "…" : "") + c.after.slice(Math.max(0, i - CTX), c.after.length - j || undefined) + (j > CTX ? "…" : "");
+                  const beforeSnip = c.before.slice(i, j > 0 ? -j : undefined).trim();
+                  const afterSnip = c.after.slice(i, j > 0 ? -j : undefined).trim();
                   return (
                     <div key={c.id} className="border border-slate-200 rounded-lg overflow-hidden text-xs">
                       <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200">
