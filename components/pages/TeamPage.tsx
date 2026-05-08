@@ -34,6 +34,7 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [editingCreator, setEditingCreator] = useState<Creator | null>(null);
   const [showAddCreator, setShowAddCreator] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
   useEffect(() => { reloadTeam(); reloadCreators(); }, []);
 
@@ -177,17 +178,19 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
         )
       )}
 
-      {showAdd && <MemberModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); reloadTeam(); }} />}
+      {showAdd && <MemberModal onClose={() => setShowAdd(false)} onSaved={(url) => { setShowAdd(false); reloadTeam(); if (url) setInviteUrl(url); }} />}
       {editing && <MemberModal member={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reloadTeam(); }} />}
       {showAddCreator && <CreatorModal clients={clients} onClose={() => setShowAddCreator(false)} onSaved={() => { setShowAddCreator(false); reloadCreators(); }} />}
       {editingCreator && <CreatorModal clients={clients} creator={editingCreator} onClose={() => setEditingCreator(null)} onSaved={() => { setEditingCreator(null); reloadCreators(); }} />}
+
+      {inviteUrl && <InviteLinkModal url={inviteUrl} onClose={() => setInviteUrl(null)} />}
     </div>
   );
 }
 
 // ── Member Modal ────────────────────────────────────────────────────────────
 
-function MemberModal({ member, onClose, onSaved }: { member?: TeamMember; onClose: () => void; onSaved: () => void }) {
+function MemberModal({ member, onClose, onSaved }: { member?: TeamMember; onClose: () => void; onSaved: (inviteUrl?: string) => void }) {
   const [memberType, setMemberType] = useState<"team" | "client">("team");
   const initialPages = member ? parseAccess(member.pageAccess) : ALL_PAGES.map((p) => p.id);
   const [form, setForm] = useState({ name: member?.name || "", email: member?.email || "", role: member?.role || "", color: member?.color || "#6366f1" });
@@ -208,8 +211,13 @@ function MemberModal({ member, onClose, onSaved }: { member?: TeamMember; onClos
     const pageAccess = memberType === "client" ? CLIENT_PAGES.join(",") : (pages.length === ALL_PAGES.length ? "all" : pages.join(","));
     const method = member ? "PUT" : "POST";
     const url = member ? `/api/team/${member.id}` : "/api/team";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, pageAccess }) });
-    onSaved();
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, pageAccess, isClient: !member && isClient }) });
+    const data = await res.json();
+    if (!member && isClient && data.inviteUrl) {
+      onSaved(data.inviteUrl);
+    } else {
+      onSaved();
+    }
   }
 
   const isClient = memberType === "client";
@@ -367,6 +375,36 @@ function CreatorModal({ clients, creator, onClose, onSaved }: { clients: Client[
           <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700">{creator ? "Save Changes" : "Add Creator"}</button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+// ── Invite Link Modal ────────────────────────────────────────────────────────
+
+function InviteLinkModal({ url, onClose }: { url: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <Modal title="Client Invite Link" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+          <p className="text-sm text-slate-700 mb-1 font-medium">Share this link with your client</p>
+          <p className="text-xs text-slate-500">They&apos;ll use it to set their password and access their portal. The link expires in 7 days.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input readOnly value={url} className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-600 bg-slate-50 focus:outline-none" />
+          <button onClick={copy} className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${copied ? "bg-green-600 text-white" : "bg-indigo-600 text-white hover:bg-indigo-700"}`}>
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+        <div className="flex justify-end pt-1">
+          <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200">Done</button>
+        </div>
+      </div>
     </Modal>
   );
 }

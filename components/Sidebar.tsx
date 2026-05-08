@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Client, Notification, TeamMember } from "@/lib/types";
+import type { SessionPayload } from "@/lib/session";
 
 type Page = "pipeline" | "kanban" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings";
 
@@ -49,12 +50,15 @@ type Props = {
   activeProfile: TeamMember | null;
   team: TeamMember[];
   onSwitchProfile: (id: number | null) => void;
+  session: SessionPayload | null;
+  onSignOut: () => void;
 };
 
 export default function Sidebar({
   currentPage, onNavigate, clients, selectedClientId, onSelectClient,
   unreadCount, notifications, onMarkRead, onMarkAllRead,
   allowedPages, activeProfile, team, onSwitchProfile,
+  session, onSignOut,
 }: Props) {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
@@ -202,78 +206,98 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* Profile switcher */}
-      <div className="px-3 py-3 border-t border-slate-200 flex-shrink-0">
-        <div className="relative">
-          <button
-            onClick={() => setShowProfilePicker((s) => !s)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left"
-          >
-            {activeProfile ? (
-              <>
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                  style={{ backgroundColor: activeProfile.color }}
-                >
-                  {activeProfile.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-700 truncate">{activeProfile.name}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{activeProfile.role || "Team member"}</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">
-                  👑
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-700">Owner</p>
-                  <p className="text-[10px] text-slate-400">Full access</p>
-                </div>
-              </>
-            )}
-            <span className="text-slate-400 text-[10px]">{showProfilePicker ? "▲" : "▼"}</span>
-          </button>
-
-          {showProfilePicker && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
-              <div className="px-3 py-2 border-b border-slate-100">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Switch Profile</p>
-              </div>
-              {/* Owner option */}
-              <button
-                onClick={() => { onSwitchProfile(null); setShowProfilePicker(false); }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left ${activeProfile === null ? "bg-indigo-50" : ""}`}
-              >
-                <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">👑</div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-700">Owner</p>
-                  <p className="text-[10px] text-slate-400">Full access</p>
-                </div>
-                {activeProfile === null && <span className="text-indigo-500 text-xs">✓</span>}
-              </button>
-              {/* Team members */}
-              {team.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => { onSwitchProfile(m.id); setShowProfilePicker(false); }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left border-t border-slate-50 ${activeProfile?.id === m.id ? "bg-indigo-50" : ""}`}
-                >
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                    style={{ backgroundColor: m.color }}>
-                    {m.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+      {/* Profile switcher + sign out */}
+      <div className="px-3 py-3 border-t border-slate-200 flex-shrink-0 space-y-1">
+        {/* If logged in as a member, show their identity (no switcher) */}
+        {session?.type === "member" ? (
+          <div className="flex items-center gap-2.5 px-3 py-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+              style={{ backgroundColor: activeProfile?.color || "#6366f1" }}>
+              {activeProfile?.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-slate-700 truncate">{activeProfile?.name || session.name}</p>
+              <p className="text-[10px] text-slate-400">Client</p>
+            </div>
+          </div>
+        ) : (
+          <div className="relative">
+            <button
+              onClick={() => setShowProfilePicker((s) => !s)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-left"
+            >
+              {activeProfile ? (
+                <>
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                    style={{ backgroundColor: activeProfile.color }}
+                  >
+                    {activeProfile.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-700 truncate">{m.name}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{m.role || "Team member"}</p>
+                    <p className="text-xs font-semibold text-slate-700 truncate">{activeProfile.name}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{activeProfile.role || "Team member"}</p>
                   </div>
-                  {activeProfile?.id === m.id && <span className="text-indigo-500 text-xs">✓</span>}
+                </>
+              ) : (
+                <>
+                  <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">
+                    👑
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-700">Owner</p>
+                    <p className="text-[10px] text-slate-400">Full access</p>
+                  </div>
+                </>
+              )}
+              <span className="text-slate-400 text-[10px]">{showProfilePicker ? "▲" : "▼"}</span>
+            </button>
+
+            {showProfilePicker && (
+              <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Switch Profile</p>
+                </div>
+                <button
+                  onClick={() => { onSwitchProfile(null); setShowProfilePicker(false); }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left ${activeProfile === null ? "bg-indigo-50" : ""}`}
+                >
+                  <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">👑</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-700">Owner</p>
+                    <p className="text-[10px] text-slate-400">Full access</p>
+                  </div>
+                  {activeProfile === null && <span className="text-indigo-500 text-xs">✓</span>}
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
+                {team.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => { onSwitchProfile(m.id); setShowProfilePicker(false); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left border-t border-slate-50 ${activeProfile?.id === m.id ? "bg-indigo-50" : ""}`}
+                  >
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      style={{ backgroundColor: m.color }}>
+                      {m.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-700 truncate">{m.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{m.role || "Team member"}</p>
+                    </div>
+                    {activeProfile?.id === m.id && <span className="text-indigo-500 text-xs">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sign out */}
+        <button
+          onClick={onSignOut}
+          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+        >
+          <span>↩</span> Sign out
+        </button>
       </div>
     </aside>
   );

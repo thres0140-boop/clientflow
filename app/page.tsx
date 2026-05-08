@@ -13,6 +13,7 @@ import InstagramPage from "@/components/pages/InstagramPage";
 import BoardPage from "@/components/pages/BoardPage";
 import DmsPage from "@/components/pages/DmsPage";
 import { Client, Notification, TeamMember } from "@/lib/types";
+import type { SessionPayload } from "@/lib/session";
 
 export type Page =
   | "pipeline"
@@ -33,6 +34,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
+  const [session, setSession] = useState<SessionPayload | null>(null);
   const [appReady, setAppReady] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,9 +65,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem("cf_active_profile");
-    if (saved) setActiveProfileId(parseInt(saved));
-    Promise.all([fetchClients(), fetchNotifications(), fetchTeam()]).finally(() => setAppReady(true));
+    async function init() {
+      // Fetch session first to know if we're a member login
+      const sess: SessionPayload | null = await fetch("/api/auth/me").then((r) => r.json());
+      setSession(sess);
+
+      if (sess?.type === "member" && sess.memberId !== null) {
+        // Locked to this member profile — no localStorage override
+        setActiveProfileId(sess.memberId);
+      } else {
+        const saved = localStorage.getItem("cf_active_profile");
+        if (saved) setActiveProfileId(parseInt(saved));
+      }
+
+      await Promise.all([fetchClients(), fetchNotifications(), fetchTeam()]);
+      setAppReady(true);
+    }
+    init();
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [fetchClients, fetchNotifications, fetchTeam]);
@@ -93,6 +109,11 @@ export default function App() {
       localStorage.setItem("cf_active_profile", String(id));
     }
     setPage("pipeline" as Page);
+  }
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
   }
 
   // Compute which pages the active profile can see
@@ -150,6 +171,8 @@ export default function App() {
         activeProfile={activeProfile}
         team={team}
         onSwitchProfile={switchProfile}
+        session={session}
+        onSignOut={signOut}
         onMarkRead={async (id) => {
           await fetch("/api/notifications", {
             method: "PUT",

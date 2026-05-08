@@ -78,13 +78,16 @@ model Message {
 }
 
 model TeamMember {
-  id         Int      @id @default(autoincrement())
-  name       String
-  email      String?
-  role       String?
-  color      String   @default("#6366f1")
-  pageAccess String   @default("all")
-  createdAt  DateTime @default(now())
+  id                Int       @id @default(autoincrement())
+  name              String
+  email             String?
+  role              String?
+  color             String    @default("#6366f1")
+  pageAccess        String    @default("all")
+  passwordHash      String?
+  inviteToken       String?   @unique
+  inviteTokenExpiry DateTime?
+  createdAt         DateTime  @default(now())
 
   stageAssignments WorkflowStage[]
   notifications    Notification[]
