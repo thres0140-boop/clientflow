@@ -63,7 +63,8 @@ model Creator {
   notes           String?
   createdAt       DateTime @default(now())
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workflowStages WorkflowStage[]
 }
 
 model Message {
@@ -91,18 +92,21 @@ model TeamMember {
 }
 
 model WorkflowStage {
-  id           Int      @id @default(autoincrement())
-  clientId     Int?
-  name         String
-  order        Int
-  color        String   @default("#6366f1")
-  assignedToId Int?
-  createdAt    DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  clientId          Int?
+  name              String
+  order             Int
+  color             String   @default("#6366f1")
+  assignedToId      Int?
+  assignedCreatorId Int?
+  assignedToOwner   Boolean  @default(false)
+  createdAt         DateTime @default(now())
 
-  client     Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  assignedTo TeamMember?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
-  history    StageHistory[]
-  drafts     ScriptDraft[]
+  client          Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedTo      TeamMember?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedCreator Creator?       @relation(fields: [assignedCreatorId], references: [id], onDelete: SetNull)
+  history         StageHistory[]
+  drafts          ScriptDraft[]
 }
 
 model StageHistory {

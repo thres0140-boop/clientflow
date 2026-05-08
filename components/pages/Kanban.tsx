@@ -7,7 +7,7 @@ import {
   PointerSensor, useSensor, useSensors, closestCenter,
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember } from "@/lib/types";
+import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember, Creator } from "@/lib/types";
 
 type Props = {
   clients: Client[];
@@ -83,6 +83,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [drafts, setDrafts] = useState<ScriptDraft[]>([]);
+  const [creators, setCreators] = useState<Creator[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<number | null>(null);
   const [detailDraft, setDetailDraft] = useState<ScriptDraft | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
@@ -92,14 +93,16 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 
   const reload = useCallback(async () => {
     if (!selectedClientId) return;
-    const [s, co, d] = await Promise.all([
+    const [s, co, d, cr] = await Promise.all([
       fetch(`/api/workflow?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/concepts?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/script-drafts?clientId=${selectedClientId}`).then((r) => r.json()),
+      fetch(`/api/creators?clientId=${selectedClientId}`).then((r) => r.json()),
     ]);
     setStages(s);
     setConcepts(co);
     setDrafts(d);
+    setCreators(Array.isArray(cr) ? cr : []);
   }, [selectedClientId]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -111,6 +114,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const visibleStages = activeProfile
     ? stages.filter((s) => s.assignedToId === activeProfile.id)
     : stages;
+  // Owner sees all stages (no filter)
 
   const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId);
   const savedDrafts   = drafts.filter((d) => d.status === "saved");
@@ -320,15 +324,20 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                         </span>
                       )}
                     </div>
-                    {stage.assignedTo && (
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        <div className="w-4 h-4 rounded-full flex-shrink-0 text-[8px] font-bold text-white flex items-center justify-center"
-                          style={{ backgroundColor: stage.assignedTo.color }}>
-                          {stage.assignedTo.name[0]}
+                    {(() => {
+                      const person = stage.assignedToOwner
+                        ? { name: "Owner", color: "#6366f1" }
+                        : stage.assignedTo ?? stage.assignedCreator ?? null;
+                      return person ? (
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <div className="w-4 h-4 rounded-full flex-shrink-0 text-[8px] font-bold text-white flex items-center justify-center"
+                            style={{ backgroundColor: person.color }}>
+                            {person.name[0]}
+                          </div>
+                          <span className="text-[10px] text-slate-400">{person.name}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400">{stage.assignedTo.name}</span>
-                      </div>
-                    )}
+                      ) : null;
+                    })()}
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
                     {stageDrafts.map((draft) => (
@@ -412,6 +421,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           client={client}
           stages={stages}
           team={team}
+          creators={creators}
           onClose={() => setShowStageManager(false)}
           onSaved={() => { setShowStageManager(false); reload(); }}
         />
@@ -882,41 +892,33 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
 }
 
 // ─── Stage manager modal ────────────────────────────────────────────────────
-function StageManagerModal({ client, stages, team, onClose, onSaved }: {
-  client: Client; stages: WorkflowStage[]; team: TeamMember[];
+type PersonValue = "" | "owner" | `member:${number}` | `creator:${number}`;
+
+function stageToPersonValue(s: WorkflowStage): PersonValue {
+  if (s.assignedToOwner) return "owner";
+  if (s.assignedToId) return `member:${s.assignedToId}`;
+  if (s.assignedCreatorId) return `creator:${s.assignedCreatorId}`;
+  return "";
+}
+
+function personValueToFields(v: PersonValue) {
+  if (v === "owner") return { assignedToOwner: true, assignedToId: null, assignedCreatorId: null };
+  if (v.startsWith("member:")) return { assignedToOwner: false, assignedToId: parseInt(v.slice(7)), assignedCreatorId: null };
+  if (v.startsWith("creator:")) return { assignedToOwner: false, assignedToId: null, assignedCreatorId: parseInt(v.slice(8)) };
+  return { assignedToOwner: false, assignedToId: null, assignedCreatorId: null };
+}
+
+function StageManagerModal({ client, stages, team, creators, onClose, onSaved }: {
+  client: Client; stages: WorkflowStage[]; team: TeamMember[]; creators: Creator[];
   onClose: () => void; onSaved: () => void;
 }) {
   const [list, setList] = useState(stages);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("#6366f1");
-  const [newAssignedToId, setNewAssignedToId] = useState<number | null>(null);
+  const [newPerson, setNewPerson] = useState<PersonValue>("");
   const COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#3b82f6"];
 
-  async function addStage() {
-    if (!newName.trim()) return;
-    const res = await fetch("/api/workflow", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: client.id,
-        name: newName.trim(),
-        color: newColor,
-        assignedToId: newAssignedToId,
-      }),
-    });
-    const stage = await res.json();
-    setList((l) => [...l, stage]);
-    setNewName("");
-    setNewAssignedToId(null);
-  }
-
-  async function deleteStage(id: number) {
-    await fetch(`/api/workflow/${id}`, { method: "DELETE" });
-    setList((l) => l.filter((s) => s.id !== id));
-  }
-
-  async function updateAssignee(stageId: number, assignedToId: number | null) {
-    const updated = list.map((s) => s.id === stageId ? { ...s, assignedToId, assignedTo: team.find((m) => m.id === assignedToId) ?? null } : s);
+  async function save(updated: WorkflowStage[]) {
     setList(updated);
     await fetch("/api/workflow", {
       method: "PUT",
@@ -925,22 +927,41 @@ function StageManagerModal({ client, stages, team, onClose, onSaved }: {
     });
   }
 
+  async function addStage() {
+    if (!newName.trim()) return;
+    const fields = personValueToFields(newPerson);
+    const res = await fetch("/api/workflow", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: client.id, name: newName.trim(), color: newColor, ...fields }),
+    });
+    const stage = await res.json();
+    setList((l) => [...l, stage]);
+    setNewName("");
+    setNewPerson("");
+  }
+
+  async function deleteStage(id: number) {
+    await fetch(`/api/workflow/${id}`, { method: "DELETE" });
+    setList((l) => l.filter((s) => s.id !== id));
+  }
+
+  async function updateAssignee(stageId: number, v: PersonValue) {
+    const fields = personValueToFields(v);
+    const updated = list.map((s) => s.id === stageId ? { ...s, ...fields } : s);
+    await save(updated);
+  }
+
   async function reorder(from: number, to: number) {
     const updated = [...list];
     const [item] = updated.splice(from, 1);
     updated.splice(to, 0, item);
-    const reindexed = updated.map((s, i) => ({ ...s, order: i + 1 }));
-    setList(reindexed);
-    await fetch("/api/workflow", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: client.id, stages: reindexed }),
-    });
+    await save(updated.map((s, i) => ({ ...s, order: i + 1 })));
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-[480px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-[500px] max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-800">⚙ Stages · {client.name}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
@@ -949,15 +970,17 @@ function StageManagerModal({ client, stages, team, onClose, onSaved }: {
           {list.map((stage, i) => (
             <div key={stage.id} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl">
               <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
-              <span className="text-sm text-slate-700 font-medium w-28 truncate">{stage.name}</span>
+              <span className="text-sm text-slate-700 font-medium w-24 truncate">{stage.name}</span>
               <select
-                value={stage.assignedToId ?? ""}
-                onChange={(e) => updateAssignee(stage.id, e.target.value ? parseInt(e.target.value) : null)}
-                className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white text-slate-600">
+                value={stageToPersonValue(stage)}
+                onChange={(e) => updateAssignee(stage.id, e.target.value as PersonValue)}
+                className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white text-slate-600">
                 <option value="">Unassigned</option>
-                {team.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
+                <option value="owner">👑 Owner</option>
+                {team.length > 0 && <option disabled>── Team ──</option>}
+                {team.map((m) => <option key={m.id} value={`member:${m.id}`}>{m.name}</option>)}
+                {creators.length > 0 && <option disabled>── Creators ──</option>}
+                {creators.map((c) => <option key={c.id} value={`creator:${c.id}`}>{c.name}</option>)}
               </select>
               <button onClick={() => i > 0 && reorder(i, i - 1)} disabled={i === 0}
                 className="text-slate-400 hover:text-slate-600 disabled:opacity-30 text-xs px-1">↑</button>
@@ -968,7 +991,6 @@ function StageManagerModal({ client, stages, team, onClose, onSaved }: {
             </div>
           ))}
 
-          {/* Add new stage */}
           <div className="pt-3 border-t border-slate-100 space-y-2">
             <div className="flex gap-1">
               {COLORS.map((c) => (
@@ -982,10 +1004,14 @@ function StageManagerModal({ client, stages, team, onClose, onSaved }: {
                 onKeyDown={(e) => e.key === "Enter" && addStage()}
                 placeholder="Stage name…"
                 className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <select value={newAssignedToId ?? ""} onChange={(e) => setNewAssignedToId(e.target.value ? parseInt(e.target.value) : null)}
+              <select value={newPerson} onChange={(e) => setNewPerson(e.target.value as PersonValue)}
                 className="border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-600">
                 <option value="">Unassigned</option>
-                {team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                <option value="owner">👑 Owner</option>
+                {team.length > 0 && <option disabled>── Team ──</option>}
+                {team.map((m) => <option key={m.id} value={`member:${m.id}`}>{m.name}</option>)}
+                {creators.length > 0 && <option disabled>── Creators ──</option>}
+                {creators.map((c) => <option key={c.id} value={`creator:${c.id}`}>{c.name}</option>)}
               </select>
               <button onClick={addStage} disabled={!newName.trim()}
                 className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
@@ -995,7 +1021,7 @@ function StageManagerModal({ client, stages, team, onClose, onSaved }: {
           </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
-          <button onClick={() => { onSaved(); }}
+          <button onClick={onSaved}
             className="px-5 py-2 text-sm font-semibold bg-slate-800 text-white rounded-xl hover:bg-slate-900">
             Done
           </button>

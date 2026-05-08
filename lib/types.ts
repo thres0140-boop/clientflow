@@ -104,6 +104,9 @@ export type WorkflowStage = {
   color: string;
   assignedToId?: number | null;
   assignedTo?: TeamMember | null;
+  assignedCreatorId?: number | null;
+  assignedCreator?: Creator | null;
+  assignedToOwner?: boolean;
   createdAt: string;
 };
 
