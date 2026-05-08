@@ -230,6 +230,7 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
   });
   const [promoting, setPromoting] = useState(false);
   const [generatingGuidelines, setGeneratingGuidelines] = useState(false);
+  const [generatingStructure, setGeneratingStructure] = useState(false);
 
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -245,6 +246,21 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
       if (data.guidelines) set("guidelines", data.guidelines);
     } finally {
       setGeneratingGuidelines(false);
+    }
+  }
+
+  async function generateStructure() {
+    if (!idea.scriptExamples?.trim()) return;
+    setGeneratingStructure(true);
+    try {
+      const data = await fetch("/api/ai/generate-structure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: idea.scriptExamples, conceptName: form.name }),
+      }).then((r) => r.json());
+      if (data.structure) set("structure", data.structure);
+    } finally {
+      setGeneratingStructure(false);
     }
   }
 
@@ -371,7 +387,15 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Structure</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-slate-600">Structure</label>
+                {idea.scriptExamples?.trim() && (
+                  <button type="button" onClick={generateStructure} disabled={generatingStructure}
+                    className="text-[11px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors font-medium">
+                    {generatingStructure ? "Generating…" : "✨ AI Generate"}
+                  </button>
+                )}
+              </div>
               <textarea rows={2} value={form.structure} onChange={(e) => set("structure", e.target.value)}
                 placeholder='e.g. "Hook (3s) → Problem (5s) → Solution (10s) → CTA (3s)"'
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
