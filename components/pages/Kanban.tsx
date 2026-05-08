@@ -655,18 +655,23 @@ function DraftDetailPanel({
 function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (urls: string[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
   const urls: string[] = JSON.parse(draft.rawContentUrls || "[]");
 
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploading(true);
+    setError("");
     try {
       const fd = new FormData();
       files.forEach((f) => fd.append("file", f));
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.urls) onUploaded([...urls, ...data.urls]);
+      if (!res.ok) { setError(data.error || `Upload failed (${res.status})`); return; }
+      if (data.urls?.length) onUploaded([...urls, ...data.urls]);
+    } catch (err) {
+      setError(String(err));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -679,6 +684,9 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 
   return (
     <div className="space-y-2">
+      {error && (
+        <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+      )}
       {urls.map((url, i) => (
         <div key={i} className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
           <span className="text-green-500 text-sm">📎</span>
