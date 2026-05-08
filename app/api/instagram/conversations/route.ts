@@ -12,12 +12,29 @@ export async function GET(req: NextRequest) {
 
   const { accessToken, igUserId } = conn;
 
+  // First verify the token is valid and get the real user ID
+  const meRes = await fetch(`https://graph.instagram.com/v21.0/me?fields=id,username`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const meData = await meRes.json();
+
+  if (meData.error) {
+    console.error("Token check failed:", JSON.stringify(meData.error));
+    return NextResponse.json(
+      { error: `Token invalid: ${meData.error.message}`, code: meData.error.code },
+      { status: 401 }
+    );
+  }
+
+  const resolvedUserId = meData.id ?? igUserId;
+  console.log("Resolved igUserId:", resolvedUserId, "stored:", igUserId, "username:", meData.username);
+
   try {
     const res = await fetch(
-      `https://graph.instagram.com/v21.0/${igUserId}/conversations` +
+      `https://graph.instagram.com/v21.0/${resolvedUserId}/conversations` +
       `?fields=id,participants,updated_time,snippet,unread_count` +
-      `&limit=50` +
-      `&access_token=${accessToken}`
+      `&limit=50`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const data = await res.json();
 
@@ -31,8 +48,7 @@ export async function GET(req: NextRequest) {
 
     const conversations = (data.data ?? []).map((conv: Record<string, unknown>) => {
       const participants = ((conv.participants as { data: { name: string; id: string; username?: string }[] })?.data) ?? [];
-      // Filter out the business account itself — we want the other person
-      const others = participants.filter((p) => p.id !== igUserId);
+      const others = participants.filter((p) => p.id !== resolvedUserId);
       const person  = others[0] ?? participants[0] ?? null;
 
       return {
@@ -46,7 +62,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ conversations, igUserId });
+    return NextResponse.json({ conversations, igUserId: resolvedUserId });
   } catch (err) {
     console.error("conversations error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
