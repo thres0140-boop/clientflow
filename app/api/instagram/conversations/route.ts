@@ -15,8 +15,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(
       `https://graph.instagram.com/v21.0/${igUserId}/conversations` +
-      `?platform=instagram` +
-      `&fields=id,participants,updated_time,snippet,unread_count` +
+      `?fields=id,participants,updated_time,snippet,unread_count` +
       `&limit=50` +
       `&access_token=${accessToken}`
     );
