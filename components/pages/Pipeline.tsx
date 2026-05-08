@@ -307,7 +307,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             {date.slice(8).replace(/^0/, "")}
                           </span>
                           {/* Calendar mode: tag picker per individual date */}
-                          {planMode === "calendar" && (() => {
+                          {!isClient && planMode === "calendar" && (() => {
                             const tagId = dateTags[date];
                             const tagConcept = tagId ? concepts.find((c) => c.id === tagId) : null;
                             return tagConcept ? (
@@ -417,12 +417,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         </button>
                       ))}
                     </div>
-                    <button
-                      onClick={() => setShowAdd(true)}
-                      className="mt-2 w-full text-[10px] text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded py-1 transition-colors text-center"
-                    >
-                      + add
-                    </button>
+                    {!isClient && (
+                      <button
+                        onClick={() => setShowAdd(true)}
+                        className="mt-2 w-full text-[10px] text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded py-1 transition-colors text-center"
+                      >
+                        + add
+                      </button>
+                    )}
                   </div>
                 );
               })}
