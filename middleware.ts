@@ -7,7 +7,7 @@ function getSecret() {
   );
 }
 
-const PUBLIC = ["/login", "/ssm", "/invite", "/api/auth"];
+const PUBLIC = ["/login", "/owner", "/invite", "/api/auth"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

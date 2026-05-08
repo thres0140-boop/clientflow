@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
   const ownerEmail = process.env.OWNER_EMAIL || "";
   const ownerPassword = process.env.OWNER_PASSWORD || "";
 
-  // Owner login (from /ssm or matching owner email)
-  if (ownerOnly || (email && email.toLowerCase() === ownerEmail.toLowerCase())) {
+  // Owner login — only via /owner page (ownerOnly flag required)
+  if (ownerOnly) {
     if (password !== ownerPassword) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
