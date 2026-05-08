@@ -170,20 +170,20 @@ export default function ChatPage({ clients, selectedClientId, currentUserName = 
             const displayName = (msg.author === "owner" && isOwnerSession) ? currentUserName : msg.author;
             const initial = displayName[0]?.toUpperCase() ?? "?";
             return (
-              <div key={msg.id} className={`flex gap-2 group ${isMe ? "justify-end" : "justify-start"}`}>
-                {!isMe && (
-                  <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0 mt-0.5">
-                    {initial}
+              <div key={msg.id} className={`flex gap-2 group ${isMe ? "justify-start" : "justify-end"}`}>
+                {isMe && (
+                  <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 flex-shrink-0 mt-0.5">
+                    {currentUserName[0]?.toUpperCase()}
                   </div>
                 )}
-                <div className={`max-w-[72%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5`}>
+                <div className={`max-w-[72%] ${isMe ? "items-start" : "items-end"} flex flex-col gap-0.5`}>
                   {!isMe && (
                     <span className="text-[10px] text-slate-400 px-1">{displayName}</span>
                   )}
-                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "bg-indigo-600 text-white rounded-br-sm" : "bg-slate-100 text-slate-800 rounded-bl-sm"}`}>
+                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "bg-indigo-600 text-white rounded-bl-sm" : "bg-slate-100 text-slate-800 rounded-br-sm"}`}>
                     {renderContent(msg.content)}
                   </div>
-                  <div className={`flex items-center gap-2 px-1 ${isMe ? "flex-row-reverse" : ""}`}>
+                  <div className={`flex items-center gap-2 px-1 ${!isMe ? "flex-row-reverse" : ""}`}>
                     <span className="text-[10px] text-slate-300">
                       {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
@@ -195,9 +195,9 @@ export default function ChatPage({ clients, selectedClientId, currentUserName = 
                     </button>
                   </div>
                 </div>
-                {isMe && (
-                  <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 flex-shrink-0 mt-0.5">
-                    {currentUserName[0]?.toUpperCase()}
+                {!isMe && (
+                  <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0 mt-0.5">
+                    {initial}
                   </div>
                 )}
               </div>
