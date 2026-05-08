@@ -30,15 +30,13 @@ export async function GET(req: NextRequest) {
   console.log("Resolved igUserId:", resolvedUserId, "stored:", igUserId, "username:", meData.username);
 
   try {
+    // Try bare minimum fields, no platform filter
     const res = await fetch(
-      `https://graph.instagram.com/v21.0/me/conversations` +
-      `?platform=instagram` +
-      `&fields=id,participants,updated_time,snippet,unread_count` +
-      `&limit=50`,
+      `https://graph.instagram.com/v21.0/me/conversations?fields=id,updated_time&limit=10`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const data = await res.json();
-    console.log("Conversations raw response:", JSON.stringify(data).slice(0, 500));
+    console.log("Conversations bare response:", JSON.stringify(data).slice(0, 800));
 
     if (data.error) {
       console.error("Instagram conversations error:", JSON.stringify(data.error));
