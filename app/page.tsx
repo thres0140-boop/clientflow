@@ -35,6 +35,7 @@ export default function App() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
   const [session, setSession] = useState<SessionPayload | null>(null);
+  const [ownerName, setOwnerName] = useState("Cenk");
   const [appReady, setAppReady] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,8 +68,10 @@ export default function App() {
   useEffect(() => {
     async function init() {
       // Fetch session first to know if we're a member login
-      const sess: SessionPayload | null = await fetch("/api/auth/me").then((r) => r.json());
+      const sessData = await fetch("/api/auth/me").then((r) => r.json());
+      const sess: SessionPayload | null = sessData;
       setSession(sess);
+      if (sessData?.ownerName) setOwnerName(sessData.ownerName);
 
       if (sess?.type === "member" && sess.memberId !== null) {
         // Locked to this member profile — no localStorage override
@@ -142,7 +145,7 @@ export default function App() {
       case "concepts": return <Concepts {...props} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
-      case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} currentUserName={session?.name ?? "owner"} isOwnerSession={session?.type === "owner"} />;
+      case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} />;
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
       case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} team={team} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} />;

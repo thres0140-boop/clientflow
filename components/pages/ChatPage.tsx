@@ -6,8 +6,9 @@ import { Client, Message, Concept, TrackedVideo } from "@/lib/types";
 type Props = {
   clients: Client[];
   selectedClientId: number | null;
-  currentUserName?: string;
   isOwnerSession?: boolean;
+  ownerName?: string;
+  clientName?: string;
 };
 
 type MentionItem = {
@@ -17,7 +18,7 @@ type MentionItem = {
   sub?: string;
 };
 
-export default function ChatPage({ clients, selectedClientId, currentUserName = "owner", isOwnerSession = false }: Props) {
+export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -107,7 +108,7 @@ export default function ChatPage({ clients, selectedClientId, currentUserName = 
     await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: selectedClientId, content, author: currentUserName }),
+      body: JSON.stringify({ clientId: selectedClientId, content, author: isOwnerSession ? "owner" : (clientName ?? "client") }),
     });
     fetchMessages();
   }
@@ -166,8 +167,9 @@ export default function ChatPage({ clients, selectedClientId, currentUserName = 
           </div>
         ) : (
           messages.map((msg) => {
-            const isMe = msg.author.toLowerCase() === currentUserName.toLowerCase() || (isOwnerSession && msg.author === "owner");
-            const displayName = (msg.author === "owner" && isOwnerSession) ? currentUserName : msg.author;
+            const isOwnerMsg = msg.author === "owner" || msg.author.toLowerCase() === ownerName.toLowerCase();
+            const isMe = isOwnerSession ? isOwnerMsg : !isOwnerMsg;
+            const displayName = isOwnerMsg ? ownerName : (msg.author === "client" ? (clientName ?? "Client") : msg.author);
             const initial = displayName[0]?.toUpperCase() ?? "?";
             return (
               <div key={msg.id} className={`flex gap-2 group ${isMe ? "justify-start" : "justify-end"}`}>
