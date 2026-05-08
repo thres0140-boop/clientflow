@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Client, Notification, TeamMember } from "@/lib/types";
 
-type Page = "pipeline" | "kanban" | "concepts" | "analytics" | "instagram" | "board" | "team" | "chat" | "settings";
+type Page = "pipeline" | "kanban" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings";
 
 const NAV_GROUPS = [
   {
@@ -13,6 +13,7 @@ const NAV_GROUPS = [
       { id: "kanban" as Page, label: "Script Kanban", icon: "📋" },
       { id: "concepts" as Page, label: "Concept Library", icon: "💡" },
       { id: "analytics" as Page, label: "Analytics", icon: "📊" },
+      { id: "dms" as Page, label: "DM Pipeline", icon: "💌" },
       { id: "instagram" as Page, label: "Instagram", icon: "📸" },
       { id: "board" as Page, label: "Strategy Board", icon: "🗂️" },
     ],

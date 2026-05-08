@@ -11,6 +11,7 @@ import SettingsPage from "@/components/pages/SettingsPage";
 import Kanban from "@/components/pages/Kanban";
 import InstagramPage from "@/components/pages/InstagramPage";
 import BoardPage from "@/components/pages/BoardPage";
+import DmsPage from "@/components/pages/DmsPage";
 import { Client, Notification, TeamMember } from "@/lib/types";
 
 export type Page =
@@ -18,6 +19,7 @@ export type Page =
   | "kanban"
   | "concepts"
   | "analytics"
+  | "dms"
   | "instagram"
   | "board"
   | "team"
@@ -87,8 +89,8 @@ export default function App() {
   // Compute which pages the active profile can see
   const activeProfile = team.find((m) => m.id === activeProfileId) ?? null;
   const allowedPages: Page[] = (() => {
-    if (!activeProfile) return ["pipeline","kanban","concepts","analytics","instagram","board","team","chat","settings"];
-    if (activeProfile.pageAccess === "all") return ["pipeline","kanban","concepts","analytics","instagram","board","team","chat","settings"];
+    if (!activeProfile) return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings"];
+    if (activeProfile.pageAccess === "all") return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings"];
     return activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
   })();
 
@@ -110,6 +112,7 @@ export default function App() {
       case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} />;
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
       case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} />;
+      case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} />;
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} />;
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} />;
     }

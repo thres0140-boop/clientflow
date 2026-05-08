@@ -36,6 +36,7 @@ model Client {
   board                 Board?
   instagramConnection   InstagramConnection?
   analyticsEntries      AnalyticsEntry[]
+  dmLeads               DmLead[]
 }
 
 model InstagramConnection {
@@ -266,4 +267,17 @@ model AnalyticsEntry {
   concept Concept? @relation(fields: [conceptId], references: [id], onDelete: SetNull)
 
   @@unique([clientId, date])
+}
+
+model DmLead {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  name      String
+  handle    String?
+  status    String   @default("messaged") // messaged | link_sent | booked | showed | no_show
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
