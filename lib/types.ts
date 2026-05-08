@@ -211,8 +211,8 @@ export const DM_STATUSES = [
   { value: "messaged",  label: "Messaged",  bg: "bg-indigo-50",  text: "text-indigo-700",  border: "border-indigo-200" },
   { value: "link_sent", label: "Link Sent", bg: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200"  },
   { value: "booked",    label: "Booked",    bg: "bg-blue-50",    text: "text-blue-700",    border: "border-blue-200"   },
-  { value: "showed",    label: "Showed",    bg: "bg-green-50",   text: "text-green-700",   border: "border-green-200"  },
   { value: "no_show",   label: "No Show",   bg: "bg-red-50",     text: "text-red-600",     border: "border-red-200"    },
+  { value: "showed",    label: "Showed",    bg: "bg-green-50",   text: "text-green-700",   border: "border-green-200"  },
   { value: "closed",    label: "Closed",    bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200"},
 ] as const;
 
