@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Client, ContentPiece, Concept, WorkflowStage, TeamMember,
+  Client, ContentPiece, Concept, WorkflowStage, TeamMember, ScriptDraft,
   STATUSES, PLATFORMS, CONTENT_TYPES,
 } from "@/lib/types";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -60,6 +60,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
+  const [scheduledDrafts, setScheduledDrafts] = useState<ScriptDraft[]>([]);
+  const [selectedDraft, setSelectedDraft] = useState<ScriptDraft | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [selected, setSelected] = useState<ContentPiece | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -94,16 +96,18 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
 
   const reload = useCallback(async () => {
     const qs = selectedClientId ? `?clientId=${selectedClientId}` : "";
-    const [c, co, s, t] = await Promise.all([
+    const [c, co, s, t, sd] = await Promise.all([
       fetch(`/api/content${qs}`).then((r) => r.json()),
       fetch(`/api/concepts${selectedClientId ? `?clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
       fetch("/api/workflow").then((r) => r.json()),
       fetch("/api/team").then((r) => r.json()),
+      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&scheduled=true`).then((r) => r.json()) : Promise.resolve([]),
     ]);
     setContent(c);
-    setConcepts(co);
+    setConcepts(co.filter((c: Concept) => !c.isIdea));
     setStages(s);
     setTeam(t);
+    setScheduledDrafts((sd || []).filter((d: ScriptDraft) => d.stageId && d.scheduledDate));
   }, [selectedClientId]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -291,6 +295,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
             <div className="grid grid-cols-7">
               {monthGrid.map((date, idx) => {
                 const pieces = date ? content.filter((c) => c.scheduledDate === date) : [];
+                const draftsOnDay = date ? scheduledDrafts.filter((d) => d.scheduledDate === date) : [];
                 const isToday = date === todayStr;
                 const dow = date ? (new Date(date).getDay() + 6) % 7 : -1; // 0=Mon
                 const templateConceptId = dow >= 0 ? dayTemplate[dow] : null;
@@ -370,6 +375,20 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                           {pieces.length > 3 && (
                             <p className="text-[9px] text-slate-400 pl-1">+{pieces.length - 3} more</p>
                           )}
+                          {draftsOnDay.map((draft) => (
+                            <button
+                              key={`d-${draft.id}`}
+                              onClick={() => setSelectedDraft(draft)}
+                              className="w-full text-left rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight hover:opacity-90 transition-opacity"
+                              style={{ backgroundColor: "#6366f115", borderLeft: "2px solid #6366f1", color: "#1e293b" }}
+                            >
+                              <div className="truncate font-semibold">{draft.title}</div>
+                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                {draft.concept && <span className="bg-indigo-100 text-indigo-600 rounded px-1 text-[9px]">💡 {draft.concept.name}</span>}
+                                {draft.stage && <span className="bg-slate-100 text-slate-500 rounded px-1 text-[9px]">📍 {draft.stage.name}</span>}
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       </>
                     )}
@@ -382,6 +401,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
             <div className="grid grid-cols-7 divide-x divide-slate-100">
               {weekDays.map((date, i) => {
                 const pieces = content.filter((c) => c.scheduledDate === date);
+                const draftsOnDay = scheduledDrafts.filter((d) => d.scheduledDate === date);
                 const isToday = date === todayStr;
                 const templateConceptId = dayTemplate[i];
                 const templateConcept = templateConceptId ? concepts.find((c) => c.id === templateConceptId) : null;
@@ -414,6 +434,18 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                           <p className="font-semibold text-slate-800 truncate leading-snug">{piece.title}</p>
                           {piece.concept && <p className="text-slate-400 truncate text-[10px] mt-0.5">💡 {piece.concept.name}</p>}
                           <div className="mt-1"><StatusBadge status={piece.status} /></div>
+                        </button>
+                      ))}
+                      {draftsOnDay.map((draft) => (
+                        <button
+                          key={`d-${draft.id}`}
+                          onClick={() => setSelectedDraft(draft)}
+                          className="w-full text-left rounded-lg px-2 py-2 text-xs hover:opacity-90 transition-opacity"
+                          style={{ backgroundColor: "#6366f115", borderLeft: "3px solid #6366f1" }}
+                        >
+                          <p className="font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
+                          {draft.concept && <p className="text-indigo-500 truncate text-[10px] mt-0.5">💡 {draft.concept.name}</p>}
+                          {draft.stage && <p className="text-slate-400 truncate text-[10px]">📍 {draft.stage.name}</p>}
                         </button>
                       ))}
                     </div>
@@ -512,6 +544,42 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           onSaved={reload}
         />
       )}
+      {selectedDraft && (
+        <ScriptDraftModal draft={selectedDraft} onClose={() => setSelectedDraft(null)} />
+      )}
+    </div>
+  );
+}
+
+// ── Script Draft Modal (read-only view from calendar) ───────────────────────
+
+function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between">
+          <div>
+            {draft.concept && <p className="text-xs font-semibold text-indigo-500 mb-0.5">💡 {draft.concept.name}</p>}
+            <h2 className="text-base font-bold text-slate-800">{draft.title}</h2>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {draft.stage && <span className="text-[10px] bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">📍 {draft.stage.name}</span>}
+              <span className="text-[10px] text-slate-400">{draft.weekLabel}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none ml-4">×</button>
+        </div>
+        {draft.hook && (
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Text Hook</p>
+            <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
+          </div>
+        )}
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Script</p>
+          <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.script}</pre>
+          <p className="text-[10px] text-slate-400 mt-1">{draft.script.split(" ").filter(Boolean).length} words</p>
+        </div>
+      </div>
     </div>
   );
 }

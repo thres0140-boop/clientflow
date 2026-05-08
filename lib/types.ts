@@ -80,6 +80,7 @@ export type ScriptDraft = {
   resurfaceAt?: string | null;
   rawContentUrl?: string | null;
   rawContentUrls?: string;
+  scheduledDate?: string | null;
   generatedAt: string;
   concept?: { name: string; color?: string } | null;
   client?: { name: string; color: string };

@@ -619,6 +619,28 @@ function DraftDetailPanel({
             <p className="text-[10px] text-slate-400 mt-1">{script.split(" ").filter(Boolean).length} words</p>
           </div>
 
+          {/* Schedule to calendar — shown when in a stage */}
+          {inStage && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Schedule to Calendar</label>
+              <input
+                type="date"
+                defaultValue={draft.scheduledDate ?? ""}
+                onChange={(e) => {
+                  fetch(`/api/script-drafts/${draft.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ scheduledDate: e.target.value || null }),
+                  });
+                }}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              {draft.scheduledDate && (
+                <p className="text-[10px] text-indigo-500 mt-1">📅 Scheduled for {draft.scheduledDate} — visible on Content Scheduling</p>
+              )}
+            </div>
+          )}
+
           {/* Raw content upload — shown when in a stage */}
           {inStage && (
             <div>
