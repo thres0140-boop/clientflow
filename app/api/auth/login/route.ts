@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
 
   // Owner login — only via /owner page (ownerOnly flag required)
   if (ownerOnly) {
-    if (password !== ownerPassword) {
+    const envSet = ownerPassword.length > 0;
+    if (!envSet) return NextResponse.json({ error: "OWNER_PASSWORD env var not set on server" }, { status: 500 });
+    if (password.trim() !== ownerPassword.trim()) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
     const token = await createSessionToken({ type: "owner", memberId: null, name: process.env.OWNER_NAME || "Owner" });
