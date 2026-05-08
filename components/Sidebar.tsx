@@ -122,7 +122,7 @@ export default function Sidebar({
       </div>
 
       {/* ── CLIENT CONTEXT ── */}
-      <div className="flex-shrink-0 border-b border-slate-100">
+      {session?.type !== "member" && <div className="flex-shrink-0 border-b border-slate-100">
         <div className="px-2 py-1.5">
           {activeClient ? (
             <button
@@ -175,7 +175,7 @@ export default function Sidebar({
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
