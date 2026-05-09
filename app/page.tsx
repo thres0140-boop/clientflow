@@ -68,6 +68,20 @@ export default function App() {
     setTeam(data);
   }, []);
 
+  // Handle Unipile OAuth callback redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("unipile") === "connected") {
+      const clientId = params.get("clientId");
+      if (clientId) setSelectedClientId(parseInt(clientId));
+      setPage("dms");
+      window.history.replaceState({}, "", "/");
+    } else if (params.get("unipile") === "failed") {
+      alert("Instagram connect failed. Please try again.");
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
   useEffect(() => {
     async function init() {
       // Fetch session first to know if we're a member login

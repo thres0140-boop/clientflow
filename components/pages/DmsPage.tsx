@@ -87,6 +87,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   const [replyText, setReplyText]           = useState("");
   const [sending, setSending]               = useState(false);
   const [search, setSearch]                 = useState("");
+  const [connecting, setConnecting]         = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const refreshTimer   = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -381,9 +382,32 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
                   <div className="p-6 text-center space-y-2">
                     {inboxError === "no_unipile_account" ? (
                       <>
-                        <p className="text-2xl">🔌</p>
-                        <p className="text-xs font-semibold text-slate-600">Instagram not connected via Unipile</p>
-                        <p className="text-[11px] text-slate-400 leading-relaxed">Go to Settings → connect this client's Instagram via Unipile to enable the DM inbox.</p>
+                        <p className="text-3xl mb-1">📱</p>
+                        <p className="text-sm font-semibold text-slate-700">Connect Instagram DMs</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed max-w-[200px] mx-auto">
+                          Link this client's Instagram so you can read and reply to DMs right here.
+                        </p>
+                        <button
+                          disabled={connecting}
+                          onClick={async () => {
+                            setConnecting(true);
+                            try {
+                              const res = await fetch("/api/unipile/auth-link", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ clientId: selectedClientId }),
+                              });
+                              const data = await res.json();
+                              if (data.url) window.location.href = data.url;
+                              else alert("Failed to generate connect link");
+                            } finally {
+                              setConnecting(false);
+                            }
+                          }}
+                          className="mt-3 px-4 py-2 text-xs font-semibold bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        >
+                          {connecting ? "Opening…" : "🔗 Connect Instagram"}
+                        </button>
                       </>
                     ) : (
                       <>
