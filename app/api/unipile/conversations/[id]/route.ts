@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const dsn = (process.env.UNIPILE_DSN ?? "").trim();
     const key = (process.env.UNIPILE_API_KEY ?? "").trim();
 
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const qs = accountId ? `?limit=50&account_id=${accountId}` : "?limit=50";
-    const url = `https://${dsn}/api/v1/chats/${params.id}/messages${qs}`;
+    const url = `https://${dsn}/api/v1/chats/${id}/messages${qs}`;
     console.log(`[msgs] ${url.slice(0, 100)}`);
 
     const res = await fetch(url, {
