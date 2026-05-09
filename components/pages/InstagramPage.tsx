@@ -51,13 +51,19 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
   const [loadingReels, setLoadingReels] = useState(false);
   const [selected, setSelected] = useState<IGReel | null>(null);
   const [connected, setConnected] = useState(false);
+  const [tokenExpired, setTokenExpired] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     if (!client) return;
     setLoadingProfile(true);
+    setTokenExpired(false);
     try {
       const res = await fetch(`/api/instagram/profile?clientId=${client.id}`);
-      if (res.ok) {
+      if (res.status === 401) {
+        setTokenExpired(true);
+        setConnected(true); // still "connected" in DB, just token expired
+        setProfile(null);
+      } else if (res.ok) {
         const data = await res.json();
         setProfile(data);
         setConnected(true);
@@ -147,7 +153,20 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
       </div>
 
       {tab === "reels" && (
-        connected
+        tokenExpired
+          ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+              <p className="text-amber-800 font-semibold mb-1">Instagram access token expired</p>
+              <p className="text-amber-600 text-sm mb-4">Reconnect to restore access to reels and insights.</p>
+              <a
+                href={`/api/auth/instagram?clientId=${client.id}`}
+                className="inline-block bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
+              >
+                Reconnect Instagram
+              </a>
+            </div>
+          )
+          : connected
           ? loadingReels
             ? <div className="flex items-center justify-center h-40 text-slate-400 text-sm">Loading reels…</div>
             : reels.length > 0

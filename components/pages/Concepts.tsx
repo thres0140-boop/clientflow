@@ -78,7 +78,7 @@ export default function Concepts({ clients, selectedClientId }: Props) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
               {ideas.map((idea) => (
                 <IdeaCard key={idea.id} idea={idea} onClick={() => setPromotingIdea(idea)} />
               ))}
@@ -184,35 +184,37 @@ function IdeaCard({ idea, onClick }: { idea: Concept; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-xl border border-slate-200 p-5 text-left hover:shadow-md hover:border-indigo-200 transition-all group"
+      className="w-full flex items-center gap-4 px-5 py-3.5 text-left hover:bg-slate-50 transition-colors group"
     >
-      <div className="flex items-start gap-3 mb-3">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-base flex-shrink-0">
-          📱
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">{idea.name}</p>
-          {idea.client && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white mt-1"
-              style={{ backgroundColor: idea.client.color }}>
-              {idea.client.name}
-            </span>
-          )}
-        </div>
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
+        style={{ backgroundColor: idea.client?.color || "#8b5cf6" }}
+      >
+        {idea.name[0]}
       </div>
-      {idea.notes && (
-        <p className="text-[11px] text-slate-400 mb-2">{idea.notes}</p>
-      )}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1.5">
-          {hasTranscript && (
-            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium">📝 Transcript</span>
-          )}
-        </div>
-        <span className="text-xs text-indigo-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-          Fill in details →
-        </span>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-800 truncate">{idea.name}</p>
+        {idea.notes && (
+          <p className="text-xs text-slate-400 truncate mt-0.5">{idea.notes}</p>
+        )}
       </div>
+
+      <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
+        {idea.client && (
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full text-white"
+            style={{ backgroundColor: idea.client.color }}>
+            {idea.client.name}
+          </span>
+        )}
+        {hasTranscript && (
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">transcript</span>
+        )}
+      </div>
+
+      <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+        <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
     </button>
   );
 }

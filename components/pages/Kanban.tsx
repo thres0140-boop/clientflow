@@ -16,6 +16,7 @@ type Props = {
   activeProfileId: number | null;
   team: TeamMember[];
   ownerName?: string;
+  isClient?: boolean;
 };
 
 const WEEK_NUMBER = Math.ceil(
@@ -79,7 +80,7 @@ function DroppableColumn({ id, children, className }: { id: string; children: Re
 }
 
 // ─── Main Kanban ────────────────────────────────────────────────────────────
-export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, team, ownerName = "Owner" }: Props) {
+export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, team, ownerName = "Owner", isClient = false }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -416,6 +417,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           }}
           activeProfileId={activeProfileId}
           ownerName={ownerName}
+          isClient={isClient}
           onProceed={() => { proceedToNextStage(detailDraft); setDetailDraft(null); }}
           getNextStage={(id) => getNextStage(id)}
           onUploaded={(urls) => {
@@ -541,7 +543,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, activeProfileId, ownerName = "Owner",
+  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, activeProfileId, ownerName = "Owner", isClient = false,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[];
   onClose: () => void; onAccept: () => void; onReject: () => void;
@@ -552,6 +554,7 @@ function DraftDetailPanel({
   onUploaded: (urls: string[]) => void;
   activeProfileId: number | null;
   ownerName?: string;
+  isClient?: boolean;
 }) {
   const [script, setScript] = useState(draft.script);
   const [hook, setHook] = useState(draft.hook || "");
@@ -651,8 +654,8 @@ function DraftDetailPanel({
             <p className="text-[10px] text-slate-400 mt-1">{script.split(" ").filter(Boolean).length} words</p>
           </div>
 
-          {/* Schedule to calendar — shown when in a stage */}
-          {inStage && (
+          {/* Schedule to calendar — owner only */}
+          {inStage && !isClient && (
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Schedule to Calendar</label>
               <input

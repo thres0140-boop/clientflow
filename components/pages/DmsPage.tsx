@@ -107,7 +107,8 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     setInboxError(null);
     try {
       const data = await fetch(`/api/instagram/conversations?clientId=${selectedClientId}`).then((r) => r.json());
-      if (data.error) { setInboxError(`${data.error}${data.code ? ` (code ${data.code}${data.subcode ? `.${data.subcode}` : ""})` : ""}${data.type ? ` [${data.type}]` : ""}`); }
+      if (data.error === "missing_permission") { setInboxError(`missing_permission|${(data.grantedScopes ?? []).join(",")}`); }
+      else if (data.error) { setInboxError(`${data.error}${data.code ? ` (code ${data.code})` : ""}${data.type ? ` [${data.type}]` : ""}`); }
       else { setConversations(data.conversations ?? []); }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);
@@ -354,9 +355,17 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
               <div className="flex-1 overflow-y-auto">
                 {inboxError ? (
                   <div className="p-6 text-center space-y-2">
-                    <p className="text-xs font-semibold text-red-500">Could not load inbox</p>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">{inboxError}</p>
-                    <p className="text-[11px] text-slate-400">Make sure your Instagram app has <strong>instagram_manage_messages</strong> permission and the connected account is approved.</p>
+                    {inboxError.startsWith("missing_permission") ? (
+                      <>
+                        <p className="text-xs font-semibold text-amber-600">Messaging permission missing</p>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">The connected token doesn't have <strong>instagram_business_manage_messages</strong>. Go to Instagram page and reconnect to get a fresh token with messaging enabled.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs font-semibold text-red-500">Could not load inbox</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{inboxError}</p>
+                      </>
+                    )}
                     <button onClick={loadInbox} className="mt-2 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Retry</button>
                   </div>
                 ) : inboxLoading && conversations.length === 0 ? (
