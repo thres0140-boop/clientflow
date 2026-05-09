@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const dsn = (process.env.UNIPILE_DSN ?? "").trim();
     const key = (process.env.UNIPILE_API_KEY ?? "").trim();
 
     if (!dsn || !key) {
-      return NextResponse.json({ error: `env missing: dsn=${dsn ? "ok" : "missing"} key=${key ? "ok" : "missing"}`, messages: [] });
+      return NextResponse.json({ error: `env missing`, messages: [] });
     }
 
-    const url = `https://${dsn}/api/v1/chats/${params.id}/messages?limit=50`;
-    console.log(`[msgs] fetching: ${url.slice(0, 80)}`);
+    // Look up which account owns this chat so we can pass account_id
+    const clientId = req.nextUrl.searchParams.get("clientId");
+    let accountId: string | undefined;
+    if (clientId) {
+      const conn = await prisma.instagramConnection.findUnique({
+        where: { clientId: parseInt(clientId) },
+      });
+      accountId = conn?.unipileAccountId ?? undefined;
+    }
+
+    const qs = accountId ? `?limit=50&account_id=${accountId}` : "?limit=50";
+    const url = `https://${dsn}/api/v1/chats/${params.id}/messages${qs}`;
+    console.log(`[msgs] ${url.slice(0, 100)}`);
 
     const res = await fetch(url, {
       headers: { "X-API-KEY": key, "accept": "application/json" },
@@ -21,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     const data = await res.json();
 
     if (!res.ok) {
-      console.error(`[msgs] error ${res.status}:`, JSON.stringify(data).slice(0, 200));
+      console.error(`[msgs] ${res.status}:`, JSON.stringify(data).slice(0, 200));
       return NextResponse.json({ error: data, messages: [] });
     }
 
