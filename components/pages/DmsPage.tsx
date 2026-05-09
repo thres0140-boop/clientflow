@@ -137,6 +137,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     setMessagesLoading(true);
     try {
       const data = await fetch(`/api/unipile/conversations/${conv.id}`).then((r) => r.json());
+      if (data.error) { console.error("loadMessages error:", data.error); }
       if (!data.error) {
         const msgs = (data.messages ?? []).map((m: any) => ({
           id: m.id,

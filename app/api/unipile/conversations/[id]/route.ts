@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BASE = `https://${process.env.UNIPILE_DSN}/api/v1`;
-const KEY  = process.env.UNIPILE_API_KEY!;
-
-function headers() {
-  return { "X-API-KEY": KEY, "accept": "application/json" };
-}
-
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const res = await fetch(`${BASE}/chats/${params.id}/messages?limit=50`, {
-    headers: headers(),
-  });
-  const data = await res.json();
-  return NextResponse.json({ messages: data.items ?? data.messages ?? [] });
+  try {
+    const dsn = (process.env.UNIPILE_DSN ?? "").trim();
+    const key = (process.env.UNIPILE_API_KEY ?? "").trim();
+
+    if (!dsn || !key) {
+      return NextResponse.json({ error: `env missing: dsn=${dsn ? "ok" : "missing"}`, messages: [] });
+    }
+
+    const res = await fetch(`https://${dsn}/api/v1/chats/${params.id}/messages?limit=50`, {
+      headers: { "X-API-KEY": key, "accept": "application/json" },
+    });
+    const data = await res.json();
+    if (!res.ok) return NextResponse.json({ error: data, messages: [] });
+    return NextResponse.json({ messages: data.items ?? data.messages ?? [] });
+  } catch (err: any) {
+    return NextResponse.json({ error: String(err), messages: [] });
+  }
 }
