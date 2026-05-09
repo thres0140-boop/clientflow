@@ -77,11 +77,7 @@ export default function App() {
       if (sessData?.ownerName) setOwnerName(sessData.ownerName);
 
       if (sess?.type === "member" && sess.memberId !== null) {
-        // Locked to this member profile — no localStorage override
         setActiveProfileId(sess.memberId);
-      } else {
-        const saved = localStorage.getItem("cf_active_profile");
-        if (saved) setActiveProfileId(parseInt(saved));
       }
 
       await Promise.all([fetchClients(), fetchNotifications(), fetchTeam()]);
@@ -106,16 +102,6 @@ export default function App() {
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
     transitionTimer.current = setTimeout(() => setTransitioning(false), 500);
   }, [selectedClientId, page]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function switchProfile(id: number | null) {
-    setActiveProfileId(id);
-    if (id === null) {
-      localStorage.removeItem("cf_active_profile");
-    } else {
-      localStorage.setItem("cf_active_profile", String(id));
-    }
-    setPage("pipeline" as Page);
-  }
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -179,8 +165,6 @@ export default function App() {
         notifications={notifications}
         allowedPages={allowedPages}
         activeProfile={activeProfile}
-        team={team}
-        onSwitchProfile={switchProfile}
         session={session}
         onSignOut={signOut}
         onMarkRead={async (id) => {
