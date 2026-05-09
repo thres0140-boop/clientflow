@@ -70,6 +70,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [showScheduleBoard, setShowScheduleBoard] = useState(true);
   const [pendingDrop, setPendingDrop] = useState<{ draft: ScriptDraft; date: string } | null>(null);
+  const [boardColumnPicker, setBoardColumnPicker] = useState(false);
+  const [boardColumns, setBoardColumns] = useState<string[]>(["Ideas"]);
 
   const [calView, setCalView] = useState<CalendarView>("month");
   const [planMode, setPlanMode] = useState<PlanningMode>("calendar");
@@ -127,6 +129,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     else setPlanMode("calendar");
     const savedTags = localStorage.getItem(`cf_date_tags_${selectedClientId}`);
     setDateTags(savedTags ? JSON.parse(savedTags) : {});
+    const savedCols = localStorage.getItem(`cf_board_cols_${selectedClientId}`);
+    setBoardColumns(savedCols ? JSON.parse(savedCols) : ["Ideas"]);
   }, [selectedClientId]);
 
   useEffect(() => {
@@ -535,29 +539,58 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 drag onto calendar to schedule
               </span>
             </div>
-            <button
-              onClick={() => setShowScheduleBoard((v) => !v)}
-              className="text-xs text-slate-400 hover:text-slate-600"
-            >
-              {showScheduleBoard ? "Hide" : "Show"}
-            </button>
+            <div className="flex items-center gap-3 relative">
+              <button
+                onClick={() => setBoardColumnPicker((v) => !v)}
+                className="text-xs text-slate-500 hover:text-indigo-600 font-medium flex items-center gap-1"
+              >
+                ⚙ Columns
+              </button>
+              {boardColumnPicker && (
+                <div className="absolute right-16 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 min-w-[180px]" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Show columns</p>
+                  {(["Ideas", ...stages.map((s) => s.name)]).map((col) => (
+                    <label key={col} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-slate-50 rounded px-1">
+                      <input
+                        type="checkbox"
+                        checked={boardColumns.includes(col)}
+                        onChange={(e) => {
+                          const updated = e.target.checked
+                            ? [...boardColumns, col]
+                            : boardColumns.filter((c) => c !== col);
+                          setBoardColumns(updated);
+                          if (selectedClientId) localStorage.setItem(`cf_board_cols_${selectedClientId}`, JSON.stringify(updated));
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-xs text-slate-700">{col}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => setShowScheduleBoard((v) => !v)}
+                className="text-xs text-slate-400 hover:text-slate-600"
+              >
+                {showScheduleBoard ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
           {showScheduleBoard && (() => {
             const unscheduled = stagedDrafts.filter((d) => !d.scheduledDate);
-            if (unscheduled.length === 0) {
-              return (
-                <p className="px-5 py-8 text-center text-sm text-slate-400">
-                  {stagedDrafts.length === 0 ? "No scripts yet — generate scripts in the Kanban first." : "All scripts are scheduled ✓"}
-                </p>
-              );
+            if (boardColumns.length === 0) {
+              return <p className="px-5 py-8 text-center text-sm text-slate-400">No columns selected — click ⚙ Columns to choose which to show.</p>;
             }
-            // Group by stage (or "Ideas" for stageless)
+            if (stagedDrafts.length === 0) {
+              return <p className="px-5 py-8 text-center text-sm text-slate-400">No scripts yet — generate scripts in the Kanban first.</p>;
+            }
+            // Group by selected columns (show even if empty)
             const grouped: { label: string; color: string; drafts: ScriptDraft[] }[] = [];
-            const stageless = unscheduled.filter((d) => !d.stageId);
-            if (stageless.length > 0) grouped.push({ label: "Ideas", color: "#a855f7", drafts: stageless });
-            stages.forEach((st) => {
-              const draftsInStage = unscheduled.filter((d) => d.stageId === st.id);
-              if (draftsInStage.length > 0) grouped.push({ label: st.name, color: st.color, drafts: draftsInStage });
+            if (boardColumns.includes("Ideas")) {
+              grouped.push({ label: "Ideas", color: "#a855f7", drafts: unscheduled.filter((d) => !d.stageId) });
+            }
+            stages.filter((st) => boardColumns.includes(st.name)).forEach((st) => {
+              grouped.push({ label: st.name, color: st.color, drafts: unscheduled.filter((d) => d.stageId === st.id) });
             });
             return (
               <div className="overflow-x-auto">
