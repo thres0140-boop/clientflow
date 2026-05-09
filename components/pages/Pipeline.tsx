@@ -101,18 +101,18 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
 
   const reload = useCallback(async () => {
     const qs = selectedClientId ? `?clientId=${selectedClientId}` : "";
-    const [c, co, s, t, staged] = await Promise.all([
+    const [c, co, s, t, allDrafts] = await Promise.all([
       fetch(`/api/content${qs}`).then((r) => r.json()),
       fetch(`/api/concepts${selectedClientId ? `?clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
       fetch("/api/workflow").then((r) => r.json()),
       fetch("/api/team").then((r) => r.json()),
-      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&staged=true`).then((r) => r.json()) : Promise.resolve([]),
+      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&all=true`).then((r) => r.json()) : Promise.resolve([]),
     ]);
     setContent(c);
     setConcepts(co.filter((c: Concept) => !c.isIdea));
     setStages(s);
     setTeam(t);
-    const allStaged: ScriptDraft[] = staged || [];
+    const allStaged: ScriptDraft[] = allDrafts || [];
     setStagedDrafts(allStaged);
     setScheduledDrafts(allStaged.filter((d: ScriptDraft) => d.scheduledDate));
   }, [selectedClientId]);
@@ -544,46 +544,50 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           </div>
           {showScheduleBoard && (() => {
             const unscheduled = stagedDrafts.filter((d) => !d.scheduledDate);
-            const stagesWithDrafts = stages.filter((st) => unscheduled.some((d) => d.stageId === st.id));
             if (unscheduled.length === 0) {
               return (
                 <p className="px-5 py-8 text-center text-sm text-slate-400">
-                  {stagedDrafts.length === 0 ? "No scripts in workflow stages yet — move scripts through the Kanban first." : "All staged drafts are scheduled ✓"}
+                  {stagedDrafts.length === 0 ? "No scripts yet — generate scripts in the Kanban first." : "All scripts are scheduled ✓"}
                 </p>
               );
             }
+            // Group by stage (or "Ideas" for stageless)
+            const grouped: { label: string; color: string; drafts: ScriptDraft[] }[] = [];
+            const stageless = unscheduled.filter((d) => !d.stageId);
+            if (stageless.length > 0) grouped.push({ label: "Ideas", color: "#a855f7", drafts: stageless });
+            stages.forEach((st) => {
+              const draftsInStage = unscheduled.filter((d) => d.stageId === st.id);
+              if (draftsInStage.length > 0) grouped.push({ label: st.name, color: st.color, drafts: draftsInStage });
+            });
             return (
               <div className="overflow-x-auto">
                 <div className="flex gap-0 min-w-max">
-                  {stagesWithDrafts.map((stage) => {
-                    const draftsInStage = unscheduled.filter((d) => d.stageId === stage.id);
-                    return (
-                      <div key={stage.id} className="w-56 border-r border-slate-100 last:border-r-0 flex-shrink-0">
-                        <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
-                          <span className="text-xs font-semibold text-slate-700 truncate">{stage.name}</span>
-                          <span className="ml-auto text-[10px] text-slate-400">{draftsInStage.length}</span>
-                        </div>
-                        <div className="p-2 space-y-1.5 max-h-56 overflow-y-auto">
-                          {draftsInStage.map((draft) => (
-                            <div
-                              key={draft.id}
-                              draggable
-                              onDragStart={() => handleDraftDragStart(draft.id)}
-                              onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
-                              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50 transition-colors select-none"
-                            >
-                              <p className="text-xs font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
-                              {draft.concept && (
-                                <p className="text-[10px] text-indigo-500 truncate mt-0.5">💡 {draft.concept.name}</p>
-                              )}
-                              <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}</p>
-                            </div>
-                          ))}
-                        </div>
+                  {grouped.map((group) => (
+                    <div key={group.label} className="w-56 border-r border-slate-100 last:border-r-0 flex-shrink-0">
+                      <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+                        <span className="text-xs font-semibold text-slate-700 truncate">{group.label}</span>
+                        <span className="ml-auto text-[10px] text-slate-400">{group.drafts.length}</span>
                       </div>
-                    );
-                  })}
+                      <div className="p-2 space-y-1.5 max-h-56 overflow-y-auto">
+                        {group.drafts.map((draft) => (
+                          <div
+                            key={draft.id}
+                            draggable
+                            onDragStart={() => handleDraftDragStart(draft.id)}
+                            onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
+                            className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50 transition-colors select-none"
+                          >
+                            <p className="text-xs font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
+                            {draft.concept && (
+                              <p className="text-[10px] text-indigo-500 truncate mt-0.5">💡 {draft.concept.name}</p>
+                            )}
+                            <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
