@@ -191,13 +191,14 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   }
 
   // Pipeline helpers
-  async function moveStatus(lead: DmLead, status: string) {
-    await fetch(`/api/dm-leads/${lead.id}`, {
+  function moveStatus(lead: DmLead, status: string) {
+    // Optimistic update — move card immediately, save in background
+    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status } : l));
+    fetch(`/api/dm-leads/${lead.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    loadLeads();
   }
   async function deleteLead(id: number) {
     if (!confirm("Remove this lead?")) return;
