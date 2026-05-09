@@ -261,7 +261,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className={view === "inbox" ? "flex flex-col flex-1 min-h-0 gap-4" : "space-y-4"}>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -370,7 +370,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
 
       {/* ── INBOX VIEW ─────────────────────────────────────────────────── */}
       {view === "inbox" && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden" style={{ height: "calc(100vh - 200px)" }}>
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex-1 min-h-0">
           <div className="flex h-full">
             {/* Left: conversation list */}
             <div className="w-80 flex-shrink-0 border-r border-slate-200 flex flex-col">
