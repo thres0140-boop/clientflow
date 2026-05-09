@@ -95,46 +95,53 @@ export default function Concepts({ clients, selectedClientId }: Props) {
               <p className="text-slate-500">No concepts yet. Promote an idea or create one manually.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
               {realConcepts.map((concept) => (
                 <button
                   key={concept.id}
                   onClick={() => setSelected(concept)}
-                  className="bg-white rounded-xl border border-slate-200 p-5 text-left hover:shadow-md hover:border-indigo-200 transition-all"
+                  className="w-full flex items-center gap-4 px-5 py-3.5 text-left hover:bg-slate-50 transition-colors group"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-slate-800 text-sm">{concept.name}</h3>
-                    <span className="text-xs text-slate-400 flex-shrink-0 ml-2">×{concept.timesUsed}</span>
+                  {/* Color dot */}
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
+                    style={{ backgroundColor: concept.client?.color || "#6366f1" }}
+                  >
+                    {concept.name[0]}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 mb-3">
+
+                  {/* Name + hook */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{concept.name}</p>
+                    {concept.textHook && (
+                      <p className="text-xs text-slate-400 italic truncate mt-0.5">"{concept.textHook}"</p>
+                    )}
+                  </div>
+
+                  {/* Tags */}
+                  <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
                     {concept.hookType && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
-                        🎣 {concept.hookType}
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">
+                        {concept.hookType}
                       </span>
                     )}
                     {concept.videoType && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                        🎬 {concept.videoType}
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">
+                        {concept.videoType}
                       </span>
                     )}
                     {concept.angle && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                         {concept.angle}
                       </span>
                     )}
-                    {concept.client && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                        style={{ backgroundColor: concept.client.color }}>
-                        {concept.client.name}
-                      </span>
-                    )}
                   </div>
-                  {concept.textHook && (
-                    <p className="text-xs text-slate-500 italic mb-2 truncate">"{concept.textHook}"</p>
-                  )}
-                  {concept.guidelines && (
-                    <p className="text-xs text-slate-400 line-clamp-2">{concept.guidelines}</p>
-                  )}
+
+                  {/* Used count */}
+                  <span className="text-xs text-slate-300 flex-shrink-0 ml-2">×{concept.timesUsed}</span>
+                  <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </button>
               ))}
             </div>
