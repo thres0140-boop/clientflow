@@ -45,6 +45,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   const [mentionIndex, setMentionIndex] = useState(0);
   const [activeReel, setActiveReel] = useState<ReelContext | null>(null);
   const [reelModal, setReelModal] = useState<ReelRef | null>(null);
+  const [reelModalFull, setReelModalFull] = useState<ReelRef | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -56,6 +57,17 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [reelContext]);
+
+  useEffect(() => {
+    if (!reelModal) { setReelModalFull(null); return; }
+    if (reelModal.id) {
+      fetch(`/api/script-drafts?id=${reelModal.id}`)
+        .then((r) => r.json())
+        .then((d) => d && setReelModalFull(d));
+    } else {
+      setReelModalFull(reelModal);
+    }
+  }, [reelModal]);
 
   const fetchMessages = useCallback(async () => {
     if (!selectedClientId) return;
@@ -343,41 +355,62 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
       {reelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setReelModal(null)}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            {/* Modal header */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-              <span className="text-xl">🎬</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide">Reel</p>
-                <p className="text-sm font-bold text-slate-800 truncate">{reelModal.title}</p>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-0.5">
+                    {(reelModalFull as any)?.concept?.name ?? "Reel"}
+                  </p>
+                  <p className="text-base font-bold text-slate-800">{reelModal.title}</p>
+                  {(reelModalFull as any)?.weekLabel && (
+                    <p className="text-xs text-slate-400 mt-0.5">{(reelModalFull as any).weekLabel}</p>
+                  )}
+                </div>
+                <button onClick={() => setReelModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0 mt-0.5">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <button onClick={() => setReelModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
             </div>
-            {/* Modal body */}
-            <div className="overflow-y-auto p-5 space-y-4">
-              {reelModal.hook && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Hook</p>
-                  <p className="text-sm text-slate-700 leading-relaxed">{reelModal.hook}</p>
-                </div>
-              )}
-              {reelModal.script && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Script</p>
-                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{reelModal.script}</p>
-                </div>
-              )}
-              {reelModal.caption && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Caption</p>
-                  <p className="text-sm text-slate-500 leading-relaxed">{reelModal.caption}</p>
-                </div>
-              )}
-            </div>
+            {/* Body */}
+            {!reelModalFull ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="overflow-y-auto p-5 space-y-5">
+                {reelModalFull.hook && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Text Hook</p>
+                    <div className="border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-700 leading-relaxed bg-slate-50">
+                      {reelModalFull.hook}
+                    </div>
+                  </div>
+                )}
+                {reelModalFull.script && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Script</p>
+                    <div className="border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap bg-slate-50 font-mono">
+                      {reelModalFull.script}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5">
+                      {reelModalFull.script.split(/\s+/).filter(Boolean).length} words
+                    </p>
+                  </div>
+                )}
+                {reelModalFull.caption && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Caption</p>
+                    <div className="border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-500 leading-relaxed bg-slate-50">
+                      {reelModalFull.caption}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

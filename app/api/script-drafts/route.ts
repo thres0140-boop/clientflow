@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
+  const idParam = req.nextUrl.searchParams.get("id");
+  if (idParam) {
+    const draft = await prisma.scriptDraft.findUnique({
+      where: { id: parseInt(idParam) },
+      include: { concept: { select: { name: true } }, client: { select: { name: true, color: true } }, stage: true },
+    });
+    return NextResponse.json(draft);
+  }
+
   const clientId = req.nextUrl.searchParams.get("clientId");
   const scheduled = req.nextUrl.searchParams.get("scheduled");
   const today = new Date().toISOString().slice(0, 10);
