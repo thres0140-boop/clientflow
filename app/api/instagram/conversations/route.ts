@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   const { accessToken, igUserId } = conn;
 
-  // Check token permissions first
+  // Check token permissions (for debug info only, not blocking)
   const permRes = await fetch(
     `https://graph.instagram.com/v21.0/me/permissions`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -21,15 +21,6 @@ export async function GET(req: NextRequest) {
   const grantedPerms: string[] = (permData.data ?? [])
     .filter((p: { permission: string; status: string }) => p.status === "granted")
     .map((p: { permission: string }) => p.permission);
-
-  const hasMessaging = grantedPerms.includes("instagram_business_manage_messages");
-
-  if (!hasMessaging) {
-    return NextResponse.json(
-      { error: "missing_permission", missingScope: "instagram_business_manage_messages", grantedScopes: grantedPerms },
-      { status: 403 }
-    );
-  }
 
   // Verify token
   const meRes = await fetch(`https://graph.instagram.com/v21.0/me?fields=id,username`, {
@@ -51,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     if (data.error) {
       return NextResponse.json(
-        { error: data.error.message, code: data.error.code, type: data.error.type },
+        { error: data.error.message, code: data.error.code, type: data.error.type, grantedScopes: grantedPerms },
         { status: 400 }
       );
     }
@@ -71,7 +62,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ conversations, igUserId: resolvedUserId });
+    return NextResponse.json({ conversations, igUserId: resolvedUserId, grantedScopes: grantedPerms });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
