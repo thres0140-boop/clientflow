@@ -75,6 +75,10 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+        <p className="text-center text-xs text-slate-600 mt-4">
+          Owner?{" "}
+          <a href="/owner" className="text-indigo-400 hover:text-indigo-300 transition-colors">Sign in here →</a>
+        </p>
       </div>
     </div>
   );
