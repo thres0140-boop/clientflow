@@ -6,26 +6,164 @@ import type { SessionPayload } from "@/lib/session";
 
 type Page = "pipeline" | "kanban" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context";
 
+// ── Custom SVG Icons ─────────────────────────────────────────────────────────
+function IconCalendar({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1.5" y="2.5" width="13" height="12" rx="2" stroke={active ? "white" : "#94a3b8"} strokeWidth="1.3"/>
+      <path d="M5 1.5V3.5M11 1.5V3.5" stroke={active ? "white" : "#94a3b8"} strokeWidth="1.3" strokeLinecap="round"/>
+      <path d="M1.5 6H14.5" stroke={active ? "white" : "#94a3b8"} strokeWidth="1.3"/>
+      <rect x="4" y="8.5" width="2" height="2" rx="0.5" fill={active ? "white" : "#94a3b8"}/>
+      <rect x="7" y="8.5" width="2" height="2" rx="0.5" fill={active ? "white" : "#94a3b8"}/>
+      <rect x="10" y="8.5" width="2" height="2" rx="0.5" fill={active ? "white" : "#94a3b8"}/>
+    </svg>
+  );
+}
+
+function IconKanban({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1.5" y="1.5" width="4" height="10" rx="1.5" stroke={c} strokeWidth="1.3"/>
+      <rect x="6" y="1.5" width="4" height="7" rx="1.5" stroke={c} strokeWidth="1.3"/>
+      <rect x="10.5" y="1.5" width="4" height="13" rx="1.5" stroke={c} strokeWidth="1.3"/>
+    </svg>
+  );
+}
+
+function IconConcepts({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M8 1.5C5.51 1.5 3.5 3.51 3.5 6c0 1.68.9 3.14 2.25 3.93V11h4.5V9.93C11.6 9.14 12.5 7.68 12.5 6c0-2.49-2.01-4.5-4.5-4.5z" stroke={c} strokeWidth="1.3" strokeLinejoin="round"/>
+      <path d="M5.75 11h4.5M6.5 13h3" stroke={c} strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconBrain({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M8 2C6.9 2 6 2.67 6 3.5c0 .28.1.54.26.77C5.55 4.56 5 5.22 5 6c0 .55.23 1.05.6 1.4C5.23 7.75 5 8.25 5 8.8c0 .97.68 1.78 1.6 1.96V12h2.8v-1.24C10.32 10.58 11 9.77 11 8.8c0-.55-.23-1.05-.6-1.4.37-.35.6-.85.6-1.4 0-.78-.55-1.44-1.26-1.73.16-.23.26-.49.26-.77C10 2.67 9.1 2 8 2z" stroke={c} strokeWidth="1.2" strokeLinejoin="round"/>
+      <path d="M6.5 12h3M7 9.5h2" stroke={c} strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M8 5.5V7.5" stroke={c} strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconAnalytics({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1.5" y="7.5" width="3" height="6" rx="1" stroke={c} strokeWidth="1.3"/>
+      <rect x="6.5" y="4.5" width="3" height="9" rx="1" stroke={c} strokeWidth="1.3"/>
+      <rect x="11.5" y="2" width="3" height="11.5" rx="1" stroke={c} strokeWidth="1.3"/>
+    </svg>
+  );
+}
+
+function IconDMs({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 3.5C2 2.67 2.67 2 3.5 2h9C13.33 2 14 2.67 14 3.5v7c0 .83-.67 1.5-1.5 1.5H9l-3 2v-2H3.5C2.67 12 2 11.33 2 10.5v-7z" stroke={c} strokeWidth="1.3" strokeLinejoin="round"/>
+      <path d="M5 6h6M5 8.5h3.5" stroke={c} strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconInstagram({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="2" width="12" height="12" rx="3.5" stroke={c} strokeWidth="1.3"/>
+      <circle cx="8" cy="8" r="2.5" stroke={c} strokeWidth="1.3"/>
+      <circle cx="11.5" cy="4.5" r="0.75" fill={c}/>
+    </svg>
+  );
+}
+
+function IconBoard({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1.5" y="1.5" width="6" height="6" rx="1.5" stroke={c} strokeWidth="1.3"/>
+      <rect x="8.5" y="1.5" width="6" height="3.5" rx="1.5" stroke={c} strokeWidth="1.3"/>
+      <rect x="8.5" y="6.5" width="6" height="8" rx="1.5" stroke={c} strokeWidth="1.3"/>
+      <rect x="1.5" y="9" width="6" height="5.5" rx="1.5" stroke={c} strokeWidth="1.3"/>
+    </svg>
+  );
+}
+
+function IconTeam({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="6" cy="5" r="2.5" stroke={c} strokeWidth="1.3"/>
+      <path d="M1.5 13.5c0-2.49 2.01-4.5 4.5-4.5s4.5 2.01 4.5 4.5" stroke={c} strokeWidth="1.3" strokeLinecap="round"/>
+      <circle cx="12" cy="5.5" r="1.8" stroke={c} strokeWidth="1.2"/>
+      <path d="M14.5 12.5c0-1.66-1.12-3.08-2.67-3.42" stroke={c} strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IconChat({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 3C2 2.45 2.45 2 3 2h10c.55 0 1 .45 1 1v7c0 .55-.45 1-1 1H9.5L7 14v-3H3c-.55 0-1-.45-1-1V3z" stroke={c} strokeWidth="1.3" strokeLinejoin="round"/>
+      <circle cx="5.5" cy="6.5" r="0.8" fill={c}/>
+      <circle cx="8" cy="6.5" r="0.8" fill={c}/>
+      <circle cx="10.5" cy="6.5" r="0.8" fill={c}/>
+    </svg>
+  );
+}
+
+function IconSettings({ active }: { active: boolean }) {
+  const c = active ? "white" : "#94a3b8";
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="2" stroke={c} strokeWidth="1.3"/>
+      <path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M12.6 3.4l-.85.85M4.25 11.75l-.85.85" stroke={c} strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
+  pipeline: (a) => <IconCalendar active={a} />,
+  kanban:   (a) => <IconKanban active={a} />,
+  concepts: (a) => <IconConcepts active={a} />,
+  context:  (a) => <IconBrain active={a} />,
+  analytics:(a) => <IconAnalytics active={a} />,
+  dms:      (a) => <IconDMs active={a} />,
+  instagram:(a) => <IconInstagram active={a} />,
+  board:    (a) => <IconBoard active={a} />,
+  team:     (a) => <IconTeam active={a} />,
+  chat:     (a) => <IconChat active={a} />,
+  settings: (a) => <IconSettings active={a} />,
+};
+
 const NAV_GROUPS = [
   {
     label: "WORK",
     items: [
-      { id: "pipeline" as Page, label: "Content Scheduling", icon: "📅" },
-      { id: "kanban" as Page, label: "Script Kanban", icon: "📋" },
-      { id: "concepts" as Page, label: "Concept Library", icon: "💡" },
-      { id: "context" as Page, label: "AI Context", icon: "🧠" },
-      { id: "analytics" as Page, label: "Analytics", icon: "📊" },
-      { id: "dms" as Page, label: "DM Pipeline", icon: "💌" },
-      { id: "instagram" as Page, label: "Instagram", icon: "📸" },
-      { id: "board" as Page, label: "Strategy Board", icon: "🗂️" },
+      { id: "pipeline" as Page, label: "Content Scheduling" },
+      { id: "kanban" as Page, label: "Script Kanban" },
+      { id: "concepts" as Page, label: "Concept Library" },
+      { id: "context" as Page, label: "AI Context" },
+      { id: "analytics" as Page, label: "Analytics" },
+      { id: "dms" as Page, label: "DM Pipeline" },
+      { id: "instagram" as Page, label: "Instagram" },
+      { id: "board" as Page, label: "Strategy Board" },
     ],
   },
   {
     label: "MANAGE",
     items: [
-      { id: "team" as Page, label: "Team", icon: "🤝" },
-      { id: "chat" as Page, label: "Client Chat", icon: "💬" },
-      { id: "settings" as Page, label: "Settings", icon: "⚙️" },
+      { id: "team" as Page, label: "Team" },
+      { id: "chat" as Page, label: "Client Chat" },
+      { id: "settings" as Page, label: "Settings" },
     ],
   },
 ];
@@ -197,7 +335,9 @@ export default function Sidebar({
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
                   >
-                    <span className="text-base">{item.icon}</span>
+                    <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
+                      {PAGE_ICONS[item.id]?.(currentPage === item.id)}
+                    </span>
                     {item.label}
                   </button>
                 ))}
