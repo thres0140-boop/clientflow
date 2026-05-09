@@ -397,9 +397,13 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ clientId: selectedClientId }),
                               });
-                              const data = await res.json();
+                              const text = await res.text();
+                              let data: any;
+                              try { data = JSON.parse(text); } catch { alert(`Bad response: ${text.slice(0, 200)}`); return; }
                               if (data.url) window.location.href = data.url;
-                              else alert("Failed to generate connect link");
+                              else alert(`Connect failed: ${JSON.stringify(data)}`);
+                            } catch (e) {
+                              alert(`Error: ${e}`);
                             } finally {
                               setConnecting(false);
                             }
