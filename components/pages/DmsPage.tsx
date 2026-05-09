@@ -117,9 +117,9 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
           igId: c.attendees?.[0]?.id ?? c.id,
           name: c.attendees?.[0]?.name ?? c.name ?? "Unknown",
           handle: c.attendees?.[0]?.username ?? c.attendees?.[0]?.handle ?? "",
-          lastMessage: c.last_message?.text ?? c.snippet ?? "",
-          timestamp: c.last_message?.created_at ?? c.updated_at ?? "",
-          unread: c.unread_count ?? 0,
+          snippet: c.last_message?.text ?? c.snippet ?? "",
+          updatedTime: c.last_message?.created_at ?? c.updated_at ?? new Date().toISOString(),
+          unreadCount: c.unread_count ?? 0,
         }));
         setConversations(convs);
       }
@@ -146,7 +146,15 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
           isOwn: m.is_sender ?? false,
           createdTime: m.created_at ?? m.timestamp ?? "",
         }));
-        setMessages(msgs);
+        // Keep any optimistic messages (id starts with "opt-") that haven't synced yet
+        setMessages((prev) => {
+          const optimistics = prev.filter((m) => m.id.startsWith("opt-"));
+          const merged = [...msgs];
+          for (const opt of optimistics) {
+            if (!merged.some((m) => m.text === opt.text && m.isOwn)) merged.push(opt);
+          }
+          return merged;
+        });
       }
     } finally {
       setMessagesLoading(false);
