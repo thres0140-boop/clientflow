@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/unipile/sync-followers",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
