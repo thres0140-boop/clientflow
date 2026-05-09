@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     const conn = await prisma.instagramConnection.findFirst({
       where: { unipileAccountId: accountId },
     });
+    console.log(`[webhook] conn=${conn ? `clientId=${conn.clientId}` : "NOT FOUND"}`);
     if (!conn) return NextResponse.json({ ok: true });
 
     const clientId = conn.clientId;
@@ -24,10 +25,16 @@ export async function POST(req: NextRequest) {
       const isOwn = msg.is_sender ?? false;
       if (isOwn) return NextResponse.json({ ok: true });
 
-      const senderName: string = msg.sender_name ?? msg.from_name ?? "Instagram User";
-      const handle: string | null = msg.sender_username ?? msg.from_username ?? null;
+      // Sender info is either top-level or in attendees array (Unipile format)
+      const attendee = body.attendees?.[0] ?? body.sender ?? {};
+      const senderName: string =
+        msg.sender_name ?? msg.from_name ??
+        attendee.display_name ?? attendee.name ?? attendee.username ?? "Instagram User";
+      const handle: string | null =
+        msg.sender_username ?? msg.from_username ??
+        attendee.username ?? attendee.handle ?? null;
 
-      // Auto-create lead at "messaged" if not already in pipeline
+      console.log(`[webhook] incoming DM sender=${handle ?? senderName} clientId=${clientId}`);
       await upsertLead(clientId, senderName, handle, "messaged");
     }
 
