@@ -282,20 +282,21 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
             <span className="text-xs text-slate-400">{filtered.length} lead{filtered.length !== 1 ? "s" : ""}</span>
           </div>
 
-          {/* Stats — all stages as % of total */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {DM_STATUSES.map((s) => {
-              const count = leadsBy(s.value).length;
-              const percentage = pct(count, total);
-              return (
-                <div key={s.value} className={`flex-1 min-w-[110px] rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
-                  <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>
-                  <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{percentage}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{count} lead{count !== 1 ? "s" : ""}</p>
-                </div>
-              );
-            })}
-          </div>
+          {/* Stats + Kanban — single shared scroll container */}
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: `${DM_STATUSES.length * 160}px` }} className="flex gap-2 pb-1">
+              {DM_STATUSES.map((s) => {
+                const count = leadsBy(s.value).length;
+                const percentage = pct(count, total);
+                return (
+                  <div key={s.value} className={`flex-1 rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
+                    <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>
+                    <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{percentage}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{count} lead{count !== 1 ? "s" : ""}</p>
+                  </div>
+                );
+              })}
+            </div>
 
           {/* Kanban — drag & drop */}
           <DndContext
@@ -309,7 +310,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
             }}
             onDragCancel={() => setActiveDragId(null)}
           >
-            <div className="flex gap-3 overflow-x-auto pb-2">
+            <div style={{ minWidth: `${DM_STATUSES.length * 160}px` }} className="flex gap-3 mt-4 pb-2">
               {PIPELINE_COLS.map((statusVal) => {
                 const meta = statusMeta(statusVal);
                 const col  = leadsBy(statusVal);
@@ -329,6 +330,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
               })() : null}
             </DragOverlay>
           </DndContext>
+          </div>{/* end overflow-x-auto */}
         </div>
       )}
 
