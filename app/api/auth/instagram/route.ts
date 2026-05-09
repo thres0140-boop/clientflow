@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   url.searchParams.set("scope", "instagram_business_basic,instagram_business_manage_insights,instagram_business_manage_messages");
   url.searchParams.set("state", clientId);
   url.searchParams.set("response_type", "code");
+  url.searchParams.set("auth_type", "rerequest");
 
   return NextResponse.redirect(url.toString());
 }
