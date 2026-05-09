@@ -120,12 +120,18 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   async function sendMessage() {
     const content = draft.trim();
     if (!content || !selectedClientId) return;
+    const reel = activeReel;
     setDraft("");
     setMention(null);
+    setActiveReel(null);
+    onContextUsed?.();
+    const fullContent = reel
+      ? `__REEL__${JSON.stringify({ title: reel.title, hook: reel.hook })}__END__${content}`
+      : content;
     await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: selectedClientId, content, author: isOwnerSession ? "owner" : (clientName ?? "client") }),
+      body: JSON.stringify({ clientId: selectedClientId, content: fullContent, author: isOwnerSession ? "owner" : (clientName ?? "client") }),
     });
     fetchMessages();
   }
@@ -135,9 +141,16 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     fetchMessages();
   }
 
-  function renderContent(content: string) {
-    const parts = content.split(/(@\[([^\]]+)\]\([^)]+\))/g);
-    return parts.map((part, i) => {
+  function renderContent(content: string, isOwnerBubble: boolean) {
+    let reelRef: { title: string; hook?: string | null } | null = null;
+    let text = content;
+    const reelMatch = content.match(/^__REEL__(.+?)__END__([\s\S]*)$/);
+    if (reelMatch) {
+      try { reelRef = JSON.parse(reelMatch[1]); } catch {}
+      text = reelMatch[2];
+    }
+
+    const parts = text.split(/(@\[([^\]]+)\]\([^)]+\))/g).map((part, i) => {
       const match = part.match(/^@\[([^\]]+)\]\(([^)]+)\)$/);
       if (match) {
         const [, label, ref] = match;
@@ -150,6 +163,22 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
       }
       return <span key={i}>{part}</span>;
     });
+
+    return (
+      <>
+        {reelRef && (
+          <div className={`flex items-start gap-1.5 mb-2 pb-2 border-b ${isOwnerBubble ? "border-indigo-500" : "border-slate-200"}`}>
+            <div className={`w-0.5 h-7 rounded-full flex-shrink-0 ${isOwnerBubble ? "bg-indigo-300" : "bg-indigo-400"}`} />
+            <div className="min-w-0">
+              <p className={`text-[10px] font-semibold uppercase tracking-wide leading-none mb-0.5 ${isOwnerBubble ? "text-indigo-200" : "text-indigo-500"}`}>Reel</p>
+              <p className={`text-xs font-medium truncate ${isOwnerBubble ? "text-white/90" : "text-slate-700"}`}>{reelRef.title}</p>
+              {reelRef.hook && <p className={`text-[11px] truncate ${isOwnerBubble ? "text-indigo-200" : "text-slate-400"}`}>{reelRef.hook}</p>}
+            </div>
+          </div>
+        )}
+        {parts}
+      </>
+    );
   }
 
   if (!client) {
@@ -200,7 +229,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                     <span className="text-[10px] text-slate-400 px-1">{displayName}</span>
                   )}
                   <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "bg-indigo-600 text-white rounded-bl-sm" : "bg-slate-100 text-slate-800 rounded-br-sm"}`}>
-                    {renderContent(msg.content)}
+                    {renderContent(msg.content, isOwnerMsg)}
                   </div>
                   <div className={`flex items-center gap-2 px-1 ${!isMe ? "flex-row-reverse" : ""}`}>
                     <span className="text-[10px] text-slate-300">
