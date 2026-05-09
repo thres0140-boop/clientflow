@@ -47,6 +47,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Debug: return raw if empty
+    if (!data.data || data.data.length === 0) {
+      return NextResponse.json({ conversations: [], igUserId: resolvedUserId, grantedScopes: grantedPerms, _raw: data });
+    }
+
     const conversations = (data.data ?? []).map((conv: Record<string, unknown>) => {
       const participants = ((conv.participants as { data: { name: string; id: string; username?: string }[] })?.data) ?? [];
       const others = participants.filter((p) => p.id !== resolvedUserId);
