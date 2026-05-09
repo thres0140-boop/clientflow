@@ -339,7 +339,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 const pieces = date ? content.filter((c) => c.scheduledDate === date) : [];
                 const draftsOnDay = date ? scheduledDrafts.filter((d) => d.scheduledDate === date) : [];
                 const isToday = date === todayStr;
-                const isDragTarget = date === dragOverDate && dragDraftId !== null;
+                const isDragTarget = date !== null && date === dragOverDate && dragDraftId !== null;
                 const dow = date ? (new Date(date).getDay() + 6) % 7 : -1; // 0=Mon
                 const templateConceptId = dow >= 0 ? dayTemplate[dow] : null;
                 const templateConcept = templateConceptId ? concepts.find((c) => c.id === templateConceptId) : null;
