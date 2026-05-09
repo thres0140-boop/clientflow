@@ -494,11 +494,12 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                <div className="flex-1 overflow-y-auto px-5 py-4">
+                  <div className="flex flex-col min-h-full justify-end gap-3">
                   {messagesLoading && messages.length === 0 ? (
-                    <div className="text-center text-slate-400 text-xs pt-8">Loading messages…</div>
+                    <div className="text-center text-slate-400 text-xs">Loading messages…</div>
                   ) : messages.length === 0 ? (
-                    <div className="text-center text-slate-400 text-xs pt-8">No messages yet</div>
+                    <div className="text-center text-slate-400 text-xs">No messages yet</div>
                   ) : (
                     messages.map((msg) => (
                       <div key={msg.id} className={`flex ${msg.isOwn ? "justify-end" : "justify-start"}`}>
@@ -516,6 +517,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
                     ))
                   )}
                   <div ref={messagesEndRef} />
+                  </div>
                 </div>
 
                 {/* Reply input */}
