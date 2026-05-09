@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import {
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent,
+  PointerSensor, useSensor, useSensors, useDroppable, useDraggable,
+} from "@dnd-kit/core";
 import { Client, DmLead, DM_STATUSES } from "@/lib/types";
 
 type Props = { clients: Client[]; selectedClientId: number | null };
@@ -65,11 +69,13 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   const [view, setView] = useState<View>("pipeline");
 
   // Pipeline state
-  const [leads, setLeads]       = useState<DmLead[]>([]);
-  const [showAdd, setShowAdd]   = useState(false);
-  const [editLead, setEditLead] = useState<DmLead | null>(null);
-  const [period, setPeriod]     = useState<Period>("week");
-  const [startDate, setStartDate] = useState<Date>(() => getMonday(new Date()));
+  const [leads, setLeads]           = useState<DmLead[]>([]);
+  const [showAdd, setShowAdd]       = useState(false);
+  const [editLead, setEditLead]     = useState<DmLead | null>(null);
+  const [period, setPeriod]         = useState<Period>("week");
+  const [startDate, setStartDate]   = useState<Date>(() => getMonday(new Date()));
+  const [activeDragId, setActiveDragId] = useState<number | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   // Inbox state
   const [conversations, setConversations]   = useState<Conversation[]>([]);
@@ -294,35 +300,38 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
             ))}
           </div>
 
-          {/* Kanban */}
-          <div className="grid grid-cols-7 gap-3">
-            {PIPELINE_COLS.map((statusVal) => {
-              const meta = statusMeta(statusVal);
-              const col  = leadsBy(statusVal);
-              return (
-                <div key={statusVal} className="flex flex-col gap-2">
-                  <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${meta.bg} ${meta.border}`}>
-                    <span className={`text-xs font-semibold ${meta.text} truncate`}>{meta.label}</span>
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 ${meta.text} ml-1 flex-shrink-0`}>{col.length}</span>
-                  </div>
-                  <div className="flex flex-col gap-2 min-h-[100px]">
-                    {col.map((lead) => (
-                      <LeadCard key={lead.id} lead={lead}
-                        onEdit={() => { setEditLead(lead); setShowAdd(true); }}
-                        onDelete={() => deleteLead(lead.id)}
-                        onNext={NEXT[statusVal] ? () => moveStatus(lead, NEXT[statusVal]) : undefined}
-                        onNoShow={statusVal === "booked" ? () => moveStatus(lead, "no_show") : undefined}
-                        onRebook={statusVal === "no_show" ? () => moveStatus(lead, "booked") : undefined}
-                      />
-                    ))}
-                    {col.length === 0 && (
-                      <div className="border-2 border-dashed border-slate-100 rounded-xl h-16 flex items-center justify-center text-xs text-slate-300">—</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {/* Kanban — drag & drop */}
+          <DndContext
+            sensors={sensors}
+            onDragStart={(e: DragStartEvent) => setActiveDragId(Number(e.active.id))}
+            onDragEnd={(e: DragEndEvent) => {
+              setActiveDragId(null);
+              const lead = leads.find((l) => l.id === Number(e.active.id));
+              const toStatus = e.over?.id as string | undefined;
+              if (lead && toStatus && toStatus !== lead.status) moveStatus(lead, toStatus);
+            }}
+            onDragCancel={() => setActiveDragId(null)}
+          >
+            <div className="grid grid-cols-7 gap-3">
+              {PIPELINE_COLS.map((statusVal) => {
+                const meta = statusMeta(statusVal);
+                const col  = leadsBy(statusVal);
+                return (
+                  <KanbanCol key={statusVal} statusVal={statusVal} meta={meta} col={col}
+                    activeDragId={activeDragId}
+                    onEdit={(lead) => { setEditLead(lead); setShowAdd(true); }}
+                    onDelete={(id) => deleteLead(id)}
+                  />
+                );
+              })}
+            </div>
+            <DragOverlay>
+              {activeDragId ? (() => {
+                const lead = leads.find((l) => l.id === activeDragId);
+                return lead ? <LeadCardInner lead={lead} /> : null;
+              })() : null}
+            </DragOverlay>
+          </DndContext>
         </div>
       )}
 
@@ -476,46 +485,77 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   );
 }
 
-// ── Lead card ──────────────────────────────────────────────────────────────────
-function LeadCard({ lead, onEdit, onDelete, onNext, onNoShow, onRebook }: {
-  lead: DmLead; onEdit: () => void; onDelete: () => void;
-  onNext?: () => void; onNoShow?: () => void; onRebook?: () => void;
+// ── Droppable column ──────────────────────────────────────────────────────────
+function KanbanCol({ statusVal, meta, col, activeDragId, onEdit, onDelete }: {
+  statusVal: string;
+  meta: { label: string; bg: string; text: string; border: string };
+  col: DmLead[];
+  activeDragId: number | null;
+  onEdit: (lead: DmLead) => void;
+  onDelete: (id: number) => void;
 }) {
-  const nextMeta = onNext ? statusMeta(NEXT[lead.status] ?? "") : null;
+  const { isOver, setNodeRef } = useDroppable({ id: statusVal });
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow group">
+    <div className="flex flex-col gap-2">
+      <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${meta.bg} ${meta.border}`}>
+        <span className={`text-xs font-semibold ${meta.text} truncate`}>{meta.label}</span>
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 ${meta.text} ml-1 flex-shrink-0`}>{col.length}</span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`flex flex-col gap-2 min-h-[120px] rounded-xl transition-colors ${isOver && activeDragId ? "bg-indigo-50/60 ring-2 ring-inset ring-indigo-300" : ""}`}
+      >
+        {col.map((lead) => (
+          <DraggableLeadCard key={lead.id} lead={lead}
+            onEdit={() => onEdit(lead)}
+            onDelete={() => onDelete(lead.id)}
+          />
+        ))}
+        {col.length === 0 && (
+          <div className={`border-2 border-dashed rounded-xl h-16 flex items-center justify-center text-xs transition-colors ${isOver && activeDragId ? "border-indigo-300 text-indigo-300" : "border-slate-100 text-slate-300"}`}>
+            drop here
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Draggable card wrapper ────────────────────────────────────────────────────
+function DraggableLeadCard({ lead, onEdit, onDelete }: {
+  lead: DmLead; onEdit: () => void; onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: String(lead.id) });
+  const style = transform
+    ? { transform: `translate(${transform.x}px,${transform.y}px)`, opacity: isDragging ? 0.3 : 1 }
+    : {};
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing">
+      <LeadCardInner lead={lead} onEdit={onEdit} onDelete={onDelete} />
+    </div>
+  );
+}
+
+// ── Card content ──────────────────────────────────────────────────────────────
+function LeadCardInner({ lead, onEdit, onDelete }: {
+  lead: DmLead; onEdit?: () => void; onDelete?: () => void;
+}) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm select-none group">
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-slate-800 truncate">{lead.name}</p>
           {lead.handle && <p className="text-[10px] text-slate-400 truncate">@{lead.handle.replace(/^@/, "")}</p>}
           {lead.date && <p className="text-[10px] text-slate-300 mt-0.5">{lead.date.slice(5).replace("-", "/")}</p>}
         </div>
-        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button onClick={onEdit}   className="p-0.5 text-slate-300 hover:text-slate-600 rounded text-xs">✏️</button>
-          <button onClick={onDelete} className="p-0.5 text-slate-300 hover:text-red-500 rounded text-xs">✕</button>
-        </div>
+        {(onEdit || onDelete) && (
+          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            {onEdit   && <button onPointerDown={(e) => e.stopPropagation()} onClick={onEdit}   className="p-0.5 text-slate-300 hover:text-slate-600 rounded text-xs">✏</button>}
+            {onDelete && <button onPointerDown={(e) => e.stopPropagation()} onClick={onDelete} className="p-0.5 text-slate-300 hover:text-red-500 rounded text-xs">✕</button>}
+          </div>
+        )}
       </div>
       {lead.notes && <p className="text-[10px] text-slate-400 mt-1.5 line-clamp-2">{lead.notes}</p>}
-      <div className="mt-2 flex flex-col gap-1">
-        {onNext && nextMeta && (
-          <button onClick={onNext}
-            className={`w-full px-2 py-1 rounded-lg text-[10px] font-semibold border text-center ${nextMeta.bg} ${nextMeta.text} ${nextMeta.border} hover:opacity-80`}>
-            → {nextMeta.label}
-          </button>
-        )}
-        {onNoShow && (
-          <button onClick={onNoShow}
-            className="w-full px-2 py-1 rounded-lg text-[10px] font-semibold border text-center bg-red-50 text-red-600 border-red-200 hover:opacity-80">
-            No Show
-          </button>
-        )}
-        {onRebook && (
-          <button onClick={onRebook}
-            className="w-full px-2 py-1 rounded-lg text-[10px] font-semibold border text-center bg-blue-50 text-blue-600 border-blue-200 hover:opacity-80">
-            ↩ Rebook
-          </button>
-        )}
-      </div>
     </div>
   );
 }
