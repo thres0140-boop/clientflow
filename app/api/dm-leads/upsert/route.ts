@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 // Creates the lead or promotes it (follows → messaged)
 export async function POST(req: NextRequest) {
   const { clientId, name, handle, status } = await req.json();
+  console.log(`[upsert] clientId=${clientId} name=${name} handle=${handle} status=${status}`);
   const today = new Date().toISOString().slice(0, 10);
 
   if (handle) {

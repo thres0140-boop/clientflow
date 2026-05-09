@@ -192,7 +192,13 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
       const res = await fetch("/api/unipile/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: selectedClientId, chatId: selectedConv.id, text }),
+        body: JSON.stringify({
+          clientId: selectedClientId,
+          chatId: selectedConv.id,
+          text,
+          recipientName: selectedConv.name,
+          recipientHandle: selectedConv.handle || null,
+        }),
       });
       const data = await res.json();
       if (data.error) {
@@ -200,17 +206,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
         setReplyText(text);
       } else {
-        // Auto-add/promote lead in pipeline
-        fetch("/api/dm-leads/upsert", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId: selectedClientId,
-            name: selectedConv.name,
-            handle: selectedConv.handle || null,
-            status: "messaged",
-          }),
-        }).then(() => loadLeads());
+        loadLeads();
         setTimeout(() => loadMessages(selectedConv), 1500);
       }
     } finally {
