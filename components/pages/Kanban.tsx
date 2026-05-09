@@ -17,7 +17,7 @@ type Props = {
   team: TeamMember[];
   ownerName?: string;
   isClient?: boolean;
-  onOpenChat?: (context: { title: string; hook?: string | null; script: string; caption?: string | null }) => void;
+  onOpenChat?: (context: { id?: number; title: string; hook?: string | null; script: string; caption?: string | null }) => void;
 };
 
 const WEEK_NUMBER = Math.ceil(
@@ -557,7 +557,7 @@ function DraftDetailPanel({
   activeProfileId: number | null;
   ownerName?: string;
   isClient?: boolean;
-  onOpenChat?: (context: { title: string; hook?: string | null; script: string; caption?: string | null }) => void;
+  onOpenChat?: (context: { id?: number; title: string; hook?: string | null; script: string; caption?: string | null }) => void;
 }) {
   const [script, setScript] = useState(draft.script);
   const [hook, setHook] = useState(draft.hook || "");
@@ -795,7 +795,7 @@ function DraftDetailPanel({
         <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 space-y-2">
           {onOpenChat && (
             <button
-              onClick={() => onOpenChat({ title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption })}
+              onClick={() => onOpenChat({ id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption })}
               className="w-full py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
             >
               💬 Talk about this reel

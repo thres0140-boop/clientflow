@@ -4,9 +4,18 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Client, Message, Concept, TrackedVideo } from "@/lib/types";
 
 type ReelContext = {
+  id?: number;
   title: string;
   hook?: string | null;
   script: string;
+  caption?: string | null;
+};
+
+type ReelRef = {
+  id?: number;
+  title: string;
+  hook?: string | null;
+  script?: string | null;
   caption?: string | null;
 };
 
@@ -35,6 +44,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   const [mention, setMention] = useState<{ query: string; pos: number } | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [activeReel, setActiveReel] = useState<ReelContext | null>(null);
+  const [reelModal, setReelModal] = useState<ReelRef | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -126,7 +136,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     setActiveReel(null);
     onContextUsed?.();
     const fullContent = reel
-      ? `__REEL__${JSON.stringify({ title: reel.title, hook: reel.hook })}__END__${content}`
+      ? `__REEL__${JSON.stringify({ id: reel.id, title: reel.title, hook: reel.hook, script: reel.script, caption: reel.caption })}__END__${content}`
       : content;
     await fetch("/api/messages", {
       method: "POST",
@@ -142,7 +152,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   }
 
   function renderContent(content: string, isOwnerBubble: boolean) {
-    let reelRef: { title: string; hook?: string | null } | null = null;
+    let reelRef: ReelRef | null = null;
     let text = content;
     const reelMatch = content.match(/^__REEL__(.+?)__END__([\s\S]*)$/);
     if (reelMatch) {
@@ -167,14 +177,17 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     return (
       <>
         {reelRef && (
-          <div className={`flex items-start gap-1.5 mb-2 pb-2 border-b ${isOwnerBubble ? "border-indigo-500" : "border-slate-200"}`}>
-            <div className={`w-0.5 h-7 rounded-full flex-shrink-0 ${isOwnerBubble ? "bg-indigo-300" : "bg-indigo-400"}`} />
+          <button
+            onClick={() => setReelModal(reelRef)}
+            className={`w-full text-left rounded-xl mb-2 p-2.5 flex items-start gap-2 transition-opacity hover:opacity-80 ${isOwnerBubble ? "bg-indigo-700/60" : "bg-indigo-50 border border-indigo-100"}`}
+          >
+            <span className="text-base flex-shrink-0">🎬</span>
             <div className="min-w-0">
-              <p className={`text-[10px] font-semibold uppercase tracking-wide leading-none mb-0.5 ${isOwnerBubble ? "text-indigo-200" : "text-indigo-500"}`}>Reel</p>
-              <p className={`text-xs font-medium truncate ${isOwnerBubble ? "text-white/90" : "text-slate-700"}`}>{reelRef.title}</p>
-              {reelRef.hook && <p className={`text-[11px] truncate ${isOwnerBubble ? "text-indigo-200" : "text-slate-400"}`}>{reelRef.hook}</p>}
+              <p className={`text-[10px] font-bold uppercase tracking-wide leading-none mb-1 ${isOwnerBubble ? "text-indigo-200" : "text-indigo-400"}`}>Reel</p>
+              <p className={`text-xs font-semibold truncate ${isOwnerBubble ? "text-white" : "text-slate-700"}`}>{reelRef.title}</p>
+              {reelRef.hook && <p className={`text-[11px] truncate mt-0.5 ${isOwnerBubble ? "text-indigo-200" : "text-indigo-500"}`}>{reelRef.hook}</p>}
             </div>
-          </div>
+          </button>
         )}
         {parts}
       </>
@@ -325,6 +338,49 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
           </div>
         </div>
       </div>
+
+      {/* Reel detail modal */}
+      {reelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setReelModal(null)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+              <span className="text-xl">🎬</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide">Reel</p>
+                <p className="text-sm font-bold text-slate-800 truncate">{reelModal.title}</p>
+              </div>
+              <button onClick={() => setReelModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* Modal body */}
+            <div className="overflow-y-auto p-5 space-y-4">
+              {reelModal.hook && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Hook</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">{reelModal.hook}</p>
+                </div>
+              )}
+              {reelModal.script && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Script</p>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{reelModal.script}</p>
+                </div>
+              )}
+              {reelModal.caption && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Caption</p>
+                  <p className="text-sm text-slate-500 leading-relaxed">{reelModal.caption}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
