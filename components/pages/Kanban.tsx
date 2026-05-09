@@ -17,6 +17,7 @@ type Props = {
   team: TeamMember[];
   ownerName?: string;
   isClient?: boolean;
+  onOpenChat?: (context: string) => void;
 };
 
 const WEEK_NUMBER = Math.ceil(
@@ -80,7 +81,7 @@ function DroppableColumn({ id, children, className }: { id: string; children: Re
 }
 
 // ─── Main Kanban ────────────────────────────────────────────────────────────
-export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, team, ownerName = "Owner", isClient = false }: Props) {
+export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, team, ownerName = "Owner", isClient = false, onOpenChat }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -420,6 +421,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           isClient={isClient}
           onProceed={() => { proceedToNextStage(detailDraft); setDetailDraft(null); }}
           getNextStage={(id) => getNextStage(id)}
+          onOpenChat={onOpenChat}
           onUploaded={(urls) => {
             fetch(`/api/script-drafts/${detailDraft.id}`, {
               method: "PUT",
@@ -543,7 +545,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, activeProfileId, ownerName = "Owner", isClient = false,
+  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[];
   onClose: () => void; onAccept: () => void; onReject: () => void;
@@ -555,6 +557,7 @@ function DraftDetailPanel({
   activeProfileId: number | null;
   ownerName?: string;
   isClient?: boolean;
+  onOpenChat?: (context: string) => void;
 }) {
   const [script, setScript] = useState(draft.script);
   const [hook, setHook] = useState(draft.hook || "");
@@ -790,6 +793,17 @@ function DraftDetailPanel({
 
         {/* Actions */}
         <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 space-y-2">
+          {onOpenChat && (
+            <button
+              onClick={() => {
+                const context = `💬 Discussing reel: "${draft.title}"\n\nHook: ${draft.hook || "—"}\n\nScript:\n${draft.script}${draft.caption ? `\n\nCaption:\n${draft.caption}` : ""}`;
+                onOpenChat(context);
+              }}
+              className="w-full py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+            >
+              💬 Talk about this reel
+            </button>
+          )}
           {inStage ? (
             <button onClick={onProceed}
               className="w-full py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700">

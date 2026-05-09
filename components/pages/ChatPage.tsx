@@ -9,6 +9,8 @@ type Props = {
   isOwnerSession?: boolean;
   ownerName?: string;
   clientName?: string;
+  initialContext?: string | null;
+  onContextUsed?: () => void;
 };
 
 type MentionItem = {
@@ -18,7 +20,7 @@ type MentionItem = {
   sub?: string;
 };
 
-export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName }: Props) {
+export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName, initialContext, onContextUsed }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -29,6 +31,14 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
+
+  useEffect(() => {
+    if (initialContext) {
+      setDraft(initialContext);
+      onContextUsed?.();
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [initialContext]);
 
   const fetchMessages = useCallback(async () => {
     if (!selectedClientId) return;
