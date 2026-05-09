@@ -212,11 +212,8 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   const filtered = leads.filter((l) => period === "all" || (l.date && from && to && l.date >= from && l.date <= to));
 
   const total      = filtered.length;
-  const messaged   = filtered.filter((l) => ["messaged","messaged_np","booked","no_show","unqualified","closed"].includes(l.status)).length;
-  const booked     = filtered.filter((l) => ["booked","no_show","unqualified","closed"].includes(l.status)).length;
-  const noShow     = filtered.filter((l) => l.status === "no_show").length;
-  const closed     = filtered.filter((l) => l.status === "closed").length;
-  const pct = (a: number, b: number) => b > 0 ? `${Math.round((a / b) * 100)}%` : null;
+  const pct = (a: number, b: number) => b > 0 ? `${Math.round((a / b) * 100)}%` : "0%";
+  const countOf = (statuses: string[]) => filtered.filter((l) => statuses.includes(l.status)).length;
   const leadsBy = (s: string) => filtered.filter((l) => l.status === s);
 
   const filteredConvs = conversations.filter((c) =>
@@ -284,21 +281,19 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
             <span className="text-xs text-slate-400">{filtered.length} lead{filtered.length !== 1 ? "s" : ""}</span>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-5 gap-3">
-            {[
-              { label: "Follows",   value: total,    sub: null },
-              { label: "Messaged",  value: messaged,  sub: pct(messaged, total) },
-              { label: "Booked",    value: booked,   sub: pct(booked, messaged) ? `${pct(booked, messaged)} of messaged` : null },
-              { label: "No Show",   value: noShow,   sub: pct(noShow, booked) ? `${pct(noShow, booked)} of booked` : null },
-              { label: "Closed",    value: closed,   sub: pct(closed, total) ? `${pct(closed, total)} conv. rate` : null },
-            ].map((s) => (
-              <div key={s.label} className="bg-white rounded-xl border border-slate-200 px-4 py-3.5">
-                <p className="text-xs text-slate-500 font-medium">{s.label}</p>
-                <p className="text-2xl font-bold text-slate-800 mt-0.5">{s.value}</p>
-                {s.sub && <p className="text-xs text-slate-400 mt-0.5">{s.sub}</p>}
-              </div>
-            ))}
+          {/* Stats — all 7 stages as % of total */}
+          <div className="grid grid-cols-7 gap-2">
+            {DM_STATUSES.map((s) => {
+              const count = leadsBy(s.value).length;
+              const percentage = pct(count, total);
+              return (
+                <div key={s.value} className={`rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
+                  <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>
+                  <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{percentage}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{count} lead{count !== 1 ? "s" : ""}</p>
+                </div>
+              );
+            })}
           </div>
 
           {/* Kanban — drag & drop */}
