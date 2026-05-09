@@ -13,8 +13,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       headers: { "X-API-KEY": key, "accept": "application/json" },
     });
     const data = await res.json();
-    if (!res.ok) return NextResponse.json({ error: data, messages: [] });
-    return NextResponse.json({ messages: data.items ?? data.messages ?? [] });
+    if (!res.ok) {
+      console.error("[msgs] Unipile error:", JSON.stringify(data).slice(0, 200));
+      return NextResponse.json({ error: data, messages: [] });
+    }
+    const msgs = data.items ?? data.messages ?? [];
+    console.log(`[msgs] chat=${params.id.slice(0,8)} count=${msgs.length} keys=${Object.keys(data).join(',')}`);
+    return NextResponse.json({ messages: msgs });
   } catch (err: any) {
     return NextResponse.json({ error: String(err), messages: [] });
   }
