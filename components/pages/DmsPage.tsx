@@ -282,13 +282,13 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
             <span className="text-xs text-slate-400">{filtered.length} lead{filtered.length !== 1 ? "s" : ""}</span>
           </div>
 
-          {/* Stats — all 7 stages as % of total */}
-          <div className="grid grid-cols-7 gap-2">
+          {/* Stats — all stages as % of total */}
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {DM_STATUSES.map((s) => {
               const count = leadsBy(s.value).length;
               const percentage = pct(count, total);
               return (
-                <div key={s.value} className={`rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
+                <div key={s.value} className={`flex-1 min-w-[110px] rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
                   <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>
                   <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{percentage}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{count} lead{count !== 1 ? "s" : ""}</p>
@@ -309,7 +309,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
             }}
             onDragCancel={() => setActiveDragId(null)}
           >
-            <div className="grid grid-cols-7 gap-3">
+            <div className="flex gap-3 overflow-x-auto pb-2">
               {PIPELINE_COLS.map((statusVal) => {
                 const meta = statusMeta(statusVal);
                 const col  = leadsBy(statusVal);
@@ -501,7 +501,7 @@ function KanbanCol({ statusVal, meta, col, activeDragId, onEdit, onDelete }: {
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: statusVal });
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 flex-shrink-0 w-44">
       <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${meta.bg} ${meta.border}`}>
         <span className={`text-xs font-semibold ${meta.text} truncate`}>{meta.label}</span>
         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 ${meta.text} ml-1 flex-shrink-0`}>{col.length}</span>
