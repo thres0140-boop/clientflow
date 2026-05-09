@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const event = body.event ?? body.type ?? "";
     const accountId = body.account_id ?? body.data?.account_id;
 
-    console.log(`[webhook] event=${event} account=${accountId}`);
+    console.log(`[webhook] event=${event} account=${accountId} body=${JSON.stringify(body).slice(0, 300)}`);
 
     if (!accountId) return NextResponse.json({ ok: true });
 
@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
       event === "new_follower" ||
       event === "contacts.new" ||
       event === "attendee.created" ||
-      event?.toLowerCase().includes("follow");
+      event === "relation.new" ||
+      event === "contact.new" ||
+      event?.toLowerCase().includes("follow") ||
+      event?.toLowerCase().includes("relation");
 
     if (isFollowerEvent) {
       const data = body.data ?? body;
