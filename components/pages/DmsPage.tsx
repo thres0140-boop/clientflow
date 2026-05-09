@@ -143,10 +143,12 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
           text: m.text ?? m.body ?? "",
           fromId: m.sender_id ?? m.from_id ?? "",
           fromName: m.sender_name ?? m.from_name ?? "",
-          isOwn: m.is_sender ?? false,
+          isOwn: Boolean(m.is_sender),
           createdTime: m.created_at ?? m.timestamp ?? "",
         }));
-        // Keep any optimistic messages (id starts with "opt-") that haven't synced yet
+        // Sort oldest-first so chat reads top-to-bottom naturally
+        msgs.sort((a, b) => new Date(a.createdTime).getTime() - new Date(b.createdTime).getTime());
+        // Keep optimistic messages that haven't synced yet
         setMessages((prev) => {
           const optimistics = prev.filter((m) => m.id.startsWith("opt-"));
           const merged = [...msgs];
@@ -163,8 +165,8 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
 
   useEffect(() => {
     if (!selectedConv) return;
+    setMessages([]);
     loadMessages(selectedConv);
-    // Auto-refresh every 10s while conversation is open
     refreshTimer.current = setInterval(() => loadMessages(selectedConv), 10000);
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
   }, [selectedConv, loadMessages]);
