@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const clientId = conn.clientId;
 
     // ── Incoming DM ────────────────────────────────────────────────────────
-    if (event === "message.created" || event === "message.received" || event === "messaging") {
+    if (event === "message.created" || event === "message.received" || event === "message_received" || event === "messaging") {
       const msg = body.data ?? body;
       const isOwn = msg.is_sender ?? false;
       if (isOwn) return NextResponse.json({ ok: true });
