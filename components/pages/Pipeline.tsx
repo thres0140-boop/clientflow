@@ -69,6 +69,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [dragDraftId, setDragDraftId] = useState<number | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [showScheduleBoard, setShowScheduleBoard] = useState(true);
+  const [pendingDrop, setPendingDrop] = useState<{ draft: ScriptDraft; date: string } | null>(null);
 
   const [calView, setCalView] = useState<CalendarView>("month");
   const [planMode, setPlanMode] = useState<PlanningMode>("calendar");
@@ -181,7 +182,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
 
   function handleCalendarDrop(date: string) {
     if (dragDraftId) {
-      scheduleDraftOnDate(dragDraftId, date);
+      const draft = stagedDrafts.find((d) => d.id === dragDraftId);
+      if (draft) setPendingDrop({ draft, date });
       setDragDraftId(null);
       setDragOverDate(null);
     }
@@ -523,64 +525,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           )}
         </div>
 
-      {/* Filter + Content list */}
-      <div className="bg-white rounded-2xl border border-slate-200">
-        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">All Content ({filteredContent.length})</h2>
-          <div className="flex gap-1 flex-wrap">
-            <button
-              onClick={() => setFilterStatus("all")}
-              className={`px-3 py-1 rounded-lg text-xs font-medium ${filterStatus === "all" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}
-            >
-              All
-            </button>
-            {STATUSES.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => setFilterStatus(s.value)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium ${filterStatus === s.value ? `${s.bg} ${s.text}` : "text-slate-500 hover:bg-slate-100"}`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {filteredContent.length === 0 ? (
-          <div className="px-5 py-10 text-center">
-            <p className="text-slate-400 text-sm mb-3">{isClient ? "No content yet." : "No content yet. Add your first piece!"}</p>
-            {!isClient && <button onClick={() => setShowAdd(true)} className="text-sm bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700">+ Add Content</button>}
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-50">
-            {filteredContent.map((piece) => (
-              <button
-                key={piece.id}
-                onClick={() => setSelected(piece)}
-                className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50 text-left group"
-              >
-                <span className="text-base">{CONTENT_ICONS[piece.contentType] || "🎬"}</span>
-                {piece.client && <ClientAvatar name={piece.client.name} color={piece.client.color} size="sm" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{piece.title}</p>
-                  <p className="text-xs text-slate-400">
-                    {piece.client?.name} · {piece.contentType}
-                    {piece.concept ? ` · ${piece.concept.name}` : ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {piece.scheduledDate && (
-                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-md">{piece.scheduledDate}</span>
-                  )}
-                  <StatusBadge status={piece.status} />
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* ── Schedule Board: drag staged drafts onto the calendar ── */}
-      {selectedClientId && stagedDrafts.length > 0 && (
+      {selectedClientId && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -601,7 +547,9 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
             const stagesWithDrafts = stages.filter((st) => unscheduled.some((d) => d.stageId === st.id));
             if (unscheduled.length === 0) {
               return (
-                <p className="px-5 py-8 text-center text-sm text-slate-400">All staged drafts are scheduled ✓</p>
+                <p className="px-5 py-8 text-center text-sm text-slate-400">
+                  {stagedDrafts.length === 0 ? "No scripts in workflow stages yet — move scripts through the Kanban first." : "All staged drafts are scheduled ✓"}
+                </p>
               );
             }
             return (
@@ -670,6 +618,29 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       {selectedDraft && (
         <ScriptDraftModal draft={selectedDraft} onClose={() => setSelectedDraft(null)} />
       )}
+      {pendingDrop && (
+        <ConfirmScheduleModal
+          draft={pendingDrop.draft}
+          date={pendingDrop.date}
+          onClose={() => setPendingDrop(null)}
+          onConfirm={async (postToIG) => {
+            await scheduleDraftOnDate(pendingDrop.draft.id, pendingDrop.date);
+            if (postToIG && selectedClientId) {
+              await fetch("/api/instagram/publish", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  clientId: selectedClientId,
+                  draftId: pendingDrop.draft.id,
+                  caption: pendingDrop.draft.caption || pendingDrop.draft.hook || "",
+                  videoUrl: pendingDrop.draft.rawContentUrl || null,
+                }),
+              });
+            }
+            setPendingDrop(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -702,6 +673,103 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
           <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.script}</pre>
           <p className="text-[10px] text-slate-400 mt-1">{draft.script.split(" ").filter(Boolean).length} words</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Confirm Schedule Modal ──────────────────────────────────────────────────
+
+function ConfirmScheduleModal({
+  draft, date, onClose, onConfirm,
+}: {
+  draft: ScriptDraft;
+  date: string;
+  onClose: () => void;
+  onConfirm: (postToIG: boolean) => Promise<void>;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [igStatus, setIgStatus] = useState<string | null>(null);
+  const hasMedia = !!(draft.rawContentUrl || (draft.rawContentUrls && draft.rawContentUrls !== "[]"));
+
+  const videoUrl = draft.rawContentUrl || (() => {
+    try { const arr = JSON.parse(draft.rawContentUrls || "[]"); return arr[0] || null; } catch { return null; }
+  })();
+
+  async function handle(postToIG: boolean) {
+    setLoading(true);
+    if (postToIG) setIgStatus("Uploading to Instagram…");
+    try {
+      await onConfirm(postToIG);
+      if (postToIG) setIgStatus("Posted ✓");
+    } catch {
+      setIgStatus("Failed to post");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between">
+          <div>
+            {draft.concept && <p className="text-xs font-semibold text-indigo-500 mb-0.5">💡 {draft.concept.name}</p>}
+            <h2 className="text-base font-bold text-slate-800">{draft.title}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Scheduling for <span className="font-semibold text-slate-600">{date}</span></p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none ml-4 mt-0.5">×</button>
+        </div>
+        <div className="px-6 py-4 space-y-4">
+          {draft.hook && (
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Hook</p>
+              <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
+            </div>
+          )}
+          {draft.caption && (
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Caption</p>
+              <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap">{draft.caption}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Script</p>
+            <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed max-h-40 overflow-y-auto">{draft.script}</pre>
+          </div>
+          {videoUrl && (
+            <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+              <span>🎬</span>
+              <span className="truncate">{videoUrl}</span>
+            </div>
+          )}
+          {igStatus && (
+            <p className={`text-sm font-medium text-center ${igStatus.includes("✓") ? "text-green-600" : igStatus.includes("Failed") ? "text-red-500" : "text-indigo-500"}`}>
+              {igStatus}
+            </p>
+          )}
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
+          <button
+            onClick={() => handle(false)}
+            disabled={loading}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+          >
+            Save to Calendar
+          </button>
+          <button
+            onClick={() => handle(true)}
+            disabled={loading || !hasMedia}
+            title={!hasMedia ? "Upload a video/photo in the Kanban first to enable Instagram posting" : ""}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+          >
+            {loading ? "Posting…" : "📸 Schedule for Instagram"}
+          </button>
+        </div>
+        {!hasMedia && (
+          <p className="px-6 pb-4 text-[11px] text-slate-400 text-center">
+            Upload a video or photo in the Kanban stage to enable direct Instagram posting.
+          </p>
+        )}
       </div>
     </div>
   );
