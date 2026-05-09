@@ -3,13 +3,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Client, Message, Concept, TrackedVideo } from "@/lib/types";
 
+type ReelContext = {
+  title: string;
+  hook?: string | null;
+  script: string;
+  caption?: string | null;
+};
+
 type Props = {
   clients: Client[];
   selectedClientId: number | null;
   isOwnerSession?: boolean;
   ownerName?: string;
   clientName?: string;
-  initialContext?: string | null;
+  reelContext?: ReelContext | null;
   onContextUsed?: () => void;
 };
 
@@ -20,25 +27,26 @@ type MentionItem = {
   sub?: string;
 };
 
-export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName, initialContext, onContextUsed }: Props) {
+export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName, reelContext, onContextUsed }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [videos, setVideos] = useState<TrackedVideo[]>([]);
   const [mention, setMention] = useState<{ query: string; pos: number } | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [activeReel, setActiveReel] = useState<ReelContext | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
   useEffect(() => {
-    if (initialContext) {
-      setDraft(initialContext);
+    if (reelContext) {
+      setActiveReel(reelContext);
       onContextUsed?.();
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [initialContext]);
+  }, [reelContext]);
 
   const fetchMessages = useCallback(async () => {
     if (!selectedClientId) return;
@@ -166,6 +174,39 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
           <p className="text-xs text-slate-400">Client Chat · use @ to tag concepts or videos</p>
         </div>
       </div>
+
+      {/* Reel context card */}
+      {activeReel && (
+        <div className="flex-shrink-0 mb-3 bg-indigo-50 border border-indigo-200 rounded-2xl p-3.5 relative">
+          <button
+            onClick={() => setActiveReel(null)}
+            className="absolute top-2.5 right-2.5 text-indigo-300 hover:text-indigo-500 transition-colors"
+            title="Dismiss"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+          <div className="flex items-start gap-2.5 pr-6">
+            <span className="text-lg mt-0.5">🎬</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide mb-0.5">Discussing reel</p>
+              <p className="text-sm font-bold text-slate-800 truncate">{activeReel.title}</p>
+              {activeReel.hook && (
+                <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                  <span className="font-medium text-slate-600">Hook:</span> {activeReel.hook}
+                </p>
+              )}
+              <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{activeReel.script}</p>
+              {activeReel.caption && (
+                <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
+                  <span className="font-medium">Caption:</span> {activeReel.caption}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-200 p-4 space-y-3 min-h-0">
