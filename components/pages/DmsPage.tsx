@@ -48,7 +48,7 @@ function timeAgo(dateStr: string): string {
 const STATUS_MAP = Object.fromEntries(DM_STATUSES.map((s) => [s.value, s]));
 function statusMeta(status: string) { return STATUS_MAP[status] ?? STATUS_MAP["messaged"]; }
 const PIPELINE_COLS = DM_STATUSES.map((s) => s.value);
-const NEXT: Record<string, string> = { messaged: "link_sent", link_sent: "booked", booked: "showed", showed: "closed" };
+const NEXT: Record<string, string> = { follows: "messaged", messaged: "messaged_np", messaged_np: "booked", booked: "closed" };
 
 // ── Inbox types ───────────────────────────────────────────────────────────────
 type Conversation = {
@@ -176,12 +176,12 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
         clientId: selectedClientId,
         name: conv.name,
         handle: conv.handle,
-        status: "messaged",
+        status: "follows",
         date: toYMD(new Date()),
       }),
     });
     loadLeads();
-    alert(`${conv.name} added to pipeline as Messaged.`);
+    alert(`${conv.name} added to pipeline as Follows.`);
   }
 
   // Pipeline helpers
@@ -204,11 +204,11 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   const to       = period !== "all" ? toYMD(addDays(startDate, days - 1)) : null;
   const filtered = leads.filter((l) => period === "all" || (l.date && from && to && l.date >= from && l.date <= to));
 
-  const total   = filtered.length;
-  const linkSent = filtered.filter((l) => ["link_sent","booked","showed","no_show","closed"].includes(l.status)).length;
-  const booked   = filtered.filter((l) => ["booked","showed","no_show","closed"].includes(l.status)).length;
-  const showed   = filtered.filter((l) => ["showed","closed"].includes(l.status)).length;
-  const closed   = filtered.filter((l) => l.status === "closed").length;
+  const total      = filtered.length;
+  const messaged   = filtered.filter((l) => ["messaged","messaged_np","booked","no_show","unqualified","closed"].includes(l.status)).length;
+  const booked     = filtered.filter((l) => ["booked","no_show","unqualified","closed"].includes(l.status)).length;
+  const noShow     = filtered.filter((l) => l.status === "no_show").length;
+  const closed     = filtered.filter((l) => l.status === "closed").length;
   const pct = (a: number, b: number) => b > 0 ? `${Math.round((a / b) * 100)}%` : null;
   const leadsBy = (s: string) => filtered.filter((l) => l.status === s);
 
@@ -280,10 +280,10 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
           {/* Stats */}
           <div className="grid grid-cols-5 gap-3">
             {[
-              { label: "Messaged",  value: total,    sub: null },
-              { label: "Link Sent", value: linkSent, sub: pct(linkSent, total) },
-              { label: "Booked",    value: booked,   sub: pct(booked, linkSent) ? `${pct(booked, linkSent)} of links` : null },
-              { label: "Showed",    value: showed,   sub: pct(showed, booked) ? `${pct(showed, booked)} of booked` : null },
+              { label: "Follows",   value: total,    sub: null },
+              { label: "Messaged",  value: messaged,  sub: pct(messaged, total) },
+              { label: "Booked",    value: booked,   sub: pct(booked, messaged) ? `${pct(booked, messaged)} of messaged` : null },
+              { label: "No Show",   value: noShow,   sub: pct(noShow, booked) ? `${pct(noShow, booked)} of booked` : null },
               { label: "Closed",    value: closed,   sub: pct(closed, total) ? `${pct(closed, total)} conv. rate` : null },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-xl border border-slate-200 px-4 py-3.5">
@@ -295,15 +295,15 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
           </div>
 
           {/* Kanban */}
-          <div className="grid grid-cols-6 gap-3">
+          <div className="grid grid-cols-7 gap-3">
             {PIPELINE_COLS.map((statusVal) => {
               const meta = statusMeta(statusVal);
               const col  = leadsBy(statusVal);
               return (
                 <div key={statusVal} className="flex flex-col gap-2">
                   <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${meta.bg} ${meta.border}`}>
-                    <span className={`text-xs font-semibold ${meta.text}`}>{meta.label}</span>
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 ${meta.text}`}>{col.length}</span>
+                    <span className={`text-xs font-semibold ${meta.text} truncate`}>{meta.label}</span>
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 ${meta.text} ml-1 flex-shrink-0`}>{col.length}</span>
                   </div>
                   <div className="flex flex-col gap-2 min-h-[100px]">
                     {col.map((lead) => (
@@ -530,7 +530,7 @@ function LeadModal({ selectedClientId, lead, onClose, onSaved }: {
   }
   const [form, setForm] = useState({
     name: lead?.name ?? "", handle: lead?.handle ?? "",
-    status: lead?.status ?? "messaged", date: lead?.date ?? todayYMD(), notes: lead?.notes ?? "",
+    status: lead?.status ?? "follows", date: lead?.date ?? todayYMD(), notes: lead?.notes ?? "",
   });
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
