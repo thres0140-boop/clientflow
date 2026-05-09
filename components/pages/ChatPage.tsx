@@ -43,7 +43,6 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   useEffect(() => {
     if (reelContext) {
       setActiveReel(reelContext);
-      onContextUsed?.();
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [reelContext]);
@@ -179,7 +178,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
       {activeReel && (
         <div className="flex-shrink-0 mb-3 bg-indigo-50 border border-indigo-200 rounded-2xl p-3.5 relative">
           <button
-            onClick={() => setActiveReel(null)}
+            onClick={() => { setActiveReel(null); onContextUsed?.(); }}
             className="absolute top-2.5 right-2.5 text-indigo-300 hover:text-indigo-500 transition-colors"
             title="Dismiss"
           >
