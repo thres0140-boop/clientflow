@@ -215,6 +215,7 @@ export const DM_STATUSES = [
   { value: "booked",            label: "Booked",               bg: "bg-blue-50",     text: "text-blue-700",     border: "border-blue-200"    },
   { value: "no_show",           label: "No Show",              bg: "bg-red-50",      text: "text-red-600",      border: "border-red-200"     },
   { value: "unqualified",       label: "Unqualified",          bg: "bg-orange-50",   text: "text-orange-700",   border: "border-orange-200"  },
+  { value: "no_close",          label: "No Close",             bg: "bg-rose-50",     text: "text-rose-700",     border: "border-rose-200"    },
   { value: "closed",            label: "Closed",               bg: "bg-emerald-50",  text: "text-emerald-700",  border: "border-emerald-200" },
 ] as const;
 
