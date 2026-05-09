@@ -100,16 +100,28 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     setLeads(Array.isArray(data) ? data : []);
   }
 
-  // Load inbox conversations
+  // Load inbox conversations via Unipile
   const loadInbox = useCallback(async () => {
     if (!selectedClientId) return;
     setInboxLoading(true);
     setInboxError(null);
     try {
-      const data = await fetch(`/api/instagram/conversations?clientId=${selectedClientId}`).then((r) => r.json());
-      if (data.error === "missing_permission") { setInboxError(`missing_permission|${(data.grantedScopes ?? []).join(",")}`); }
-      else if (data.error) { setInboxError(`${data.error}${data.code ? ` (code ${data.code})` : ""}${data.type ? ` [${data.type}]` : ""}`); }
-      else { setConversations(data.conversations ?? []); }
+      const data = await fetch(`/api/unipile/conversations?clientId=${selectedClientId}`).then((r) => r.json());
+      if (data.error === "no_unipile_account") { setInboxError("no_unipile_account"); }
+      else if (data.error) { setInboxError(data.error); }
+      else {
+        // Normalise Unipile chat objects to the Conversation shape
+        const convs = (data.conversations ?? []).map((c: any) => ({
+          id: c.id,
+          igId: c.attendees?.[0]?.id ?? c.id,
+          name: c.attendees?.[0]?.name ?? c.name ?? "Unknown",
+          handle: c.attendees?.[0]?.username ?? c.attendees?.[0]?.handle ?? "",
+          lastMessage: c.last_message?.text ?? c.snippet ?? "",
+          timestamp: c.last_message?.created_at ?? c.updated_at ?? "",
+          unread: c.unread_count ?? 0,
+        }));
+        setConversations(convs);
+      }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);
   }, [selectedClientId]);
@@ -123,8 +135,18 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     if (!selectedClientId) return;
     setMessagesLoading(true);
     try {
-      const data = await fetch(`/api/instagram/conversations/${conv.id}?clientId=${selectedClientId}`).then((r) => r.json());
-      if (!data.error) setMessages(data.messages ?? []);
+      const data = await fetch(`/api/unipile/conversations/${conv.id}`).then((r) => r.json());
+      if (!data.error) {
+        const msgs = (data.messages ?? []).map((m: any) => ({
+          id: m.id,
+          text: m.text ?? m.body ?? "",
+          fromId: m.sender_id ?? m.from_id ?? "",
+          fromName: m.sender_name ?? m.from_name ?? "",
+          isOwn: m.is_sender ?? false,
+          createdTime: m.created_at ?? m.timestamp ?? "",
+        }));
+        setMessages(msgs);
+      }
     } finally {
       setMessagesLoading(false);
     }
@@ -155,10 +177,10 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     };
     setMessages((prev) => [...prev, optimistic]);
     try {
-      const res = await fetch("/api/instagram/send-message", {
+      const res = await fetch("/api/unipile/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: selectedClientId, recipientId: selectedConv.igId, text }),
+        body: JSON.stringify({ clientId: selectedClientId, chatId: selectedConv.id, text }),
       });
       const data = await res.json();
       if (data.error) {
@@ -357,10 +379,11 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
               <div className="flex-1 overflow-y-auto">
                 {inboxError ? (
                   <div className="p-6 text-center space-y-2">
-                    {inboxError.startsWith("missing_permission") ? (
+                    {inboxError === "no_unipile_account" ? (
                       <>
-                        <p className="text-xs font-semibold text-amber-600">Messaging permission missing</p>
-                        <p className="text-[11px] text-slate-500 leading-relaxed">The connected token doesn't have <strong>instagram_business_manage_messages</strong>. Go to Instagram page and reconnect to get a fresh token with messaging enabled.</p>
+                        <p className="text-2xl">🔌</p>
+                        <p className="text-xs font-semibold text-slate-600">Instagram not connected via Unipile</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">Go to Settings → connect this client's Instagram via Unipile to enable the DM inbox.</p>
                       </>
                     ) : (
                       <>

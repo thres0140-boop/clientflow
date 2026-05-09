@@ -41,14 +41,15 @@ model Client {
 }
 
 model InstagramConnection {
-  id          Int      @id @default(autoincrement())
-  clientId    Int      @unique
-  accessToken String
-  igUserId    String
-  igUsername  String?
-  followers   Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  clientId          Int      @unique
+  accessToken       String
+  igUserId          String
+  igUsername        String?
+  followers         Int?
+  unipileAccountId  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
