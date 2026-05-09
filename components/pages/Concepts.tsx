@@ -11,6 +11,7 @@ export default function Concepts({ clients, selectedClientId }: Props) {
   const [tab, setTab] = useState<Tab>("ideas");
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [showAddIdea, setShowAddIdea] = useState(false);
   const [selected, setSelected] = useState<Concept | null>(null);
   const [promotingIdea, setPromotingIdea] = useState<Concept | null>(null);
 
@@ -40,11 +41,13 @@ export default function Concepts({ clients, selectedClientId }: Props) {
           <h1 className="text-2xl font-bold text-slate-800">Concept Library</h1>
           <p className="text-slate-500 mt-1">The viral playbook — your winning content DNA</p>
         </div>
+        {tab === "ideas" && (
+          <button onClick={() => setShowAddIdea(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+            + New Idea
+          </button>
+        )}
         {tab === "concepts" && (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
-          >
+          <button onClick={() => setShowAdd(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
             + New Concept
           </button>
         )}
@@ -74,7 +77,7 @@ export default function Concepts({ clients, selectedClientId }: Props) {
               <div className="text-4xl mb-3">💡</div>
               <p className="text-slate-500 font-medium">No concept ideas yet.</p>
               <p className="text-xs text-slate-400 mt-1">
-                Go to Instagram → open a reel → click "Save as Concept Idea"
+                Click "+ New Idea" or go to Instagram → open a reel → click "Save as Concept Idea"
               </p>
             </div>
           ) : (
@@ -147,6 +150,15 @@ export default function Concepts({ clients, selectedClientId }: Props) {
             </div>
           )}
         </>
+      )}
+
+      {showAddIdea && (
+        <IdeaModal
+          clients={clients}
+          selectedClientId={selectedClientId}
+          onClose={() => setShowAddIdea(false)}
+          onSaved={() => { setShowAddIdea(false); reload(); }}
+        />
       )}
 
       {showAdd && (
@@ -436,6 +448,60 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
         </div>
       </div>
     </div>
+  );
+}
+
+function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
+  clients: Client[];
+  selectedClientId: number | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({ name: "", notes: "", exampleUrl: "", scriptExamples: "" });
+  function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    await fetch("/api/concepts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, clientId: selectedClientId, isIdea: true }),
+    });
+    onSaved();
+  }
+
+  return (
+    <Modal title="New Idea" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Idea Name *</label>
+          <input required value={form.name} onChange={(e) => set("name", e.target.value)}
+            placeholder="e.g. Before/After transformation hook"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+          <textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)}
+            placeholder="What makes this idea work..."
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Script / Transcript</label>
+          <textarea rows={4} value={form.scriptExamples} onChange={(e) => set("scriptExamples", e.target.value)}
+            placeholder="Paste a script or transcript example..."
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Example URL (optional)</label>
+          <input type="url" value={form.exampleUrl} onChange={(e) => set("exampleUrl", e.target.value)}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Idea</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
