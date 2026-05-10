@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
   const updates = body.stages as {
     id: number; order: number; name: string; color: string;
-    assignedToId?: number | null; assignedCreatorId?: number | null; assignedToOwner?: boolean; assignedToClient?: boolean;
+    assignedToId?: number | null; assignedCreatorId?: number | null; assignedToOwner?: boolean; assignedToClient?: boolean; assignees?: string;
   }[];
   await Promise.all(
     updates.map((s) =>
@@ -45,6 +45,7 @@ export async function PUT(req: NextRequest) {
           assignedCreatorId: s.assignedCreatorId ?? null,
           assignedToOwner: s.assignedToOwner ?? false,
           assignedToClient: s.assignedToClient ?? false,
+          assignees: s.assignees ?? "[]",
         },
       })
     )

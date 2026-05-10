@@ -112,6 +112,7 @@ export type WorkflowStage = {
   assignedCreator?: Creator | null;
   assignedToOwner?: boolean;
   assignedToClient?: boolean;
+  assignees?: string;
   createdAt: string;
 };
 

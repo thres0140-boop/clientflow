@@ -354,20 +354,25 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                       )}
                     </div>
                     {(() => {
-                      const person = stage.assignedToOwner
-                        ? { name: "Owner", color: "#6366f1" }
-                        : stage.assignedToClient
-                        ? { name: client?.name ?? "Client", color: client?.color ?? "#6366f1" }
-                        : stage.assignedTo ?? stage.assignedCreator ?? null;
-                      return person ? (
-                        <div className="flex items-center gap-1.5 mt-1.5">
-                          <div className="w-4 h-4 rounded-full flex-shrink-0 text-[8px] font-bold text-white flex items-center justify-center"
-                            style={{ backgroundColor: person.color }}>
-                            {person.name[0]}
-                          </div>
-                          <span className="text-[10px] text-slate-400">{person.name}</span>
+                      const assignees = getStageAssignees(stage);
+                      const people = assignees
+                        .map((v) => resolvePersonLabel(v, client, team, creators, ownerName))
+                        .filter(Boolean) as { name: string; color: string }[];
+                      if (people.length === 0) return null;
+                      return (
+                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                          {people.slice(0, 4).map((p, i) => (
+                            <div key={i} className="flex items-center gap-1">
+                              <div className="w-4 h-4 rounded-full flex-shrink-0 text-[8px] font-bold text-white flex items-center justify-center"
+                                style={{ backgroundColor: p.color }}>
+                                {p.name[0]}
+                              </div>
+                              <span className="text-[10px] text-slate-400">{p.name}</span>
+                            </div>
+                          ))}
+                          {people.length > 4 && <span className="text-[10px] text-slate-400">+{people.length - 4}</span>}
                         </div>
-                      ) : null;
+                      );
                     })()}
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
@@ -497,6 +502,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           stages={stages}
           team={team}
           creators={creators}
+          ownerName={ownerName}
           onClose={() => setShowStageManager(false)}
           onSaved={() => { setShowStageManager(false); reload(); }}
         />
@@ -1469,33 +1475,40 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
 }
 
 // ─── Stage manager modal ────────────────────────────────────────────────────
-type PersonValue = "" | "owner" | "client" | `member:${number}` | `creator:${number}`;
+type PersonValue = "owner" | "client" | `member:${number}` | `creator:${number}`;
 
-function stageToPersonValue(s: WorkflowStage): PersonValue {
-  if (s.assignedToOwner) return "owner";
-  if (s.assignedToClient) return "client";
-  if (s.assignedToId) return `member:${s.assignedToId}`;
-  if (s.assignedCreatorId) return `creator:${s.assignedCreatorId}`;
-  return "";
+function getStageAssignees(s: WorkflowStage): PersonValue[] {
+  try { return JSON.parse(s.assignees || "[]"); } catch { return []; }
 }
 
-function personValueToFields(v: PersonValue) {
-  if (v === "owner") return { assignedToOwner: true, assignedToClient: false, assignedToId: null, assignedCreatorId: null };
-  if (v === "client") return { assignedToOwner: false, assignedToClient: true, assignedToId: null, assignedCreatorId: null };
-  if (v.startsWith("member:")) return { assignedToOwner: false, assignedToClient: false, assignedToId: parseInt(v.slice(7)), assignedCreatorId: null };
-  if (v.startsWith("creator:")) return { assignedToOwner: false, assignedToClient: false, assignedToId: null, assignedCreatorId: parseInt(v.slice(8)) };
-  return { assignedToOwner: false, assignedToClient: false, assignedToId: null, assignedCreatorId: null };
+function resolvePersonLabel(v: PersonValue, client: Client | null, team: TeamMember[], creators: Creator[], ownerName: string): { name: string; color: string } | null {
+  if (v === "owner") return { name: ownerName, color: "#6366f1" };
+  if (v === "client") return { name: client?.name ?? "Client", color: client?.color ?? "#6366f1" };
+  if (v.startsWith("member:")) { const m = team.find((m) => m.id === parseInt(v.slice(7))); return m ? { name: m.name, color: m.color } : null; }
+  if (v.startsWith("creator:")) { const c = creators.find((c) => c.id === parseInt(v.slice(8))); return c ? { name: c.name, color: c.color } : null; }
+  return null;
 }
 
-function StageManagerModal({ client, stages, team, creators, onClose, onSaved }: {
-  client: Client; stages: WorkflowStage[]; team: TeamMember[]; creators: Creator[];
+function StageManagerModal({ client, stages, team, creators, ownerName, onClose, onSaved }: {
+  client: Client; stages: WorkflowStage[]; team: TeamMember[]; creators: Creator[]; ownerName: string;
   onClose: () => void; onSaved: () => void;
 }) {
-  const [list, setList] = useState(stages);
+  const [list, setList] = useState(stages.map((s) => ({ ...s, _assignees: getStageAssignees(s) })));
 
-  async function updateAssignee(stageId: number, v: PersonValue) {
-    const fields = personValueToFields(v);
-    const updated = list.map((s) => s.id === stageId ? { ...s, ...fields } : s);
+  const allPeople: { value: PersonValue; label: string; color: string }[] = [
+    { value: "owner", label: ownerName, color: "#6366f1" },
+    { value: "client", label: client.name, color: client.color },
+    ...team.map((m) => ({ value: `member:${m.id}` as PersonValue, label: m.name, color: m.color })),
+    ...creators.map((c) => ({ value: `creator:${c.id}` as PersonValue, label: c.name, color: c.color })),
+  ];
+
+  async function togglePerson(stageId: number, v: PersonValue) {
+    const updated = list.map((s) => {
+      if (s.id !== stageId) return s;
+      const cur = s._assignees;
+      const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+      return { ...s, _assignees: next, assignees: JSON.stringify(next) };
+    });
     setList(updated);
     await fetch("/api/workflow", {
       method: "PUT",
@@ -1506,31 +1519,39 @@ function StageManagerModal({ client, stages, team, creators, onClose, onSaved }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-[460px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-[500px] max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">Assign Stages · {client.name}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Choose who is responsible for each stage</p>
+            <p className="text-xs text-slate-400 mt-0.5">Select everyone responsible for each stage</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
         </div>
-        <div className="px-6 py-5 space-y-2">
+        <div className="px-6 py-5 space-y-3">
           {list.map((stage) => (
-            <div key={stage.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
-              <span className="text-sm text-slate-700 font-medium w-28 truncate">{stage.name}</span>
-              <select
-                value={stageToPersonValue(stage)}
-                onChange={(e) => updateAssignee(stage.id, e.target.value as PersonValue)}
-                className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white text-slate-600">
-                <option value="">Unassigned</option>
-                <option value="owner">👑 Owner</option>
-                <option value="client">🎬 {client.name} (Client)</option>
-                {team.length > 0 && <option disabled>── Team ──</option>}
-                {team.map((m) => <option key={m.id} value={`member:${m.id}`}>{m.name}</option>)}
-                {creators.length > 0 && <option disabled>── Creators ──</option>}
-                {creators.map((c) => <option key={c.id} value={`creator:${c.id}`}>{c.name}</option>)}
-              </select>
+            <div key={stage.id} className="p-3 bg-slate-50 rounded-xl">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
+                <span className="text-sm text-slate-700 font-semibold">{stage.name}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {allPeople.map((p) => {
+                  const selected = stage._assignees.includes(p.value);
+                  return (
+                    <button key={p.value} onClick={() => togglePerson(stage.id, p.value)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                        selected ? "text-white border-transparent" : "bg-white border-slate-200 text-slate-500 hover:border-slate-400"
+                      }`}
+                      style={selected ? { backgroundColor: p.color, borderColor: p.color } : {}}>
+                      <span className="w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center text-white flex-shrink-0"
+                        style={{ backgroundColor: selected ? "rgba(255,255,255,0.3)" : p.color }}>
+                        {p.label[0].toUpperCase()}
+                      </span>
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </div>
