@@ -13,6 +13,7 @@ type Props = {
   selectedClientId: number | null;
   onSelectClient: (id: number | null) => void;
   activeProfileId: number | null;
+  activeProfile: TeamMember | null;
   team: TeamMember[];
   ownerName?: string;
   isClient?: boolean;
@@ -79,8 +80,23 @@ function DroppableColumn({ id, children, className }: { id: string; children: Re
   );
 }
 
+// ─── Stage assignee helpers (used in Kanban + StageManagerModal) ────────────
+type PersonValue = "owner" | "client" | `member:${number}` | `creator:${number}`;
+
+function getStageAssignees(s: WorkflowStage): PersonValue[] {
+  try { return JSON.parse(s.assignees || "[]"); } catch { return []; }
+}
+
+function resolvePersonLabel(v: PersonValue, client: Client | null, team: TeamMember[], creators: Creator[], ownerName: string): { name: string; color: string } | null {
+  if (v === "owner") return { name: ownerName, color: "#6366f1" };
+  if (v === "client") return { name: client?.name ?? "Client", color: client?.color ?? "#6366f1" };
+  if (v.startsWith("member:")) { const m = team.find((m) => m.id === parseInt(v.slice(7))); return m ? { name: m.name, color: m.color } : null; }
+  if (v.startsWith("creator:")) { const c = creators.find((c) => c.id === parseInt(v.slice(8))); return c ? { name: c.name, color: c.color } : null; }
+  return null;
+}
+
 // ─── Main Kanban ────────────────────────────────────────────────────────────
-export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, team, ownerName = "Owner", isClient = false, onOpenChat }: Props) {
+export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, activeProfile, team, ownerName = "Owner", isClient = false, onOpenChat }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -114,14 +130,10 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 
   useEffect(() => { reload(); }, [reload]);
 
-  // Active profile member
-  const activeProfile = team.find((m) => m.id === activeProfileId) ?? null;
-
-  // If logged in as a team member, only show stages assigned to them
+  // If logged in as a team member, only show stages they are assigned to
   const visibleStages = activeProfile
-    ? stages.filter((s) => s.assignedToId === activeProfile.id)
+    ? stages.filter((s) => getStageAssignees(s).includes(`member:${activeProfile.id}`))
     : stages;
-  // Owner sees all stages (no filter)
 
   const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId);
   const savedDrafts   = drafts.filter((d) => d.status === "saved");
@@ -1475,20 +1487,6 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
 }
 
 // ─── Stage manager modal ────────────────────────────────────────────────────
-type PersonValue = "owner" | "client" | `member:${number}` | `creator:${number}`;
-
-function getStageAssignees(s: WorkflowStage): PersonValue[] {
-  try { return JSON.parse(s.assignees || "[]"); } catch { return []; }
-}
-
-function resolvePersonLabel(v: PersonValue, client: Client | null, team: TeamMember[], creators: Creator[], ownerName: string): { name: string; color: string } | null {
-  if (v === "owner") return { name: ownerName, color: "#6366f1" };
-  if (v === "client") return { name: client?.name ?? "Client", color: client?.color ?? "#6366f1" };
-  if (v.startsWith("member:")) { const m = team.find((m) => m.id === parseInt(v.slice(7))); return m ? { name: m.name, color: m.color } : null; }
-  if (v.startsWith("creator:")) { const c = creators.find((c) => c.id === parseInt(v.slice(8))); return c ? { name: c.name, color: c.color } : null; }
-  return null;
-}
-
 function StageManagerModal({ client, stages, team, creators, ownerName, onClose, onSaved }: {
   client: Client; stages: WorkflowStage[]; team: TeamMember[]; creators: Creator[]; ownerName: string;
   onClose: () => void; onSaved: () => void;
