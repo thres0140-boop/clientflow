@@ -98,7 +98,11 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const reload = useCallback(async () => {
     if (!selectedClientId) return;
     const [s, co, d, cr] = await Promise.all([
-      fetch(`/api/workflow?clientId=${selectedClientId}`).then((r) => r.json()),
+      fetch("/api/workflow/ensure-defaults", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: selectedClientId }),
+      }).then((r) => r.json()),
       fetch(`/api/concepts?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/script-drafts?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/creators?clientId=${selectedClientId}`).then((r) => r.json()),
