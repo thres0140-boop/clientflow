@@ -969,7 +969,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
       )}
 
       {urls.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           {urls.map((url, i) => (
             <div key={i} className="relative group rounded-xl overflow-hidden bg-slate-900 aspect-square">
               {isVideo(url) ? (
