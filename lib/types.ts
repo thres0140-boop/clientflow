@@ -43,6 +43,7 @@ export type Client = {
   scriptAlternatives: number;
   generationInterval: number;
   bookingLink?: string | null;
+  scriptRules?: string | null;
   createdAt: string;
 };
 

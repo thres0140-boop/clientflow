@@ -36,6 +36,9 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   const [feedbacks, setFeedbacks] = useState<ConceptFeedback[]>([]);
   const [openConceptId, setOpenConceptId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingRules, setEditingRules] = useState(false);
+  const [rulesText, setRulesText] = useState("");
+  const [savingRules, setSavingRules] = useState(false);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
@@ -50,6 +53,25 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   }, [selectedClientId]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  useEffect(() => {
+    setRulesText(client?.scriptRules ?? "");
+    setEditingRules(false);
+  }, [selectedClientId, client?.scriptRules]);
+
+  async function saveRules() {
+    if (!selectedClientId) return;
+    setSavingRules(true);
+    await fetch(`/api/clients/${selectedClientId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptRules: rulesText }),
+    });
+    // update local clients list
+    client && Object.assign(client, { scriptRules: rulesText });
+    setSavingRules(false);
+    setEditingRules(false);
+  }
 
   async function deleteFeedback(id: number) {
     setDeletingId(id);
@@ -126,6 +148,56 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Writing Rules */}
+      <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden">
+        <div className="px-5 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">📐</span>
+            <div>
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Writing Rules</p>
+              <p className="text-[10px] text-amber-500">Global rules Claude follows for every script for {client.name}</p>
+            </div>
+          </div>
+          {!editingRules && (
+            <button
+              onClick={() => setEditingRules(true)}
+              className="text-xs text-amber-600 hover:text-amber-800 font-medium px-3 py-1 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors"
+            >
+              {rulesText ? "Edit" : "+ Add Rules"}
+            </button>
+          )}
+        </div>
+        {editingRules ? (
+          <div className="p-4 space-y-3">
+            <textarea
+              value={rulesText}
+              onChange={(e) => setRulesText(e.target.value)}
+              rows={12}
+              placeholder={"1. VOICE IS EVERYTHING\n   Every line must sound like the creator talking to a friend...\n\n2. DATA OVER OPINION\n   Every decision must be backed by actual performance data..."}
+              className="w-full text-sm text-slate-700 border border-amber-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-amber-300 bg-amber-50/30 font-mono leading-relaxed"
+            />
+            <div className="flex items-center gap-2 justify-end">
+              <button onClick={() => { setRulesText(client?.scriptRules ?? ""); setEditingRules(false); }}
+                className="text-xs text-slate-400 hover:text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors">
+                Cancel
+              </button>
+              <button onClick={saveRules} disabled={savingRules}
+                className="text-xs font-semibold text-white bg-amber-500 hover:bg-amber-600 px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                {savingRules ? "Saving…" : "Save Rules"}
+              </button>
+            </div>
+          </div>
+        ) : rulesText ? (
+          <div className="px-5 py-4">
+            <pre className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed font-sans">{rulesText}</pre>
+          </div>
+        ) : (
+          <div className="px-5 py-4">
+            <p className="text-xs text-slate-400 italic">No writing rules added yet. Add global rules Claude must follow when writing scripts for this creator — voice, structure, caption rules, etc.</p>
+          </div>
+        )}
       </div>
 
       {/* Concepts with feedback */}
@@ -229,6 +301,12 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                         )}
                         {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
                           <p className="col-span-2 text-xs text-slate-400 italic">No blueprint set — add details in the Concept Library to guide Claude.</p>
+                        )}
+                        {rulesText && (
+                          <div className="col-span-2 mt-1 border-t border-indigo-100 pt-3">
+                            <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide mb-1">📐 Writing Rules (applies to all concepts)</p>
+                            <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{rulesText}</pre>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -396,6 +474,12 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                           )}
                           {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
                             <p className="col-span-2 text-xs text-slate-400 italic">No blueprint set — add details in the Concept Library to guide Claude.</p>
+                          )}
+                          {rulesText && (
+                            <div className="col-span-2 mt-1 border-t border-indigo-100 pt-3">
+                              <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide mb-1">📐 Writing Rules (applies to all concepts)</p>
+                              <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{rulesText}</pre>
+                            </div>
                           )}
                         </div>
                       </div>
