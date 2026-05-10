@@ -666,6 +666,7 @@ function DraftDetailPanel({
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [refining, setRefining] = useState(false);
   const [saveWeeks, setSaveWeeks] = useState(2);
+  const [checkApproved, setCheckApproved] = useState(false);
   const [notes, setNotes] = useState<{ id: number; author: string; content: string; createdAt: string }[]>([]);
   const [changes, setChanges] = useState<{ id: number; field: string; before: string; after: string; author: string; createdAt: string }[]>([]);
   const [noteInput, setNoteInput] = useState("");
@@ -810,7 +811,7 @@ function DraftDetailPanel({
           {inStage && stages.find((s) => s.id === draft.stageId)?.name === "Check" && (
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Reviews</label>
-              <ReviewPanel draft={draft} team={team} ownerName={ownerName} onReviewSubmitted={onReviewSubmitted} />
+              <ReviewPanel draft={draft} team={team} ownerName={ownerName} onReviewSubmitted={onReviewSubmitted} onApprovalChange={setCheckApproved} />
             </div>
           )}
 
@@ -928,12 +929,19 @@ function DraftDetailPanel({
               💬 Talk about this reel
             </button>
           )}
-          {inStage ? (
-            <button onClick={onProceed}
-              className="w-full py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700">
-              {nextStage ? `→ Proceed to ${nextStage.name}` : "✓ Mark as Done"}
-            </button>
-          ) : (
+          {inStage ? (() => {
+            const isCheck = stages.find((s) => s.id === draft.stageId)?.name === "Check";
+            const canProceed = !isCheck || checkApproved;
+            return (
+              <button onClick={onProceed} disabled={!canProceed}
+                title={!canProceed ? "Waiting for all reviewers to approve" : ""}
+                className={`w-full py-2.5 text-sm font-semibold text-white rounded-xl transition-colors ${
+                  canProceed ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-300 cursor-not-allowed"
+                }`}>
+                {nextStage ? `→ Proceed to ${nextStage.name}` : "✓ Mark as Done"}
+              </button>
+            );
+          })() : (
             <div className="flex gap-2">
               <button onClick={onAccept}
                 className="flex-1 py-2 text-sm font-semibold text-white bg-green-500 rounded-xl hover:bg-green-600">
@@ -1003,8 +1011,8 @@ function CheckCardActions({ draft, onProceed }: { draft: ScriptDraft; onProceed:
 type Reviewer = { id: string; name: string };
 type Review = { id: number; reviewerName: string; status: string; comment?: string | null };
 
-function ReviewPanel({ draft, team, ownerName, onReviewSubmitted }: {
-  draft: ScriptDraft; team: TeamMember[]; ownerName: string; onReviewSubmitted: () => void;
+function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChange }: {
+  draft: ScriptDraft; team: TeamMember[]; ownerName: string; onReviewSubmitted: () => void; onApprovalChange?: (approved: boolean) => void;
 }) {
   const [reviewerIds, setReviewerIds] = useState<string[]>(JSON.parse(draft.checkReviewerIds || "[]"));
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -1048,6 +1056,8 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted }: {
   const allApproved = selectedReviewers.length > 0 && selectedReviewers.every(r =>
     reviews.find(rv => rv.reviewerName === r.name)?.status === "good"
   );
+
+  useEffect(() => { onApprovalChange?.(allApproved); }, [allApproved]);
 
   return (
     <div className="space-y-3">
