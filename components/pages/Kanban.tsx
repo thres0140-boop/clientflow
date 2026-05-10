@@ -373,21 +373,40 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                     {stageDrafts.map((draft) => (
                       <div key={draft.id} className="space-y-1.5">
                         <DraggableCard draft={draft} onClick={() => setDetailDraft(draft)} />
-                        {/* Per-card actions for assignees */}
-                        <div className="flex gap-1.5">
-                          <FileUploadButton draft={draft} onUploaded={(urls) => {
-                            fetch(`/api/script-drafts/${draft.id}`, {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ rawContentUrls: urls }),
-                            }).then(reload);
-                          }} />
-                          <button
-                            onClick={() => proceedToNextStage(draft)}
-                            className="flex-1 py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100">
-                            {nextStage ? `→ ${nextStage.name}` : "✓ Done"}
-                          </button>
-                        </div>
+                        {/* Per-card actions */}
+                        {stage.name === "Edit" ? (
+                          <div className="space-y-1">
+                            <EditedVideoUploadButton draft={draft} onUploaded={(url) => {
+                              fetch(`/api/script-drafts/${draft.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ editedVideoUrl: url }),
+                              }).then(reload);
+                            }} />
+                            <button
+                              onClick={() => proceedToNextStage(draft)}
+                              disabled={!draft.editedVideoUrl}
+                              title={!draft.editedVideoUrl ? "Upload edited video first" : ""}
+                              className="w-full py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                              {nextStage ? `→ ${nextStage.name}` : "✓ Done"}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1.5">
+                            <FileUploadButton draft={draft} onUploaded={(urls) => {
+                              fetch(`/api/script-drafts/${draft.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ rawContentUrls: urls }),
+                              }).then(reload);
+                            }} />
+                            <button
+                              onClick={() => proceedToNextStage(draft)}
+                              className="flex-1 py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100">
+                              {nextStage ? `→ ${nextStage.name}` : "✓ Done"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -511,6 +530,46 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
             : "text-slate-500 bg-slate-100 hover:bg-slate-200"
         }`}>
         {progress !== null ? `${progress}%` : existing.length > 0 ? `📎 ${existing.length}` : "⬆ Upload"}
+      </button>
+    </>
+  );
+}
+
+// ─── Edited video upload button ─────────────────────────────────────────────
+function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const hasVideo = !!draft.editedVideoUrl;
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProgress(0);
+    try {
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+      });
+      onUploaded(blob.url);
+    } finally {
+      setProgress(null);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={progress !== null}
+        className={`w-full py-1.5 text-[10px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 ${
+          hasVideo
+            ? "text-green-700 bg-green-100 hover:bg-green-200"
+            : "text-orange-600 bg-orange-50 hover:bg-orange-100"
+        }`}>
+        {progress !== null ? `Uploading ${progress}%` : hasVideo ? "✓ Edited video uploaded · Replace" : "⬆ Upload Edited Video"}
       </button>
     </>
   );

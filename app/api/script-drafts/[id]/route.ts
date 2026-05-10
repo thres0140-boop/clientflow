@@ -17,6 +17,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.title !== undefined) data.title = body.title;
   if (body.rawContentUrl !== undefined) data.rawContentUrl = body.rawContentUrl;
   if (body.rawContentUrls !== undefined) data.rawContentUrls = JSON.stringify(body.rawContentUrls);
+  if (body.editedVideoUrl !== undefined) data.editedVideoUrl = body.editedVideoUrl || null;
   if (body.scheduledDate !== undefined) data.scheduledDate = body.scheduledDate || null;
 
   const draft = await prisma.scriptDraft.update({
