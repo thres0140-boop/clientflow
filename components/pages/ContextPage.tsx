@@ -168,121 +168,140 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                   <span className={`text-slate-400 ml-2 transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
                 </button>
 
-                {/* Expanded rejection history */}
+                {/* Expanded view */}
                 {isOpen && (
                   <div className="border-t border-slate-100">
-                    {/* Script Blueprint */}
-                    <div className="px-5 py-4 bg-indigo-50/50 border-b border-indigo-100">
-                      <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wide mb-3">📋 Script Blueprint — what Claude is told for this concept</p>
-                      <div className="grid grid-cols-2 gap-3">
+                    {/* Pipeline header */}
+                    <div className="px-5 pt-4 pb-2">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">How Claude generates scripts for this concept</p>
+                      <div className="flex items-center gap-1.5 mt-2 text-[10px] text-slate-400">
+                        <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold">1 Blueprint</span>
+                        <span>→</span>
+                        <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold">2 Example Scripts</span>
+                        <span>→</span>
+                        <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 font-semibold">3 Rejection Training</span>
+                        <span>→</span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-semibold">Claude Output</span>
+                      </div>
+                    </div>
+
+                    {/* Step 1: Blueprint */}
+                    <div className="mx-5 mb-3 rounded-xl border border-indigo-200 bg-indigo-50/40 overflow-hidden">
+                      <div className="px-4 py-2 bg-indigo-100/60 border-b border-indigo-200">
+                        <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">① Blueprint — the concept template Claude always follows</p>
+                      </div>
+                      <div className="p-4 grid grid-cols-2 gap-3">
                         {concept.hookType && (
                           <div>
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Hook Type</p>
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Hook Type</p>
                             <p className="text-xs text-slate-700 capitalize">{concept.hookType.replace(/_/g, " ")}</p>
                           </div>
                         )}
                         {concept.textHook && (
                           <div>
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Text Hook</p>
-                            <p className="text-xs text-slate-700 italic">"{concept.textHook}"</p>
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Text Hook</p>
+                            <p className="text-xs text-slate-700 italic">&ldquo;{concept.textHook}&rdquo;</p>
                           </div>
                         )}
                         {concept.videoType && (
                           <div>
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Video Type</p>
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Video Type</p>
                             <p className="text-xs text-slate-700 capitalize">{concept.videoType.replace(/_/g, " ")}</p>
                           </div>
                         )}
                         {concept.angle && (
                           <div>
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Angle</p>
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Angle</p>
                             <p className="text-xs text-slate-700">{concept.angle}</p>
                           </div>
                         )}
                         {concept.structure && (
                           <div className="col-span-2">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Structure</p>
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Structure</p>
                             <p className="text-xs text-slate-700 whitespace-pre-line">{concept.structure}</p>
                           </div>
                         )}
                         {concept.guidelines && (
                           <div className="col-span-2">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Guidelines</p>
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Guidelines</p>
                             <p className="text-xs text-slate-700 whitespace-pre-line">{concept.guidelines}</p>
                           </div>
                         )}
-                        {concept.scriptExamples && (
-                          <div className="col-span-2">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Script Examples</p>
-                            <p className="text-xs text-slate-600 whitespace-pre-line italic line-clamp-6">{concept.scriptExamples}</p>
-                          </div>
-                        )}
                         {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
-                          <p className="col-span-2 text-xs text-slate-400">No blueprint details set — add them in the Concept Library to improve Claude&apos;s output.</p>
+                          <p className="col-span-2 text-xs text-slate-400 italic">No blueprint set — add details in the Concept Library to guide Claude.</p>
                         )}
                       </div>
                     </div>
-                    {/* Stats bar */}
-                    <div className="px-5 py-3 bg-slate-50 flex items-center gap-6 flex-wrap">
-                      {Object.entries(byType).map(([type, count]) => {
-                        const meta = REASON_LABELS[type];
-                        const pct = Math.round((count / total) * 100);
-                        return (
-                          <div key={type} className="flex items-center gap-2">
-                            <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${meta?.color || "bg-slate-100 text-slate-500"}`}>
-                              {meta?.emoji} {pct}%
-                            </span>
+
+                    {/* Step 2: Example Scripts */}
+                    <div className="mx-5 mb-3 rounded-xl border border-violet-200 bg-violet-50/40 overflow-hidden">
+                      <div className="px-4 py-2 bg-violet-100/60 border-b border-violet-200">
+                        <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wide">② Example Scripts — reference scripts Claude studied for this concept</p>
+                      </div>
+                      <div className="p-4">
+                        {concept.scriptExamples ? (
+                          <div className="space-y-2">
+                            {concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
+                              <div key={i} className="bg-white rounded-lg border border-violet-100 px-3 py-2">
+                                <p className="text-[9px] font-bold text-violet-400 uppercase mb-1">Example {i + 1}</p>
+                                <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
+                              </div>
+                            ))}
                           </div>
-                        );
-                      })}
+                        ) : (
+                          <p className="text-xs text-slate-400 italic">No example scripts added yet — paste reference scripts in the Concept Library to improve output quality.</p>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Individual rejection cards */}
-                    <div className="divide-y divide-slate-50">
-                      {items.map((fb) => {
-                        const meta = REASON_LABELS[fb.reasonType];
-                        return (
-                          <div key={fb.id} className="px-5 py-3 flex items-start gap-3 group/fb hover:bg-slate-50">
-                            <span className={`mt-0.5 text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0 ${meta?.color || "bg-slate-100 text-slate-500"}`}>
-                              {meta?.emoji} {meta?.label}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-slate-700 truncate">{fb.title}</p>
-                              {fb.hook && (
-                                <p className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1">Hook: "{fb.hook}"</p>
-                              )}
-                              {fb.scriptSnippet && (
-                                <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{fb.scriptSnippet}…</p>
-                              )}
-                              {fb.reason && (
-                                <p className="text-[11px] text-indigo-600 mt-0.5 font-medium">💬 "{fb.reason}"</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="text-[10px] text-slate-300">
-                                {new Date(fb.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    {/* Step 3: Rejection Training */}
+                    <div className="mx-5 mb-4 rounded-xl border border-rose-200 bg-rose-50/40 overflow-hidden">
+                      <div className="px-4 py-2 bg-rose-100/60 border-b border-rose-200 flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wide">③ Rejection Training — {total} signals teaching Claude what NOT to do</p>
+                        <span className="text-[9px] text-rose-400">Claude reads these before every generation</span>
+                      </div>
+                      {/* Stats bar */}
+                      <div className="px-4 py-2.5 bg-rose-50 border-b border-rose-100 flex items-center gap-4 flex-wrap">
+                        {Object.entries(byType).map(([type, count]) => {
+                          const meta = REASON_LABELS[type];
+                          const pct = Math.round((count / total) * 100);
+                          return (
+                            <div key={type} className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-rose-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-rose-400 rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${meta?.color || "bg-slate-100 text-slate-500"}`}>
+                                {meta?.emoji} {pct}%
                               </span>
-                              <button
-                                onClick={() => deleteFeedback(fb.id)}
-                                disabled={deletingId === fb.id}
-                                className="opacity-0 group-hover/fb:opacity-100 text-slate-300 hover:text-red-400 transition-all text-sm"
-                                title="Remove this signal"
-                              >
-                                ×
-                              </button>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="px-5 py-3 bg-slate-50 border-t border-slate-100">
-                      <p className="text-[10px] text-slate-400">
-                        🧠 Claude reads all {total} rejection signals before generating new scripts for this concept.
-                      </p>
+                          );
+                        })}
+                      </div>
+                      {/* Individual rejection cards */}
+                      <div className="divide-y divide-rose-100">
+                        {items.map((fb) => {
+                          const meta = REASON_LABELS[fb.reasonType];
+                          return (
+                            <div key={fb.id} className="px-4 py-2.5 flex items-start gap-3 group/fb hover:bg-rose-50/50">
+                              <span className={`mt-0.5 text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0 ${meta?.color || "bg-slate-100 text-slate-500"}`}>
+                                {meta?.emoji} {meta?.label}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-slate-700 truncate">{fb.title}</p>
+                                {fb.hook && <p className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1">Hook: &ldquo;{fb.hook}&rdquo;</p>}
+                                {fb.reason && <p className="text-[11px] text-rose-600 mt-0.5 font-medium">💬 &ldquo;{fb.reason}&rdquo;</p>}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className="text-[10px] text-slate-300">
+                                  {new Date(fb.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                                </span>
+                                <button onClick={() => deleteFeedback(fb.id)} disabled={deletingId === fb.id}
+                                  className="opacity-0 group-hover/fb:opacity-100 text-slate-300 hover:text-red-400 transition-all text-sm">×</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}
