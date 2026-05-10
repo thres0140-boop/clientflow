@@ -201,6 +201,8 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
     byType?: Record<string, number>;
     items?: ConceptFeedback[];
   }) {
+    const [openSections, setOpenSections] = useState({ blueprint: true, examples: true, rejection: true, rules: true });
+    const toggle = (k: keyof typeof openSections) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
     const d = blueprintDraft[concept.id];
     const isEditingBlueprint = blueprintEditing === concept.id;
 
@@ -222,17 +224,20 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
 
         {/* Step 1: Blueprint */}
         <div className="mx-5 mb-3 rounded-xl border border-indigo-200 bg-indigo-50/40 overflow-hidden">
-          <div className="px-4 py-2 bg-indigo-100/60 border-b border-indigo-200 flex items-center justify-between">
+          <button onClick={() => toggle("blueprint")} className="w-full px-4 py-2 bg-indigo-100/60 border-b border-indigo-200 flex items-center justify-between hover:bg-indigo-100/80 transition-colors">
             <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">① Blueprint — the concept template Claude always follows</p>
-            {!isEditingBlueprint && (
-              <button onClick={() => startBlueprintEdit(concept)}
-                className="text-[9px] text-indigo-500 hover:text-indigo-700 font-semibold px-2 py-0.5 rounded border border-indigo-200 hover:bg-indigo-100 transition-colors">
-                Edit
-              </button>
-            )}
-          </div>
+            <div className="flex items-center gap-2">
+              {!isEditingBlueprint && openSections.blueprint && (
+                <span onClick={(e) => { e.stopPropagation(); startBlueprintEdit(concept); }}
+                  className="text-[9px] text-indigo-500 hover:text-indigo-700 font-semibold px-2 py-0.5 rounded border border-indigo-200 hover:bg-indigo-100 transition-colors">
+                  Edit
+                </span>
+              )}
+              <span className={`text-indigo-400 text-xs transition-transform ${openSections.blueprint ? "rotate-180" : ""}`}>▾</span>
+            </div>
+          </button>
 
-          {isEditingBlueprint && d ? (
+          {openSections.blueprint && (isEditingBlueprint && d ? (
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -322,19 +327,23 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
               {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
                 <p className="col-span-2 text-xs text-slate-400 italic">No blueprint set — click Edit to add details.</p>
               )}
-              {/* Writing rules */}
-              <div className="col-span-2 mt-1 border-t border-indigo-100 pt-3">
-                <div className="flex items-center justify-between mb-1.5">
+              {/* Writing rules — collapsible */}
+              <div className="col-span-2 mt-1 border-t border-indigo-100 pt-1">
+                <button onClick={() => toggle("rules")}
+                  className="w-full flex items-center justify-between py-1.5 hover:opacity-80 transition-opacity">
                   <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide">📐 Writing Rules</p>
-                  {conceptRulesEditing !== concept.id && (
-                    <button onClick={() => startConceptRulesEdit(concept)}
-                      className="text-[9px] text-amber-500 hover:text-amber-700 font-semibold px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-50 transition-colors">
-                      {concept.scriptRules ? "Edit" : "+ Add"}
-                    </button>
-                  )}
-                </div>
-                {conceptRulesEditing === concept.id ? (
-                  <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {conceptRulesEditing !== concept.id && openSections.rules && (
+                      <span onClick={(e) => { e.stopPropagation(); startConceptRulesEdit(concept); }}
+                        className="text-[9px] text-amber-500 hover:text-amber-700 font-semibold px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-50 transition-colors">
+                        {concept.scriptRules ? "Edit" : "+ Add"}
+                      </span>
+                    )}
+                    <span className={`text-amber-400 text-xs transition-transform ${openSections.rules ? "rotate-180" : ""}`}>▾</span>
+                  </div>
+                </button>
+                {openSections.rules && (conceptRulesEditing === concept.id ? (
+                  <div className="space-y-2 mt-1">
                     <textarea
                       value={conceptRulesText[concept.id] ?? ""}
                       onChange={(e) => setConceptRulesText((prev) => ({ ...prev, [concept.id]: e.target.value }))}
@@ -351,45 +360,48 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                     </div>
                   </div>
                 ) : concept.scriptRules ? (
-                  <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{concept.scriptRules}</pre>
+                  <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed mt-1">{concept.scriptRules}</pre>
                 ) : (
-                  <p className="text-xs text-slate-400 italic">No writing rules yet — click + Add (pre-filled with default rules).</p>
-                )}
+                  <p className="text-xs text-slate-400 italic mt-1">No writing rules yet — click + Add (pre-filled with default rules).</p>
+                ))}
               </div>
             </div>
-          )}
+          ))}
         </div>
 
         {/* Step 2: Example Scripts */}
         <div className="mx-5 mb-3 rounded-xl border border-violet-200 bg-violet-50/40 overflow-hidden">
-          <div className="px-4 py-2 bg-violet-100/60 border-b border-violet-200">
+          <button onClick={() => toggle("examples")} className="w-full px-4 py-2 bg-violet-100/60 border-b border-violet-200 flex items-center justify-between hover:bg-violet-100/80 transition-colors">
             <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wide">② Example Scripts — reference scripts Claude studied for this concept</p>
-          </div>
-          <div className="p-4">
-            {concept.scriptExamples ? (
-              <div className="space-y-2">
-                {concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
-                  <div key={i} className="bg-white rounded-lg border border-violet-100 px-3 py-2">
-                    <p className="text-[9px] font-bold text-violet-400 uppercase mb-1">Example {i + 1}</p>
-                    <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">No example scripts added yet — paste reference scripts in the Concept Library to improve output quality.</p>
-            )}
-          </div>
+            <span className={`text-violet-400 text-xs transition-transform ${openSections.examples ? "rotate-180" : ""}`}>▾</span>
+          </button>
+          {openSections.examples && (
+            <div className="p-4">
+              {concept.scriptExamples ? (
+                <div className="space-y-2">
+                  {concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
+                    <div key={i} className="bg-white rounded-lg border border-violet-100 px-3 py-2">
+                      <p className="text-[9px] font-bold text-violet-400 uppercase mb-1">Example {i + 1}</p>
+                      <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">No example scripts added yet — paste reference scripts in the Concept Library to improve output quality.</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Step 3: Rejection Training */}
         <div className="mx-5 mb-4 rounded-xl border border-rose-200 bg-rose-50/40 overflow-hidden">
-          <div className="px-4 py-2 bg-rose-100/60 border-b border-rose-200 flex items-center justify-between">
+          <button onClick={() => toggle("rejection")} className="w-full px-4 py-2 bg-rose-100/60 border-b border-rose-200 flex items-center justify-between hover:bg-rose-100/80 transition-colors">
             <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wide">
               ③ Rejection Training — {total ?? 0} signals teaching Claude what NOT to do
             </p>
-            {(total ?? 0) > 0 && <span className="text-[9px] text-rose-400">Claude reads these before every generation</span>}
-          </div>
-          {(total ?? 0) > 0 && byType && items ? (
+            <span className={`text-rose-400 text-xs transition-transform ${openSections.rejection ? "rotate-180" : ""}`}>▾</span>
+          </button>
+          {openSections.rejection && ((total ?? 0) > 0 && byType && items ? (
             <>
               <div className="px-4 py-2.5 bg-rose-50 border-b border-rose-100 flex items-center gap-4 flex-wrap">
                 {Object.entries(byType).map(([type, count]) => {
@@ -436,7 +448,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             <div className="px-4 py-3">
               <p className="text-xs text-slate-400 italic">No rejections logged yet. Reject scripts with a reason in the Kanban to start training Claude on what to avoid.</p>
             </div>
-          )}
+          ))}
         </div>
       </div>
     );
