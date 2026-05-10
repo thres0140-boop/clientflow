@@ -37,6 +37,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
+  const [activeProfile, setActiveProfile] = useState<TeamMember | null>(null);
   const [session, setSession] = useState<SessionPayload | null>(null);
   const [ownerName, setOwnerName] = useState("Cenk");
   const [appReady, setAppReady] = useState(false);
@@ -93,6 +94,9 @@ export default function App() {
 
       if (sess?.type === "member" && sess.memberId !== null) {
         setActiveProfileId(sess.memberId);
+        // Fetch this member directly (unfiltered) so page access check is always correct
+        const memberData: TeamMember = await fetch(`/api/team/${sess.memberId}`).then((r) => r.json());
+        setActiveProfile(memberData);
       }
 
       const clientList: Client[] = await fetch("/api/clients").then((r) => r.json());
@@ -128,7 +132,6 @@ export default function App() {
   }
 
   // Compute which pages the active profile can see
-  const activeProfile = team.find((m) => m.id === activeProfileId) ?? null;
   const allowedPages: Page[] = (() => {
     if (!activeProfile) return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
     if (activeProfile.pageAccess === "all") return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
