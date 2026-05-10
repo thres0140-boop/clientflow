@@ -130,14 +130,21 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 
   useEffect(() => { reload(); }, [reload]);
 
-  // If logged in as a team member, show stages assigned to them directly,
-  // OR assigned to "client" if they are the client for this account
-  const isClientMember = activeProfile?.clientId === selectedClientId;
+  // Client portal users (Sam the creator) have exactly the restricted page set.
+  // Team members (Dennis the editor) have "all" or broader access.
+  const CLIENT_PAGE_VALUES = ["pipeline", "kanban", "analytics", "dms", "chat"];
+  const isClientPortalUser = activeProfile
+    ? activeProfile.pageAccess !== "all" &&
+      activeProfile.pageAccess.split(",").filter(Boolean).sort().join(",") ===
+        [...CLIENT_PAGE_VALUES].sort().join(",")
+    : false;
+
+  // Client portal users see all stages (they are the creator — their whole kanban)
+  // Team members only see stages where they are explicitly assigned
   const visibleStages = activeProfile
-    ? stages.filter((s) => {
-        const assignees = getStageAssignees(s);
-        return assignees.includes(`member:${activeProfile.id}`) || (isClientMember && assignees.includes("client"));
-      })
+    ? isClientPortalUser
+      ? stages
+      : stages.filter((s) => getStageAssignees(s).includes(`member:${activeProfile.id}`))
     : stages;
 
   const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId);
