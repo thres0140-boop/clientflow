@@ -254,7 +254,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           {!activeProfile && (
             <button onClick={() => setShowStageManager(true)}
               className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
-              ⚙ Stages
+              ⚙ Assign Stages
             </button>
           )}
           {!activeProfile && (
@@ -1083,12 +1083,10 @@ function StageManagerModal({ client, stages, team, creators, onClose, onSaved }:
   onClose: () => void; onSaved: () => void;
 }) {
   const [list, setList] = useState(stages);
-  const [newName, setNewName] = useState("");
-  const [newColor, setNewColor] = useState("#6366f1");
-  const [newPerson, setNewPerson] = useState<PersonValue>("");
-  const COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#3b82f6"];
 
-  async function save(updated: WorkflowStage[]) {
+  async function updateAssignee(stageId: number, v: PersonValue) {
+    const fields = personValueToFields(v);
+    const updated = list.map((s) => s.id === stageId ? { ...s, ...fields } : s);
     setList(updated);
     await fetch("/api/workflow", {
       method: "PUT",
@@ -1097,50 +1095,21 @@ function StageManagerModal({ client, stages, team, creators, onClose, onSaved }:
     });
   }
 
-  async function addStage() {
-    if (!newName.trim()) return;
-    const fields = personValueToFields(newPerson);
-    const res = await fetch("/api/workflow", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: client.id, name: newName.trim(), color: newColor, ...fields }),
-    });
-    const stage = await res.json();
-    setList((l) => [...l, stage]);
-    setNewName("");
-    setNewPerson("");
-  }
-
-  async function deleteStage(id: number) {
-    await fetch(`/api/workflow/${id}`, { method: "DELETE" });
-    setList((l) => l.filter((s) => s.id !== id));
-  }
-
-  async function updateAssignee(stageId: number, v: PersonValue) {
-    const fields = personValueToFields(v);
-    const updated = list.map((s) => s.id === stageId ? { ...s, ...fields } : s);
-    await save(updated);
-  }
-
-  async function reorder(from: number, to: number) {
-    const updated = [...list];
-    const [item] = updated.splice(from, 1);
-    updated.splice(to, 0, item);
-    await save(updated.map((s, i) => ({ ...s, order: i + 1 })));
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-[500px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-[460px] max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-800">⚙ Stages · {client.name}</h2>
+          <div>
+            <h2 className="text-base font-bold text-slate-800">Assign Stages · {client.name}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Choose who is responsible for each stage</p>
+          </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
         </div>
         <div className="px-6 py-5 space-y-2">
-          {list.map((stage, i) => (
-            <div key={stage.id} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl">
-              <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
-              <span className="text-sm text-slate-700 font-medium w-24 truncate">{stage.name}</span>
+          {list.map((stage) => (
+            <div key={stage.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
+              <span className="text-sm text-slate-700 font-medium w-28 truncate">{stage.name}</span>
               <select
                 value={stageToPersonValue(stage)}
                 onChange={(e) => updateAssignee(stage.id, e.target.value as PersonValue)}
@@ -1152,43 +1121,8 @@ function StageManagerModal({ client, stages, team, creators, onClose, onSaved }:
                 {creators.length > 0 && <option disabled>── Creators ──</option>}
                 {creators.map((c) => <option key={c.id} value={`creator:${c.id}`}>{c.name}</option>)}
               </select>
-              <button onClick={() => i > 0 && reorder(i, i - 1)} disabled={i === 0}
-                className="text-slate-400 hover:text-slate-600 disabled:opacity-30 text-xs px-1">↑</button>
-              <button onClick={() => i < list.length - 1 && reorder(i, i + 1)} disabled={i === list.length - 1}
-                className="text-slate-400 hover:text-slate-600 disabled:opacity-30 text-xs px-1">↓</button>
-              <button onClick={() => deleteStage(stage.id)}
-                className="text-red-400 hover:text-red-600 text-xs px-1">✕</button>
             </div>
           ))}
-
-          <div className="pt-3 border-t border-slate-100 space-y-2">
-            <div className="flex gap-1">
-              {COLORS.map((c) => (
-                <button key={c} onClick={() => setNewColor(c)}
-                  className={`w-5 h-5 rounded-full flex-shrink-0 transition-transform ${newColor === c ? "scale-125 ring-2 ring-offset-1 ring-slate-400" : ""}`}
-                  style={{ backgroundColor: c }} />
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input value={newName} onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addStage()}
-                placeholder="Stage name…"
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <select value={newPerson} onChange={(e) => setNewPerson(e.target.value as PersonValue)}
-                className="border border-slate-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-600">
-                <option value="">Unassigned</option>
-                <option value="owner">👑 Owner</option>
-                {team.length > 0 && <option disabled>── Team ──</option>}
-                {team.map((m) => <option key={m.id} value={`member:${m.id}`}>{m.name}</option>)}
-                {creators.length > 0 && <option disabled>── Creators ──</option>}
-                {creators.map((c) => <option key={c.id} value={`creator:${c.id}`}>{c.name}</option>)}
-              </select>
-              <button onClick={addStage} disabled={!newName.trim()}
-                className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                Add
-              </button>
-            </div>
-          </div>
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
           <button onClick={onSaved}
