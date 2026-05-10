@@ -336,7 +336,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                     {conceptRulesEditing !== concept.id && openSections.rules && (
                       <span onClick={(e) => { e.stopPropagation(); startConceptRulesEdit(concept); }}
                         className="text-[9px] text-amber-500 hover:text-amber-700 font-semibold px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-50 transition-colors">
-                        {concept.scriptRules ? "Edit" : "+ Add"}
+                        Edit
                       </span>
                     )}
                     <span className={`text-amber-400 text-xs transition-transform ${openSections.rules ? "rotate-180" : ""}`}>▾</span>
@@ -359,10 +359,8 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                       </button>
                     </div>
                   </div>
-                ) : concept.scriptRules ? (
-                  <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed mt-1">{concept.scriptRules}</pre>
                 ) : (
-                  <p className="text-xs text-slate-400 italic mt-1">No writing rules yet — click + Add (pre-filled with default rules).</p>
+                  <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed mt-1">{concept.scriptRules ?? DEFAULT_RULES}</pre>
                 ))}
               </div>
             </div>
