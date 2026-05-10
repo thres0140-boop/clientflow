@@ -85,6 +85,9 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   const [savingConceptRules, setSavingConceptRules] = useState<number | null>(null);
   const [blueprintEditing, setBlueprintEditing] = useState<number | null>(null);
   const [blueprintDraft, setBlueprintDraft] = useState<Record<number, BlueprintDraft>>({});
+  const [addingExample, setAddingExample] = useState<number | null>(null);
+  const [newExampleText, setNewExampleText] = useState<Record<number, string>>({});
+  const [savingExample, setSavingExample] = useState<number | null>(null);
   const [savingBlueprint, setSavingBlueprint] = useState<number | null>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
@@ -160,6 +163,23 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
     } : c));
     setSavingBlueprint(null);
     setBlueprintEditing(null);
+  }
+
+  async function saveExample(concept: Concept) {
+    const text = (newExampleText[concept.id] ?? "").trim();
+    if (!text) return;
+    setSavingExample(concept.id);
+    const existing = concept.scriptExamples?.trim() ?? "";
+    const updated = existing ? `${existing}\n\n${text}` : text;
+    await fetch(`/api/concepts/${concept.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptExamples: updated }),
+    });
+    setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, scriptExamples: updated } : c));
+    setNewExampleText((prev) => ({ ...prev, [concept.id]: "" }));
+    setSavingExample(null);
+    setAddingExample(null);
   }
 
   async function deleteFeedback(id: number) {
@@ -371,21 +391,53 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
         <div className="mx-5 mb-3 rounded-xl border border-violet-200 bg-violet-50/40 overflow-hidden">
           <button onClick={() => toggle("examples")} className="w-full px-4 py-2 bg-violet-100/60 border-b border-violet-200 flex items-center justify-between hover:bg-violet-100/80 transition-colors">
             <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wide">② Example Scripts — reference scripts Claude studied for this concept</p>
-            <span className={`text-violet-400 text-xs transition-transform ${openSections.examples ? "rotate-180" : ""}`}>▾</span>
+            <div className="flex items-center gap-2">
+              {openSections.examples && addingExample !== concept.id && (
+                <span onClick={(e) => { e.stopPropagation(); setAddingExample(concept.id); setNewExampleText((p) => ({ ...p, [concept.id]: "" })); }}
+                  className="text-[9px] text-violet-500 hover:text-violet-700 font-semibold px-2 py-0.5 rounded border border-violet-200 hover:bg-violet-100 transition-colors">
+                  + Add
+                </span>
+              )}
+              <span className={`text-violet-400 text-xs transition-transform ${openSections.examples ? "rotate-180" : ""}`}>▾</span>
+            </div>
           </button>
           {openSections.examples && (
-            <div className="p-4">
-              {concept.scriptExamples ? (
-                <div className="space-y-2">
-                  {concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
+            <div className="p-4 space-y-2">
+              {concept.scriptExamples
+                ? concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
                     <div key={i} className="bg-white rounded-lg border border-violet-100 px-3 py-2">
                       <p className="text-[9px] font-bold text-violet-400 uppercase mb-1">Example {i + 1}</p>
                       <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
                     </div>
-                  ))}
+                  ))
+                : addingExample !== concept.id && (
+                    <p className="text-xs text-slate-400 italic">No example scripts yet — click + Add to paste one.</p>
+                  )
+              }
+              {addingExample === concept.id && (
+                <div className="space-y-2 pt-1">
+                  <div>
+                    <p className="text-[9px] font-bold text-violet-400 uppercase tracking-wide mb-1">
+                      Example {(concept.scriptExamples?.split(/\n{2,}/).filter(Boolean).length ?? 0) + 1}
+                    </p>
+                    <textarea
+                      autoFocus
+                      rows={5}
+                      value={newExampleText[concept.id] ?? ""}
+                      onChange={(e) => setNewExampleText((p) => ({ ...p, [concept.id]: e.target.value }))}
+                      placeholder="Paste a script that performed well for this concept..."
+                      className="w-full text-xs text-slate-700 border border-violet-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white font-mono leading-relaxed"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setAddingExample(null)}
+                      className="text-[10px] text-slate-400 hover:text-slate-600 px-2.5 py-1 rounded border border-slate-200 transition-colors">Cancel</button>
+                    <button onClick={() => saveExample(concept)} disabled={savingExample === concept.id || !(newExampleText[concept.id] ?? "").trim()}
+                      className="text-[10px] font-semibold text-white bg-violet-500 hover:bg-violet-600 px-3 py-1 rounded transition-colors disabled:opacity-50">
+                      {savingExample === concept.id ? "Saving…" : "Save Example"}
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic">No example scripts added yet — paste reference scripts in the Concept Library to improve output quality.</p>
               )}
             </div>
           )}
