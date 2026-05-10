@@ -171,6 +171,57 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                 {/* Expanded rejection history */}
                 {isOpen && (
                   <div className="border-t border-slate-100">
+                    {/* Script Blueprint */}
+                    <div className="px-5 py-4 bg-indigo-50/50 border-b border-indigo-100">
+                      <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wide mb-3">📋 Script Blueprint — what Claude is told for this concept</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {concept.hookType && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Hook Type</p>
+                            <p className="text-xs text-slate-700 capitalize">{concept.hookType.replace(/_/g, " ")}</p>
+                          </div>
+                        )}
+                        {concept.textHook && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Text Hook</p>
+                            <p className="text-xs text-slate-700 italic">"{concept.textHook}"</p>
+                          </div>
+                        )}
+                        {concept.videoType && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Video Type</p>
+                            <p className="text-xs text-slate-700 capitalize">{concept.videoType.replace(/_/g, " ")}</p>
+                          </div>
+                        )}
+                        {concept.angle && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Angle</p>
+                            <p className="text-xs text-slate-700">{concept.angle}</p>
+                          </div>
+                        )}
+                        {concept.structure && (
+                          <div className="col-span-2">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Structure</p>
+                            <p className="text-xs text-slate-700 whitespace-pre-line">{concept.structure}</p>
+                          </div>
+                        )}
+                        {concept.guidelines && (
+                          <div className="col-span-2">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Guidelines</p>
+                            <p className="text-xs text-slate-700 whitespace-pre-line">{concept.guidelines}</p>
+                          </div>
+                        )}
+                        {concept.scriptExamples && (
+                          <div className="col-span-2">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Script Examples</p>
+                            <p className="text-xs text-slate-600 whitespace-pre-line italic line-clamp-6">{concept.scriptExamples}</p>
+                          </div>
+                        )}
+                        {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
+                          <p className="col-span-2 text-xs text-slate-400">No blueprint details set — add them in the Concept Library to improve Claude&apos;s output.</p>
+                        )}
+                      </div>
+                    </div>
                     {/* Stats bar */}
                     <div className="px-5 py-3 bg-slate-50 flex items-center gap-6 flex-wrap">
                       {Object.entries(byType).map(([type, count]) => {
@@ -248,15 +299,64 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             <h3 className="text-sm font-semibold text-slate-500">No feedback yet</h3>
           </div>
           <div className="divide-y divide-slate-50">
-            {conceptsWithoutFeedback.map((concept) => (
-              <div key={concept.id} className="px-5 py-3 flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-slate-400 text-xs font-bold">{concept.name[0]}</span>
+            {conceptsWithoutFeedback.map((concept) => {
+              const isOpen = openConceptId === concept.id;
+              const hasBlueprint = !!(concept.hookType || concept.angle || concept.structure || concept.guidelines || concept.scriptExamples);
+              return (
+                <div key={concept.id}>
+                  <button
+                    onClick={() => hasBlueprint && setOpenConceptId(isOpen ? null : concept.id)}
+                    className={`w-full px-5 py-3 flex items-center gap-3 text-left ${hasBlueprint ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}`}
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-slate-400 text-xs font-bold">{concept.name[0]}</span>
+                    </div>
+                    <p className="text-sm text-slate-500">{concept.name}</p>
+                    <span className="ml-auto text-[10px] text-slate-300">
+                      {hasBlueprint ? "View blueprint" : "Reject scripts in Kanban to start training Claude"}
+                    </span>
+                    {hasBlueprint && <span className={`text-slate-300 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>}
+                  </button>
+                  {isOpen && hasBlueprint && (
+                    <div className="px-5 py-4 bg-indigo-50/50 border-t border-indigo-100">
+                      <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wide mb-3">📋 Script Blueprint</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {concept.hookType && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Hook Type</p>
+                            <p className="text-xs text-slate-700 capitalize">{concept.hookType.replace(/_/g, " ")}</p>
+                          </div>
+                        )}
+                        {concept.angle && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Angle</p>
+                            <p className="text-xs text-slate-700">{concept.angle}</p>
+                          </div>
+                        )}
+                        {concept.structure && (
+                          <div className="col-span-2">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Structure</p>
+                            <p className="text-xs text-slate-700 whitespace-pre-line">{concept.structure}</p>
+                          </div>
+                        )}
+                        {concept.guidelines && (
+                          <div className="col-span-2">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Guidelines</p>
+                            <p className="text-xs text-slate-700 whitespace-pre-line">{concept.guidelines}</p>
+                          </div>
+                        )}
+                        {concept.scriptExamples && (
+                          <div className="col-span-2">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Script Examples</p>
+                            <p className="text-xs text-slate-600 whitespace-pre-line italic line-clamp-6">{concept.scriptExamples}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-slate-500">{concept.name}</p>
-                <span className="ml-auto text-[10px] text-slate-300">Reject scripts in Kanban to start training Claude</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
