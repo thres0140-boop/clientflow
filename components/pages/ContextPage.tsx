@@ -324,52 +324,111 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
               return (
                 <div key={concept.id}>
                   <button
-                    onClick={() => hasBlueprint && setOpenConceptId(isOpen ? null : concept.id)}
-                    className={`w-full px-5 py-3 flex items-center gap-3 text-left ${hasBlueprint ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}`}
+                    onClick={() => setOpenConceptId(isOpen ? null : concept.id)}
+                    className="w-full px-5 py-3 flex items-center gap-3 text-left hover:bg-slate-50 cursor-pointer"
                   >
                     <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                       <span className="text-slate-400 text-xs font-bold">{concept.name[0]}</span>
                     </div>
                     <p className="text-sm text-slate-500">{concept.name}</p>
                     <span className="ml-auto text-[10px] text-slate-300">
-                      {hasBlueprint ? "View blueprint" : "Reject scripts in Kanban to start training Claude"}
+                      {hasBlueprint ? "View pipeline" : "View pipeline"}
                     </span>
-                    {hasBlueprint && <span className={`text-slate-300 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>}
+                    <span className={`text-slate-300 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
                   </button>
-                  {isOpen && hasBlueprint && (
-                    <div className="px-5 py-4 bg-indigo-50/50 border-t border-indigo-100">
-                      <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wide mb-3">📋 Script Blueprint</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        {concept.hookType && (
-                          <div>
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Hook Type</p>
-                            <p className="text-xs text-slate-700 capitalize">{concept.hookType.replace(/_/g, " ")}</p>
-                          </div>
-                        )}
-                        {concept.angle && (
-                          <div>
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Angle</p>
-                            <p className="text-xs text-slate-700">{concept.angle}</p>
-                          </div>
-                        )}
-                        {concept.structure && (
-                          <div className="col-span-2">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Structure</p>
-                            <p className="text-xs text-slate-700 whitespace-pre-line">{concept.structure}</p>
-                          </div>
-                        )}
-                        {concept.guidelines && (
-                          <div className="col-span-2">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Guidelines</p>
-                            <p className="text-xs text-slate-700 whitespace-pre-line">{concept.guidelines}</p>
-                          </div>
-                        )}
-                        {concept.scriptExamples && (
-                          <div className="col-span-2">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Script Examples</p>
-                            <p className="text-xs text-slate-600 whitespace-pre-line italic line-clamp-6">{concept.scriptExamples}</p>
-                          </div>
-                        )}
+                  {isOpen && (
+                    <div className="border-t border-slate-100">
+                      {/* Pipeline header */}
+                      <div className="px-5 pt-4 pb-2">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">How Claude generates scripts for this concept</p>
+                        <div className="flex items-center gap-1.5 mt-2 text-[10px] text-slate-400">
+                          <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold">1 Blueprint</span>
+                          <span>→</span>
+                          <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold">2 Example Scripts</span>
+                          <span>→</span>
+                          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 font-semibold">3 Rejection Training</span>
+                          <span>→</span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-semibold">Claude Output</span>
+                        </div>
+                      </div>
+
+                      {/* Step 1: Blueprint */}
+                      <div className="mx-5 mb-3 rounded-xl border border-indigo-200 bg-indigo-50/40 overflow-hidden">
+                        <div className="px-4 py-2 bg-indigo-100/60 border-b border-indigo-200">
+                          <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">① Blueprint — the concept template Claude always follows</p>
+                        </div>
+                        <div className="p-4 grid grid-cols-2 gap-3">
+                          {concept.hookType && (
+                            <div>
+                              <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Hook Type</p>
+                              <p className="text-xs text-slate-700 capitalize">{concept.hookType.replace(/_/g, " ")}</p>
+                            </div>
+                          )}
+                          {concept.textHook && (
+                            <div>
+                              <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Text Hook</p>
+                              <p className="text-xs text-slate-700 italic">&ldquo;{concept.textHook}&rdquo;</p>
+                            </div>
+                          )}
+                          {concept.videoType && (
+                            <div>
+                              <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Video Type</p>
+                              <p className="text-xs text-slate-700 capitalize">{concept.videoType.replace(/_/g, " ")}</p>
+                            </div>
+                          )}
+                          {concept.angle && (
+                            <div>
+                              <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Angle</p>
+                              <p className="text-xs text-slate-700">{concept.angle}</p>
+                            </div>
+                          )}
+                          {concept.structure && (
+                            <div className="col-span-2">
+                              <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Structure</p>
+                              <p className="text-xs text-slate-700 whitespace-pre-line">{concept.structure}</p>
+                            </div>
+                          )}
+                          {concept.guidelines && (
+                            <div className="col-span-2">
+                              <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Guidelines</p>
+                              <p className="text-xs text-slate-700 whitespace-pre-line">{concept.guidelines}</p>
+                            </div>
+                          )}
+                          {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
+                            <p className="col-span-2 text-xs text-slate-400 italic">No blueprint set — add details in the Concept Library to guide Claude.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Step 2: Example Scripts */}
+                      <div className="mx-5 mb-3 rounded-xl border border-violet-200 bg-violet-50/40 overflow-hidden">
+                        <div className="px-4 py-2 bg-violet-100/60 border-b border-violet-200">
+                          <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wide">② Example Scripts — reference scripts Claude studied for this concept</p>
+                        </div>
+                        <div className="p-4">
+                          {concept.scriptExamples ? (
+                            <div className="space-y-2">
+                              {concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
+                                <div key={i} className="bg-white rounded-lg border border-violet-100 px-3 py-2">
+                                  <p className="text-[9px] font-bold text-violet-400 uppercase mb-1">Example {i + 1}</p>
+                                  <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">No example scripts added yet — paste reference scripts in the Concept Library to improve output quality.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Step 3: Rejection Training (empty) */}
+                      <div className="mx-5 mb-4 rounded-xl border border-rose-200 bg-rose-50/40 overflow-hidden">
+                        <div className="px-4 py-2 bg-rose-100/60 border-b border-rose-200">
+                          <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wide">③ Rejection Training — no signals yet</p>
+                        </div>
+                        <div className="px-4 py-3">
+                          <p className="text-xs text-slate-400 italic">No rejections logged yet. Reject scripts with a reason in the Kanban to start training Claude on what to avoid.</p>
+                        </div>
                       </div>
                     </div>
                   )}
