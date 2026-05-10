@@ -206,18 +206,31 @@ model ScriptDraft {
   status      String   @default("pending")
   isSavedIdea     Boolean  @default(false)
   resurfaceAt     String?
-  rawContentUrl   String?
-  rawContentUrls  String   @default("[]")
-  editedVideoUrl  String?
-  scheduledDate   String?
-  generatedAt     DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  rawContentUrl      String?
+  rawContentUrls     String   @default("[]")
+  editedVideoUrl     String?
+  checkReviewerIds   String   @default("[]")
+  scheduledDate      String?
+  generatedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   client  Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   concept Concept        @relation(fields: [conceptId], references: [id], onDelete: Cascade)
   stage   WorkflowStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
   notes   DraftNote[]
   changes DraftChange[]
+  reviews DraftReview[]
+}
+
+model DraftReview {
+  id           Int      @id @default(autoincrement())
+  draftId      Int
+  reviewerName String
+  reviewerId   Int?
+  status       String   @default("pending")
+  comment      String?
+  createdAt    DateTime @default(now())
+  draft        ScriptDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 }
 
 model ContentPiece {

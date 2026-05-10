@@ -81,6 +81,7 @@ export type ScriptDraft = {
   rawContentUrl?: string | null;
   rawContentUrls?: string;
   editedVideoUrl?: string | null;
+  checkReviewerIds?: string;
   scheduledDate?: string | null;
   generatedAt: string;
   concept?: { name: string; color?: string } | null;

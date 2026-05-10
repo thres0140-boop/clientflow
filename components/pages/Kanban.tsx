@@ -387,9 +387,11 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                               disabled={!draft.editedVideoUrl}
                               title={!draft.editedVideoUrl ? "Upload edited video first" : ""}
                               className="w-full py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed">
-                              {nextStage ? `→ ${nextStage.name}` : "✓ Done"}
+                              → Check
                             </button>
                           </div>
+                        ) : stage.name === "Check" ? (
+                          <CheckCardActions draft={draft} onProceed={() => proceedToNextStage(draft)} />
                         ) : (
                           <div className="flex gap-1.5">
                             <FileUploadButton draft={draft} onUploaded={(urls) => {
@@ -462,6 +464,8 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             setDetailDraft((d) => d ? { ...d, editedVideoUrl: url } : null);
             setDrafts((ds) => ds.map((d) => d.id === detailDraft.id ? { ...d, editedVideoUrl: url } : d));
           }}
+          onReviewSubmitted={() => reload()}
+          team={team}
         />
       )}
 
@@ -640,9 +644,9 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, onEditedVideoUploaded, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat,
+  draft, language, stages, team, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat,
 }: {
-  draft: ScriptDraft; language: string; stages: WorkflowStage[];
+  draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[];
   onClose: () => void; onAccept: () => void; onReject: () => void;
   onSaveAsIdea: (weeks: number) => void;
   onScriptUpdated: (script: string, hook: string | null) => void;
@@ -650,6 +654,7 @@ function DraftDetailPanel({
   getNextStage: (stageId: number) => WorkflowStage | null;
   onUploaded: (urls: string[]) => void;
   onEditedVideoUploaded: (url: string) => void;
+  onReviewSubmitted: () => void;
   activeProfileId: number | null;
   ownerName?: string;
   isClient?: boolean;
@@ -775,19 +780,37 @@ function DraftDetailPanel({
             </div>
           )}
 
-          {/* Raw content upload — shown when in a stage */}
-          {inStage && (
+          {/* Raw content — hidden on Check stage */}
+          {inStage && stages.find((s) => s.id === draft.stageId)?.name !== "Check" && (
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Raw Content</label>
               <RawContentUpload draft={draft} onUploaded={onUploaded} />
             </div>
           )}
 
-          {/* Finished video — shown on Edit stage */}
-          {inStage && stages.find((s) => s.id === draft.stageId)?.name === "Edit" && (
+          {/* Finished video — shown on Edit stage (upload) and Check stage (view only) */}
+          {inStage && (stages.find((s) => s.id === draft.stageId)?.name === "Edit" || stages.find((s) => s.id === draft.stageId)?.name === "Check") && (
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Finished Video</label>
-              <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
+              {stages.find((s) => s.id === draft.stageId)?.name === "Check" ? (
+                draft.editedVideoUrl ? (
+                  <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
+                    <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
+                )
+              ) : (
+                <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
+              )}
+            </div>
+          )}
+
+          {/* Review panel — Check stage only */}
+          {inStage && stages.find((s) => s.id === draft.stageId)?.name === "Check" && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Reviews</label>
+              <ReviewPanel draft={draft} team={team} ownerName={ownerName} onReviewSubmitted={onReviewSubmitted} />
             </div>
           )}
 
@@ -937,6 +960,189 @@ function DraftDetailPanel({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Check stage card actions ────────────────────────────────────────────────
+function CheckCardActions({ draft, onProceed }: { draft: ScriptDraft; onProceed: () => void }) {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  useEffect(() => {
+    fetch(`/api/draft-reviews?draftId=${draft.id}`).then(r => r.json()).then(setReviews);
+  }, [draft.id]);
+  const reviewerIds: string[] = JSON.parse(draft.checkReviewerIds || "[]");
+  const allApproved = reviewerIds.length > 0 && reviewerIds.every(id => {
+    const rv = reviews.find(r => r.reviewerName !== undefined);
+    return reviews.some(r => r.status === "good");
+  });
+  const hasRejection = reviews.some(r => r.status === "bad");
+  const approved = reviews.filter(r => r.status === "good").length;
+  const total = reviewerIds.length;
+
+  return (
+    <div className="space-y-1">
+      {total > 0 && (
+        <div className={`text-[10px] font-medium text-center py-1 rounded-lg ${
+          hasRejection ? "text-red-600 bg-red-50" : approved === total && total > 0 ? "text-green-600 bg-green-50" : "text-slate-500 bg-slate-50"
+        }`}>
+          {hasRejection ? "✗ Rejected — needs changes" : approved === total && total > 0 ? "✓ All approved" : `${approved}/${total} approved`}
+        </div>
+      )}
+      <button
+        onClick={onProceed}
+        disabled={total === 0 || !reviews.length || reviews.some(r => r.status === "bad") || reviews.filter(r => r.status === "good").length < total}
+        title={total === 0 ? "Open card to assign reviewers first" : ""}
+        className="w-full py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed">
+        → Schedule
+      </button>
+    </div>
+  );
+}
+
+// ─── Review panel (Check stage) ─────────────────────────────────────────────
+type Reviewer = { id: string; name: string };
+type Review = { id: number; reviewerName: string; status: string; comment?: string | null };
+
+function ReviewPanel({ draft, team, ownerName, onReviewSubmitted }: {
+  draft: ScriptDraft; team: TeamMember[]; ownerName: string; onReviewSubmitted: () => void;
+}) {
+  const reviewerIds: string[] = JSON.parse(draft.checkReviewerIds || "[]");
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [badTarget, setBadTarget] = useState<Reviewer | null>(null);
+  const [badComment, setBadComment] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const allReviewers: Reviewer[] = [
+    { id: "owner", name: ownerName },
+    ...team.map((m) => ({ id: String(m.id), name: m.name })),
+  ];
+
+  useEffect(() => {
+    fetch(`/api/draft-reviews?draftId=${draft.id}`).then(r => r.json()).then(setReviews);
+  }, [draft.id]);
+
+  async function toggleReviewer(r: Reviewer) {
+    const already = reviewerIds.includes(r.id);
+    const next = already ? reviewerIds.filter(id => id !== r.id) : [...reviewerIds, r.id];
+    await fetch(`/api/script-drafts/${draft.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checkReviewerIds: next }),
+    });
+    onReviewSubmitted();
+  }
+
+  async function submitReview(reviewer: Reviewer, status: "good" | "bad", comment = "") {
+    setSaving(true);
+    await fetch("/api/draft-reviews", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ draftId: draft.id, reviewerName: reviewer.name, reviewerId: reviewer.id === "owner" ? null : reviewer.id, status, comment }),
+    });
+    const updated = await fetch(`/api/draft-reviews?draftId=${draft.id}`).then(r => r.json());
+    setReviews(updated);
+    setSaving(false);
+    onReviewSubmitted();
+  }
+
+  const selectedReviewers = allReviewers.filter(r => reviewerIds.includes(r.id));
+  const allApproved = selectedReviewers.length > 0 && selectedReviewers.every(r =>
+    reviews.find(rv => rv.reviewerName === r.name)?.status === "good"
+  );
+
+  return (
+    <div className="space-y-3">
+      {/* Reviewer selector */}
+      <div>
+        <p className="text-[10px] text-slate-400 mb-2">Select who needs to approve:</p>
+        <div className="flex flex-wrap gap-1.5">
+          {allReviewers.map((r) => {
+            const selected = reviewerIds.includes(r.id);
+            const rv = reviews.find(rv => rv.reviewerName === r.name);
+            return (
+              <button key={r.id} onClick={() => toggleReviewer(r)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${
+                  selected
+                    ? rv?.status === "good" ? "bg-green-100 border-green-400 text-green-700"
+                    : rv?.status === "bad" ? "bg-red-100 border-red-400 text-red-700"
+                    : "bg-indigo-100 border-indigo-400 text-indigo-700"
+                    : "bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-400"
+                }`}>
+                {rv?.status === "good" ? "✓ " : rv?.status === "bad" ? "✗ " : ""}{r.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Per-reviewer actions */}
+      {selectedReviewers.length > 0 && (
+        <div className="space-y-2">
+          {selectedReviewers.map((r) => {
+            const rv = reviews.find(rv => rv.reviewerName === r.name);
+            return (
+              <div key={r.id} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl">
+                <span className="text-xs font-medium text-slate-700 flex-1">{r.name}</span>
+                {rv?.status === "good" && <span className="text-xs text-green-600 font-semibold">✓ Approved</span>}
+                {rv?.status === "bad" && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-red-600 font-semibold">✗ Rejected</span>
+                    {rv.comment && <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{rv.comment}</span>}
+                  </div>
+                )}
+                {(!rv || rv.status === "pending") && (
+                  <div className="flex gap-1">
+                    <button onClick={() => submitReview(r, "good")} disabled={saving}
+                      className="px-2.5 py-1 text-[10px] font-semibold text-green-700 bg-green-100 rounded-lg hover:bg-green-200">
+                      ✓ Good
+                    </button>
+                    <button onClick={() => { setBadTarget(r); setBadComment(""); }} disabled={saving}
+                      className="px-2.5 py-1 text-[10px] font-semibold text-red-600 bg-red-50 rounded-lg hover:bg-red-100">
+                      ✗ Bad
+                    </button>
+                  </div>
+                )}
+                {rv && rv.status !== "pending" && (
+                  <button onClick={() => submitReview(r, rv.status === "good" ? "bad" : "good")} disabled={saving}
+                    className="text-[10px] text-slate-400 hover:text-slate-600 ml-1">
+                    Change
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {allApproved && (
+        <p className="text-xs text-green-600 font-semibold text-center bg-green-50 rounded-xl py-2">
+          ✓ All reviewers approved — ready to schedule
+        </p>
+      )}
+
+      {/* Bad review modal */}
+      {badTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80 space-y-4">
+            <h3 className="text-sm font-bold text-slate-800">Why is this not good?</h3>
+            <p className="text-xs text-slate-500">Leave feedback for the editor:</p>
+            <textarea value={badComment} onChange={(e) => setBadComment(e.target.value)}
+              placeholder="e.g. Audio quality is too low, need to re-record..."
+              rows={3}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none" />
+            <div className="flex gap-2">
+              <button onClick={() => setBadTarget(null)}
+                className="flex-1 py-2 text-xs font-medium border border-slate-200 rounded-xl hover:bg-slate-50">
+                Cancel
+              </button>
+              <button
+                onClick={async () => { await submitReview(badTarget, "bad", badComment); setBadTarget(null); }}
+                disabled={!badComment.trim() || saving}
+                className="flex-1 py-2 text-xs font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-40">
+                Submit feedback
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
