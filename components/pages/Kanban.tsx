@@ -640,7 +640,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat,
+  draft, language, stages, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, onEditedVideoUploaded, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[];
   onClose: () => void; onAccept: () => void; onReject: () => void;
