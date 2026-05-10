@@ -155,6 +155,7 @@ export type Concept = {
   guidelines?: string | null;
   exampleUrl?: string | null;
   scriptExamples?: string | null;
+  scriptRules?: string | null;
   timesUsed: number;
   isIdea: boolean;
   notes?: string | null;

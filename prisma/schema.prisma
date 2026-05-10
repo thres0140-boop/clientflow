@@ -186,6 +186,7 @@ model Concept {
   guidelines     String?
   exampleUrl     String?
   scriptExamples String?
+  scriptRules    String?
   timesUsed      Int      @default(0)
   isIdea         Boolean  @default(false)
   notes          String?

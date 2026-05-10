@@ -39,6 +39,9 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   const [editingRules, setEditingRules] = useState(false);
   const [rulesText, setRulesText] = useState("");
   const [savingRules, setSavingRules] = useState(false);
+  const [conceptRulesEditing, setConceptRulesEditing] = useState<number | null>(null);
+  const [conceptRulesText, setConceptRulesText] = useState<Record<number, string>>({});
+  const [savingConceptRules, setSavingConceptRules] = useState<number | null>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
@@ -71,6 +74,24 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
     client && Object.assign(client, { scriptRules: rulesText });
     setSavingRules(false);
     setEditingRules(false);
+  }
+
+  async function saveConceptRules(conceptId: number) {
+    setSavingConceptRules(conceptId);
+    const text = conceptRulesText[conceptId] ?? "";
+    await fetch(`/api/concepts/${conceptId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptRules: text }),
+    });
+    setConcepts((prev) => prev.map((c) => c.id === conceptId ? { ...c, scriptRules: text || null } : c));
+    setSavingConceptRules(null);
+    setConceptRulesEditing(null);
+  }
+
+  function startConceptRulesEdit(concept: Concept) {
+    setConceptRulesText((prev) => ({ ...prev, [concept.id]: concept.scriptRules ?? "" }));
+    setConceptRulesEditing(concept.id);
   }
 
   async function deleteFeedback(id: number) {
@@ -302,12 +323,48 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                         {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
                           <p className="col-span-2 text-xs text-slate-400 italic">No blueprint set — add details in the Concept Library to guide Claude.</p>
                         )}
-                        {rulesText && (
-                          <div className="col-span-2 mt-1 border-t border-indigo-100 pt-3">
-                            <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide mb-1">📐 Writing Rules (applies to all concepts)</p>
-                            <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{rulesText}</pre>
+                        {/* Per-concept writing rules */}
+                        <div className="col-span-2 mt-1 border-t border-indigo-100 pt-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide">📐 Writing Rules — specific to this concept</p>
+                            {conceptRulesEditing !== concept.id && (
+                              <button onClick={() => startConceptRulesEdit(concept)}
+                                className="text-[9px] text-amber-500 hover:text-amber-700 font-semibold px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-50 transition-colors">
+                                {concept.scriptRules ? "Edit" : "+ Add"}
+                              </button>
+                            )}
                           </div>
-                        )}
+                          {conceptRulesEditing === concept.id ? (
+                            <div className="space-y-2">
+                              <textarea
+                                value={conceptRulesText[concept.id] ?? ""}
+                                onChange={(e) => setConceptRulesText((prev) => ({ ...prev, [concept.id]: e.target.value }))}
+                                rows={8}
+                                placeholder={"1. VOICE IS EVERYTHING\n   Every line must sound like the creator talking...\n\n2. SPECIFICITY WINS\n   Vague hooks underperform..."}
+                                className="w-full text-xs text-slate-700 border border-amber-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-amber-300 bg-amber-50/30 font-mono leading-relaxed"
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <button onClick={() => setConceptRulesEditing(null)}
+                                  className="text-[10px] text-slate-400 hover:text-slate-600 px-2.5 py-1 rounded border border-slate-200 transition-colors">Cancel</button>
+                                <button onClick={() => saveConceptRules(concept.id)} disabled={savingConceptRules === concept.id}
+                                  className="text-[10px] font-semibold text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded transition-colors disabled:opacity-50">
+                                  {savingConceptRules === concept.id ? "Saving…" : "Save"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : concept.scriptRules ? (
+                            <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{concept.scriptRules}</pre>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">No concept-specific rules yet. Click + Add to define rules for this concept only.</p>
+                          )}
+                          {/* Client-wide rules shown below if set */}
+                          {rulesText && (
+                            <div className="mt-2 pt-2 border-t border-amber-100">
+                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-wide mb-1">📐 Client Writing Rules (all concepts)</p>
+                              <pre className="text-xs text-slate-500 whitespace-pre-wrap font-sans leading-relaxed">{rulesText}</pre>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -475,12 +532,47 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                           {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
                             <p className="col-span-2 text-xs text-slate-400 italic">No blueprint set — add details in the Concept Library to guide Claude.</p>
                           )}
-                          {rulesText && (
-                            <div className="col-span-2 mt-1 border-t border-indigo-100 pt-3">
-                              <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide mb-1">📐 Writing Rules (applies to all concepts)</p>
-                              <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{rulesText}</pre>
+                          {/* Per-concept writing rules */}
+                          <div className="col-span-2 mt-1 border-t border-indigo-100 pt-3">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide">📐 Writing Rules — specific to this concept</p>
+                              {conceptRulesEditing !== concept.id && (
+                                <button onClick={() => startConceptRulesEdit(concept)}
+                                  className="text-[9px] text-amber-500 hover:text-amber-700 font-semibold px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-50 transition-colors">
+                                  {concept.scriptRules ? "Edit" : "+ Add"}
+                                </button>
+                              )}
                             </div>
-                          )}
+                            {conceptRulesEditing === concept.id ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={conceptRulesText[concept.id] ?? ""}
+                                  onChange={(e) => setConceptRulesText((prev) => ({ ...prev, [concept.id]: e.target.value }))}
+                                  rows={8}
+                                  placeholder={"1. VOICE IS EVERYTHING\n   Every line must sound like the creator talking...\n\n2. SPECIFICITY WINS\n   Vague hooks underperform..."}
+                                  className="w-full text-xs text-slate-700 border border-amber-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-amber-300 bg-amber-50/30 font-mono leading-relaxed"
+                                />
+                                <div className="flex gap-2 justify-end">
+                                  <button onClick={() => setConceptRulesEditing(null)}
+                                    className="text-[10px] text-slate-400 hover:text-slate-600 px-2.5 py-1 rounded border border-slate-200 transition-colors">Cancel</button>
+                                  <button onClick={() => saveConceptRules(concept.id)} disabled={savingConceptRules === concept.id}
+                                    className="text-[10px] font-semibold text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded transition-colors disabled:opacity-50">
+                                    {savingConceptRules === concept.id ? "Saving…" : "Save"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : concept.scriptRules ? (
+                              <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{concept.scriptRules}</pre>
+                            ) : (
+                              <p className="text-xs text-slate-400 italic">No concept-specific rules yet. Click + Add to define rules for this concept only.</p>
+                            )}
+                            {rulesText && (
+                              <div className="mt-2 pt-2 border-t border-amber-100">
+                                <p className="text-[9px] font-bold text-amber-400 uppercase tracking-wide mb-1">📐 Client Writing Rules (all concepts)</p>
+                                <pre className="text-xs text-slate-500 whitespace-pre-wrap font-sans leading-relaxed">{rulesText}</pre>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
