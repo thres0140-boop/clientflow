@@ -130,19 +130,9 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 
   useEffect(() => { reload(); }, [reload]);
 
-  // Client portal users (Sam the creator) have exactly the restricted page set.
-  // Team members (Dennis the editor) have "all" or broader access.
-  const CLIENT_PAGE_VALUES = ["pipeline", "kanban", "analytics", "dms", "chat"];
-  const isClientPortalUser = activeProfile
-    ? activeProfile.pageAccess !== "all" &&
-      activeProfile.pageAccess.split(",").filter(Boolean).sort().join(",") ===
-        [...CLIENT_PAGE_VALUES].sort().join(",")
-    : false;
-
-  // Client portal users see all stages (they are the creator — their whole kanban)
-  // Team members only see stages where they are explicitly assigned
+  // Clients see their whole kanban; team members only see stages assigned to them
   const visibleStages = activeProfile
-    ? isClientPortalUser
+    ? activeProfile.isClientAccount
       ? stages
       : stages.filter((s) => getStageAssignees(s).includes(`member:${activeProfile.id}`))
     : stages;

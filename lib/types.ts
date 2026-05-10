@@ -97,6 +97,7 @@ export type TeamMember = {
   role?: string | null;
   color: string;
   pageAccess: string; // "all" or comma-separated page ids e.g. "dashboard,pipeline,concepts"
+  isClientAccount: boolean;
   createdAt: string;
 };
 
