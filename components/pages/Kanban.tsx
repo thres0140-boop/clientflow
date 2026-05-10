@@ -1006,7 +1006,7 @@ type Review = { id: number; reviewerName: string; status: string; comment?: stri
 function ReviewPanel({ draft, team, ownerName, onReviewSubmitted }: {
   draft: ScriptDraft; team: TeamMember[]; ownerName: string; onReviewSubmitted: () => void;
 }) {
-  const reviewerIds: string[] = JSON.parse(draft.checkReviewerIds || "[]");
+  const [reviewerIds, setReviewerIds] = useState<string[]>(JSON.parse(draft.checkReviewerIds || "[]"));
   const [reviews, setReviews] = useState<Review[]>([]);
   const [badTarget, setBadTarget] = useState<Reviewer | null>(null);
   const [badComment, setBadComment] = useState("");
@@ -1024,6 +1024,7 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted }: {
   async function toggleReviewer(r: Reviewer) {
     const already = reviewerIds.includes(r.id);
     const next = already ? reviewerIds.filter(id => id !== r.id) : [...reviewerIds, r.id];
+    setReviewerIds(next); // instant UI update
     await fetch(`/api/script-drafts/${draft.id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ checkReviewerIds: next }),
