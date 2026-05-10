@@ -457,15 +457,22 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [form, setForm] = useState({ name: "", notes: "", exampleUrl: "", scriptExamples: "" });
+  const [form, setForm] = useState({ name: "", notes: "", exampleUrl: "" });
+  const [scriptBoxes, setScriptBoxes] = useState<string[]>([""]);
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  function setBox(i: number, v: string) { setScriptBoxes((p) => p.map((b, idx) => idx === i ? v : b)); }
+  function setBoxCount(n: number) {
+    const count = Math.max(1, Math.min(10, n));
+    setScriptBoxes((p) => Array.from({ length: count }, (_, i) => p[i] ?? ""));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const scriptExamples = scriptBoxes.filter(Boolean).join("\n\n");
     await fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, clientId: selectedClientId, isIdea: true }),
+      body: JSON.stringify({ ...form, scriptExamples, clientId: selectedClientId, isIdea: true }),
     });
     onSaved();
   }
@@ -486,10 +493,25 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Script / Transcript</label>
-          <textarea rows={4} value={form.scriptExamples} onChange={(e) => set("scriptExamples", e.target.value)}
-            placeholder="Paste a script or transcript example..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-medium text-slate-600">Script / Transcript Examples</label>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400">How many?</span>
+              <input type="number" min={1} max={10} value={scriptBoxes.length}
+                onChange={(e) => setBoxCount(parseInt(e.target.value) || 1)}
+                className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            {scriptBoxes.map((val, i) => (
+              <div key={i}>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Example {i + 1}</p>
+                <textarea rows={4} value={val} onChange={(e) => setBox(i, e.target.value)}
+                  placeholder="Paste a script or transcript..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+              </div>
+            ))}
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Example URL (optional)</label>
@@ -518,17 +540,23 @@ function ConceptModal({
   const [form, setForm] = useState({
     name: "", clientId: selectedClientId?.toString() || "",
     hookType: "", textHook: "", audioHook: "", videoType: "",
-    angle: "", structure: "", guidelines: "", exampleUrl: "", scriptExamples: "", notes: "",
+    angle: "", structure: "", guidelines: "", exampleUrl: "", notes: "",
   });
-
+  const [scriptBoxes, setScriptBoxesC] = useState<string[]>([""]);
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  function setBox(i: number, v: string) { setScriptBoxesC((p) => p.map((b, idx) => idx === i ? v : b)); }
+  function setBoxCount(n: number) {
+    const count = Math.max(1, Math.min(10, n));
+    setScriptBoxesC((p) => Array.from({ length: count }, (_, i) => p[i] ?? ""));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const scriptExamples = scriptBoxes.filter(Boolean).join("\n\n");
     await fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, isIdea: false }),
+      body: JSON.stringify({ ...form, scriptExamples, isIdea: false }),
     });
     onSaved();
   }
@@ -622,13 +650,28 @@ function ConceptModal({
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Script Examples
-            <span className="ml-1.5 text-[10px] font-normal text-slate-400">Paste 1–3 real scripts that worked well</span>
-          </label>
-          <textarea rows={6} value={form.scriptExamples} onChange={(e) => set("scriptExamples", e.target.value)}
-            placeholder={"Example script 1:\n---\nHook: Did you know most people waste their first 3 seconds?\n[Script body here...]\n\n---\nExample script 2:\n[Another working script...]"}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-medium text-slate-600">
+              Script Examples
+              <span className="ml-1.5 text-[10px] font-normal text-slate-400">real scripts that worked well for this concept</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400">How many?</span>
+              <input type="number" min={1} max={10} value={scriptBoxes.length}
+                onChange={(e) => setBoxCount(parseInt(e.target.value) || 1)}
+                className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            {scriptBoxes.map((val, i) => (
+              <div key={i}>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Example {i + 1}</p>
+                <textarea rows={4} value={val} onChange={(e) => setBox(i, e.target.value)}
+                  placeholder="Paste a script that performed well..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+              </div>
+            ))}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -717,10 +760,17 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
         )}
         {concept.scriptExamples && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-1">SCRIPT EXAMPLES</p>
-            <pre className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-slate-700 max-h-64 overflow-y-auto">
-              {concept.scriptExamples}
-            </pre>
+            <p className="text-xs font-semibold text-slate-500 mb-2">SCRIPT EXAMPLES</p>
+            <div className="space-y-2">
+              {concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
+                <div key={i}>
+                  <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">Example {i + 1}</p>
+                  <pre className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-slate-700 max-h-48 overflow-y-auto">
+                    {ex.trim()}
+                  </pre>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         {concept.exampleUrl && (
