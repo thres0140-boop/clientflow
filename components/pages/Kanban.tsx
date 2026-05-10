@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { upload } from "@vercel/blob/client";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, closestCenter,
@@ -492,27 +491,48 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   );
 }
 
+// ─── Cloudinary upload helper ────────────────────────────────────────────────
+function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+    const resourceType = file.type.startsWith("video") ? "video" : "image";
+    const form = new FormData();
+    form.append("file", file);
+    form.append("upload_preset", preset);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`);
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).secure_url);
+      else reject(new Error(JSON.parse(xhr.responseText).error?.message ?? "Upload failed"));
+    };
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(form);
+  });
+}
+
 // ─── File upload button ─────────────────────────────────────────────────────
 function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (urls: string[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState("");
   const existing: string[] = JSON.parse(draft.rawContentUrls || "[]");
 
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setProgress(0);
+    setError("");
     try {
-      const urls = await Promise.all(
-        files.map((f) => upload(f.name, f, {
-          access: "public",
-          handleUploadUrl: "/api/upload",
-          onUploadProgress: ({ percentage }) => setProgress((p) => Math.max(p ?? 0, Math.round(percentage))),
-        }).then((b) => b.url))
-      );
+      const urls: string[] = [];
+      for (const f of files) {
+        const url = await cloudinaryUpload(f, (pct) => setProgress(pct));
+        urls.push(url);
+      }
       onUploaded([...existing, ...urls]);
     } catch (err) {
-      console.error("Upload failed:", err);
+      setError(String(err));
     } finally {
       setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -522,6 +542,7 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
   return (
     <>
       <input ref={inputRef} type="file" accept="video/*,image/*" multiple className="hidden" onChange={handleFiles} />
+      {error && <p className="text-[9px] text-red-500 truncate">{error}</p>}
       <button
         onClick={() => inputRef.current?.click()}
         disabled={progress !== null}
@@ -541,21 +562,19 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState("");
   const hasVideo = !!draft.editedVideoUrl;
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setProgress(0);
+    setError("");
     try {
-      const blob = await upload(file.name, file, {
-        access: "public",
-        handleUploadUrl: "/api/upload",
-        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
-      });
-      onUploaded(blob.url);
+      const url = await cloudinaryUpload(file, (pct) => setProgress(pct));
+      onUploaded(url);
     } catch (err) {
-      console.error("Upload failed:", err);
+      setError(String(err));
     } finally {
       setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -563,7 +582,8 @@ function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; on
   }
 
   return (
-    <>
+    <div className="space-y-1">
+      {error && <p className="text-[9px] text-red-500">{error}</p>}
       <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
       <button
         onClick={() => inputRef.current?.click()}
@@ -575,7 +595,7 @@ function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; on
         }`}>
         {progress !== null ? `Uploading ${progress}%` : hasVideo ? "✓ Edited video uploaded · Replace" : "⬆ Upload Edited Video"}
       </button>
-    </>
+    </div>
   );
 }
 
@@ -919,15 +939,11 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
     try {
       const newUrls: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        const blob = await upload(files[i].name, files[i], {
-          access: "public",
-          handleUploadUrl: "/api/upload",
-          onUploadProgress: ({ percentage }) => {
-            const overall = ((i / files.length) + percentage / 100 / files.length) * 100;
-            setProgress(Math.round(overall));
-          },
+        const url = await cloudinaryUpload(files[i], (pct) => {
+          const overall = ((i / files.length) + pct / 100 / files.length) * 100;
+          setProgress(Math.round(overall));
         });
-        newUrls.push(blob.url);
+        newUrls.push(url);
       }
       onUploaded([...urls, ...newUrls]);
     } catch (err) {
