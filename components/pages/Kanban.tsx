@@ -929,6 +929,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const urls: string[] = JSON.parse(draft.rawContentUrls || "[]");
 
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
@@ -946,6 +947,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
         newUrls.push(url);
       }
       onUploaded([...urls, ...newUrls]);
+      setExpanded(true);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -958,37 +960,60 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
     onUploaded(urls.filter((_, i) => i !== idx));
   }
 
-  function isVideo(url: string) {
-    return /\.(mp4|mov|avi|webm|mkv|m4v)$/i.test(url.split("?")[0]);
+  async function downloadAll() {
+    for (const url of urls) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = url.split("/").pop() || "file";
+      a.target = "_blank";
+      a.click();
+      await new Promise((r) => setTimeout(r, 300));
+    }
   }
 
   return (
-    <div className="space-y-3">
-      {error && (
-        <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-      )}
+    <div className="space-y-2">
+      {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
-      {urls.length > 0 && (
-        <div className="grid grid-cols-4 gap-1.5">
-          {urls.map((url, i) => (
-            <div key={i} className="relative group rounded-xl overflow-hidden bg-slate-900 aspect-square">
-              {isVideo(url) ? (
-                <video src={url} controls className="w-full h-full object-cover" />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={url} alt={`File ${i + 1}`} className="w-full h-full object-cover" />
-              )}
+      {/* Collapsible header */}
+      <button
+        onClick={() => setExpanded((s) => !s)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-slate-600">
+            {urls.length > 0 ? `📎 ${urls.length} file${urls.length > 1 ? "s" : ""} uploaded` : "No files yet"}
+          </span>
+        </div>
+        <span className="text-slate-400 text-xs">{expanded ? "▲ Collapse" : "▼ Expand"}</span>
+      </button>
+
+      {expanded && (
+        <div className="space-y-2">
+          {urls.length > 0 && (
+            <>
+              <div className="grid grid-cols-4 gap-1.5">
+                {urls.map((url, i) => (
+                  <div key={i} className="relative group rounded-lg overflow-hidden bg-slate-900 aspect-square">
+                    <video src={url} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeFile(i)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
+                      ✕
+                    </button>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="absolute bottom-1 left-1 text-[8px] bg-black/60 text-white px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                      ↗
+                    </a>
+                  </div>
+                ))}
+              </div>
               <button
-                onClick={() => removeFile(i)}
-                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
-                ✕
+                onClick={downloadAll}
+                className="w-full py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                ⬇ Download all ({urls.length})
               </button>
-              <a href={url} target="_blank" rel="noopener noreferrer"
-                className="absolute bottom-1.5 left-1.5 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                Open ↗
-              </a>
-            </div>
-          ))}
+            </>
+          )}
         </div>
       )}
 
@@ -1000,8 +1025,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
             <span className="text-xs font-bold text-indigo-700">{progress}%</span>
           </div>
           <div className="w-full bg-indigo-100 rounded-full h-1.5">
-            <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-200"
-              style={{ width: `${progress}%` }} />
+            <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
           </div>
         </div>
       ) : (
