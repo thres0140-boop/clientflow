@@ -451,8 +451,16 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
               body: JSON.stringify({ rawContentUrls: urls }),
             });
             setDetailDraft((d) => d ? { ...d, rawContentUrls: JSON.stringify(urls) } : null);
-            // update the draft in the list without a full reload
             setDrafts((ds) => ds.map((d) => d.id === detailDraft.id ? { ...d, rawContentUrls: JSON.stringify(urls) } : d));
+          }}
+          onEditedVideoUploaded={(url) => {
+            fetch(`/api/script-drafts/${detailDraft.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ editedVideoUrl: url }),
+            });
+            setDetailDraft((d) => d ? { ...d, editedVideoUrl: url } : null);
+            setDrafts((ds) => ds.map((d) => d.id === detailDraft.id ? { ...d, editedVideoUrl: url } : d));
           }}
         />
       )}
@@ -641,6 +649,7 @@ function DraftDetailPanel({
   onProceed: () => void;
   getNextStage: (stageId: number) => WorkflowStage | null;
   onUploaded: (urls: string[]) => void;
+  onEditedVideoUploaded: (url: string) => void;
   activeProfileId: number | null;
   ownerName?: string;
   isClient?: boolean;
@@ -771,6 +780,14 @@ function DraftDetailPanel({
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Raw Content</label>
               <RawContentUpload draft={draft} onUploaded={onUploaded} />
+            </div>
+          )}
+
+          {/* Finished video — shown on Edit stage */}
+          {inStage && stages.find((s) => s.id === draft.stageId)?.name === "Edit" && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Finished Video</label>
+              <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
             </div>
           )}
 
@@ -920,6 +937,71 @@ function DraftDetailPanel({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Finished video upload in detail panel ───────────────────────────────────
+function FinishedVideoUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState(!!draft.editedVideoUrl);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProgress(0);
+    setError("");
+    try {
+      const url = await cloudinaryUpload(file, (pct) => setProgress(pct));
+      onUploaded(url);
+      setExpanded(true);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setProgress(null);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+
+      <button
+        onClick={() => setExpanded((s) => !s)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-100">
+        <span className="text-xs font-semibold text-orange-700">
+          {draft.editedVideoUrl ? "✓ Finished video uploaded" : "No finished video yet"}
+        </span>
+        <span className="text-orange-400 text-xs">{expanded ? "▲ Collapse" : "▼ Expand"}</span>
+      </button>
+
+      {expanded && draft.editedVideoUrl && (
+        <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
+          <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+        </div>
+      )}
+
+      <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
+      {progress !== null ? (
+        <div className="w-full rounded-lg border-2 border-orange-200 bg-orange-50 px-3 py-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-orange-600 font-medium">Uploading…</span>
+            <span className="text-xs font-bold text-orange-700">{progress}%</span>
+          </div>
+          <div className="w-full bg-orange-100 rounded-full h-1.5">
+            <div className="bg-orange-500 h-1.5 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => inputRef.current?.click()}
+          className="w-full py-2 text-sm font-medium border-2 border-dashed border-orange-300 rounded-lg text-orange-500 hover:border-orange-400 hover:text-orange-600 transition-colors">
+          {draft.editedVideoUrl ? "⬆ Replace finished video" : "⬆ Add finished video"}
+        </button>
+      )}
     </div>
   );
 }
