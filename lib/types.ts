@@ -91,6 +91,7 @@ export type ScriptDraft = {
 
 export type TeamMember = {
   id: number;
+  clientId?: number | null;
   name: string;
   email?: string | null;
   role?: string | null;

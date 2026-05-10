@@ -63,8 +63,9 @@ export default function App() {
     setNotifications(data);
   }, []);
 
-  const fetchTeam = useCallback(async () => {
-    const data = await fetch("/api/team").then((r) => r.json());
+  const fetchTeam = useCallback(async (clientId?: number | null) => {
+    const url = clientId ? `/api/team?clientId=${clientId}` : "/api/team";
+    const data = await fetch(url).then((r) => r.json());
     setTeam(data);
   }, []);
 
@@ -94,7 +95,10 @@ export default function App() {
         setActiveProfileId(sess.memberId);
       }
 
-      await Promise.all([fetchClients(), fetchNotifications(), fetchTeam()]);
+      const clientList: Client[] = await fetch("/api/clients").then((r) => r.json());
+      const saved = localStorage.getItem("cf_active_client");
+      const initClientId = saved ? parseInt(saved) : clientList[0]?.id ?? null;
+      await Promise.all([fetchClients(), fetchNotifications(), fetchTeam(initClientId)]);
       setAppReady(true);
     }
     init();
@@ -102,12 +106,13 @@ export default function App() {
     return () => clearInterval(interval);
   }, [fetchClients, fetchNotifications, fetchTeam]);
 
-  // Persist selected client
+  // Persist selected client and refresh team when client switches
   useEffect(() => {
     if (selectedClientId !== null) {
       localStorage.setItem("cf_active_client", String(selectedClientId));
+      fetchTeam(selectedClientId);
     }
-  }, [selectedClientId]);
+  }, [selectedClientId, fetchTeam]);
 
   // Brief loading flash when switching client or page
   useEffect(() => {

@@ -15,7 +15,7 @@ export default function WorkflowPage() {
   async function reload() {
     const [s, t] = await Promise.all([
       fetch("/api/workflow").then((r) => r.json()),
-      fetch("/api/team").then((r) => r.json()),
+      fetch("/api/team").then((r) => r.json()), // global — workflow stages are not client-scoped here
     ]);
     setStages(s);
     setTeam(t);

@@ -36,14 +36,16 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
   const [showAddCreator, setShowAddCreator] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
-  useEffect(() => { reloadTeam(); reloadCreators(); }, []);
+  useEffect(() => { reloadTeam(); reloadCreators(); }, [selectedClientId]);
 
   async function reloadTeam() {
-    setTeam(await fetch("/api/team").then((r) => r.json()));
+    const url = selectedClientId ? `/api/team?clientId=${selectedClientId}` : "/api/team";
+    setTeam(await fetch(url).then((r) => r.json()));
   }
 
   async function reloadCreators() {
-    setCreators(await fetch("/api/creators").then((r) => r.json()));
+    const url = selectedClientId ? `/api/creators?clientId=${selectedClientId}` : "/api/creators";
+    setCreators(await fetch(url).then((r) => r.json()));
   }
 
   async function deleteMember(id: number) {
@@ -178,8 +180,8 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
         )
       )}
 
-      {showAdd && <MemberModal onClose={() => setShowAdd(false)} onSaved={(url) => { setShowAdd(false); reloadTeam(); if (url) setInviteUrl(url); }} />}
-      {editing && <MemberModal member={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reloadTeam(); }} />}
+      {showAdd && <MemberModal clientId={selectedClientId} onClose={() => setShowAdd(false)} onSaved={(url) => { setShowAdd(false); reloadTeam(); if (url) setInviteUrl(url); }} />}
+      {editing && <MemberModal clientId={selectedClientId} member={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reloadTeam(); }} />}
       {showAddCreator && <CreatorModal clients={clients} onClose={() => setShowAddCreator(false)} onSaved={() => { setShowAddCreator(false); reloadCreators(); }} />}
       {editingCreator && <CreatorModal clients={clients} creator={editingCreator} onClose={() => setEditingCreator(null)} onSaved={() => { setEditingCreator(null); reloadCreators(); }} />}
 
@@ -190,7 +192,7 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
 
 // ── Member Modal ────────────────────────────────────────────────────────────
 
-function MemberModal({ member, onClose, onSaved }: { member?: TeamMember; onClose: () => void; onSaved: (inviteUrl?: string) => void }) {
+function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMember; clientId?: number | null; onClose: () => void; onSaved: (inviteUrl?: string) => void }) {
   const [memberType, setMemberType] = useState<"team" | "client">("team");
   const initialPages = member ? parseAccess(member.pageAccess) : ALL_PAGES.map((p) => p.id);
   const [form, setForm] = useState({ name: member?.name || "", email: member?.email || "", role: member?.role || "", color: member?.color || "#6366f1" });
@@ -211,7 +213,7 @@ function MemberModal({ member, onClose, onSaved }: { member?: TeamMember; onClos
     const pageAccess = memberType === "client" ? CLIENT_PAGES.join(",") : (pages.length === ALL_PAGES.length ? "all" : pages.join(","));
     const method = member ? "PUT" : "POST";
     const url = member ? `/api/team/${member.id}` : "/api/team";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, pageAccess, isClient: !member && isClient }) });
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, pageAccess, isClient: !member && isClient, clientId: clientId ?? null }) });
     const data = await res.json();
     if (!member && isClient && data.inviteUrl) {
       onSaved(data.inviteUrl);

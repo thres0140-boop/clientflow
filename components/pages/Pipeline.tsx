@@ -107,7 +107,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       fetch(`/api/content${qs}`).then((r) => r.json()),
       fetch(`/api/concepts${selectedClientId ? `?clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
       fetch(`/api/workflow${selectedClientId ? `?clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
-      fetch("/api/team").then((r) => r.json()),
+      fetch(selectedClientId ? `/api/team?clientId=${selectedClientId}` : "/api/team").then((r) => r.json()),
       selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&all=true`).then((r) => r.json()) : Promise.resolve([]),
     ]);
     setContent(c);

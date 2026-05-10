@@ -38,6 +38,7 @@ model Client {
   analyticsEntries      AnalyticsEntry[]
   dmLeads               DmLead[]
   conceptFeedbacks      ConceptFeedback[]
+  teamMembers           TeamMember[]
 }
 
 model InstagramConnection {
@@ -81,6 +82,7 @@ model Message {
 
 model TeamMember {
   id                Int       @id @default(autoincrement())
+  clientId          Int?
   name              String
   email             String?
   role              String?
@@ -91,6 +93,7 @@ model TeamMember {
   inviteTokenExpiry DateTime?
   createdAt         DateTime  @default(now())
 
+  client           Client?         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   stageAssignments WorkflowStage[]
   notifications    Notification[]
   stageCompletions StageHistory[]

@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const clientId = req.nextUrl.searchParams.get("clientId");
   const members = await prisma.teamMember.findMany({
+    where: clientId ? { clientId: parseInt(clientId) } : undefined,
     orderBy: { name: "asc" },
   });
   return NextResponse.json(members);
@@ -38,6 +40,7 @@ export async function POST(req: NextRequest) {
 
   const member = await prisma.teamMember.create({
     data: {
+      clientId: body.clientId ? parseInt(body.clientId) : null,
       name: body.name,
       email: body.email || null,
       role: body.role || null,
