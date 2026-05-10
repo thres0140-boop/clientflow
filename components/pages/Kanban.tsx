@@ -356,6 +356,8 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                     {(() => {
                       const person = stage.assignedToOwner
                         ? { name: "Owner", color: "#6366f1" }
+                        : stage.assignedToClient
+                        ? { name: client?.name ?? "Client", color: client?.color ?? "#6366f1" }
                         : stage.assignedTo ?? stage.assignedCreator ?? null;
                       return person ? (
                         <div className="flex items-center gap-1.5 mt-1.5">
@@ -1467,20 +1469,22 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
 }
 
 // ─── Stage manager modal ────────────────────────────────────────────────────
-type PersonValue = "" | "owner" | `member:${number}` | `creator:${number}`;
+type PersonValue = "" | "owner" | "client" | `member:${number}` | `creator:${number}`;
 
 function stageToPersonValue(s: WorkflowStage): PersonValue {
   if (s.assignedToOwner) return "owner";
+  if (s.assignedToClient) return "client";
   if (s.assignedToId) return `member:${s.assignedToId}`;
   if (s.assignedCreatorId) return `creator:${s.assignedCreatorId}`;
   return "";
 }
 
 function personValueToFields(v: PersonValue) {
-  if (v === "owner") return { assignedToOwner: true, assignedToId: null, assignedCreatorId: null };
-  if (v.startsWith("member:")) return { assignedToOwner: false, assignedToId: parseInt(v.slice(7)), assignedCreatorId: null };
-  if (v.startsWith("creator:")) return { assignedToOwner: false, assignedToId: null, assignedCreatorId: parseInt(v.slice(8)) };
-  return { assignedToOwner: false, assignedToId: null, assignedCreatorId: null };
+  if (v === "owner") return { assignedToOwner: true, assignedToClient: false, assignedToId: null, assignedCreatorId: null };
+  if (v === "client") return { assignedToOwner: false, assignedToClient: true, assignedToId: null, assignedCreatorId: null };
+  if (v.startsWith("member:")) return { assignedToOwner: false, assignedToClient: false, assignedToId: parseInt(v.slice(7)), assignedCreatorId: null };
+  if (v.startsWith("creator:")) return { assignedToOwner: false, assignedToClient: false, assignedToId: null, assignedCreatorId: parseInt(v.slice(8)) };
+  return { assignedToOwner: false, assignedToClient: false, assignedToId: null, assignedCreatorId: null };
 }
 
 function StageManagerModal({ client, stages, team, creators, onClose, onSaved }: {
@@ -1521,6 +1525,7 @@ function StageManagerModal({ client, stages, team, creators, onClose, onSaved }:
                 className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white text-slate-600">
                 <option value="">Unassigned</option>
                 <option value="owner">👑 Owner</option>
+                <option value="client">🎬 {client.name} (Client)</option>
                 {team.length > 0 && <option disabled>── Team ──</option>}
                 {team.map((m) => <option key={m.id} value={`member:${m.id}`}>{m.name}</option>)}
                 {creators.length > 0 && <option disabled>── Creators ──</option>}

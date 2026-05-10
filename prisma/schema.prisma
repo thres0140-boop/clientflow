@@ -108,6 +108,7 @@ model WorkflowStage {
   assignedToId      Int?
   assignedCreatorId Int?
   assignedToOwner   Boolean  @default(false)
+  assignedToClient  Boolean  @default(false)
   createdAt         DateTime @default(now())
 
   client          Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
