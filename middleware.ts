@@ -7,7 +7,7 @@ function getSecret() {
   );
 }
 
-const PUBLIC = ["/login", "/owner", "/invite", "/api/auth", "/api/unipile/webhook", "/api/unipile/callback", "/api/unipile/sync-followers", "/api/upload"];
+const PUBLIC = ["/login", "/owner", "/invite", "/api/auth", "/api/unipile/webhook", "/api/unipile/callback", "/api/unipile/sync-followers", "/api/upload", "/upload", "/api/upload-tokens"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
