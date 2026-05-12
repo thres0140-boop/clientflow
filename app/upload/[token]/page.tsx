@@ -162,7 +162,6 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
               ref={inputRef}
               type="file"
               accept="video/*,image/*"
-              capture="environment"
               className="hidden"
               onChange={handleFile}
             />
