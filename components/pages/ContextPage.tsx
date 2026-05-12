@@ -501,55 +501,61 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
           ))}
         </div>
 
-        {/* Step 4: Living Memory */}
-        <div className="mx-5 mb-4 rounded-xl border border-emerald-200 bg-emerald-50/30 overflow-hidden">
-          <div className="px-4 py-2 bg-emerald-100/60 border-b border-emerald-200 flex items-center justify-between">
-            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
-              🧠 Living Memory — Claude&apos;s synthesized intelligence about this concept
-            </p>
-            <div className="flex items-center gap-2">
-              {concept.memoryUpdatedAt && (
-                <span className="text-[9px] text-emerald-500">
-                  Updated {new Date(concept.memoryUpdatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                </span>
-              )}
-              <button
-                onClick={async () => {
-                  const clientId = selectedClientId;
-                  if (!clientId) return;
-                  setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, aiMemory: "⏳ Synthesizing memory…" } : c));
-                  const res = await fetch(`/api/concepts/${concept.id}/memory`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ clientId }),
-                  });
-                  const data = await res.json();
-                  setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, aiMemory: data.aiMemory, memoryUpdatedAt: data.memoryUpdatedAt } : c));
-                }}
-                className="text-[9px] text-emerald-600 hover:text-emerald-800 font-semibold px-2 py-0.5 rounded border border-emerald-300 hover:bg-emerald-100 transition-colors"
-              >
-                {concept.aiMemory ? "↻ Refresh" : "✨ Build Memory"}
-              </button>
-            </div>
-          </div>
-          <div className="p-4">
-            {concept.aiMemory ? (
-              concept.aiMemory === "⏳ Synthesizing memory…" ? (
-                <div className="flex items-center gap-2 text-xs text-emerald-600">
-                  <span className="inline-block w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                  Claude is synthesizing everything he knows about this concept…
+        {/* Step 4: Conversation Memory */}
+        {(() => {
+          let history: { role: string; content: string }[] = [];
+          try { history = JSON.parse((concept as any).conversationHistory || "[]"); } catch {}
+          const turns = history.length;
+          const generations = history.filter(h => h.role === "assistant").length;
+          const rejections = history.filter(h => h.role === "user" && h.content.startsWith("FEEDBACK ON REJECTED")).length;
+          return (
+            <div className="mx-5 mb-4 rounded-xl border border-emerald-200 bg-emerald-50/30 overflow-hidden">
+              <div className="px-4 py-2 bg-emerald-100/60 border-b border-emerald-200 flex items-center justify-between">
+                <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
+                  🧠 Conversation Memory — Claude&apos;s living context for this concept
+                </p>
+                <div className="flex items-center gap-2 text-[10px] text-emerald-600">
+                  <span>{generations} generation{generations !== 1 ? "s" : ""}</span>
+                  <span>·</span>
+                  <span>{rejections} rejection{rejections !== 1 ? "s" : ""} fed back</span>
                 </div>
-              ) : (
-                <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{concept.aiMemory}</pre>
-              )
-            ) : (
-              <div className="text-center py-3 space-y-1">
-                <p className="text-xs text-slate-400">No memory built yet.</p>
-                <p className="text-[11px] text-slate-400">Click <strong>✨ Build Memory</strong> and Claude will synthesize everything he knows about this creator and concept into a living document that improves every generation.</p>
               </div>
-            )}
-          </div>
-        </div>
+              <div className="p-4">
+                {turns === 0 ? (
+                  <div className="text-center py-3 space-y-1">
+                    <p className="text-xs text-slate-400 font-medium">No conversation yet.</p>
+                    <p className="text-[11px] text-slate-400">Generate scripts for this concept and Claude will start building memory. Every generation and rejection adds to his context — the more you use it, the sharper he gets.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {history.map((turn, i) => {
+                      const isRejection = turn.role === "user" && turn.content.startsWith("FEEDBACK ON REJECTED");
+                      const isGeneration = turn.role === "user" && turn.content.startsWith("Generate");
+                      return (
+                        <div key={i} className={`rounded-lg px-3 py-2 text-[11px] ${
+                          turn.role === "assistant"
+                            ? "bg-emerald-50 border border-emerald-100 text-emerald-800"
+                            : isRejection
+                              ? "bg-rose-50 border border-rose-100 text-rose-700"
+                              : "bg-slate-50 border border-slate-100 text-slate-600"
+                        }`}>
+                          <p className="font-semibold mb-0.5 text-[9px] uppercase tracking-wide opacity-60">
+                            {turn.role === "assistant" ? "📝 Claude generated" : isRejection ? "❌ Rejection fed back" : "🎬 Request"}
+                          </p>
+                          <p className="line-clamp-2 leading-relaxed">
+                            {turn.role === "assistant"
+                              ? `${(turn.content.match(/\{[\s\S]*?\}/g) || []).length} scripts generated`
+                              : turn.content.split("\n")[0]}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }

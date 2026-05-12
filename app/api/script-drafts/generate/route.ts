@@ -39,16 +39,6 @@ const DEFAULT_RULES = `1. VOICE IS EVERYTHING
    pillar, it's not specific enough to the creator. Merge pillars
    for stronger, more unique content`;
 
-const REASON_LABELS: Record<string, string> = {
-  others_better: "Others were better",
-  wrong_angle: "Wrong angle / topic",
-  hook_bad: "Hook doesn't land",
-  too_long: "Too long",
-  too_short: "Too short",
-  off_brand: "Off-brand",
-  custom: "Custom feedback",
-};
-
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === "your_key_here") {
     return NextResponse.json({ error: "Add your ANTHROPIC_API_KEY to .env.local" }, { status: 400 });
@@ -71,91 +61,69 @@ export async function POST(req: NextRequest) {
   const created = [];
 
   for (const concept of concepts) {
-    // Load ALL rejection history — no limit
-    const feedbacks = await prisma.conceptFeedback.findMany({
-      where: { conceptId: concept.id, clientId: clientData.id },
-      orderBy: { createdAt: "desc" },
-    });
 
-    // --- Build prompt sections ---
-
-    // 1. Blueprint
+    // --- Build system prompt: permanent context about this creator + concept ---
     const blueprintLines = [
-      concept.hookType    && `Hook Type: ${concept.hookType}`,
-      concept.textHook    && `Text Hook: "${concept.textHook}"`,
-      concept.videoType   && `Video Type: ${concept.videoType}`,
-      concept.angle       && `Angle: ${concept.angle}`,
-      concept.structure   && `Structure: ${concept.structure}`,
-      concept.guidelines  && `Guidelines:\n${concept.guidelines}`,
+      concept.hookType   && `Hook Type: ${concept.hookType}`,
+      concept.textHook   && `Text Hook: "${concept.textHook}"`,
+      concept.videoType  && `Video Type: ${concept.videoType}`,
+      concept.angle      && `Angle: ${concept.angle}`,
+      concept.structure  && `Structure: ${concept.structure}`,
+      concept.guidelines && `Guidelines:\n${concept.guidelines}`,
     ].filter(Boolean).join("\n");
 
-    // 2. Example scripts
-    let examplesSection = "";
-    if (concept.scriptExamples) {
-      const examples = concept.scriptExamples.split(/\n{2,}/).filter(Boolean);
-      examplesSection = `\n\n--- EXAMPLE SCRIPTS (study these — this is the voice and style to match) ---\n` +
-        examples.map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n");
-    }
+    const examplesSection = concept.scriptExamples
+      ? `\n\nEXAMPLE SCRIPTS — study these, this is the exact voice and style to match:\n` +
+        concept.scriptExamples.split(/\n{2,}/).filter(Boolean)
+          .map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n")
+      : "";
 
-    // 3. Writing rules
     const writingRules = concept.scriptRules ?? DEFAULT_RULES;
-    const rulesSection = `\n\n--- WRITING RULES (follow these strictly) ---\n${writingRules}`;
 
-    // 4. Caption style
-    const captionSection = clientData.captionStyle
-      ? `\n\n--- CAPTION STYLE ---\n${clientData.captionStyle}`
+    const captionStyle = clientData.captionStyle
+      ? `\n\nCAPTION STYLE:\n${clientData.captionStyle}`
       : "";
 
-    // 5. Living memory — synthesized intelligence about this creator + concept
-    const memorySection = concept.aiMemory
-      ? `\n\n--- LIVING MEMORY (everything learned about this creator and concept so far — treat this as your core briefing) ---\n${concept.aiMemory}`
-      : "";
+    const systemPrompt = `You are a dedicated script writer for ${clientData.name}, working exclusively on their "${concept.name}" concept. You are in an ongoing collaboration — you remember every script you've written and every piece of feedback you've received.
 
-    // 6. Rejection history — full scripts + reasons
-    let rejectionSection = "";
-    if (feedbacks.length > 0) {
-      const lines = feedbacks.map((f, i) => {
-        const label = REASON_LABELS[f.reasonType] || f.reasonType;
-        const reason = f.reason ? `\n   Reason: "${f.reason}"` : "";
-        const hook = f.hook ? `\n   Rejected hook: "${f.hook}"` : "";
-        const snippet = f.scriptSnippet ? `\n   Rejected script: "${f.scriptSnippet}"` : "";
-        return `${i + 1}. [${label}]${reason}${hook}${snippet}`;
-      });
-      rejectionSection = `\n\n--- REJECTION TRAINING (${feedbacks.length} rejections — do NOT repeat any of these patterns) ---\n${lines.join("\n\n")}`;
-    }
-
-    const prompt = `You are writing ${count} alternative scripts for a social media video for creator: ${clientData.name}.
-
-=== CONCEPT: ${concept.name} ===
-${blueprintLines || "No blueprint set."}
+CONCEPT BLUEPRINT:
+${blueprintLines || "No blueprint set yet."}
 ${examplesSection}
-${rulesSection}
-${captionSection}
-${memorySection}
-${rejectionSection}
 
-=== TASK ===
-Week: ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}
+WRITING RULES — follow strictly:
+${writingRules}
+${captionStyle}
 
-Generate EXACTLY ${count} completely different script alternatives. Each must have a different hook angle but follow the same concept framework. 80–130 words each. ${langInstruction}
+LANGUAGE: ${langInstruction}
 
-The scripts must sound like ${clientData.name} is talking directly to a friend — not like a copywriter wrote them.
-Study the example scripts above carefully and match that exact voice and style.
-Apply everything in the living memory — that is your accumulated knowledge about what works for this creator.
-Avoid every pattern flagged in the rejection history.
-
-Output as JSON array:
+Your job: when asked to generate scripts, output ONLY a valid JSON array:
 [
-  { "title": "short title", "hook": "opening hook line", "script": "full script text", "caption": "caption text (different angle from script)" },
+  { "title": "short title", "hook": "opening hook line", "script": "full script text", "caption": "caption text (completely different angle from script)" },
   ...
 ]
-Only output the JSON array, nothing else.`.trim();
+Nothing else. No commentary. Just the JSON array.`;
+
+    // --- Load conversation history for this concept ---
+    let history: { role: "user" | "assistant"; content: string }[] = [];
+    try {
+      history = JSON.parse((concept as any).conversationHistory || "[]");
+    } catch {
+      history = [];
+    }
+
+    // --- New user message for this generation ---
+    const userMessage = `Generate EXACTLY ${count} completely different script alternatives for ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}. Each must have a different hook angle. 80–130 words each. Make them feel fresh — don't repeat any hook, angle, or structure pattern you've used before in this conversation.`;
+
+    const messages: { role: "user" | "assistant"; content: string }[] = [
+      ...history,
+      { role: "user", content: userMessage },
+    ];
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 6000,
-      messages: [{ role: "user", content: prompt }],
-      system: "You are an expert social media script writer who deeply studies creator voice and rejection patterns. Output only valid JSON as instructed.",
+      system: systemPrompt,
+      messages,
     });
 
     const raw = message.content[0].type === "text" ? message.content[0].text : "[]";
@@ -168,6 +136,26 @@ Only output the JSON array, nothing else.`.trim();
       drafts = [];
     }
 
+    // --- Append this turn to conversation history ---
+    const assistantSummary = drafts.map((d, i) =>
+      `Script ${i + 1} — "${d.title}"\nHook: ${d.hook}\nScript: ${d.script}`
+    ).join("\n\n---\n\n");
+
+    const updatedHistory = [
+      ...history,
+      { role: "user" as const, content: userMessage },
+      { role: "assistant" as const, content: raw }, // store raw JSON so it's replayable
+    ];
+
+    // Keep history from growing too large — keep last 40 turns (20 exchanges)
+    const trimmedHistory = updatedHistory.slice(-40);
+
+    await (prisma.concept as any).update({
+      where: { id: concept.id },
+      data: { conversationHistory: JSON.stringify(trimmedHistory) },
+    });
+
+    // --- Save the generated drafts ---
     for (const d of drafts) {
       const draft = await prisma.scriptDraft.create({
         data: {

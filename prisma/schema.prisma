@@ -186,11 +186,12 @@ model Concept {
   structure      String?
   guidelines     String?
   exampleUrl     String?
-  scriptExamples String?
-  scriptRules    String?
-  aiMemory       String?
-  memoryUpdatedAt DateTime?
-  timesUsed      Int      @default(0)
+  scriptExamples       String?
+  scriptRules          String?
+  aiMemory             String?
+  memoryUpdatedAt      DateTime?
+  conversationHistory  String   @default("[]")
+  timesUsed            Int      @default(0)
   isIdea         Boolean  @default(false)
   notes          String?
   createdAt      DateTime @default(now())
