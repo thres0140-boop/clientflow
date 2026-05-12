@@ -58,18 +58,22 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !draft) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !draft) return;
     setUploading(true);
     setProgress(0);
     try {
-      const url = await cloudinaryUpload(file);
-      await fetch(`/api/upload-tokens/${token}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      setUploaded((prev) => [...prev, url]);
+      for (let i = 0; i < files.length; i++) {
+        const url = await cloudinaryUpload(files[i]);
+        await fetch(`/api/upload-tokens/${token}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        setUploaded((prev) => [...prev, url]);
+        // Reset progress between files
+        if (i < files.length - 1) setProgress(0);
+      }
       setDone(true);
     } catch (err) {
       setError(String(err));
@@ -162,6 +166,7 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
               ref={inputRef}
               type="file"
               accept="video/*,image/*"
+              multiple
               className="hidden"
               onChange={handleFile}
             />
@@ -171,7 +176,7 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
               className="w-full py-4 rounded-2xl text-white text-base font-bold shadow-lg transition-opacity disabled:opacity-60"
               style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
             >
-              {uploading ? `Uploading… ${progress}%` : uploaded.length > 0 ? "📎 Upload Another File" : "📱 Select Video / Photo"}
+              {uploading ? `Uploading… ${progress}%` : uploaded.length > 0 ? "📎 Upload More Files" : "📱 Select Videos / Photos"}
             </button>
 
             {uploading && (
@@ -184,7 +189,7 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
             )}
 
             <p className="text-center text-xs text-slate-400">
-              Tap to pick a file from your camera roll or record new video
+              You can select multiple videos or photos at once
             </p>
           </div>
         )}
