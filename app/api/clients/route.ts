@@ -11,11 +11,12 @@ export async function POST(req: NextRequest) {
   const client = await prisma.client.create({
     data: {
       name: body.name,
-      platform: body.platform,
+      platform: body.platform || "instagram",
       profileUrl: body.profileUrl || null,
       color: body.color || "#6366f1",
       notes: body.notes || null,
       captionStyle: body.captionStyle || null,
+      isTestAccount: body.isTestAccount === true,
     },
   });
   return NextResponse.json(client, { status: 201 });

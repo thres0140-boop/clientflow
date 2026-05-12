@@ -44,6 +44,7 @@ export type Client = {
   generationInterval: number;
   bookingLink?: string | null;
   scriptRules?: string | null;
+  isTestAccount?: boolean;
   createdAt: string;
 };
 

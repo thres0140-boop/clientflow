@@ -660,7 +660,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           draft={pendingDrop.draft}
           date={pendingDrop.date}
           onClose={() => setPendingDrop(null)}
-          onConfirm={async (postToIG) => {
+          onConfirm={async (postToIG, opts) => {
             await scheduleDraftOnDate(pendingDrop.draft.id, pendingDrop.date);
             if (postToIG && selectedClientId) {
               await fetch("/api/instagram/publish", {
@@ -669,8 +669,10 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 body: JSON.stringify({
                   clientId: selectedClientId,
                   draftId: pendingDrop.draft.id,
-                  caption: pendingDrop.draft.caption || pendingDrop.draft.hook || "",
+                  caption: opts.caption,
                   videoUrl: pendingDrop.draft.rawContentUrl || null,
+                  autoSubtitles: opts.autoSubtitles,
+                  shareToFeed: opts.shareToFeed,
                 }),
               });
             }
@@ -717,17 +719,29 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
 
 // ── Confirm Schedule Modal ──────────────────────────────────────────────────
 
+interface IGOptions { caption: string; autoSubtitles: boolean; shareToFeed: boolean; }
+
 function ConfirmScheduleModal({
   draft, date, onClose, onConfirm,
 }: {
   draft: ScriptDraft;
   date: string;
   onClose: () => void;
-  onConfirm: (postToIG: boolean) => Promise<void>;
+  onConfirm: (postToIG: boolean, opts: IGOptions) => Promise<void>;
 }) {
   const [loading, setLoading] = useState(false);
   const [igStatus, setIgStatus] = useState<string | null>(null);
+  const [caption, setCaption] = useState(draft.caption || "");
+  const [autoSubtitles, setAutoSubtitles] = useState(false);
+  const [shareToFeed, setShareToFeed] = useState(true);
+
   const hasMedia = !!(draft.rawContentUrl || (draft.rawContentUrls && draft.rawContentUrls !== "[]"));
+  const isVideo = (() => {
+    const url = draft.rawContentUrl || (() => {
+      try { const arr = JSON.parse(draft.rawContentUrls || "[]"); return arr[0] || null; } catch { return null; }
+    })();
+    return url ? /\.(mp4|mov|avi|mkv)(\?|$)/i.test(url) : false;
+  })();
 
   const videoUrl = draft.rawContentUrl || (() => {
     try { const arr = JSON.parse(draft.rawContentUrls || "[]"); return arr[0] || null; } catch { return null; }
@@ -737,7 +751,7 @@ function ConfirmScheduleModal({
     setLoading(true);
     if (postToIG) setIgStatus("Uploading to Instagram…");
     try {
-      await onConfirm(postToIG);
+      await onConfirm(postToIG, { caption, autoSubtitles, shareToFeed });
       if (postToIG) setIgStatus("Posted ✓");
     } catch {
       setIgStatus("Failed to post");
@@ -756,35 +770,105 @@ function ConfirmScheduleModal({
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none ml-4 mt-0.5">×</button>
         </div>
+
         <div className="px-6 py-4 space-y-4">
+          {/* Hook (read-only) */}
           {draft.hook && (
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Hook</p>
               <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
             </div>
           )}
-          {draft.caption && (
-            <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Caption</p>
-              <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap">{draft.caption}</p>
-            </div>
-          )}
+
+          {/* Script (read-only, collapsed) */}
           <div>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Script</p>
-            <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed max-h-40 overflow-y-auto">{draft.script}</pre>
+            <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">{draft.script}</pre>
           </div>
+
+          {/* Caption — editable */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Caption</p>
+              <span className="text-[10px] text-slate-400">{caption.length} chars</span>
+            </div>
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              rows={4}
+              placeholder="Write your Instagram caption here…"
+              className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          {/* Video file indicator */}
           {videoUrl && (
             <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
               <span>🎬</span>
-              <span className="truncate">{videoUrl}</span>
+              <span className="truncate flex-1">{videoUrl}</span>
             </div>
           )}
+
+          {/* Instagram posting options */}
+          {hasMedia && (
+            <div className="border border-slate-100 rounded-xl p-4 space-y-3">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Instagram Options</p>
+
+              {/* Share to feed (Reels only) */}
+              {isVideo && (
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Share to feed</p>
+                    <p className="text-[11px] text-slate-400">Also show this reel on your profile grid</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShareToFeed((v) => !v)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${shareToFeed ? "bg-indigo-600" : "bg-slate-200"}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${shareToFeed ? "translate-x-4" : "translate-x-1"}`} />
+                  </button>
+                </label>
+              )}
+
+              {/* Auto-captions (Reels only) */}
+              {isVideo && (
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Auto-captions</p>
+                    <p className="text-[11px] text-slate-400">Instagram generates subtitles automatically</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAutoSubtitles((v) => !v)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${autoSubtitles ? "bg-indigo-600" : "bg-slate-200"}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${autoSubtitles ? "translate-x-4" : "translate-x-1"}`} />
+                  </button>
+                </label>
+              )}
+
+              {/* Music note */}
+              <div className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2">
+                <span className="text-amber-400 mt-0.5">🎵</span>
+                <p className="text-[11px] text-amber-700">Music must be added manually in the Instagram app after posting — the API doesn't allow song selection.</p>
+              </div>
+
+              {/* Trial reel note */}
+              <div className="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2">
+                <span className="text-slate-400 mt-0.5">🧪</span>
+                <p className="text-[11px] text-slate-500">Trial reels are only available inside the Instagram app — not via the API.</p>
+              </div>
+            </div>
+          )}
+
           {igStatus && (
             <p className={`text-sm font-medium text-center ${igStatus.includes("✓") ? "text-green-600" : igStatus.includes("Failed") ? "text-red-500" : "text-indigo-500"}`}>
               {igStatus}
             </p>
           )}
         </div>
+
         <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
           <button
             onClick={() => handle(false)}
@@ -799,7 +883,7 @@ function ConfirmScheduleModal({
             title={!hasMedia ? "Upload a video/photo in the Kanban first to enable Instagram posting" : ""}
             className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
           >
-            {loading ? "Posting…" : "📸 Schedule for Instagram"}
+            {loading ? "Posting…" : "📸 Post to Instagram"}
           </button>
         </div>
         {!hasMedia && (

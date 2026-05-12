@@ -7,6 +7,7 @@ import {
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember, Creator } from "@/lib/types";
+import { QRCodeSVG } from "qrcode.react";
 
 type Props = {
   clients: Client[];
@@ -118,7 +119,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: selectedClientId }),
       }).then((r) => r.json()),
-      fetch(`/api/concepts?clientId=${selectedClientId}`).then((r) => r.json()),
+      fetch(`/api/concepts?clientId=${selectedClientId}&isIdea=false`).then((r) => r.json()),
       fetch(`/api/script-drafts?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/creators?clientId=${selectedClientId}`).then((r) => r.json()),
     ]);
@@ -1246,11 +1247,99 @@ function FinishedVideoUpload({ draft, onUploaded }: { draft: ScriptDraft; onUplo
 }
 
 // ─── Raw content upload in detail panel ─────────────────────────────────────
+function QRUploadModal({ draft, onClose, onUploaded }: { draft: ScriptDraft; onClose: () => void; onUploaded: () => void }) {
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    fetch("/api/upload-tokens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ draftId: draft.id }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.token) setQrUrl(`${window.location.origin}/upload/${d.token}`);
+      });
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [draft.id]);
+
+  // Poll for new uploads while modal is open
+  useEffect(() => {
+    if (!qrUrl) return;
+    const initialCount = JSON.parse(draft.rawContentUrls || "[]").length;
+    setChecking(true);
+    pollRef.current = setInterval(async () => {
+      const token = qrUrl.split("/").pop();
+      const res = await fetch(`/api/upload-tokens/${token}`);
+      const data = await res.json();
+      const newCount = JSON.parse(data.rawContentUrls || "[]").length;
+      if (newCount > initialCount) {
+        clearInterval(pollRef.current!);
+        onUploaded();
+        onClose();
+      }
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [qrUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function copy() {
+    if (qrUrl) { navigator.clipboard.writeText(qrUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Upload from Phone</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Scan to open a mobile upload page</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+
+        {qrUrl ? (
+          <>
+            <div className="flex justify-center">
+              <div className="p-4 bg-white border-2 border-slate-100 rounded-2xl shadow-inner">
+                <QRCodeSVG value={qrUrl} size={200} level="M" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input readOnly value={qrUrl} className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-500 bg-slate-50 focus:outline-none truncate" />
+              <button onClick={copy} className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all flex-shrink-0 ${copied ? "bg-green-500 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            {checking && (
+              <p className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+                <span className="inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                Waiting for upload…
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="flex justify-center py-8">
+            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+
+        <p className="text-center text-[11px] text-slate-400">
+          The link works once — the page closes automatically once a file is received.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (urls: string[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const urls: string[] = JSON.parse(draft.rawContentUrls || "[]");
 
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1350,11 +1439,37 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
           </div>
         </div>
       ) : (
-        <button
-          onClick={() => inputRef.current?.click()}
-          className="w-full py-2 text-sm font-medium border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
-          ⬆ Add files
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="flex-1 py-2 text-sm font-medium border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+            ⬆ Add files
+          </button>
+          <button
+            onClick={() => setShowQR(true)}
+            title="Generate QR code to upload from phone"
+            className="px-3 py-2 text-sm border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-purple-400 hover:text-purple-600 transition-colors">
+            📱 QR
+          </button>
+        </div>
+      )}
+
+      {showQR && (
+        <QRUploadModal
+          draft={draft}
+          onClose={() => setShowQR(false)}
+          onUploaded={() => {
+            // Re-fetch updated URLs from API
+            fetch(`/api/script-drafts/${draft.id}`)
+              .then((r) => r.json())
+              .then((d) => {
+                const updatedUrls: string[] = JSON.parse(d.rawContentUrls || "[]");
+                onUploaded(updatedUrls);
+              });
+            setShowQR(false);
+            setExpanded(true);
+          }}
+        />
       )}
     </div>
   );

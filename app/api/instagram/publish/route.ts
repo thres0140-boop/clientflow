@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const { clientId, caption, videoUrl } = await req.json();
+  const { clientId, caption, videoUrl, autoSubtitles, shareToFeed } = await req.json();
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
 
   const conn = await (prisma as any).instagramConnection.findUnique({
@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
     if (isVideo) {
       createBody.media_type = "REELS";
       createBody.video_url = videoUrl;
+      if (shareToFeed === false) createBody.share_to_feed = "false";
+      if (autoSubtitles === true) createBody.video_auto_subtitles = "true";
     } else {
       createBody.image_url = videoUrl;
     }

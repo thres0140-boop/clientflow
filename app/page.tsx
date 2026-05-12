@@ -131,14 +131,24 @@ export default function App() {
     window.location.href = "/login";
   }
 
+  // Pages still in development — hidden from all client accounts except the test account
+  const WIP_PAGES: Page[] = ["pipeline", "analytics", "dms"];
+  const isTestClient = !!(clients.find((c) => c.id === selectedClientId)?.isTestAccount);
+
   // Compute which pages the active profile can see
   const allowedPages: Page[] = (() => {
-    if (!activeProfile) return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
-    if (activeProfile.pageAccess === "all") return ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
-    const pages = activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
+    const all: Page[] = ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
+    if (!activeProfile) return all;
+    const base = activeProfile.pageAccess === "all"
+      ? all
+      : activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
     // Always give client logins access to chat
-    if (session?.type === "member" && !pages.includes("chat")) pages.push("chat");
-    return pages;
+    if (session?.type === "member" && !base.includes("chat")) base.push("chat");
+    // Hide WIP pages from client accounts except the Test client
+    if (session?.type === "member" && !isTestClient) {
+      return base.filter((p) => !WIP_PAGES.includes(p));
+    }
+    return base;
   })();
 
   const unreadCount = notifications.filter((n) => !n.read).length;

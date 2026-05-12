@@ -25,6 +25,7 @@ model Client {
 
   bookingLink           String?
   scriptRules           String?
+  isTestAccount         Boolean  @default(false)
 
   concepts              Concept[]
   contentPieces         ContentPiece[]
@@ -217,6 +218,7 @@ model ScriptDraft {
   rawContentUrl      String?
   rawContentUrls     String   @default("[]")
   editedVideoUrl     String?
+  uploadToken        String?  @unique
   checkReviewerIds   String   @default("[]")
   scheduledDate      String?
   generatedAt        DateTime @default(now())
