@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
         name: body.name,
         inviteUrl,
         apiKey: process.env.RESEND_API_KEY,
-        fromName: process.env.RESEND_FROM_NAME || "ClientFlow",
-        fromEmail: process.env.RESEND_FROM_EMAIL || "noreply@clientflow.app",
+        fromName: process.env.RESEND_FROM_NAME || "ORDO",
+        fromEmail: process.env.RESEND_FROM_EMAIL || "noreply@ordoagency.com",
       });
     }
   }
@@ -63,10 +63,10 @@ async function sendInviteEmail({
     body: JSON.stringify({
       from: `${fromName} <${fromEmail}>`,
       to: [to],
-      subject: `You've been invited to ClientFlow`,
+      subject: `You've been invited to ORDO`,
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-          <h2 style="color:#6366f1">Welcome to ClientFlow, ${name}!</h2>
+          <h2 style="color:#6366f1">Welcome to ORDO, ${name}!</h2>
           <p>You've been invited to access your client portal. Click the button below to set up your password and get started.</p>
           <a href="${inviteUrl}" style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">Set up my account →</a>
           <p style="color:#94a3b8;font-size:13px">This link expires in 7 days. If you didn't expect this email, you can ignore it.</p>

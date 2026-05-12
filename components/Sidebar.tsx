@@ -208,8 +208,8 @@ export default function Sidebar({
       {/* Brand + notification bell */}
       <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-lg font-bold text-indigo-600 tracking-tight">ClientFlow</h1>
-          <p className="text-[11px] text-slate-400">SMM Management</p>
+          <h1 className="text-lg font-bold text-indigo-600 tracking-tight">ORDO</h1>
+          <p className="text-[11px] text-slate-400">Agency Management</p>
         </div>
         <div className="relative">
           <button
