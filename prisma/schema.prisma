@@ -188,6 +188,8 @@ model Concept {
   exampleUrl     String?
   scriptExamples String?
   scriptRules    String?
+  aiMemory       String?
+  memoryUpdatedAt DateTime?
   timesUsed      Int      @default(0)
   isIdea         Boolean  @default(false)
   notes          String?

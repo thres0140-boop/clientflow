@@ -157,6 +157,8 @@ export type Concept = {
   exampleUrl?: string | null;
   scriptExamples?: string | null;
   scriptRules?: string | null;
+  aiMemory?: string | null;
+  memoryUpdatedAt?: string | null;
   timesUsed: number;
   isIdea: boolean;
   notes?: string | null;

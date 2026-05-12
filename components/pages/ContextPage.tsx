@@ -500,6 +500,56 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             </div>
           ))}
         </div>
+
+        {/* Step 4: Living Memory */}
+        <div className="mx-5 mb-4 rounded-xl border border-emerald-200 bg-emerald-50/30 overflow-hidden">
+          <div className="px-4 py-2 bg-emerald-100/60 border-b border-emerald-200 flex items-center justify-between">
+            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
+              🧠 Living Memory — Claude&apos;s synthesized intelligence about this concept
+            </p>
+            <div className="flex items-center gap-2">
+              {concept.memoryUpdatedAt && (
+                <span className="text-[9px] text-emerald-500">
+                  Updated {new Date(concept.memoryUpdatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                </span>
+              )}
+              <button
+                onClick={async () => {
+                  const clientId = selectedClientId;
+                  if (!clientId) return;
+                  setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, aiMemory: "⏳ Synthesizing memory…" } : c));
+                  const res = await fetch(`/api/concepts/${concept.id}/memory`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ clientId }),
+                  });
+                  const data = await res.json();
+                  setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, aiMemory: data.aiMemory, memoryUpdatedAt: data.memoryUpdatedAt } : c));
+                }}
+                className="text-[9px] text-emerald-600 hover:text-emerald-800 font-semibold px-2 py-0.5 rounded border border-emerald-300 hover:bg-emerald-100 transition-colors"
+              >
+                {concept.aiMemory ? "↻ Refresh" : "✨ Build Memory"}
+              </button>
+            </div>
+          </div>
+          <div className="p-4">
+            {concept.aiMemory ? (
+              concept.aiMemory === "⏳ Synthesizing memory…" ? (
+                <div className="flex items-center gap-2 text-xs text-emerald-600">
+                  <span className="inline-block w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                  Claude is synthesizing everything he knows about this concept…
+                </div>
+              ) : (
+                <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{concept.aiMemory}</pre>
+              )
+            ) : (
+              <div className="text-center py-3 space-y-1">
+                <p className="text-xs text-slate-400">No memory built yet.</p>
+                <p className="text-[11px] text-slate-400">Click <strong>✨ Build Memory</strong> and Claude will synthesize everything he knows about this creator and concept into a living document that improves every generation.</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }

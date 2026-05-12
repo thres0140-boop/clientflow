@@ -106,7 +106,12 @@ export async function POST(req: NextRequest) {
       ? `\n\n--- CAPTION STYLE ---\n${clientData.captionStyle}`
       : "";
 
-    // 5. Rejection history — full scripts + reasons
+    // 5. Living memory — synthesized intelligence about this creator + concept
+    const memorySection = concept.aiMemory
+      ? `\n\n--- LIVING MEMORY (everything learned about this creator and concept so far — treat this as your core briefing) ---\n${concept.aiMemory}`
+      : "";
+
+    // 6. Rejection history — full scripts + reasons
     let rejectionSection = "";
     if (feedbacks.length > 0) {
       const lines = feedbacks.map((f, i) => {
@@ -126,6 +131,7 @@ ${blueprintLines || "No blueprint set."}
 ${examplesSection}
 ${rulesSection}
 ${captionSection}
+${memorySection}
 ${rejectionSection}
 
 === TASK ===
@@ -135,6 +141,7 @@ Generate EXACTLY ${count} completely different script alternatives. Each must ha
 
 The scripts must sound like ${clientData.name} is talking directly to a friend — not like a copywriter wrote them.
 Study the example scripts above carefully and match that exact voice and style.
+Apply everything in the living memory — that is your accumulated knowledge about what works for this creator.
 Avoid every pattern flagged in the rejection history.
 
 Output as JSON array:
