@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { use } from "react";
 
 interface DraftInfo {
@@ -22,7 +22,7 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
   const [progress, setProgress] = useState(0);
   const [uploaded, setUploaded] = useState<string[]>([]);
   const [done, setDone] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+
 
   useEffect(() => {
     fetch(`/api/upload-tokens/${token}`)
@@ -80,7 +80,6 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
     } finally {
       setUploading(false);
       setProgress(0);
-      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
@@ -153,31 +152,26 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
             <div className="text-5xl">✅</div>
             <h2 className="text-base font-bold text-slate-800">Uploaded!</h2>
             <p className="text-sm text-slate-500">Your video has been sent to the team. You can close this page.</p>
-            <button
-              onClick={() => { setDone(false); inputRef.current?.click(); }}
-              className="text-xs text-indigo-500 underline"
-            >
+            <label className="text-xs text-indigo-500 underline cursor-pointer">
+              <input type="file" accept="video/*,image/*" multiple className="hidden"
+                onChange={(e) => { setDone(false); handleFile(e); }} />
               Upload another file
-            </button>
+            </label>
           </div>
         ) : (
           <div className="space-y-3">
-            <input
-              ref={inputRef}
-              type="file"
-              accept="video/*,image/*"
-              multiple
-              className="hidden"
-              onChange={handleFile}
-            />
-            <button
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-              className="w-full py-4 rounded-2xl text-white text-base font-bold shadow-lg transition-opacity disabled:opacity-60"
-              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-            >
+            <label className={`block w-full py-4 rounded-2xl text-white text-base font-bold shadow-lg text-center transition-opacity ${uploading ? "opacity-60 pointer-events-none" : "cursor-pointer"}`}
+              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
+              <input
+                type="file"
+                accept="video/*,image/*"
+                multiple
+                className="hidden"
+                disabled={uploading}
+                onChange={handleFile}
+              />
               {uploading ? `Uploading… ${progress}%` : uploaded.length > 0 ? "📎 Upload More Files" : "📱 Select Videos / Photos"}
-            </button>
+            </label>
 
             {uploading && (
               <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
