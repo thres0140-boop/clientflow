@@ -27,6 +27,7 @@ export type Message = {
   clientId: number;
   content: string;
   author: string;
+  channel: string; // "client" | "member:{id}"
   createdAt: string;
 };
 

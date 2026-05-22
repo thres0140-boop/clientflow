@@ -33,7 +33,7 @@ export default function App() {
   const [page, setPage] = useState<Page>("pipeline");
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [chatContext, setChatContext] = useState<{ id?: number; title: string; hook?: string | null; script: string; caption?: string | null } | null>(null);
+  const [chatContext, setChatContext] = useState<{ id?: number; title: string; hook?: string | null; script: string; caption?: string | null; channel?: string } | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
@@ -166,7 +166,7 @@ export default function App() {
       case "concepts": return <Concepts {...props} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
-      case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} reelContext={chatContext} onContextUsed={() => setChatContext(null)} />;
+      case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} reelContext={chatContext} onContextUsed={() => setChatContext(null)} team={team} initialChannel={chatContext?.channel} />;
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
       case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} />;

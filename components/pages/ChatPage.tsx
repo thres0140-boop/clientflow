@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Client, Message, Concept, TrackedVideo } from "@/lib/types";
+import { Client, Message, Concept, TrackedVideo, TeamMember } from "@/lib/types";
 
 type ReelContext = {
   id?: number;
@@ -9,6 +9,7 @@ type ReelContext = {
   hook?: string | null;
   script: string;
   caption?: string | null;
+  channel?: string;
 };
 
 type ReelRef = {
@@ -27,6 +28,8 @@ type Props = {
   clientName?: string;
   reelContext?: ReelContext | null;
   onContextUsed?: () => void;
+  team?: TeamMember[];
+  initialChannel?: string;
 };
 
 type MentionItem = {
@@ -36,7 +39,7 @@ type MentionItem = {
   sub?: string;
 };
 
-export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName, reelContext, onContextUsed }: Props) {
+export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName, reelContext, onContextUsed, team = [], initialChannel }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -46,14 +49,40 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   const [activeReel, setActiveReel] = useState<ReelContext | null>(null);
   const [reelModal, setReelModal] = useState<ReelRef | null>(null);
   const [reelModalFull, setReelModalFull] = useState<ReelRef | null>(null);
+  const [activeChannel, setActiveChannel] = useState<string>(initialChannel ?? "client");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
+  // Sidebar conversation list
+  // "client" = client chat, "member:{id}" = team member chat
+  const conversations: { channel: string; label: string; color: string; initial: string; isClient?: boolean }[] = [
+    {
+      channel: "client",
+      label: client ? `${client.name} (client)` : "Client",
+      color: client?.color ?? "#6366f1",
+      initial: client ? client.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() : "C",
+      isClient: true,
+    },
+    ...team
+      .filter((m) => !m.isClientAccount)
+      .map((m) => ({
+        channel: `member:${m.id}`,
+        label: m.name + (m.role ? ` (${m.role})` : ""),
+        color: m.color,
+        initial: m.name[0]?.toUpperCase() ?? "?",
+      })),
+  ];
+
+  useEffect(() => {
+    if (initialChannel) setActiveChannel(initialChannel);
+  }, [initialChannel]);
+
   useEffect(() => {
     if (reelContext) {
       setActiveReel(reelContext);
+      if (reelContext.channel) setActiveChannel(reelContext.channel);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [reelContext]);
@@ -71,9 +100,9 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
 
   const fetchMessages = useCallback(async () => {
     if (!selectedClientId) return;
-    const data = await fetch(`/api/messages?clientId=${selectedClientId}`).then((r) => r.json());
+    const data = await fetch(`/api/messages?clientId=${selectedClientId}&channel=${encodeURIComponent(activeChannel)}`).then((r) => r.json());
     setMessages(data);
-  }, [selectedClientId]);
+  }, [selectedClientId, activeChannel]);
 
   useEffect(() => {
     if (!selectedClientId) return;
@@ -98,7 +127,6 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
     setDraft(val);
-
     const cursor = e.target.selectionStart ?? val.length;
     const before = val.slice(0, cursor);
     const atMatch = before.match(/@(\w*)$/);
@@ -150,10 +178,19 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     const fullContent = reel
       ? `__REEL__${JSON.stringify({ id: reel.id, title: reel.title, hook: reel.hook, script: reel.script, caption: reel.caption })}__END__${content}`
       : content;
+
+    // Determine author name for this channel
+    let author = "owner";
+    if (!isOwnerSession) {
+      author = clientName ?? "client";
+    } else if (activeChannel.startsWith("member:")) {
+      author = ownerName;
+    }
+
     await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: selectedClientId, content: fullContent, author: isOwnerSession ? "owner" : (clientName ?? "client") }),
+      body: JSON.stringify({ clientId: selectedClientId, content: fullContent, author, channel: activeChannel }),
     });
     fetchMessages();
   }
@@ -206,6 +243,8 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     );
   }
 
+  const activeConv = conversations.find((c) => c.channel === activeChannel) ?? conversations[0];
+
   if (!client) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
@@ -215,138 +254,186 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6 flex-shrink-0">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold"
-          style={{ backgroundColor: client.color }}>
-          {client.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+    <div className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] gap-0 -mx-8 px-0">
+      {/* Sidebar */}
+      <div className="w-56 flex-shrink-0 border-r border-slate-200 flex flex-col bg-slate-50 rounded-l-2xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Conversations</p>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">{client.name}</h1>
-          <p className="text-xs text-slate-400">Client Chat · use @ to tag concepts or videos</p>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-200 p-4 space-y-3 min-h-0">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="text-3xl mb-2">💬</div>
-            <p className="text-sm text-slate-400">No messages yet. Start the conversation.</p>
-            <p className="text-xs text-slate-300 mt-1">Type @ to tag a concept or video</p>
-          </div>
-        ) : (
-          messages.map((msg) => {
-            const isOwnerMsg = msg.author === "owner";
-            const isMe = isOwnerSession ? isOwnerMsg : !isOwnerMsg;
-            const displayName = isOwnerMsg ? ownerName : (msg.author === "client" ? (clientName ?? "Client") : msg.author);
-            const initial = displayName[0]?.toUpperCase() ?? "?";
+        <div className="flex-1 overflow-y-auto py-2">
+          {conversations.map((conv) => {
+            const isActive = conv.channel === activeChannel;
             return (
-              <div key={msg.id} className={`flex gap-2 group ${isMe ? "justify-start" : "justify-end"}`}>
-                {isMe && (
-                  <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 flex-shrink-0 mt-0.5">
-                    {isOwnerSession ? ownerName[0]?.toUpperCase() : (clientName?.[0]?.toUpperCase() ?? "C")}
-                  </div>
-                )}
-                <div className={`max-w-[72%] ${isMe ? "items-start" : "items-end"} flex flex-col gap-0.5`}>
-                  {!isMe && (
-                    <span className="text-[10px] text-slate-400 px-1">{displayName}</span>
-                  )}
-                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "bg-indigo-600 text-white rounded-bl-sm" : "bg-slate-100 text-slate-800 rounded-br-sm"}`}>
-                    {renderContent(msg.content, isOwnerMsg)}
-                  </div>
-                  <div className={`flex items-center gap-2 px-1 ${!isMe ? "flex-row-reverse" : ""}`}>
-                    <span className="text-[10px] text-slate-300">
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    <button
-                      onClick={() => deleteMessage(msg.id)}
-                      className="text-[10px] text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      delete
-                    </button>
-                  </div>
-                </div>
-                {!isMe && (
-                  <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0 mt-0.5">
-                    {initial}
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="mt-3 flex-shrink-0 relative">
-        {mention && filteredMentions.length > 0 && (
-          <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50 max-h-52 overflow-y-auto">
-            <div className="px-3 py-1.5 border-b border-slate-100">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tag a concept or video</p>
-            </div>
-            {filteredMentions.map((item, i) => (
               <button
-                key={`${item.type}-${item.id}`}
-                onMouseDown={(e) => { e.preventDefault(); applyMention(item); }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 transition-colors ${i === mentionIndex ? "bg-indigo-50" : ""}`}
+                key={conv.channel}
+                onClick={() => setActiveChannel(conv.channel)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-indigo-50 border-r-2 border-indigo-500" : "hover:bg-slate-100"}`}
               >
-                <span className="text-base">{item.type === "video" ? "🎬" : "💡"}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-700 font-medium truncate">{item.label}</p>
-                  <p className="text-[10px] text-slate-400 capitalize">{item.sub}</p>
+                <div
+                  className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-bold text-white"
+                  style={{ backgroundColor: conv.color }}
+                >
+                  {conv.initial}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-medium truncate ${isActive ? "text-indigo-700" : "text-slate-700"}`}>
+                    {conv.label}
+                  </p>
+                  {conv.isClient && (
+                    <p className="text-[10px] text-slate-400">Client</p>
+                  )}
                 </div>
               </button>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
+      </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl focus-within:ring-2 focus-within:ring-indigo-400 focus-within:border-transparent overflow-hidden">
-          {activeReel && (
-            <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-slate-100">
-              <div className="w-0.5 h-8 bg-indigo-400 rounded-full flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide leading-none mb-0.5">Replying to reel</p>
-                <p className="text-xs text-slate-600 font-medium truncate">{activeReel.title}</p>
-                {activeReel.hook && <p className="text-[11px] text-slate-400 truncate">{activeReel.hook}</p>}
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col min-w-0 pl-6 pr-0">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+            style={{ backgroundColor: activeConv?.color }}
+          >
+            {activeConv?.initial}
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-800">{activeConv?.label}</h1>
+            <p className="text-xs text-slate-400">use @ to tag concepts or videos</p>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-200 p-4 space-y-3 min-h-0">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <div className="text-3xl mb-2">💬</div>
+              <p className="text-sm text-slate-400">No messages yet. Start the conversation.</p>
+              <p className="text-xs text-slate-300 mt-1">Type @ to tag a concept or video</p>
+            </div>
+          ) : (
+            messages.map((msg) => {
+              const isOwnerMsg = msg.author === "owner" || msg.author === ownerName;
+              const isMe = isOwnerSession ? isOwnerMsg : !isOwnerMsg;
+              const displayName = isOwnerMsg
+                ? ownerName
+                : activeChannel === "client"
+                  ? (clientName ?? client.name)
+                  : msg.author;
+              const initial = displayName[0]?.toUpperCase() ?? "?";
+              const bubbleColor = isOwnerMsg ? activeConv?.color : null;
+              return (
+                <div key={msg.id} className={`flex gap-2 group ${isMe ? "justify-start" : "justify-end"}`}>
+                  {isMe && (
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+                      style={{ backgroundColor: isOwnerSession ? "#6366f1" : (activeConv?.color ?? "#6366f1") }}
+                    >
+                      {isOwnerSession ? ownerName[0]?.toUpperCase() : (clientName?.[0]?.toUpperCase() ?? "C")}
+                    </div>
+                  )}
+                  <div className={`max-w-[72%] ${isMe ? "items-start" : "items-end"} flex flex-col gap-0.5`}>
+                    {!isMe && (
+                      <span className="text-[10px] text-slate-400 px-1">{displayName}</span>
+                    )}
+                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "text-white rounded-bl-sm" : "bg-slate-100 text-slate-800 rounded-br-sm"}`}
+                      style={isMe ? { backgroundColor: "#6366f1" } : {}}>
+                      {renderContent(msg.content, isOwnerMsg)}
+                    </div>
+                    <div className={`flex items-center gap-2 px-1 ${!isMe ? "flex-row-reverse" : ""}`}>
+                      <span className="text-[10px] text-slate-300">
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <button
+                        onClick={() => deleteMessage(msg.id)}
+                        className="text-[10px] text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        delete
+                      </button>
+                    </div>
+                  </div>
+                  {!isMe && (
+                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0 mt-0.5">
+                      {initial}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="mt-3 flex-shrink-0 relative">
+          {mention && filteredMentions.length > 0 && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50 max-h-52 overflow-y-auto">
+              <div className="px-3 py-1.5 border-b border-slate-100">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tag a concept or video</p>
               </div>
+              {filteredMentions.map((item, i) => (
+                <button
+                  key={`${item.type}-${item.id}`}
+                  onMouseDown={(e) => { e.preventDefault(); applyMention(item); }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 transition-colors ${i === mentionIndex ? "bg-indigo-50" : ""}`}
+                >
+                  <span className="text-base">{item.type === "video" ? "🎬" : "💡"}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 font-medium truncate">{item.label}</p>
+                    <p className="text-[10px] text-slate-400 capitalize">{item.sub}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="bg-white border border-slate-200 rounded-2xl focus-within:ring-2 focus-within:ring-indigo-400 focus-within:border-transparent overflow-hidden">
+            {activeReel && (
+              <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-slate-100">
+                <div className="w-0.5 h-8 bg-indigo-400 rounded-full flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide leading-none mb-0.5">Replying to reel</p>
+                  <p className="text-xs text-slate-600 font-medium truncate">{activeReel.title}</p>
+                  {activeReel.hook && <p className="text-[11px] text-slate-400 truncate">{activeReel.hook}</p>}
+                </div>
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); setActiveReel(null); onContextUsed?.(); }}
+                  className="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0 p-0.5"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <div className="flex items-end gap-2 px-3 py-2.5">
+              <textarea
+                ref={inputRef}
+                value={draft}
+                onChange={handleInput}
+                onKeyDown={handleKeyDown}
+                placeholder={`Message ${activeConv?.label ?? ""}… (@ to tag, Enter to send)`}
+                rows={1}
+                className="flex-1 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none bg-transparent leading-relaxed"
+                style={{ maxHeight: "120px" }}
+                onInput={(e) => {
+                  const el = e.currentTarget;
+                  el.style.height = "auto";
+                  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                }}
+              />
               <button
-                onMouseDown={(e) => { e.preventDefault(); setActiveReel(null); onContextUsed?.(); }}
-                className="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0 p-0.5"
+                onClick={sendMessage}
+                disabled={!draft.trim()}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M18 6L6 18M6 6l12 12" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                 </svg>
               </button>
             </div>
-          )}
-          <div className="flex items-end gap-2 px-3 py-2.5">
-          <textarea
-            ref={inputRef}
-            value={draft}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            placeholder="Message… (@ to tag, Enter to send)"
-            rows={1}
-            className="flex-1 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none bg-transparent leading-relaxed"
-            style={{ maxHeight: "120px" }}
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = "auto";
-              el.style.height = Math.min(el.scrollHeight, 120) + "px";
-            }}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!draft.trim()}
-            className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
-          </button>
           </div>
         </div>
       </div>
@@ -356,7 +443,6 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setReelModal(null)}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
             <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -375,7 +461,6 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                 </button>
               </div>
             </div>
-            {/* Body */}
             {!reelModalFull ? (
               <div className="flex items-center justify-center py-12">
                 <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />

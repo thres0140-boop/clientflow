@@ -18,7 +18,7 @@ type Props = {
   team: TeamMember[];
   ownerName?: string;
   isClient?: boolean;
-  onOpenChat?: (context: { id?: number; title: string; hook?: string | null; script: string; caption?: string | null }) => void;
+  onOpenChat?: (context: { id?: number; title: string; hook?: string | null; script: string; caption?: string | null; channel?: string }) => void;
 };
 
 const WEEK_NUMBER = Math.ceil(
@@ -701,10 +701,11 @@ function DraftDetailPanel({
   activeProfileId: number | null;
   ownerName?: string;
   isClient?: boolean;
-  onOpenChat?: (context: { id?: number; title: string; hook?: string | null; script: string; caption?: string | null }) => void;
+  onOpenChat?: (context: { id?: number; title: string; hook?: string | null; script: string; caption?: string | null; channel?: string }) => void;
 }) {
   const [script, setScript] = useState(draft.script);
   const [hook, setHook] = useState(draft.hook || "");
+  const [showChatPicker, setShowChatPicker] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [refining, setRefining] = useState(false);
@@ -965,12 +966,42 @@ function DraftDetailPanel({
         {/* Actions */}
         <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 space-y-2">
           {onOpenChat && (
-            <button
-              onClick={() => onOpenChat({ id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption })}
-              className="w-full py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
-            >
-              💬 Talk about this reel
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowChatPicker((s) => !s)}
+                className="w-full py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+              >
+                💬 Talk about this reel
+              </button>
+              {showChatPicker && (
+                <div className="absolute bottom-full mb-2 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-slate-100">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Talk to...</p>
+                  </div>
+                  {/* Client option */}
+                  <button
+                    onClick={() => { setShowChatPicker(false); onOpenChat({ id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption, channel: "client" }); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">C</div>
+                    <span className="text-sm text-slate-700">Client</span>
+                  </button>
+                  {/* Team members */}
+                  {team.filter((m) => !m.isClientAccount).map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => { setShowChatPicker(false); onOpenChat({ id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption, channel: `member:${m.id}` }); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
+                    >
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.color }}>
+                        {m.name[0]?.toUpperCase()}
+                      </div>
+                      <span className="text-sm text-slate-700">{m.name}{m.role ? ` · ${m.role}` : ""}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           {inStage ? (() => {
             const isCheck = stages.find((s) => s.id === draft.stageId)?.name === "Check";

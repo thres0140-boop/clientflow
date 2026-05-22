@@ -3,9 +3,10 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
+  const channel = req.nextUrl.searchParams.get("channel") ?? "client";
   if (!clientId) return NextResponse.json([]);
   const messages = await prisma.message.findMany({
-    where: { clientId: parseInt(clientId) },
+    where: { clientId: parseInt(clientId), channel },
     orderBy: { createdAt: "asc" },
   });
   return NextResponse.json(messages);
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
       clientId: parseInt(body.clientId),
       content: body.content,
       author: body.author || "owner",
+      channel: body.channel || "client",
     },
   });
   return NextResponse.json(message, { status: 201 });
