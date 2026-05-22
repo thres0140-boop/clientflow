@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   let inviteTokenExpiry: Date | null = null;
   let inviteUrl: string | null = null;
 
-  if (isClient && body.email) {
+  if (body.email) {
     inviteToken = crypto.randomBytes(32).toString("hex");
     inviteTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.headers.get("origin") || "";
