@@ -183,7 +183,7 @@ export default function Sidebar({
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
 
   return (
-    <aside className="fixed top-0 left-0 h-full flex z-10" style={{ width: 256 }}>
+    <aside className="fixed top-0 left-0 h-full flex z-10" style={{ width: 300 }}>
 
       {/* ── Client strip (darkest blue) ────────────────────────────── */}
       <div className="flex flex-col items-center py-4 flex-shrink-0" style={{ width: 64, backgroundColor: "#0f1c34" }}>
