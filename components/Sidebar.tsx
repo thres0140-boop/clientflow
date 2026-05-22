@@ -141,58 +141,11 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
 
         {/* Nav header: logo only */}
         <div className="flex items-center px-4 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
-          <img src="/logo.png" alt="ORDO" className="h-9 w-auto" />
+          <div className="px-2 py-1 rounded-lg bg-white/10">
+            <img src="/logo.png" alt="ORDO" className="h-6 w-auto" />
+          </div>
         </div>
 
-        {/* Client picker */}
-        {session?.type !== "member" && (
-          <div className="px-2 py-2 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}` }}>
-            {activeClient ? (
-              <button onClick={() => clients.length > 1 ? setShowClientPicker((s) => !s) : undefined}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-left"
-                style={{ cursor: clients.length > 1 ? "pointer" : "default" }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.06)"}
-                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"}
-              >
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                  style={{ backgroundColor: activeClient.color }}>
-                  {activeClient.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-white truncate leading-tight">{activeClient.name}</p>
-                  <p className="text-[10px] capitalize leading-tight" style={{ color: "rgba(147,197,253,0.5)" }}>{activeClient.platform}</p>
-                </div>
-                {clients.length > 1 && <span className="text-white/30 text-[10px]">{showClientPicker ? "▲" : "▼"}</span>}
-              </button>
-            ) : (
-              <button onClick={() => onNavigate("settings")}
-                className="w-full px-3 py-2 rounded-lg border border-dashed text-xs text-center"
-                style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(147,197,253,0.5)" }}>
-                + Add a client
-              </button>
-            )}
-            {showClientPicker && clients.length > 1 && (
-              <div className="mt-1.5 rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", backgroundColor: STRIP_BG }}>
-                {clients.map((c) => (
-                  <button key={c.id} onClick={() => { onSelectClient(c.id); setShowClientPicker(false); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", backgroundColor: c.id === selectedClientId ? "rgba(255,255,255,0.08)" : "transparent" }}
-                    onMouseEnter={(e) => { if (c.id !== selectedClientId) (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.04)"; }}
-                    onMouseLeave={(e) => { if (c.id !== selectedClientId) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}>
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: c.color }}>
-                      {c.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-white font-medium truncate">{c.name}</p>
-                      <p className="text-[10px] capitalize" style={{ color: "rgba(147,197,253,0.45)" }}>{c.platform}</p>
-                    </div>
-                    {c.id === selectedClientId && <span className="text-blue-300 text-xs">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Nav items */}
         <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
