@@ -105,35 +105,39 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
             <button onClick={() => setShowAdd(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700">+ Add Member</button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {team.map((member) => {
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            {team.map((member, idx) => {
               const pages = parseAccess(member.pageAccess);
               const isFullAccess = member.pageAccess === "all" || pages.length === ALL_PAGES.length;
               return (
-                <div key={member.id} className="bg-white rounded-2xl border border-slate-200 p-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold text-white flex-shrink-0" style={{ backgroundColor: member.color }}>
-                      {member.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-slate-800">{member.name}</h3>
-                      {member.role && <p className="text-xs text-slate-500">{member.role}</p>}
-                      {member.email && <p className="text-xs text-slate-400 truncate">{member.email}</p>}
-                    </div>
+                <div key={member.id} className={`flex items-center gap-4 px-5 py-4 ${idx !== 0 ? "border-t border-slate-100" : ""}`}>
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ backgroundColor: member.color }}>
+                    {member.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
-                  <div className="mb-4">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Page Access</p>
+                  {/* Name + role */}
+                  <div className="w-44 flex-shrink-0">
+                    <p className="font-semibold text-slate-800 text-sm">{member.name}</p>
+                    <p className="text-xs text-slate-400">{member.role || (member.isClientAccount ? "Client" : "—")}</p>
+                  </div>
+                  {/* Email */}
+                  <div className="w-52 flex-shrink-0">
+                    <p className="text-xs text-slate-400 truncate">{member.email || "—"}</p>
+                  </div>
+                  {/* Page access */}
+                  <div className="flex-1 flex flex-wrap gap-1 min-w-0">
                     {isFullAccess ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">✦ Full Access</span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-medium rounded-full">✦ Full Access</span>
                     ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {ALL_PAGES.filter((p) => pages.includes(p.id)).map((p) => (
-                          <span key={p.id} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-medium rounded-full">{p.icon} {p.label}</span>
-                        ))}
-                      </div>
+                      ALL_PAGES.filter((p) => pages.includes(p.id)).map((p) => (
+                        <span key={p.id} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-medium rounded-full">{p.icon} {p.label}</span>
+                      ))
                     )}
                   </div>
-                  <MemberActions member={member} onEdit={() => setEditing(member)} onDelete={() => { deleteMember(member.id); }} />
+                  {/* Actions */}
+                  <div className="flex-shrink-0">
+                    <MemberActions member={member} onEdit={() => setEditing(member)} onDelete={() => deleteMember(member.id)} />
+                  </div>
                 </div>
               );
             })}
@@ -149,32 +153,34 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
             <button onClick={() => setShowAddCreator(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700">+ Add Creator</button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {creators.map((creator) => (
-              <div key={creator.id} className="bg-white rounded-2xl border border-slate-200 p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold text-white flex-shrink-0" style={{ backgroundColor: creator.color }}>
-                    {creator.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-slate-800">{creator.name}</h3>
-                    {creator.instagramHandle && (
-                      <p className="text-xs text-indigo-500">@{creator.instagramHandle}</p>
-                    )}
-                    {creator.email && <p className="text-xs text-slate-400 truncate">{creator.email}</p>}
-                  </div>
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            {creators.map((creator, idx) => (
+              <div key={creator.id} className={`flex items-center gap-4 px-5 py-4 ${idx !== 0 ? "border-t border-slate-100" : ""}`}>
+                {/* Avatar */}
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ backgroundColor: creator.color }}>
+                  {creator.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
                 </div>
-                {creator.client && (
-                  <div className="mb-3 flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: creator.client.color }} />
-                    <span className="text-xs text-slate-500">{creator.client.name}</span>
-                  </div>
-                )}
-                {creator.notes && (
-                  <p className="text-xs text-slate-400 mb-3 line-clamp-2">{creator.notes}</p>
-                )}
-                <div className="flex gap-2">
-                  <button onClick={() => setEditingCreator(creator)} className="flex-1 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
+                {/* Name + handle */}
+                <div className="w-44 flex-shrink-0">
+                  <p className="font-semibold text-slate-800 text-sm">{creator.name}</p>
+                  {creator.instagramHandle && <p className="text-xs text-indigo-400">@{creator.instagramHandle}</p>}
+                </div>
+                {/* Email */}
+                <div className="w-52 flex-shrink-0">
+                  <p className="text-xs text-slate-400 truncate">{creator.email || "—"}</p>
+                </div>
+                {/* Client */}
+                <div className="flex-1 flex items-center gap-2 min-w-0">
+                  {creator.client ? (
+                    <>
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: creator.client.color }} />
+                      <span className="text-xs text-slate-500 truncate">{creator.client.name}</span>
+                    </>
+                  ) : <span className="text-xs text-slate-300">—</span>}
+                </div>
+                {/* Actions */}
+                <div className="flex-shrink-0 flex gap-2">
+                  <button onClick={() => setEditingCreator(creator)} className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
                   <button onClick={() => deleteCreator(creator.id)} className="px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">Remove</button>
                 </div>
               </div>
@@ -198,16 +204,16 @@ function MemberActions({ member, onEdit, onDelete }: { member: TeamMember; onEdi
   const [confirming, setConfirming] = useState(false);
   if (confirming) {
     return (
-      <div className="flex gap-2">
-        <span className="flex-1 py-1.5 text-xs text-slate-500 text-center">Sure?</span>
-        <button onClick={() => { onDelete(); setConfirming(false); }} className="flex-1 py-1.5 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Yes, remove</button>
-        <button onClick={() => setConfirming(false)} className="flex-1 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Cancel</button>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-400">Sure?</span>
+        <button onClick={() => { onDelete(); setConfirming(false); }} className="px-3 py-1.5 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Yes</button>
+        <button onClick={() => setConfirming(false)} className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">No</button>
       </div>
     );
   }
   return (
     <div className="flex gap-2">
-      <button onClick={onEdit} className="flex-1 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
+      <button onClick={onEdit} className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
       <button onClick={() => setConfirming(true)} className="px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">Remove</button>
     </div>
   );
