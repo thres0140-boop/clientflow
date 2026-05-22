@@ -57,11 +57,16 @@ export async function POST(req: NextRequest) {
 async function sendInviteEmail({
   to, name, inviteUrl, apiKey, fromName, fromEmail,
 }: { to: string; name: string; inviteUrl: string; apiKey: string; fromName: string; fromEmail: string }) {
-  await fetch("https://api.resend.com/emails", {
+  // Fall back to Resend's onboarding address if domain not verified
+  const safeFrom = fromEmail.includes("resend.dev") || fromEmail.includes("ordoagency.com")
+    ? `${fromName} <${fromEmail}>`
+    : `${fromName} <onboarding@resend.dev>`;
+
+  const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: `${fromName} <${fromEmail}>`,
+      from: safeFrom,
       to: [to],
       subject: `You've been invited to ORDO`,
       html: `
@@ -74,4 +79,7 @@ async function sendInviteEmail({
       `,
     }),
   });
+  const data = await res.json();
+  console.log("[Resend]", res.status, JSON.stringify(data));
+  return data;
 }
