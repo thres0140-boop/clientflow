@@ -57,10 +57,7 @@ export async function POST(req: NextRequest) {
 async function sendInviteEmail({
   to, name, inviteUrl, apiKey, fromName, fromEmail,
 }: { to: string; name: string; inviteUrl: string; apiKey: string; fromName: string; fromEmail: string }) {
-  // Fall back to Resend's onboarding address if domain not verified
-  const safeFrom = fromEmail.includes("resend.dev") || fromEmail.includes("ordoagency.com")
-    ? `${fromName} <${fromEmail}>`
-    : `${fromName} <onboarding@resend.dev>`;
+  const safeFrom = `${fromName} <${fromEmail}>`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
