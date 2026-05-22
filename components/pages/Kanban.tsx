@@ -470,6 +470,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           draft={detailDraft}
           language={client.language}
           stages={stages}
+          client={client}
           onClose={() => setDetailDraft(null)}
           onAccept={() => { moveDraft(detailDraft.id, stages[0]?.id ?? null); setDetailDraft(null); }}
           onReject={() => rejectDraft(detailDraft.id)}
@@ -687,9 +688,9 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, team, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat,
+  draft, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat,
 }: {
-  draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[];
+  draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[]; client?: { name: string; color: string } | null;
   onClose: () => void; onAccept: () => void; onReject: () => void;
   onSaveAsIdea: (weeks: number) => void;
   onScriptUpdated: (script: string, hook: string | null) => void;
@@ -983,8 +984,16 @@ function DraftDetailPanel({
                     onClick={() => { setShowChatPicker(false); onOpenChat({ id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption, channel: "client" }); }}
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
                   >
-                    <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">C</div>
-                    <span className="text-sm text-slate-700">Client</span>
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      style={{ backgroundColor: clientData?.color ?? "#6366f1" }}
+                    >
+                      {clientData ? clientData.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() : "C"}
+                    </div>
+                    <div>
+                      <span className="text-sm text-slate-700">{clientData?.name ?? "Client"}</span>
+                      <span className="text-[10px] text-slate-400 ml-1.5">client</span>
+                    </div>
                   </button>
                   {/* Team members */}
                   {team.filter((m) => !m.isClientAccount).map((m) => (
