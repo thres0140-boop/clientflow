@@ -139,44 +139,9 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
       {/* ── RIGHT NAV ── */}
       <div className="flex flex-col flex-1 h-full" style={{ backgroundColor: NAV_BG }}>
 
-        {/* Nav header: logo + bell */}
-        <div className="flex items-center justify-between px-4 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
-          <img src="/logo.png" alt="ORDO" className="h-6 w-auto" />
-          <div className="relative">
-            <button onClick={() => setShowNotifs((s) => !s)}
-              className="relative w-7 h-7 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all text-sm">
-              🔔
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </button>
-            {showNotifs && (
-              <div className="absolute right-0 top-9 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                  <span className="text-sm font-semibold text-slate-700">Notifications</span>
-                  {unreadCount > 0 && <button onClick={onMarkAllRead} className="text-xs text-indigo-600 hover:underline">Mark all read</button>}
-                </div>
-                <div className="max-h-72 overflow-y-auto">
-                  {notifications.length === 0
-                    ? <p className="px-4 py-6 text-center text-sm text-slate-400">No notifications</p>
-                    : notifications.map((n) => (
-                      <button key={n.id} onClick={() => { onMarkRead(n.id); setShowNotifs(false); }}
-                        className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${!n.read ? "bg-indigo-50/50" : ""}`}>
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
-                          style={{ backgroundColor: n.member?.color || "#6366f1" }}>{n.member?.name?.[0]}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        {!n.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1.5" />}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Nav header: logo only */}
+        <div className="flex items-center px-4 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
+          <img src="/logo.png" alt="ORDO" className="h-9 w-auto" />
         </div>
 
         {/* Client picker */}
@@ -254,7 +219,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
           })}
         </nav>
 
-        {/* Footer: name + sign out */}
+        {/* Footer: name + bell + sign out */}
         <div className="px-3 py-3 flex-shrink-0" style={{ borderTop: `1px solid ${DIVIDER.borderColor}` }}>
           <div className="flex items-center gap-2 px-2 py-1.5">
             <div className="flex-1 min-w-0">
@@ -264,6 +229,42 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
               <p className="text-[10px]" style={{ color: "rgba(147,197,253,0.5)" }}>
                 {session?.type === "member" ? "Team member" : "Full access"}
               </p>
+            </div>
+            {/* Bell */}
+            <div className="relative">
+              <button onClick={() => setShowNotifs((s) => !s)}
+                className="relative w-7 h-7 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all text-sm">
+                🔔
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifs && (
+                <div className="absolute bottom-10 right-0 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                    <span className="text-sm font-semibold text-slate-700">Notifications</span>
+                    {unreadCount > 0 && <button onClick={onMarkAllRead} className="text-xs text-indigo-600 hover:underline">Mark all read</button>}
+                  </div>
+                  <div className="max-h-72 overflow-y-auto">
+                    {notifications.length === 0
+                      ? <p className="px-4 py-6 text-center text-sm text-slate-400">No notifications</p>
+                      : notifications.map((n) => (
+                        <button key={n.id} onClick={() => { onMarkRead(n.id); setShowNotifs(false); }}
+                          className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${!n.read ? "bg-indigo-50/50" : ""}`}>
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+                            style={{ backgroundColor: n.member?.color || "#6366f1" }}>{n.member?.name?.[0]}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          {!n.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1.5" />}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
             <button onClick={onSignOut} title="Sign out"
               className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-red-400 hover:bg-white/10 transition-all text-sm flex-shrink-0">
