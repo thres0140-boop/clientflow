@@ -413,11 +413,27 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                               disabled={!draft.editedVideoUrl}
                               title={!draft.editedVideoUrl ? "Upload edited video first" : ""}
                               className="w-full py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed">
-                              → Check
+                              → Check 1
                             </button>
                           </div>
-                        ) : stage.name === "Check" ? (
+                        ) : stage.name === "Check 1" ? (
                           <CheckCardActions draft={draft} onProceed={() => proceedToNextStage(draft)} />
+                        ) : stage.name === "Final Check" ? (
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => {
+                                const check1 = stages.find((s) => s.name === "Check 1");
+                                if (check1) moveDraft(draft.id, check1.id);
+                              }}
+                              className="flex-1 py-1 text-[10px] font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100">
+                              ↩ Send back
+                            </button>
+                            <button
+                              onClick={() => proceedToNextStage(draft)}
+                              className="flex-1 py-1 text-[10px] font-semibold text-green-600 bg-green-50 rounded-lg hover:bg-green-100">
+                              ✓ Approve
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex gap-1.5">
                             <FileUploadButton draft={draft} onUploaded={(urls) => {

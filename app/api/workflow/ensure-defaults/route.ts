@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_STAGES = [
-  { name: "Record",   color: "#3b82f6", order: 1 },
-  { name: "Edit",     color: "#f97316", order: 2 },
-  { name: "Check",    color: "#eab308", order: 3 },
-  { name: "Schedule", color: "#22c55e", order: 4 },
+  { name: "Record",       color: "#3b82f6", order: 1 },
+  { name: "Edit",         color: "#f97316", order: 2 },
+  { name: "Check 1",      color: "#eab308", order: 3 },
+  { name: "Final Check",  color: "#a855f7", order: 4 },
+  { name: "Schedule",     color: "#22c55e", order: 5 },
 ];
+
+// Legacy renames: old lowercase name → new name
+const RENAMES: Record<string, string> = { "check": "Check 1" };
 
 const STANDARD_NAMES = DEFAULT_STAGES.map((d) => d.name.toLowerCase());
 
@@ -15,6 +19,15 @@ export async function POST(req: NextRequest) {
   const cid = parseInt(clientId);
 
   const existing = await prisma.workflowStage.findMany({ where: { clientId: cid } });
+
+  // Migrate legacy renames (e.g. "Check" → "Check 1") before the non-standard check
+  for (const s of existing) {
+    const newName = RENAMES[s.name.toLowerCase()];
+    if (newName) {
+      await prisma.workflowStage.update({ where: { id: s.id }, data: { name: newName } });
+      s.name = newName;
+    }
+  }
 
   // Delete non-standard stages (move their drafts to unassigned first)
   const nonStandard = existing.filter((s) => !STANDARD_NAMES.includes(s.name.toLowerCase()));
