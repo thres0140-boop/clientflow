@@ -56,7 +56,6 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
   }
 
   async function deleteMember(id: number) {
-    if (!confirm("Remove this team member?")) return;
     await fetch(`/api/team/${id}`, { method: "DELETE" });
     reloadTeam();
   }
@@ -134,10 +133,7 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setEditing(member)} className="flex-1 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
-                    <button onClick={() => deleteMember(member.id)} className="px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">Remove</button>
-                  </div>
+                  <MemberActions member={member} onEdit={() => setEditing(member)} onDelete={() => { deleteMember(member.id); }} />
                 </div>
               );
             })}
@@ -193,6 +189,26 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
       {editingCreator && <CreatorModal clients={clients} creator={editingCreator} onClose={() => setEditingCreator(null)} onSaved={() => { setEditingCreator(null); reloadCreators(); }} />}
 
       {inviteUrl && <InviteLinkModal url={inviteUrl} onClose={() => setInviteUrl(null)} />}
+    </div>
+  );
+}
+
+// ── Member Actions (inline confirm) ────────────────────────────────────────
+function MemberActions({ member, onEdit, onDelete }: { member: TeamMember; onEdit: () => void; onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  if (confirming) {
+    return (
+      <div className="flex gap-2">
+        <span className="flex-1 py-1.5 text-xs text-slate-500 text-center">Sure?</span>
+        <button onClick={() => { onDelete(); setConfirming(false); }} className="flex-1 py-1.5 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Yes, remove</button>
+        <button onClick={() => setConfirming(false)} className="flex-1 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Cancel</button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex gap-2">
+      <button onClick={onEdit} className="flex-1 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
+      <button onClick={() => setConfirming(true)} className="px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">Remove</button>
     </div>
   );
 }
