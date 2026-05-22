@@ -30,6 +30,7 @@ type Props = {
   onContextUsed?: () => void;
   team?: TeamMember[];
   initialChannel?: string;
+  activeProfile?: TeamMember | null; // set when a team member (not client, not owner) is logged in
 };
 
 type MentionItem = {
@@ -39,7 +40,9 @@ type MentionItem = {
   sub?: string;
 };
 
-export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName, reelContext, onContextUsed, team = [], initialChannel }: Props) {
+export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName, reelContext, onContextUsed, team = [], initialChannel, activeProfile }: Props) {
+  // If a non-client team member (editor, etc.) is logged in, lock them to their own channel
+  const memberChannel = activeProfile && !activeProfile.isClientAccount ? `member:${activeProfile.id}` : null;
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -49,7 +52,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   const [activeReel, setActiveReel] = useState<ReelContext | null>(null);
   const [reelModal, setReelModal] = useState<ReelRef | null>(null);
   const [reelModalFull, setReelModalFull] = useState<ReelRef | null>(null);
-  const [activeChannel, setActiveChannel] = useState<string>(initialChannel ?? "client");
+  const [activeChannel, setActiveChannel] = useState<string>(memberChannel ?? initialChannel ?? "client");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -76,8 +79,10 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   ];
 
   useEffect(() => {
+    // Team members are always locked to their own channel — never override
+    if (memberChannel) return;
     if (initialChannel) setActiveChannel(initialChannel);
-  }, [initialChannel]);
+  }, [initialChannel, memberChannel]);
 
   useEffect(() => {
     if (reelContext) {
@@ -245,66 +250,9 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
 
   const activeConv = conversations.find((c) => c.channel === activeChannel) ?? conversations[0];
 
-  if (!client) {
+  function renderChatArea() {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
-        Select a client to view chat
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] gap-0 -mx-8 px-0">
-      {/* Sidebar */}
-      <div className="w-56 flex-shrink-0 border-r border-slate-200 flex flex-col bg-slate-50 rounded-l-2xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-200">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Conversations</p>
-        </div>
-        <div className="flex-1 overflow-y-auto py-2">
-          {conversations.map((conv) => {
-            const isActive = conv.channel === activeChannel;
-            return (
-              <button
-                key={conv.channel}
-                onClick={() => setActiveChannel(conv.channel)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-indigo-50 border-r-2 border-indigo-500" : "hover:bg-slate-100"}`}
-              >
-                <div
-                  className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-bold text-white"
-                  style={{ backgroundColor: conv.color }}
-                >
-                  {conv.initial}
-                </div>
-                <div className="min-w-0">
-                  <p className={`text-xs font-medium truncate ${isActive ? "text-indigo-700" : "text-slate-700"}`}>
-                    {conv.label}
-                  </p>
-                  {conv.isClient && (
-                    <p className="text-[10px] text-slate-400">Client</p>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Main chat area */}
-      <div className="flex-1 flex flex-col min-w-0 pl-6 pr-0">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-            style={{ backgroundColor: activeConv?.color }}
-          >
-            {activeConv?.initial}
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-800">{activeConv?.label}</h1>
-            <p className="text-xs text-slate-400">use @ to tag concepts or videos</p>
-          </div>
-        </div>
-
+      <>
         {/* Messages */}
         <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-200 p-4 space-y-3 min-h-0">
           {messages.length === 0 ? (
@@ -320,10 +268,9 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               const displayName = isOwnerMsg
                 ? ownerName
                 : activeChannel === "client"
-                  ? (clientName ?? client.name)
+                  ? (clientName ?? client!.name)
                   : msg.author;
               const initial = displayName[0]?.toUpperCase() ?? "?";
-              const bubbleColor = isOwnerMsg ? activeConv?.color : null;
               return (
                 <div key={msg.id} className={`flex gap-2 group ${isMe ? "justify-start" : "justify-end"}`}>
                   {isMe && (
@@ -388,7 +335,6 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               ))}
             </div>
           )}
-
           <div className="bg-white border border-slate-200 rounded-2xl focus-within:ring-2 focus-within:ring-indigo-400 focus-within:border-transparent overflow-hidden">
             {activeReel && (
               <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-slate-100">
@@ -414,7 +360,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                 value={draft}
                 onChange={handleInput}
                 onKeyDown={handleKeyDown}
-                placeholder={`Message ${activeConv?.label ?? ""}… (@ to tag, Enter to send)`}
+                placeholder={memberChannel ? `Message ${ownerName}…` : `Message ${activeConv?.label ?? ""}… (@ to tag, Enter to send)`}
                 rows={1}
                 className="flex-1 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none bg-transparent leading-relaxed"
                 style={{ maxHeight: "120px" }}
@@ -436,6 +382,89 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
             </div>
           </div>
         </div>
+      </>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
+        Select a client to view chat
+      </div>
+    );
+  }
+
+  // Editor/team member view: no sidebar, locked to their own channel with owner
+  if (memberChannel) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
+        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            {ownerName[0]?.toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-800">{ownerName}</h1>
+            <p className="text-xs text-slate-400">use @ to tag concepts or videos</p>
+          </div>
+        </div>
+        {renderChatArea()}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] gap-0 -mx-8 px-0">
+      {/* Sidebar */}
+      <div className="w-56 flex-shrink-0 border-r border-slate-200 flex flex-col bg-slate-50 rounded-l-2xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Conversations</p>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2">
+          {conversations.map((conv) => {
+            const isActive = conv.channel === activeChannel;
+            return (
+              <button
+                key={conv.channel}
+                onClick={() => setActiveChannel(conv.channel)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-indigo-50 border-r-2 border-indigo-500" : "hover:bg-slate-100"}`}
+              >
+                <div
+                  className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-bold text-white"
+                  style={{ backgroundColor: conv.color }}
+                >
+                  {conv.initial}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-medium truncate ${isActive ? "text-indigo-700" : "text-slate-700"}`}>
+                    {conv.label}
+                  </p>
+                  {conv.isClient && (
+                    <p className="text-[10px] text-slate-400">Client</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col min-w-0 pl-6 pr-0">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+            style={{ backgroundColor: activeConv?.color }}
+          >
+            {activeConv?.initial}
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-800">{activeConv?.label}</h1>
+            <p className="text-xs text-slate-400">use @ to tag concepts or videos</p>
+          </div>
+        </div>
+
+        {renderChatArea()}
       </div>
 
       {/* Reel detail modal */}

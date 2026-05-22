@@ -166,7 +166,7 @@ export default function App() {
       case "concepts": return <Concepts {...props} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
-      case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} reelContext={chatContext} onContextUsed={() => setChatContext(null)} team={team} initialChannel={chatContext?.channel} />;
+      case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} reelContext={chatContext} onContextUsed={() => setChatContext(null)} team={team} initialChannel={chatContext?.channel} activeProfile={activeProfile} />;
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
       case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} />;
