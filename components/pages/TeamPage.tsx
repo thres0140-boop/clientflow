@@ -21,6 +21,13 @@ const ALL_PAGES = [
 
 const CLIENT_PAGES = ["pipeline", "kanban", "analytics", "dms", "chat"];
 
+const TEAM_ROLES: { label: string; pages: string[] | "all" }[] = [
+  { label: "Editor",           pages: ["pipeline", "kanban", "chat"] },
+  { label: "Account Manager",  pages: "all" },
+  { label: "Strategist",       pages: ["kanban", "concepts", "analytics", "board", "chat"] },
+  { label: "Custom",           pages: "all" }, // shows manual picker
+];
+
 function parseAccess(pageAccess: string): string[] {
   if (pageAccess === "all") return ALL_PAGES.map((p) => p.id);
   return pageAccess.split(",").filter(Boolean);
@@ -194,9 +201,20 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
 
 function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMember; clientId?: number | null; onClose: () => void; onSaved: (inviteUrl?: string) => void }) {
   const [memberType, setMemberType] = useState<"team" | "client">("team");
-  const initialPages = member ? parseAccess(member.pageAccess) : ALL_PAGES.map((p) => p.id);
-  const [form, setForm] = useState({ name: member?.name || "", email: member?.email || "", role: member?.role || "", color: member?.color || "#6366f1" });
-  const [selectedPages, setSelectedPages] = useState<string[]>(initialPages);
+
+  // Determine initial role for editing
+  const initialRole = member?.role && TEAM_ROLES.find((r) => r.label === member.role)
+    ? member.role
+    : member && !member.isClientAccount ? "Custom"
+    : "Editor";
+
+  const [form, setForm] = useState({ name: member?.name || "", email: member?.email || "", role: initialRole, color: member?.color || "#6366f1" });
+  const [selectedPages, setSelectedPages] = useState<string[]>(() => {
+    if (member) return parseAccess(member.pageAccess);
+    const roleConf = TEAM_ROLES.find((r) => r.label === initialRole);
+    return roleConf?.pages === "all" ? ALL_PAGES.map((p) => p.id) : (roleConf?.pages ?? []);
+  });
+
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
   function togglePage(id: string) { setSelectedPages((prev) => prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]); }
   function toggleAll() { setSelectedPages(selectedPages.length === ALL_PAGES.length ? [] : ALL_PAGES.map((p) => p.id)); }
@@ -204,7 +222,18 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
   function switchType(t: "team" | "client") {
     setMemberType(t);
     if (t === "client") setSelectedPages(CLIENT_PAGES);
-    else setSelectedPages(ALL_PAGES.map((p) => p.id));
+    else {
+      const def = TEAM_ROLES.find((r) => r.label === form.role);
+      setSelectedPages(def?.pages === "all" ? ALL_PAGES.map((p) => p.id) : (def?.pages ?? ALL_PAGES.map((p) => p.id)));
+    }
+  }
+
+  function onRoleChange(role: string) {
+    set("role", role);
+    const roleConf = TEAM_ROLES.find((r) => r.label === role);
+    if (roleConf) {
+      setSelectedPages(roleConf.pages === "all" ? ALL_PAGES.map((p) => p.id) : roleConf.pages);
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -223,6 +252,9 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
   }
 
   const isClient = memberType === "client";
+  const isCustomRole = form.role === "Custom";
+  const roleConf = TEAM_ROLES.find((r) => r.label === form.role);
+  const rolePages = roleConf?.pages === "all" ? ALL_PAGES : ALL_PAGES.filter((p) => Array.isArray(roleConf?.pages) && roleConf.pages.includes(p.id));
 
   return (
     <Modal title={member ? "Edit Member" : "Add Member"} onClose={onClose}>
@@ -250,7 +282,14 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
         {!isClient && (
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Role</label>
-            <input value={form.role} onChange={(e) => set("role", e.target.value)} placeholder="e.g. Editor, Account Manager..." className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div className="grid grid-cols-2 gap-2">
+              {TEAM_ROLES.map((r) => (
+                <button key={r.label} type="button" onClick={() => onRoleChange(r.label)}
+                  className={`py-2 px-3 rounded-lg border text-sm font-medium text-left transition-all ${form.role === r.label ? "bg-indigo-50 border-indigo-400 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"}`}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -259,6 +298,7 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
           <input type="email" required={isClient} value={form.email} onChange={(e) => set("email", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
 
+        {/* Page access: show preset tags for fixed roles, manual picker for Custom */}
         {isClient ? (
           <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
             <p className="text-xs font-medium text-slate-600 mb-2">Page Access (preset)</p>
@@ -270,7 +310,7 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
               ))}
             </div>
           </div>
-        ) : (
+        ) : isCustomRole ? (
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-medium text-slate-600">Page Access</label>
@@ -290,6 +330,17 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
                   </button>
                 );
               })}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+            <p className="text-xs font-medium text-slate-600 mb-2">Page Access</p>
+            <div className="flex flex-wrap gap-1.5">
+              {rolePages.map((p) => (
+                <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                  {p.icon} {p.label}
+                </span>
+              ))}
             </div>
           </div>
         )}
