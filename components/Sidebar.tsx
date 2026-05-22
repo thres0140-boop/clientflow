@@ -280,24 +280,6 @@ export default function Sidebar({
       {/* ── Main nav sidebar (medium blue) ────────────────────────── */}
       <div className="flex flex-col flex-1" style={{ backgroundColor: "#1a2f52" }}>
 
-        {/* Active client header */}
-        <div className="px-4 pt-4 pb-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          {activeClient ? (
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                style={{ backgroundColor: activeClient.color }}>
-                {activeClient.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white truncate leading-tight">{activeClient.name}</p>
-                <p className="text-[10px] capitalize" style={{ color: "rgba(147,197,253,0.5)" }}>{activeClient.platform}</p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm font-semibold text-white/50">No client selected</p>
-          )}
-        </div>
-
         {/* Nav */}
         <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
           {NAV_GROUPS.map((group) => {
