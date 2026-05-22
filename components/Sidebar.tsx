@@ -183,49 +183,15 @@ export default function Sidebar({
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
 
   return (
-    <aside className="fixed top-0 left-0 h-full flex z-10" style={{ width: 300 }}>
+    <aside className="fixed top-0 left-0 h-full flex flex-col z-10" style={{ width: 300, backgroundColor: "#1a2f52" }}>
 
-      {/* ── Client strip (darkest blue) ────────────────────────────── */}
-      <div className="flex flex-col items-center py-4 flex-shrink-0" style={{ width: 64, backgroundColor: "#0f1c34" }}>
-        {/* Logo */}
-        <div className="mb-4">
-          <img src="/logo.png" alt="ORDO" className="w-8 h-8 object-contain" />
-        </div>
-
-        {/* Client avatars */}
-        {session?.type !== "member" && (
-          <div className="flex flex-col items-center gap-2 flex-1">
-            {clients.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => onSelectClient(c.id)}
-                title={c.name}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-[11px] font-bold text-white transition-all"
-                style={{
-                  backgroundColor: c.color,
-                  opacity: c.id === selectedClientId ? 1 : 0.45,
-                  boxShadow: c.id === selectedClientId ? "0 0 0 2px white" : "none",
-                }}
-              >
-                {c.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-              </button>
-            ))}
-            <button
-              onClick={() => onNavigate("settings")}
-              title="Add client"
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-white/30 hover:text-white/60 transition-all text-xl"
-              style={{ border: "1.5px dashed rgba(255,255,255,0.15)" }}
-            >
-              +
-            </button>
-          </div>
-        )}
-
-        {/* Bottom: bell + sign out */}
-        <div className="mt-auto flex flex-col items-center gap-2 relative">
+      {/* ── Full-width header: logo + bell ── */}
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <img src="/logo.png" alt="ORDO" className="h-7 w-auto" />
+        <div className="relative">
           <button
             onClick={() => setShowNotifs((s) => !s)}
-            className="relative w-9 h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all text-sm"
+            className="relative w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all text-sm"
           >
             🔔
             {unreadCount > 0 && (
@@ -234,48 +200,57 @@ export default function Sidebar({
               </span>
             )}
           </button>
-
-          <button
-            onClick={onSignOut}
-            title="Sign out"
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-white/10 transition-all text-sm"
-          >
-            ↩
-          </button>
-
-          {/* Notifications panel */}
           {showNotifs && (
-            <div className="absolute bottom-12 left-12 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50">
+            <div className="absolute right-0 top-10 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50">
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                 <span className="text-sm font-semibold text-slate-700">Notifications</span>
-                {unreadCount > 0 && (
-                  <button onClick={onMarkAllRead} className="text-xs text-indigo-600 hover:underline">Mark all read</button>
-                )}
+                {unreadCount > 0 && <button onClick={onMarkAllRead} className="text-xs text-indigo-600 hover:underline">Mark all read</button>}
               </div>
               <div className="max-h-72 overflow-y-auto">
                 {notifications.length === 0 ? (
                   <p className="px-4 py-6 text-center text-sm text-slate-400">No notifications</p>
-                ) : (
-                  notifications.map((n) => (
-                    <button key={n.id} onClick={() => { onMarkRead(n.id); setShowNotifs(false); }}
-                      className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${!n.read ? "bg-indigo-50/50" : ""}`}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
-                        style={{ backgroundColor: n.member?.color || "#6366f1" }}>
-                        {n.member?.name?.[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      {!n.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1.5" />}
-                    </button>
-                  ))
-                )}
+                ) : notifications.map((n) => (
+                  <button key={n.id} onClick={() => { onMarkRead(n.id); setShowNotifs(false); }}
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${!n.read ? "bg-indigo-50/50" : ""}`}>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+                      style={{ backgroundColor: n.member?.color || "#6366f1" }}>{n.member?.name?.[0]}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    {!n.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1.5" />}
+                  </button>
+                ))}
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* ── Body: client strip + nav side by side ── */}
+      <div className="flex flex-1 min-h-0">
+
+        {/* Client strip */}
+        <div className="flex flex-col items-center py-3 gap-2 flex-shrink-0" style={{ width: 60, backgroundColor: "#0f1c34" }}>
+          {session?.type !== "member" && (
+            <>
+              {clients.map((c) => (
+                <button key={c.id} onClick={() => onSelectClient(c.id)} title={c.name}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-bold text-white transition-all"
+                  style={{
+                    backgroundColor: c.color,
+                    opacity: c.id === selectedClientId ? 1 : 0.4,
+                    boxShadow: c.id === selectedClientId ? "0 0 0 2px white" : "none",
+                  }}>
+                  {c.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                </button>
+              ))}
+              <button onClick={() => onNavigate("settings")} title="Add client"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white/25 hover:text-white/50 transition-all text-lg"
+                style={{ border: "1.5px dashed rgba(255,255,255,0.12)" }}>+</button>
+            </>
+          )}
+        </div>
 
       {/* ── Main nav sidebar (medium blue) ────────────────────────── */}
       <div className="flex flex-col flex-1" style={{ backgroundColor: "#1a2f52" }}>
@@ -313,7 +288,7 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Identity */}
+        {/* Identity + sign out */}
         <div className="px-3 py-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
           <div className="flex items-center gap-2.5 px-3 py-2">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
@@ -330,9 +305,14 @@ export default function Sidebar({
                 {session?.type === "member" ? "Team member" : "Full access"}
               </p>
             </div>
+            <button onClick={onSignOut} title="Sign out"
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-red-400 hover:bg-white/10 transition-all text-sm flex-shrink-0">
+              ↩
+            </button>
           </div>
         </div>
       </div>
+      </div>{/* end body flex */}
     </aside>
   );
 }
