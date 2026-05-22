@@ -208,7 +208,7 @@ export default function Sidebar({
       {/* Brand + notification bell */}
       <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
         <div>
-          <img src="/logo.png" alt="ORDO" className="h-10 w-auto" />
+          <img src="/logo.png" alt="ORDO" className="h-7 w-auto" />
         </div>
         <div className="relative">
           <button
