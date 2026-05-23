@@ -173,16 +173,11 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
         </nav>
 
         {/* Footer: name + bell + sign out */}
-        <div className="px-3 py-3 flex-shrink-0" style={{ borderTop: `1px solid ${DIVIDER.borderColor}` }}>
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">
-                {session?.type === "member" ? (activeProfile?.name || session.name) : (session?.name || "Owner")}
-              </p>
-              <p className="text-[10px]" style={{ color: "rgba(147,197,253,0.5)" }}>
-                {session?.type === "member" ? "Team member" : "Full access"}
-              </p>
-            </div>
+        <div className="px-3 py-2 flex-shrink-0" style={{ borderTop: `1px solid ${DIVIDER.borderColor}` }}>
+          <div className="flex items-center gap-2 px-2 py-1">
+            <p className="text-xs font-semibold text-white truncate flex-1">
+              {session?.type === "member" ? (activeProfile?.name || session.name) : (session?.name || "Owner")}
+            </p>
             {/* Bell */}
             <div className="relative">
               <button onClick={() => setShowNotifs((s) => !s)}
