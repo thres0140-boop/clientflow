@@ -86,7 +86,7 @@ function BoardCanvas({ client }: { client: Client }) {
       </div>
 
       {/* Full canvas — fills everything right of the sidebar */}
-      <div className="absolute inset-0 left-64">
+      <div className="absolute inset-0 left-[280px]">
         <Excalidraw
           excalidrawAPI={(api) => { apiRef.current = api; }}
           initialData={getInitialData}
@@ -106,7 +106,7 @@ function BoardCanvas({ client }: { client: Client }) {
 
 function BoardSkeleton() {
   return (
-    <div className="absolute inset-0 left-64 flex items-center justify-center bg-[#f8f9fa]">
+    <div className="absolute inset-0 left-[280px] flex items-center justify-center bg-[#f8f9fa]">
       <div className="flex flex-col items-center gap-3 text-slate-400">
         <div className="w-8 h-8 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
         <p className="text-sm">Loading board…</p>
