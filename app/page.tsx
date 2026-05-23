@@ -86,6 +86,15 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
+      // Wake up Neon DB (free tier pauses after inactivity) — retry up to 5x
+      for (let i = 0; i < 5; i++) {
+        try {
+          const ping = await fetch("/api/clients");
+          if (ping.ok) break;
+        } catch {}
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+
       // Fetch session first to know if we're a member login
       const sessData = await fetch("/api/auth/me").then((r) => r.json());
       const sess: SessionPayload | null = sessData;
