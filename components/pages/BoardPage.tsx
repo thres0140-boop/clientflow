@@ -22,7 +22,7 @@ export default function BoardPage({ clients, selectedClientId }: Props) {
 
   if (!client) {
     return (
-      <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+      <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm" style={{ left: 280 }}>
         Select a client to open their board
       </div>
     );
