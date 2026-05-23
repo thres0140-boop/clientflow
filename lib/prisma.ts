@@ -1,18 +1,21 @@
 import { PrismaClient } from "@/app/generated/prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { Pool } from "@neondatabase/serverless";
 
 function makePrismaClient() {
-  // In production, use Neon's HTTP-based serverless driver.
-  // This avoids TCP cold-start timeouts that plague the free tier when it pauses.
+  // In production on Vercel, use Neon's HTTP-based driver (PrismaNeonHTTP).
+  // This avoids TCP cold-start timeouts — Neon free tier pauses after inactivity
+  // and can take 10-20s to wake over TCP, which exceeds Vercel's 10s function limit.
+  // HTTP queries fire instantly without a persistent connection.
   if (process.env.NODE_ENV === "production") {
-    const connectionString = process.env.POSTGRES_PRISMA_URL!;
-    const pool = new Pool({ connectionString });
-    const adapter = new PrismaNeon(pool);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { neon } = require("@neondatabase/serverless");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaNeonHTTP } = require("@prisma/adapter-neon");
+    const sql = neon(process.env.POSTGRES_PRISMA_URL!);
+    const adapter = new PrismaNeonHTTP(sql);
     return new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
   }
 
-  // Locally, use the standard TCP client (SQLite via DATABASE_URL, or Neon direct).
+  // Locally, use the standard client (SQLite via DATABASE_URL).
   return new PrismaClient();
 }
 
