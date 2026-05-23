@@ -105,7 +105,7 @@ export default function App() {
       await Promise.all([fetchClients(), fetchNotifications(), fetchTeam(initClientId)]);
       setAppReady(true);
     }
-    init();
+    init().catch((e) => { console.error("Init failed", e); setAppReady(true); });
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [fetchClients, fetchNotifications, fetchTeam]);
