@@ -141,9 +141,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
 
         {/* Nav header: logo only */}
         <div className="flex items-center px-4 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
-          <div className="px-2 py-1 rounded-lg bg-white/10">
-            <img src="/logo.png" alt="ORDO" className="h-6 w-auto" />
-          </div>
+          <img src="/logo.png" alt="ORDO" className="h-7 w-auto" />
         </div>
 
 
