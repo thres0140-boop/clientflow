@@ -88,6 +88,9 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   const [sending, setSending]               = useState(false);
   const [search, setSearch]                 = useState("");
   const [connecting, setConnecting]         = useState(false);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [zernioAccounts, setZernioAccounts] = useState<any[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const refreshTimer   = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -403,14 +406,40 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
                         <p className="text-3xl mb-1">📱</p>
                         <p className="text-sm font-semibold text-slate-700">Connect Instagram DMs</p>
                         <p className="text-[11px] text-slate-400 leading-relaxed max-w-[200px] mx-auto">
-                          Link this client's Instagram so you can read and reply to DMs right here.
+                          Step 1: Connect the Instagram account in Zernio. Step 2: Link it to this client.
                         </p>
-                        <a
-                          href={`/api/zernio/connect?clientId=${selectedClientId}`}
-                          className="mt-3 inline-block px-4 py-2 text-xs font-semibold bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:opacity-90 transition-opacity"
-                        >
-                          🔗 Connect Instagram
-                        </a>
+                        <div className="mt-3 flex flex-col gap-2 w-full max-w-[220px]">
+                          <button
+                            onClick={async () => {
+                              setConnecting(true);
+                              try {
+                                const res = await fetch(`/api/zernio/connect?clientId=${selectedClientId}`);
+                                const data = await res.json();
+                                if (data.authUrl) window.open(data.authUrl, "_blank");
+                                else if (data.error) alert(`Error: ${JSON.stringify(data.error)}`);
+                              } catch(e) { alert(String(e)); }
+                              setConnecting(false);
+                            }}
+                            disabled={connecting}
+                            className="px-4 py-2 text-xs font-semibold bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                          >
+                            {connecting ? "Opening…" : "1️⃣ Connect on Zernio (new tab)"}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setLoadingAccounts(true);
+                              setShowAccountPicker(true);
+                              try {
+                                const data = await fetch("/api/zernio/accounts").then(r => r.json());
+                                setZernioAccounts(data.accounts ?? []);
+                              } catch(e) { alert(String(e)); }
+                              setLoadingAccounts(false);
+                            }}
+                            className="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                          >
+                            2️⃣ Link account to this client
+                          </button>
+                        </div>
                       </>
                     ) : (
                       <>
@@ -539,6 +568,56 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
           onClose={() => { setShowAdd(false); setEditLead(null); }}
           onSaved={() => { setShowAdd(false); setEditLead(null); loadLeads(); }}
         />
+      )}
+
+      {showAccountPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h2 className="text-base font-semibold text-slate-800">Link Instagram Account</h2>
+              <button onClick={() => setShowAccountPicker(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <p className="text-xs text-slate-500">Select which connected Instagram account to link to <strong>{client?.name}</strong>:</p>
+              {loadingAccounts ? (
+                <div className="text-center text-slate-400 text-sm py-4">Loading accounts…</div>
+              ) : zernioAccounts.length === 0 ? (
+                <div className="text-center text-slate-400 text-sm py-4">
+                  No Instagram accounts connected yet.<br />
+                  <span className="text-xs">Complete step 1 first — connect on Zernio, then come back here.</span>
+                </div>
+              ) : (
+                zernioAccounts.map((acc: any) => (
+                  <button
+                    key={acc._id ?? acc.id}
+                    onClick={async () => {
+                      await fetch("/api/zernio/link", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          clientId: selectedClientId,
+                          zernioAccountId: acc._id ?? acc.id,
+                          igUsername: acc.username ?? acc.name ?? null,
+                        }),
+                      });
+                      setShowAccountPicker(false);
+                      loadInbox();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 border border-slate-200 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 text-left transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      {(acc.username ?? acc.name ?? "?")[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">@{acc.username ?? acc.name ?? acc._id}</p>
+                      {acc.platform && <p className="text-xs text-slate-400 capitalize">{acc.platform}</p>}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

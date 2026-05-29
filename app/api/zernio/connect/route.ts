@@ -11,11 +11,11 @@ export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
 
-  const callbackUrl = `${APP_URL}/api/zernio/callback?clientId=${clientId}`;
-
+  // Do NOT pass redirect_url — Zernio uses it as Instagram's redirect_uri,
+  // and only their own registered URL is whitelisted in their Meta App.
+  // Without it, Zernio uses their own callback which works fine.
   const url = new URL(`${ZERNIO_BASE}/connect/instagram`);
   url.searchParams.set("profileId", PROFILE_ID);
-  url.searchParams.set("redirect_url", callbackUrl);
 
   // Fetch the connect URL from Zernio
   const res = await fetch(url.toString(), {
@@ -31,11 +31,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: data }, { status: 400 });
   }
 
-  // Zernio returns { authUrl: "https://..." } — redirect the user there
-  const redirectTarget = data.authUrl ?? data.url ?? data.connect_url ?? data.auth_url;
-  if (!redirectTarget) {
+  // Return the authUrl as JSON — the frontend opens it in a new tab
+  // (We can't redirect there directly because we're not passing a redirect_url,
+  // so after OAuth the user ends up on Zernio's dashboard, not back in our app.)
+  const authUrl = data.authUrl ?? data.url ?? data.connect_url ?? data.auth_url;
+  if (!authUrl) {
     return NextResponse.json({ error: "No connect URL returned", raw: data }, { status: 500 });
   }
 
-  return NextResponse.redirect(redirectTarget);
+  return NextResponse.json({ authUrl });
 }
