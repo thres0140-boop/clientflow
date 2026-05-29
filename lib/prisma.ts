@@ -7,11 +7,15 @@ function makePrismaClient() {
   // HTTP queries fire instantly without a persistent connection.
   if (process.env.NODE_ENV === "production") {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { neon } = require("@neondatabase/serverless");
+    const { Pool, neonConfig } = require("@neondatabase/serverless");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaNeonHTTP } = require("@prisma/adapter-neon");
-    const sql = neon((process.env.STORAGE2_POSTGRES_PRISMA_URL || process.env.POSTGRES_PRISMA_URL)!);
-    const adapter = new PrismaNeonHTTP(sql);
+    const ws = require("ws");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaNeon } = require("@prisma/adapter-neon");
+    neonConfig.webSocketConstructor = ws;
+    const connectionString = (process.env.STORAGE2_POSTGRES_PRISMA_URL || process.env.POSTGRES_PRISMA_URL)!;
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaNeon(pool);
     return new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
   }
 
