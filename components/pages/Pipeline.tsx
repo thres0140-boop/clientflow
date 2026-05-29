@@ -867,31 +867,19 @@ function ConfirmScheduleModal({
 
 // ── Post to Instagram Modal (Buffer-style direct scheduling) ─────────────────
 
-// Upload via Vercel Blob — raw storage, zero re-encoding, original quality preserved
+// Client-side Vercel Blob upload — streams directly to Blob CDN,
+// bypasses the Next.js body size limit, zero re-encoding, original quality preserved.
 async function blobUpload(
   file: File,
   onProgress: (pct: number) => void
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const form = new FormData();
-    form.append("file", file);
-    form.append("filename", file.name);
-    xhr.open("POST", "/api/upload-raw");
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const data = JSON.parse(xhr.responseText);
-        resolve(data.url);
-      } else {
-        reject(new Error("Upload failed"));
-      }
-    };
-    xhr.onerror = () => reject(new Error("Network error"));
-    xhr.send(form);
+  const { upload } = await import("@vercel/blob/client");
+  const blob = await upload(`ig-posts/${file.name}`, file, {
+    access: "public",
+    handleUploadUrl: "/api/upload",
+    onUploadProgress: ({ percentage }) => onProgress(Math.round(percentage)),
   });
+  return blob.url;
 }
 
 function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: number; onClose: () => void; onPosted: () => void }) {
