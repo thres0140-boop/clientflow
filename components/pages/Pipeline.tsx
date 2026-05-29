@@ -345,8 +345,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         {calView === "month" ? (
             <div className="grid grid-cols-7">
               {monthGrid.map((date, idx) => {
-                const pieces = date ? content.filter((c) => c.scheduledDate === date) : [];
-                const draftsOnDay = date ? scheduledDrafts.filter((d) => d.scheduledDate === date) : [];
+                const pieces = date ? content.filter((c) => c.scheduledDate?.startsWith(date)) : [];
+                const draftsOnDay = date ? scheduledDrafts.filter((d) => d.scheduledDate?.startsWith(date)) : [];
                 const isToday = date === todayStr;
                 const isDragTarget = date !== null && date === dragOverDate && dragDraftId !== null;
                 const dow = date ? (new Date(date).getDay() + 6) % 7 : -1; // 0=Mon
@@ -965,7 +965,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
           platform: "instagram",
           contentType: "reel",
           status: postNow ? "posted" : "scheduled",
-          scheduledDate: scheduleDate,
+          scheduledDate: `${scheduleDate}T${scheduleTime}:00`,
         }),
       });
       onPosted(); // reload calendar
@@ -1441,11 +1441,17 @@ function ContentDetailModal({
               💡 {piece.concept.name}
             </span>
           )}
-          {piece.scheduledDate && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-              📅 {piece.scheduledDate}
-            </span>
-          )}
+          {piece.scheduledDate && (() => {
+            const dt = new Date(piece.scheduledDate);
+            const hasTime = piece.scheduledDate.includes("T");
+            const dateStr = dt.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+            const timeStr = hasTime ? dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : null;
+            return (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                📅 {dateStr}{timeStr && <><span className="text-slate-300">·</span><span className="font-semibold text-indigo-600">🕐 {timeStr}</span></>}
+              </span>
+            );
+          })()}
         </div>
 
         {stages.length > 0 && (
@@ -1516,6 +1522,30 @@ function ContentDetailModal({
             )}
           </div>
         )}
+
+        {piece.rawContentUrl && (() => {
+          const url = piece.rawContentUrl;
+          const isVideo = /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url) || url.includes("/video/upload/");
+          return (
+            <div>
+              <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Media</p>
+              {isVideo ? (
+                <video
+                  src={url}
+                  controls
+                  className="w-full rounded-xl border border-slate-200 max-h-72 bg-black"
+                  preload="metadata"
+                />
+              ) : (
+                <img
+                  src={url}
+                  alt="Post media"
+                  className="w-full rounded-xl border border-slate-200 max-h-72 object-cover"
+                />
+              )}
+            </div>
+          );
+        })()}
 
         {piece.hook && (
           <div>
