@@ -31,8 +31,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (scheduledFor) {
-    body.scheduledFor = scheduledFor; // ISO 8601 string
+    body.scheduledAt = scheduledFor; // ISO 8601 — Zernio field name
   }
+
+  console.log("[zernio/schedule] sending body:", JSON.stringify(body));
 
   const res = await fetch(`${ZERNIO_BASE}/posts`, {
     method: "POST",
@@ -45,5 +47,10 @@ export async function POST(req: NextRequest) {
   });
 
   const data = await res.json();
-  return NextResponse.json(data, { status: res.ok ? 200 : 400 });
+  console.log("[zernio/schedule] response", res.status, JSON.stringify(data));
+
+  if (!res.ok) {
+    return NextResponse.json({ error: data?.message ?? data?.error ?? "Failed to post", raw: data }, { status: 400 });
+  }
+  return NextResponse.json(data);
 }

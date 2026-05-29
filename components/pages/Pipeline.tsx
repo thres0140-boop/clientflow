@@ -898,6 +898,7 @@ function PostToInstagramModal({ clientId, onClose }: { clientId: number; onClose
   const [scheduleTime, setScheduleTime] = useState(nowTime);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "posting" | "done" | "error">("idle");
+  const [postedNow, setPostedNow] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -923,6 +924,7 @@ function PostToInstagramModal({ clientId, onClose }: { clientId: number; onClose
   async function handlePost(postNow: boolean) {
     if (!mediaUrl) { setErrorMsg("Upload a video or photo first."); return; }
     setStatus("posting");
+    setPostedNow(postNow);
     setErrorMsg("");
     try {
       let scheduledFor: string | undefined;
@@ -934,9 +936,9 @@ function PostToInstagramModal({ clientId, onClose }: { clientId: number; onClose
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error ?? "Failed to post");
+        throw new Error(data?.error ?? "Failed to post to Instagram");
       }
       setStatus("done");
     } catch (err) {
@@ -1042,7 +1044,7 @@ function PostToInstagramModal({ clientId, onClose }: { clientId: number; onClose
             <div className="flex items-center gap-2 bg-green-50 rounded-xl px-4 py-3">
               <span className="text-green-500">✓</span>
               <p className="text-sm font-medium text-green-700">
-                {scheduleDate === today ? "Posted to Instagram!" : `Scheduled for ${scheduleDate} at ${scheduleTime}`}
+                {postedNow ? "Sent to Instagram — should appear shortly!" : `Scheduled for ${scheduleDate} at ${scheduleTime}`}
               </p>
             </div>
           )}
