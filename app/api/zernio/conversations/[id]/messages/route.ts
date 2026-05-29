@@ -80,13 +80,10 @@ export async function POST(
 
     if (handle) {
       const existing = await prisma.dmLead.findFirst({ where: { clientId: cid, handle } });
-      if (existing) {
-        if (existing.status === "follows") {
-          await prisma.dmLead.update({ where: { id: existing.id }, data: { status: "messaged" } });
-        }
-      } else {
+      if (!existing) {
         await prisma.dmLead.create({ data: { clientId: cid, name, handle, status: "messaged", date: today } });
       }
+      // don't downgrade status if already further along the pipeline
     } else {
       await prisma.dmLead.create({ data: { clientId: cid, name, handle: null, status: "messaged", date: today } });
     }

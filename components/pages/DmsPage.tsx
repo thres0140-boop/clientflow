@@ -52,7 +52,7 @@ function timeAgo(dateStr: string): string {
 const STATUS_MAP = Object.fromEntries(DM_STATUSES.map((s) => [s.value, s]));
 function statusMeta(status: string) { return STATUS_MAP[status] ?? STATUS_MAP["messaged"]; }
 const PIPELINE_COLS = DM_STATUSES.map((s) => s.value);
-const NEXT: Record<string, string> = { follows: "messaged", messaged: "messaged_np", messaged_np: "booked", booked: "closed" };
+const NEXT: Record<string, string> = { messaged: "link_sent", link_sent: "booked", booked: "closed" };
 
 // ── Inbox types ───────────────────────────────────────────────────────────────
 type Conversation = {
@@ -227,7 +227,7 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
         clientId: selectedClientId,
         name: conv.name,
         handle: conv.handle,
-        status: "follows",
+        status: "messaged",
         date: toYMD(new Date()),
       }),
     });
@@ -257,7 +257,6 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
   const filtered = leads.filter((l) => period === "all" || (l.date && from && to && l.date >= from && l.date <= to));
 
   const total      = filtered.length;
-  const pct = (a: number, b: number) => b > 0 ? `${Math.round((a / b) * 100)}%` : "0%";
   const countOf = (statuses: string[]) => filtered.filter((l) => statuses.includes(l.status)).length;
   const leadsBy = (s: string) => filtered.filter((l) => l.status === s);
 
@@ -331,12 +330,11 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
             <div style={{ minWidth: `${DM_STATUSES.length * 160}px` }} className="flex gap-2 pb-1">
               {DM_STATUSES.map((s) => {
                 const count = leadsBy(s.value).length;
-                const percentage = pct(count, total);
                 return (
                   <div key={s.value} className={`flex-1 rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
                     <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>
-                    <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{percentage}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{count} lead{count !== 1 ? "s" : ""}</p>
+                    <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{count}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">lead{count !== 1 ? "s" : ""}</p>
                   </div>
                 );
               })}
@@ -708,7 +706,7 @@ function LeadModal({ selectedClientId, lead, onClose, onSaved }: {
   }
   const [form, setForm] = useState({
     name: lead?.name ?? "", handle: lead?.handle ?? "",
-    status: lead?.status ?? "follows", date: lead?.date ?? todayYMD(), notes: lead?.notes ?? "",
+    status: lead?.status ?? "messaged", date: lead?.date ?? todayYMD(), notes: lead?.notes ?? "",
   });
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
