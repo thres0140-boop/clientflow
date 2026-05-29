@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: data }, { status: 400 });
   }
 
-  // Zernio returns { url: "https://..." } — redirect the user there
-  const redirectTarget = data.url ?? data.connect_url ?? data.auth_url;
+  // Zernio returns { authUrl: "https://..." } — redirect the user there
+  const redirectTarget = data.authUrl ?? data.url ?? data.connect_url ?? data.auth_url;
   if (!redirectTarget) {
     return NextResponse.json({ error: "No connect URL returned", raw: data }, { status: 500 });
   }
