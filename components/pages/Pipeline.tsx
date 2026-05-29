@@ -869,16 +869,23 @@ function ConfirmScheduleModal({
 
 // Client-side Vercel Blob upload — streams directly to Blob CDN,
 // bypasses the Next.js body size limit, zero re-encoding, original quality preserved.
+// Progress is capped at 95% during upload; jumps to 100% only when Blob confirms the URL.
 async function blobUpload(
   file: File,
   onProgress: (pct: number) => void
 ): Promise<string> {
   const { upload } = await import("@vercel/blob/client");
-  const blob = await upload(`ig-posts/${file.name}`, file, {
+  let lastPct = 0;
+  const blob = await upload(`ig-posts/${Date.now()}-${file.name}`, file, {
     access: "public",
     handleUploadUrl: "/api/upload",
-    onUploadProgress: ({ percentage }) => onProgress(Math.round(percentage)),
+    onUploadProgress: ({ percentage }) => {
+      // Cap at 95 so a phase-2 reset never shows lower than where we were
+      const capped = Math.min(Math.round(percentage), 95);
+      if (capped >= lastPct) { lastPct = capped; onProgress(capped); }
+    },
   });
+  onProgress(100); // Blob URL confirmed — mark complete
   return blob.url;
 }
 
@@ -1003,9 +1010,13 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
                 disabled={isLoading}
                 className="w-full border-2 border-dashed border-slate-200 rounded-xl py-8 flex flex-col items-center gap-2 text-slate-400 hover:border-indigo-300 hover:text-indigo-400 transition-colors"
               >
-                <span className="text-2xl">{status === "uploading" ? `${uploadProgress}%` : "⬆️"}</span>
+                <span className="text-2xl">
+                  {status === "uploading" ? (uploadProgress === 100 ? "⏳" : `${uploadProgress}%`) : "⬆️"}
+                </span>
                 <p className="text-sm font-medium">
-                  {status === "uploading" ? "Uploading…" : "Click to upload video or photo"}
+                  {status === "uploading"
+                    ? uploadProgress === 100 ? "Finalising…" : `Uploading… ${uploadProgress}%`
+                    : "Click to upload video or photo"}
                 </p>
                 <p className="text-xs">MP4, MOV, JPG, PNG — up to 500 MB</p>
               </button>
