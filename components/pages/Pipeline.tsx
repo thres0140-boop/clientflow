@@ -641,6 +641,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         <PostToInstagramModal
           clientId={selectedClientId}
           onClose={() => setShowPostIG(false)}
+          onPosted={() => { reload(); setShowPostIG(false); }}
         />
       )}
 
@@ -893,7 +894,7 @@ async function blobUpload(
   });
 }
 
-function PostToInstagramModal({ clientId, onClose }: { clientId: number; onClose: () => void }) {
+function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: number; onClose: () => void; onPosted: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const today = new Date().toISOString().slice(0, 10);
   const nowTime = new Date().toTimeString().slice(0, 5);
@@ -947,6 +948,24 @@ function PostToInstagramModal({ clientId, onClose }: { clientId: number; onClose
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to post to Instagram");
       }
+
+      // Save to DB so it appears on the content calendar
+      const title = caption.split("\n")[0].trim().slice(0, 80) || `Instagram Post – ${scheduleDate}`;
+      await fetch("/api/content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          title,
+          caption,
+          rawContentUrl: mediaUrl,
+          platform: "instagram",
+          contentType: "reel",
+          status: postNow ? "posted" : "scheduled",
+          scheduledDate: scheduleDate,
+        }),
+      });
+      onPosted(); // reload calendar
       setStatus("done");
     } catch (err) {
       setErrorMsg(String(err));

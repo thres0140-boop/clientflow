@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       hook: body.hook || null,
       caption: body.caption || null,
       notes: body.notes || null,
+      rawContentUrl: body.rawContentUrl || null,
       currentStageId: body.currentStageId ? parseInt(body.currentStageId) : null,
     },
     include: {
