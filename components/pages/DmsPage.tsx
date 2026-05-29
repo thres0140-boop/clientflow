@@ -101,25 +101,26 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     setLeads(Array.isArray(data) ? data : []);
   }
 
-  // Load inbox conversations via Unipile
+  // Load inbox conversations via Zernio
   const loadInbox = useCallback(async () => {
     if (!selectedClientId) return;
     setInboxLoading(true);
     setInboxError(null);
     try {
-      const data = await fetch(`/api/unipile/conversations?clientId=${selectedClientId}`).then((r) => r.json());
-      if (data.error === "no_unipile_account") { setInboxError("no_unipile_account"); }
+      const data = await fetch(`/api/zernio/conversations?clientId=${selectedClientId}`).then((r) => r.json());
+      if (data.error === "no_zernio_account") { setInboxError("no_zernio_account"); }
       else if (data.error) { setInboxError(data.error); }
       else {
-        // Normalise Unipile chat objects to the Conversation shape
-        const convs = (data.conversations ?? []).map((c: any) => ({
+        // Normalise Zernio conversation objects to our Conversation shape
+        const raw: any[] = data.conversations ?? data.items ?? data.data ?? [];
+        const convs = raw.map((c: any) => ({
           id: c.id,
-          igId: c.attendees?.[0]?.id ?? c.id,
-          name: c.attendees?.[0]?.name ?? c.name ?? "Unknown",
-          handle: c.attendees?.[0]?.username ?? c.attendees?.[0]?.handle ?? "",
-          snippet: c.last_message?.text ?? c.snippet ?? "",
-          updatedTime: c.last_message?.created_at ?? c.updated_at ?? new Date().toISOString(),
-          unreadCount: c.unread_count ?? 0,
+          igId: c.participant?.id ?? c.attendees?.[0]?.id ?? c.id,
+          name: c.participant?.name ?? c.attendees?.[0]?.name ?? c.name ?? "Unknown",
+          handle: c.participant?.username ?? c.attendees?.[0]?.username ?? c.handle ?? "",
+          snippet: c.lastMessage?.text ?? c.last_message?.text ?? c.snippet ?? "",
+          updatedTime: c.lastMessage?.timestamp ?? c.last_message?.created_at ?? c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
+          unreadCount: c.unreadCount ?? c.unread_count ?? 0,
         }));
         setConversations(convs);
       }
@@ -136,16 +137,17 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     if (!selectedClientId) return;
     setMessagesLoading(true);
     try {
-      const data = await fetch(`/api/unipile/conversations/${conv.id}?clientId=${selectedClientId}`).then((r) => r.json());
+      const data = await fetch(`/api/zernio/conversations/${conv.id}/messages?clientId=${selectedClientId}`).then((r) => r.json());
       if (data.error) { console.error("loadMessages error:", data.error); }
       if (!data.error) {
-        const msgs = (data.messages ?? []).map((m: any) => ({
+        const raw: any[] = data.messages ?? data.items ?? data.data ?? [];
+        const msgs = raw.map((m: any) => ({
           id: m.id,
-          text: m.text ?? m.body ?? "",
-          fromId: m.sender_id ?? m.from_id ?? "",
-          fromName: m.sender_name ?? m.from_name ?? "",
-          isOwn: Boolean(m.is_sender),
-          createdTime: m.created_at ?? m.timestamp ?? "",
+          text: m.text ?? m.body ?? m.content ?? "",
+          fromId: m.sender?.id ?? m.sender_id ?? m.from_id ?? "",
+          fromName: m.sender?.name ?? m.sender_name ?? m.from_name ?? "",
+          isOwn: Boolean(m.isOwn ?? m.is_sender ?? m.isMine),
+          createdTime: m.timestamp ?? m.created_at ?? m.createdAt ?? "",
         }));
         // Sort oldest-first so chat reads top-to-bottom naturally
         msgs.sort((a, b) => new Date(a.createdTime).getTime() - new Date(b.createdTime).getTime());
@@ -189,13 +191,12 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     };
     setMessages((prev) => [...prev, optimistic]);
     try {
-      const res = await fetch("/api/unipile/send", {
+      const res = await fetch(`/api/zernio/conversations/${selectedConv.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId: selectedClientId,
-          chatId: selectedConv.id,
-          text,
+          message: text,
           recipientName: selectedConv.name,
           recipientHandle: selectedConv.handle || null,
         }),
@@ -397,38 +398,19 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
               <div className="flex-1 overflow-y-auto">
                 {inboxError ? (
                   <div className="p-6 text-center space-y-2">
-                    {inboxError === "no_unipile_account" ? (
+                    {inboxError === "no_zernio_account" ? (
                       <>
                         <p className="text-3xl mb-1">📱</p>
                         <p className="text-sm font-semibold text-slate-700">Connect Instagram DMs</p>
                         <p className="text-[11px] text-slate-400 leading-relaxed max-w-[200px] mx-auto">
                           Link this client's Instagram so you can read and reply to DMs right here.
                         </p>
-                        <button
-                          disabled={connecting}
-                          onClick={async () => {
-                            setConnecting(true);
-                            try {
-                              const res = await fetch("/api/unipile/auth-link", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ clientId: selectedClientId }),
-                              });
-                              const text = await res.text();
-                              let data: any;
-                              try { data = JSON.parse(text); } catch { alert(`Bad response: ${text.slice(0, 200)}`); return; }
-                              if (data.url) window.location.href = data.url;
-                              else alert(`Connect failed: ${JSON.stringify(data)}`);
-                            } catch (e) {
-                              alert(`Error: ${e}`);
-                            } finally {
-                              setConnecting(false);
-                            }
-                          }}
-                          className="mt-3 px-4 py-2 text-xs font-semibold bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        <a
+                          href={`/api/zernio/connect?clientId=${selectedClientId}`}
+                          className="mt-3 inline-block px-4 py-2 text-xs font-semibold bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:opacity-90 transition-opacity"
                         >
-                          {connecting ? "Opening…" : "🔗 Connect Instagram"}
-                        </button>
+                          🔗 Connect Instagram
+                        </a>
                       </>
                     ) : (
                       <>
