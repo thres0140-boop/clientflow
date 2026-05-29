@@ -663,18 +663,23 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           onConfirm={async (postToIG, opts) => {
             await scheduleDraftOnDate(pendingDrop.draft.id, pendingDrop.date);
             if (postToIG && selectedClientId) {
-              await fetch("/api/instagram/publish", {
+              const mediaUrl = pendingDrop.draft.rawContentUrl || (() => {
+                try { const arr = JSON.parse(pendingDrop.draft.rawContentUrls || "[]"); return arr[0] || null; } catch { return null; }
+              })();
+              const res = await fetch("/api/zernio/schedule", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   clientId: selectedClientId,
-                  draftId: pendingDrop.draft.id,
-                  caption: opts.caption,
-                  videoUrl: pendingDrop.draft.rawContentUrl || null,
-                  autoSubtitles: opts.autoSubtitles,
-                  shareToFeed: opts.shareToFeed,
+                  content: opts.caption,
+                  mediaUrls: mediaUrl ? [mediaUrl] : [],
+                  scheduledFor: new Date(pendingDrop.date + "T09:00:00Z").toISOString(),
                 }),
               });
+              if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err?.error ?? "Failed to post");
+              }
             }
             setPendingDrop(null);
           }}
@@ -719,7 +724,7 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
 
 // ── Confirm Schedule Modal ──────────────────────────────────────────────────
 
-interface IGOptions { caption: string; autoSubtitles: boolean; shareToFeed: boolean; }
+interface IGOptions { caption: string; }
 
 function ConfirmScheduleModal({
   draft, date, onClose, onConfirm,
@@ -732,16 +737,8 @@ function ConfirmScheduleModal({
   const [loading, setLoading] = useState(false);
   const [igStatus, setIgStatus] = useState<string | null>(null);
   const [caption, setCaption] = useState(draft.caption || "");
-  const [autoSubtitles, setAutoSubtitles] = useState(false);
-  const [shareToFeed, setShareToFeed] = useState(true);
 
   const hasMedia = !!(draft.rawContentUrl || (draft.rawContentUrls && draft.rawContentUrls !== "[]"));
-  const isVideo = (() => {
-    const url = draft.rawContentUrl || (() => {
-      try { const arr = JSON.parse(draft.rawContentUrls || "[]"); return arr[0] || null; } catch { return null; }
-    })();
-    return url ? /\.(mp4|mov|avi|mkv)(\?|$)/i.test(url) : false;
-  })();
 
   const videoUrl = draft.rawContentUrl || (() => {
     try { const arr = JSON.parse(draft.rawContentUrls || "[]"); return arr[0] || null; } catch { return null; }
@@ -749,9 +746,9 @@ function ConfirmScheduleModal({
 
   async function handle(postToIG: boolean) {
     setLoading(true);
-    if (postToIG) setIgStatus("Uploading to Instagram…");
+    if (postToIG) setIgStatus("Scheduling via Zernio…");
     try {
-      await onConfirm(postToIG, { caption, autoSubtitles, shareToFeed });
+      await onConfirm(postToIG, { caption });
       if (postToIG) setIgStatus("Posted ✓");
     } catch {
       setIgStatus("Failed to post");
@@ -809,56 +806,11 @@ function ConfirmScheduleModal({
             </div>
           )}
 
-          {/* Instagram posting options */}
+          {/* Zernio posting indicator */}
           {hasMedia && (
-            <div className="border border-slate-100 rounded-xl p-4 space-y-3">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Instagram Options</p>
-
-              {/* Share to feed (Reels only) */}
-              {isVideo && (
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">Share to feed</p>
-                    <p className="text-[11px] text-slate-400">Also show this reel on your profile grid</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShareToFeed((v) => !v)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${shareToFeed ? "bg-indigo-600" : "bg-slate-200"}`}
-                  >
-                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${shareToFeed ? "translate-x-4" : "translate-x-1"}`} />
-                  </button>
-                </label>
-              )}
-
-              {/* Auto-captions (Reels only) */}
-              {isVideo && (
-                <label className="flex items-center justify-between cursor-pointer">
-                  <div>
-                    <p className="text-sm font-medium text-slate-700">Auto-captions</p>
-                    <p className="text-[11px] text-slate-400">Instagram generates subtitles automatically</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAutoSubtitles((v) => !v)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${autoSubtitles ? "bg-indigo-600" : "bg-slate-200"}`}
-                  >
-                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${autoSubtitles ? "translate-x-4" : "translate-x-1"}`} />
-                  </button>
-                </label>
-              )}
-
-              {/* Music note */}
-              <div className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2">
-                <span className="text-amber-400 mt-0.5">🎵</span>
-                <p className="text-[11px] text-amber-700">Music must be added manually in the Instagram app after posting — the API doesn't allow song selection.</p>
-              </div>
-
-              {/* Trial reel note */}
-              <div className="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                <span className="text-slate-400 mt-0.5">🧪</span>
-                <p className="text-[11px] text-slate-500">Trial reels are only available inside the Instagram app — not via the API.</p>
-              </div>
+            <div className="flex items-start gap-2 bg-indigo-50 rounded-xl px-4 py-3">
+              <span className="text-indigo-400 mt-0.5">📡</span>
+              <p className="text-[11px] text-indigo-700">Will be published to Instagram via Zernio at 9:00 AM UTC on the scheduled date.</p>
             </div>
           )}
 
