@@ -30,7 +30,9 @@ export type Page =
   | "context";
 
 export default function App() {
-  const [page, setPage] = useState<Page>("pipeline");
+  const [page, setPage] = useState<Page>(() => {
+    try { return (localStorage.getItem("cf_active_page") as Page) ?? "pipeline"; } catch { return "pipeline"; }
+  });
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [chatContext, setChatContext] = useState<{ id?: number; title: string; hook?: string | null; script: string; caption?: string | null; channel?: string } | null>(null);
@@ -123,6 +125,7 @@ export default function App() {
   useEffect(() => {
     if (selectedClientId !== null) {
       localStorage.setItem("cf_active_client", String(selectedClientId));
+      localStorage.setItem("cf_active_page", page);
       fetchTeam(selectedClientId);
     }
   }, [selectedClientId, fetchTeam]);
