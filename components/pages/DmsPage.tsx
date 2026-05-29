@@ -115,14 +115,14 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
       else if (data.error) { setInboxError(data.error); }
       else {
         // Normalise Zernio conversation objects to our Conversation shape
-        const raw: any[] = data.conversations ?? data.items ?? data.data ?? [];
+        const raw: any[] = data.data ?? data.conversations ?? data.items ?? [];
         const convs = raw.map((c: any) => ({
           id: c.id,
-          igId: c.participant?.id ?? c.attendees?.[0]?.id ?? c.id,
-          name: c.participant?.name ?? c.attendees?.[0]?.name ?? c.name ?? "Unknown",
-          handle: c.participant?.username ?? c.attendees?.[0]?.username ?? c.handle ?? "",
-          snippet: c.lastMessage?.text ?? c.last_message?.text ?? c.snippet ?? "",
-          updatedTime: c.lastMessage?.timestamp ?? c.last_message?.created_at ?? c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
+          igId: c.participantId ?? c.id,
+          name: c.participantName ?? c.participant?.name ?? c.name ?? "Unknown",
+          handle: c.participantUsername ?? c.participant?.username ?? c.handle ?? "",
+          snippet: typeof c.lastMessage === "string" ? c.lastMessage : (c.lastMessage?.text ?? c.snippet ?? ""),
+          updatedTime: c.updatedTime ?? c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
           unreadCount: c.unreadCount ?? c.unread_count ?? 0,
         }));
         setConversations(convs);
@@ -146,11 +146,11 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
         const raw: any[] = data.messages ?? data.items ?? data.data ?? [];
         const msgs = raw.map((m: any) => ({
           id: m.id,
-          text: m.text ?? m.body ?? m.content ?? "",
-          fromId: m.sender?.id ?? m.sender_id ?? m.from_id ?? "",
-          fromName: m.sender?.name ?? m.sender_name ?? m.from_name ?? "",
-          isOwn: Boolean(m.isOwn ?? m.is_sender ?? m.isMine),
-          createdTime: m.timestamp ?? m.created_at ?? m.createdAt ?? "",
+          text: m.message ?? m.text ?? m.body ?? m.content ?? "",
+          fromId: m.senderId ?? m.sender?.id ?? m.sender_id ?? "",
+          fromName: m.senderName ?? m.sender?.name ?? m.sender_name ?? "",
+          isOwn: m.direction === "outgoing" || Boolean(m.isOwn ?? m.is_sender ?? m.isMine),
+          createdTime: m.createdAt ?? m.sentAt ?? m.timestamp ?? m.created_at ?? "",
         }));
         // Sort oldest-first so chat reads top-to-bottom naturally
         msgs.sort((a, b) => new Date(a.createdTime).getTime() - new Date(b.createdTime).getTime());
