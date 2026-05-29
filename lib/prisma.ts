@@ -10,7 +10,7 @@ function makePrismaClient() {
     const { neon } = require("@neondatabase/serverless");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaNeonHTTP } = require("@prisma/adapter-neon");
-    const sql = neon(process.env.POSTGRES_PRISMA_URL!);
+    const sql = neon((process.env.STORAGE2_POSTGRES_PRISMA_URL || process.env.POSTGRES_PRISMA_URL)!);
     const adapter = new PrismaNeonHTTP(sql);
     return new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
   }
