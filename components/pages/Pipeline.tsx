@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Client, ContentPiece, Concept, WorkflowStage, TeamMember, ScriptDraft,
   STATUSES, PLATFORMS, CONTENT_TYPES,
@@ -64,6 +64,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [stagedDrafts, setStagedDrafts] = useState<ScriptDraft[]>([]);
   const [selectedDraft, setSelectedDraft] = useState<ScriptDraft | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showPostIG, setShowPostIG] = useState(false);
   const [selected, setSelected] = useState<ContentPiece | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [dragDraftId, setDragDraftId] = useState<number | null>(null);
@@ -247,12 +248,20 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         <div className="flex items-center gap-2">
           <PlanModeSelector current={planMode} onChange={changePlanMode} />
           {!isClient && (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
-            >
-              + Add Content
-            </button>
+            <>
+              <button
+                onClick={() => setShowPostIG(true)}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+              >
+                <span>📸</span> Post to Instagram
+              </button>
+              <button
+                onClick={() => setShowAdd(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                + Add Content
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -628,6 +637,13 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         </div>
       )}
 
+      {showPostIG && selectedClientId && (
+        <PostToInstagramModal
+          clientId={selectedClientId}
+          onClose={() => setShowPostIG(false)}
+        />
+      )}
+
       {showAdd && (
         <AddContentModal
           clients={clients}
@@ -842,6 +858,229 @@ function ConfirmScheduleModal({
           <p className="px-6 pb-4 text-[11px] text-slate-400 text-center">
             Upload a video or photo in the Kanban stage to enable direct Instagram posting.
           </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Post to Instagram Modal (Buffer-style direct scheduling) ─────────────────
+
+function cloudinaryUploadDirect(file: File, onProgress: (pct: number) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+    const resourceType = file.type.startsWith("video") ? "video" : "image";
+    const form = new FormData();
+    form.append("file", file);
+    form.append("upload_preset", preset);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`);
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).secure_url);
+      else reject(new Error(JSON.parse(xhr.responseText).error?.message ?? "Upload failed"));
+    };
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(form);
+  });
+}
+
+function PostToInstagramModal({ clientId, onClose }: { clientId: number; onClose: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const today = new Date().toISOString().slice(0, 10);
+  const nowTime = new Date().toTimeString().slice(0, 5);
+
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaName, setMediaName] = useState<string>("");
+  const [caption, setCaption] = useState("");
+  const [scheduleDate, setScheduleDate] = useState(today);
+  const [scheduleTime, setScheduleTime] = useState(nowTime);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [status, setStatus] = useState<"idle" | "uploading" | "posting" | "done" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMediaName(file.name);
+    setStatus("uploading");
+    setUploadProgress(0);
+    setErrorMsg("");
+    try {
+      const url = await cloudinaryUploadDirect(file, setUploadProgress);
+      setMediaUrl(url);
+      setStatus("idle");
+    } catch (err) {
+      setErrorMsg(String(err));
+      setStatus("error");
+    } finally {
+      setUploadProgress(null);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function handlePost(postNow: boolean) {
+    if (!mediaUrl) { setErrorMsg("Upload a video or photo first."); return; }
+    setStatus("posting");
+    setErrorMsg("");
+    try {
+      let scheduledFor: string | undefined;
+      if (!postNow) {
+        scheduledFor = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
+      }
+      const res = await fetch("/api/zernio/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? "Failed to post");
+      }
+      setStatus("done");
+    } catch (err) {
+      setErrorMsg(String(err));
+      setStatus("error");
+    }
+  }
+
+  const isLoading = status === "uploading" || status === "posting";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📸</span>
+            <h2 className="text-base font-bold text-slate-800">Post to Instagram</h2>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {/* Media upload */}
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Video / Photo</p>
+            <input ref={fileRef} type="file" accept="video/*,image/*" className="hidden" onChange={handleFile} />
+            {mediaUrl ? (
+              <div className="flex items-center gap-3 bg-green-50 rounded-xl px-4 py-3">
+                <span className="text-green-500 text-lg">✓</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-green-700 truncate">{mediaName}</p>
+                  <p className="text-[10px] text-green-500 truncate">{mediaUrl}</p>
+                </div>
+                <button
+                  onClick={() => { setMediaUrl(null); setMediaName(""); }}
+                  className="text-xs text-slate-400 hover:text-slate-600 shrink-0"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={isLoading}
+                className="w-full border-2 border-dashed border-slate-200 rounded-xl py-8 flex flex-col items-center gap-2 text-slate-400 hover:border-indigo-300 hover:text-indigo-400 transition-colors"
+              >
+                <span className="text-2xl">{status === "uploading" ? `${uploadProgress}%` : "⬆️"}</span>
+                <p className="text-sm font-medium">
+                  {status === "uploading" ? "Uploading…" : "Click to upload video or photo"}
+                </p>
+                <p className="text-xs">MP4, MOV, JPG, PNG — up to 500 MB</p>
+              </button>
+            )}
+          </div>
+
+          {/* Caption */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Caption</p>
+              <span className="text-[10px] text-slate-400">{caption.length} chars</span>
+            </div>
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              rows={5}
+              placeholder="Write your caption, add hashtags…"
+              className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+
+          {/* Schedule date + time */}
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Schedule</p>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-xs text-slate-500 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  min={today}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </div>
+              <div className="w-32">
+                <label className="block text-xs text-slate-500 mb-1">Time (local)</label>
+                <input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Status */}
+          {status === "done" && (
+            <div className="flex items-center gap-2 bg-green-50 rounded-xl px-4 py-3">
+              <span className="text-green-500">✓</span>
+              <p className="text-sm font-medium text-green-700">
+                {scheduleDate === today ? "Posted to Instagram!" : `Scheduled for ${scheduleDate} at ${scheduleTime}`}
+              </p>
+            </div>
+          )}
+          {(status === "error" || errorMsg) && (
+            <p className="text-sm text-red-500 font-medium">{errorMsg}</p>
+          )}
+        </div>
+
+        {/* Actions */}
+        {status !== "done" && (
+          <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
+            <button
+              onClick={() => handlePost(false)}
+              disabled={isLoading || !mediaUrl}
+              title={!mediaUrl ? "Upload media first" : ""}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {status === "posting" ? "Scheduling…" : "🗓 Schedule"}
+            </button>
+            <button
+              onClick={() => handlePost(true)}
+              disabled={isLoading || !mediaUrl}
+              title={!mediaUrl ? "Upload media first" : ""}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            >
+              {status === "posting" ? "Posting…" : "📸 Post Now"}
+            </button>
+          </div>
+        )}
+        {status === "done" && (
+          <div className="px-6 py-4 border-t border-slate-100">
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              Done
+            </button>
+          </div>
         )}
       </div>
     </div>
