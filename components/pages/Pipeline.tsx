@@ -867,26 +867,34 @@ function ConfirmScheduleModal({
 
 // ── Post to Instagram Modal (Buffer-style direct scheduling) ─────────────────
 
-// Client-side Vercel Blob upload — streams directly to Blob CDN,
-// bypasses the Next.js body size limit, zero re-encoding, original quality preserved.
-// Progress is capped at 95% during upload; jumps to 100% only when Blob confirms the URL.
-async function blobUpload(
-  file: File,
-  onProgress: (pct: number) => void
-): Promise<string> {
-  const { upload } = await import("@vercel/blob/client");
-  let lastPct = 0;
-  const blob = await upload(`ig-posts/${Date.now()}-${file.name}`, file, {
-    access: "public",
-    handleUploadUrl: "/api/upload",
-    onUploadProgress: ({ percentage }) => {
-      // Cap at 95 so a phase-2 reset never shows lower than where we were
-      const capped = Math.min(Math.round(percentage), 95);
-      if (capped >= lastPct) { lastPct = capped; onProgress(capped); }
-    },
+// Cloudinary upload with progress tracking.
+// Uses the same preset as the rest of the app; no eager transformations = original quality.
+function igUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+    const resourceType = file.type.startsWith("video") ? "video" : "image";
+    const form = new FormData();
+    form.append("file", file);
+    form.append("upload_preset", preset);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const data = JSON.parse(xhr.responseText);
+        // Use fl_attachment to ensure Zernio/Instagram receive raw bytes without transforms
+        const url: string = data.secure_url;
+        resolve(url);
+      } else {
+        reject(new Error(JSON.parse(xhr.responseText)?.error?.message ?? "Upload failed"));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(form);
   });
-  onProgress(100); // Blob URL confirmed — mark complete
-  return blob.url;
 }
 
 function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: number; onClose: () => void; onPosted: () => void }) {
@@ -912,7 +920,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
     setUploadProgress(0);
     setErrorMsg("");
     try {
-      const url = await blobUpload(file, setUploadProgress);
+      const url = await igUpload(file, setUploadProgress);
       setMediaUrl(url);
       setStatus("idle");
     } catch (err) {
@@ -1011,12 +1019,10 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
                 className="w-full border-2 border-dashed border-slate-200 rounded-xl py-8 flex flex-col items-center gap-2 text-slate-400 hover:border-indigo-300 hover:text-indigo-400 transition-colors"
               >
                 <span className="text-2xl">
-                  {status === "uploading" ? (uploadProgress === 100 ? "⏳" : `${uploadProgress}%`) : "⬆️"}
+                  {status === "uploading" ? `${uploadProgress}%` : "⬆️"}
                 </span>
                 <p className="text-sm font-medium">
-                  {status === "uploading"
-                    ? uploadProgress === 100 ? "Finalising…" : `Uploading… ${uploadProgress}%`
-                    : "Click to upload video or photo"}
+                  {status === "uploading" ? "Uploading…" : "Click to upload video or photo"}
                 </p>
                 <p className="text-xs">MP4, MOV, JPG, PNG — up to 500 MB</p>
               </button>
