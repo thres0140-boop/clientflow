@@ -16,7 +16,13 @@ export async function GET(req: NextRequest) {
   url.searchParams.set("scope", "instagram_business_basic,instagram_business_manage_insights,instagram_business_manage_messages");
   url.searchParams.set("state", clientId);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("auth_type", "rerequest");
+  // auth_type=rerequest is Facebook Login-specific and not valid for instagram.com/oauth/authorize
+  // url.searchParams.set("auth_type", "rerequest");
+
+  // Debug: return the URL as JSON if ?debug=1 is passed
+  if (req.nextUrl.searchParams.get("debug") === "1") {
+    return NextResponse.json({ redirectUri, authUrl: url.toString(), appId, appUrl });
+  }
 
   return NextResponse.redirect(url.toString());
 }
