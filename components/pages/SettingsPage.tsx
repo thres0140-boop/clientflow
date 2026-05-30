@@ -154,6 +154,7 @@ function ClientModal({
     color: client?.color ?? "#6366f1",
     notes: client?.notes ?? "",
     captionStyle: client?.captionStyle ?? "",
+    bookingLink: client?.bookingLink ?? "",
     loginEmail: "",
   });
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
@@ -315,6 +316,13 @@ function ClientModal({
                 style={{ backgroundColor: c }} />
             ))}
           </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Booking Link</label>
+          <p className="text-[10px] text-slate-400 mb-1.5">Calendly, Cal.com, or any scheduling URL — shown as a one-tap button in DM chats.</p>
+          <input type="url" value={form.bookingLink} onChange={(e) => set("bookingLink", e.target.value)}
+            placeholder="https://calendly.com/yourname"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
