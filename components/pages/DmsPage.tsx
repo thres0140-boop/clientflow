@@ -575,18 +575,24 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
                 {/* Reply input */}
                 <div className="px-4 py-3 border-t border-slate-200 flex-shrink-0 bg-white space-y-2">
                   {/* Quick actions */}
-                  {client?.bookingLink && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={sendBookingLink}
-                        disabled={sending}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 disabled:opacity-40 transition-colors border border-emerald-200"
-                      >
-                        🔗 Send Booking Link
-                      </button>
-                      <span className="text-[10px] text-slate-400 truncate max-w-[200px]">{client.bookingLink}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={sendBookingLink}
+                      disabled={sending || !client?.bookingLink}
+                      title={!client?.bookingLink ? "Add a booking link in Settings first" : client.bookingLink}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        client?.bookingLink
+                          ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200"
+                          : "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                      }`}
+                    >
+                      🔗 Send Booking Link
+                    </button>
+                    {client?.bookingLink
+                      ? <span className="text-[10px] text-slate-400 truncate max-w-[200px]">{client.bookingLink}</span>
+                      : <span className="text-[10px] text-slate-400">No booking link set — add one in Settings</span>
+                    }
+                  </div>
                   <div className="flex items-end gap-2">
                     <textarea
                       value={replyText}
