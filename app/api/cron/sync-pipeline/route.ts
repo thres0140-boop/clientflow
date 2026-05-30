@@ -59,11 +59,31 @@ async function syncClient(clientId: number, accountId: string) {
   const convData = await convRes.json();
   const conversations: any[] = convData.data ?? convData.conversations ?? [];
 
-  // 2. Load existing leads once
+  // 2. Load existing leads + deduplicate by handle (keep most advanced status)
+  const statusOrder = ["messaged", "link_sent", "booked", "no_show", "unqualified", "no_close", "closed"];
   const existing = await prisma.dmLead.findMany({ where: { clientId } });
-  const leadByHandle = new Map(
-    existing.map((l) => [normalizeHandle(l.handle), l])
-  );
+
+  // Group by normalised handle, keep the one with the most advanced status
+  const groupedByHandle = new Map<string, typeof existing>();
+  for (const lead of existing) {
+    const h = normalizeHandle(lead.handle);
+    if (!h) continue;
+    if (!groupedByHandle.has(h)) groupedByHandle.set(h, []);
+    groupedByHandle.get(h)!.push(lead);
+  }
+  // Delete duplicates, keeping the winner
+  const leadByHandle = new Map<string, (typeof existing)[0]>();
+  for (const [h, group] of groupedByHandle) {
+    if (group.length === 1) { leadByHandle.set(h, group[0]); continue; }
+    // Sort by status index descending (most advanced first)
+    group.sort((a, b) => statusOrder.indexOf(b.status) - statusOrder.indexOf(a.status));
+    const winner = group[0];
+    leadByHandle.set(h, winner);
+    // Delete the rest
+    const losers = group.slice(1);
+    await prisma.dmLead.deleteMany({ where: { id: { in: losers.map((l) => l.id) } } });
+    console.log(`[sync-pipeline] merged ${losers.length} duplicate(s) for @${h} into status=${winner.status}`);
+  }
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -87,7 +107,6 @@ async function syncClient(clientId: number, accountId: string) {
     if (!lead) continue;
 
     // Only scan if lead hasn't already been promoted past link_sent
-    const statusOrder = ["messaged", "link_sent", "booked", "no_show", "unqualified", "no_close", "closed"];
     const currentIdx = statusOrder.indexOf(lead.status);
     if (currentIdx >= statusOrder.indexOf("link_sent")) continue; // already at or past link_sent
 
