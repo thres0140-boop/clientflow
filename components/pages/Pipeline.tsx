@@ -1400,6 +1400,40 @@ function ContentDetailModal({
   const [caption, setCaption] = useState(piece.caption || "");
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [igPosting, setIgPosting] = useState(false);
+  const [igPostMsg, setIgPostMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function postToInstagramNow() {
+    const videoUrl = rawContentUrl || piece.rawContentUrl;
+    if (!videoUrl) { setIgPostMsg({ ok: false, text: "No media uploaded yet — add a video URL first." }); return; }
+    setIgPosting(true);
+    setIgPostMsg(null);
+    try {
+      const res = await fetch("/api/instagram/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: piece.clientId, caption, videoUrl, shareToFeed: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setIgPostMsg({ ok: false, text: data.error || data.message || "Instagram posting failed" });
+      } else {
+        // Update status + igMediaId in DB
+        await fetch(`/api/content/${piece.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "posted", igMediaId: data.igMediaId }),
+        });
+        onStatusChange("posted");
+        setIgPostMsg({ ok: true, text: "✓ Posted to Instagram!" });
+        onSaved();
+      }
+    } catch (err) {
+      setIgPostMsg({ ok: false, text: String(err) });
+    } finally {
+      setIgPosting(false);
+    }
+  }
 
   async function generateCaption() {
     setGeneratingCaption(true);
@@ -1599,6 +1633,25 @@ function ContentDetailModal({
             placeholder="Caption for the post… click Auto Generate to create one from your script."
             className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
         </div>
+
+        {/* Post to Instagram directly */}
+        {piece.status !== "posted" && (piece.rawContentUrl || rawContentUrl) && (
+          <div className="rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 space-y-2">
+            <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Instagram</p>
+            <button
+              onClick={postToInstagramNow}
+              disabled={igPosting}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {igPosting ? <><span className="animate-spin inline-block">⟳</span> Posting…</> : "📸 Post to Instagram Now"}
+            </button>
+            {igPostMsg && (
+              <p className={`text-xs font-medium text-center ${igPostMsg.ok ? "text-green-600" : "text-red-500"}`}>
+                {igPostMsg.text}
+              </p>
+            )}
+          </div>
+        )}
 
         <div>
           <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Update Status</p>

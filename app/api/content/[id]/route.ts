@@ -31,6 +31,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json(piece);
 }
 
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await req.json();
+  const data: Record<string, unknown> = {};
+  if (body.status !== undefined) data.status = body.status;
+  if (body.igMediaId !== undefined) data.igMediaId = body.igMediaId;
+  if (body.caption !== undefined) data.caption = body.caption;
+  if (body.scheduledDate !== undefined) data.scheduledDate = body.scheduledDate;
+  const piece = await (prisma as any).contentPiece.update({
+    where: { id: parseInt(id) },
+    data,
+  });
+  return NextResponse.json(piece);
+}
+
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await prisma.contentPiece.delete({ where: { id: parseInt(id) } });
