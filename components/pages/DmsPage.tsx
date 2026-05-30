@@ -230,11 +230,24 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
 
   async function promoteToStatus(conv: Conversation, status: string) {
     if (!selectedClientId) return;
+
+    // Always fetch fresh leads from DB — avoids stale-state duplicates when
+    // the cron has created a lead since the page last loaded.
+    const freshData = await fetch(`/api/dm-leads?clientId=${selectedClientId}`).then((r) => r.json());
+    const freshLeads: DmLead[] = Array.isArray(freshData) ? freshData : [];
+    setLeads(freshLeads);
+
     const convHandle = normalizeHandle(conv.handle);
-    const lead = leads.find((l) => normalizeHandle(l.handle) === convHandle);
-    const statusOrder = ["messaged", "link_sent", "booked", "closed"];
+    // Match by handle first; fall back to name if handle is blank
+    const lead = freshLeads.find((l) => {
+      if (convHandle) return normalizeHandle(l.handle) === convHandle;
+      return l.name.toLowerCase().trim() === conv.name.toLowerCase().trim();
+    });
+
+    const statusOrder = ["messaged", "link_sent", "booked", "no_show", "unqualified", "no_close", "closed"];
     const currentIdx = statusOrder.indexOf(lead?.status ?? "");
     const newIdx = statusOrder.indexOf(status);
+
     if (lead) {
       // Only promote, never demote
       if (newIdx > currentIdx) moveStatus(lead, status);
