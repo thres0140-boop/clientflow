@@ -47,6 +47,11 @@ export type Client = {
   scriptRules?: string | null;
   isTestAccount?: boolean;
   createdAt: string;
+  instagramConnection?: {
+    zernioAccountId: string | null;
+    accessToken: string | null;
+    igUsername: string | null;
+  } | null;
 };
 
 export type AnalyticsEntry = {

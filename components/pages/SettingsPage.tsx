@@ -5,6 +5,18 @@ import { Client, PLATFORMS } from "@/lib/types";
 import Modal from "@/components/ui/Modal";
 import ClientAvatar from "@/components/ui/ClientAvatar";
 
+// ─── Connection status badge ──────────────────────────────────────────────────
+function ConnBadge({ label, ok, warn }: { label: string; ok: boolean; warn?: boolean }) {
+  const color = ok ? "bg-green-100 text-green-700" : warn ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-400";
+  const dot   = ok ? "bg-green-500" : warn ? "bg-amber-400" : "bg-slate-300";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+      {label}
+    </span>
+  );
+}
+
 type Props = {
   clients: Client[];
   refreshClients: () => void;
@@ -64,11 +76,21 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
                 <ClientAvatar name={client.name} color={client.color} size="md" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800">{client.name}</p>
-                  <p className="text-xs text-slate-400 capitalize">{client.platform}</p>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <ConnBadge
+                      label={client.instagramConnection?.zernioAccountId ? "DMs & Scheduling" : "DMs not connected"}
+                      ok={!!client.instagramConnection?.zernioAccountId}
+                    />
+                    <ConnBadge
+                      label={client.instagramConnection?.accessToken ? "Meta connected" : "Meta not connected"}
+                      ok={!!client.instagramConnection?.accessToken}
+                    />
+                    <ConnBadge
+                      label={client.bookingLink ? "Booking link set" : "No booking link"}
+                      ok={!!client.bookingLink}
+                    />
+                  </div>
                 </div>
-                {client.notes && (
-                  <p className="text-xs text-slate-400 max-w-xs truncate hidden lg:block">{client.notes}</p>
-                )}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() => onNavigateToPipeline(client.id)}
@@ -108,6 +130,153 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
           onSaved={() => { setEditing(null); refreshClients(); }}
         />
       )}
+    </div>
+  );
+}
+
+// ─── Connections section (inside Edit Client modal) ───────────────────────────
+function ConnectionsSection({ client }: { client: Client }) {
+  const [connecting, setConnecting]         = useState(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [accounts, setAccounts]             = useState<any[]>([]);
+  const [showPicker, setShowPicker]         = useState(false);
+  const [linked, setLinked]                 = useState(!!client.instagramConnection?.zernioAccountId);
+  const [linkedUsername, setLinkedUsername] = useState(client.instagramConnection?.igUsername ?? null);
+
+  const metaConnected  = !!client.instagramConnection?.accessToken;
+  const zernioConnected = linked;
+
+  async function connectZernio() {
+    setConnecting(true);
+    try {
+      const res  = await fetch(`/api/zernio/connect?clientId=${client.id}`);
+      const data = await res.json();
+      if (data.authUrl) window.open(data.authUrl, "_blank");
+      else alert("Could not get Zernio connect URL: " + JSON.stringify(data.error));
+    } catch (e) { alert(String(e)); }
+    setConnecting(false);
+  }
+
+  async function loadAccounts() {
+    setLoadingAccounts(true);
+    setShowPicker(true);
+    try {
+      const data = await fetch("/api/zernio/accounts").then((r) => r.json());
+      setAccounts(data.accounts ?? []);
+    } catch (e) { alert(String(e)); }
+    setLoadingAccounts(false);
+  }
+
+  async function linkAccount(acc: any) {
+    const accountId = acc._id ?? acc.id;
+    const igUsername = acc.username ?? acc.igUsername ?? null;
+    await fetch("/api/zernio/link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: client.id, zernioAccountId: accountId, igUsername }),
+    });
+    setLinked(true);
+    setLinkedUsername(igUsername);
+    setShowPicker(false);
+    setAccounts([]);
+  }
+
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+        <p className="text-xs font-semibold text-slate-700">Connections</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">Everything needs to be connected here before the app works for this client.</p>
+      </div>
+
+      {/* Row 1: Zernio (DMs & Scheduling) */}
+      <div className="px-4 py-3 border-b border-slate-100">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-xs font-semibold text-slate-700">📱 DMs & Scheduling (Zernio)</p>
+              {zernioConnected
+                ? <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">● Connected{linkedUsername ? ` · @${linkedUsername}` : ""}</span>
+                : <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full font-medium">● Not connected</span>
+              }
+            </div>
+            <p className="text-[10px] text-slate-400">Required for DM inbox, sending booking links, and scheduling posts to Instagram.</p>
+          </div>
+        </div>
+        {!showPicker ? (
+          <div className="flex gap-2 mt-2.5">
+            <button
+              type="button"
+              onClick={connectZernio}
+              disabled={connecting}
+              className="px-3 py-1.5 text-[11px] font-semibold bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50"
+            >
+              {connecting ? "Opening…" : zernioConnected ? "Reconnect on Zernio ↗" : "1. Connect on Zernio ↗"}
+            </button>
+            <button
+              type="button"
+              onClick={loadAccounts}
+              className="px-3 py-1.5 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              {zernioConnected ? "Switch account" : "2. Link account here"}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2 space-y-1.5">
+            {loadingAccounts ? (
+              <p className="text-[11px] text-slate-400">Loading accounts…</p>
+            ) : accounts.length === 0 ? (
+              <p className="text-[11px] text-slate-400">No accounts found. Complete step 1 first — connect on Zernio, then try again.</p>
+            ) : (
+              accounts.map((acc: any) => {
+                const id = acc._id ?? acc.id;
+                const uname = acc.username ?? acc.igUsername ?? id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => linkAccount(acc)}
+                    className="w-full text-left px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                  >
+                    <span className="font-semibold">@{uname}</span>
+                    <span className="text-slate-400 ml-2">{id}</span>
+                  </button>
+                );
+              })
+            )}
+            <button
+              type="button"
+              onClick={() => { setShowPicker(false); setAccounts([]); }}
+              className="text-[10px] text-slate-400 hover:text-slate-600"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Row 2: Meta Instagram (reels & analytics) */}
+      <div className="px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-xs font-semibold text-slate-700">📊 Reels & Analytics (Meta)</p>
+              {metaConnected
+                ? <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">● Connected</span>
+                : <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full font-medium">● Not connected</span>
+              }
+            </div>
+            <p className="text-[10px] text-slate-400">Optional. Pulls reel performance data and follower analytics from Meta's API. Requires a Business or Creator account.</p>
+          </div>
+        </div>
+        <div className="mt-2.5">
+          <a
+            href={`/api/auth/instagram?clientId=${client.id}`}
+            className="inline-block px-3 py-1.5 text-[11px] font-semibold bg-gradient-to-r from-orange-400 to-pink-500 text-white rounded-lg hover:opacity-90"
+          >
+            {metaConnected ? "Reconnect Meta ↗" : "Connect Meta Instagram ↗"}
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
@@ -317,6 +486,10 @@ function ClientModal({
             ))}
           </div>
         </div>
+        {/* ── Connections ─────────────────────────────────────────────── */}
+        {client?.id && (
+          <ConnectionsSection client={client} />
+        )}
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Booking Link</label>
           <p className="text-[10px] text-slate-400 mb-1.5">Calendly, Cal.com, or any scheduling URL — shown as a one-tap button in DM chats.</p>
