@@ -10,11 +10,6 @@ const PROFILE_ID  = process.env.ZERNIO_PROFILE_ID!;
 //   1. Fetch conversations → auto-create "messaged" leads for new DMs
 //   2. Scan outgoing messages for booking link → promote to "link_sent"
 export async function GET(req: NextRequest) {
-  // Verify this is a legitimate cron call (Vercel sets this header)
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // All clients with a connected Zernio account
   const connections = await prisma.instagramConnection.findMany({
