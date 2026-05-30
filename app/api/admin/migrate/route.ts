@@ -14,7 +14,11 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "InstagramConnection"
       ADD COLUMN IF NOT EXISTS "zernioAccountId" TEXT;
     `;
-    return NextResponse.json({ ok: true, message: "Migration complete — zernioAccountId column ensured." });
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "ContentPiece"
+      ADD COLUMN IF NOT EXISTS "igMediaId" TEXT;
+    `;
+    return NextResponse.json({ ok: true, message: "Migration complete — zernioAccountId and igMediaId columns ensured." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

@@ -264,6 +264,7 @@ model ContentPiece {
   notes          String?
   currentStageId Int?
   rawContentUrl  String?
+  igMediaId      String?
   createdAt      DateTime @default(now())
 
   client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
