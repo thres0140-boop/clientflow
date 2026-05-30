@@ -2,18 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  const { searchParams, origin } = req.nextUrl;
+  const { searchParams } = req.nextUrl;
   const code = searchParams.get("code");
   const clientId = searchParams.get("state");
   const error = searchParams.get("error");
 
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://www.ordoagency.com").replace(/\/$/, "");
+
   if (error || !code || !clientId) {
-    return NextResponse.redirect(`${origin}/?ig_error=auth_failed`);
+    return NextResponse.redirect(`${appUrl}/?ig_error=auth_failed`);
   }
 
   const appId = process.env.INSTAGRAM_APP_ID!;
   const appSecret = process.env.INSTAGRAM_APP_SECRET!;
-  const redirectUri = `${origin}/api/auth/instagram/callback`;
+  const redirectUri = `${appUrl}/api/auth/instagram/callback`;
 
   try {
     // 1. Exchange code for short-lived token
@@ -65,9 +67,9 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.redirect(`${origin}/?ig_connected=1`);
+    return NextResponse.redirect(`${appUrl}/?ig_connected=1`);
   } catch (err) {
     console.error("Instagram OAuth error:", err);
-    return NextResponse.redirect(`${origin}/?ig_error=server_error`);
+    return NextResponse.redirect(`${appUrl}/?ig_error=server_error`);
   }
 }

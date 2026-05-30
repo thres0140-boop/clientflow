@@ -5,8 +5,10 @@ export async function GET(req: NextRequest) {
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
 
   const appId = process.env.INSTAGRAM_APP_ID!;
-  const origin = req.nextUrl.origin;
-  const redirectUri = `${origin}/api/auth/instagram/callback`;
+  // Use the canonical app URL from env — req.nextUrl.origin resolves to the
+  // internal Vercel deployment URL behind the proxy, not the custom domain.
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://www.ordoagency.com").replace(/\/$/, "");
+  const redirectUri = `${appUrl}/api/auth/instagram/callback`;
 
   const url = new URL("https://www.instagram.com/oauth/authorize");
   url.searchParams.set("client_id", appId);
