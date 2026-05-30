@@ -323,6 +323,24 @@ function ClientModal({
           <input type="url" value={form.bookingLink} onChange={(e) => set("bookingLink", e.target.value)}
             placeholder="https://calendly.com/yourname"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          {client?.id && (
+            <div className="mt-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              <p className="text-[10px] font-medium text-slate-500 mb-1">📡 Booking Webhook URL</p>
+              <p className="text-[10px] text-slate-400 mb-1.5">Add this to Calendly → Webhooks or Cal.com → Developer → Webhooks. When someone books, the lead is auto-moved to <strong>Booked</strong>.</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-[10px] bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 truncate">
+                  {`https://ordoagency.com/api/webhooks/booking?clientId=${client.id}`}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(`https://ordoagency.com/api/webhooks/booking?clientId=${client.id}`)}
+                  className="text-[10px] px-2 py-1 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 flex-shrink-0"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
