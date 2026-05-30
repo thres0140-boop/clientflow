@@ -182,12 +182,9 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function sendReply() {
-    if (!replyText.trim() || !selectedConv || !selectedClientId) return;
+  async function sendMessage(text: string) {
+    if (!text.trim() || !selectedConv || !selectedClientId) return;
     setSending(true);
-    const text = replyText.trim();
-    setReplyText("");
-    // Optimistic update
     const optimistic: Message = {
       id: `opt-${Date.now()}`, text, fromId: "me", fromName: "You",
       isOwn: true, createdTime: new Date().toISOString(),
@@ -208,13 +205,53 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
       if (data.error) {
         alert(`Send failed: ${data.error}`);
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-        setReplyText(text);
+        return text; // return so caller can restore input
       } else {
         loadLeads();
         setTimeout(() => loadMessages(selectedConv), 1500);
       }
     } finally {
       setSending(false);
+    }
+  }
+
+  async function sendReply() {
+    if (!replyText.trim()) return;
+    const text = replyText.trim();
+    setReplyText("");
+    const failed = await sendMessage(text);
+    if (failed) setReplyText(failed);
+  }
+
+  async function sendBookingLink() {
+    const bookingLink = client?.bookingLink;
+    if (!bookingLink) {
+      alert("No booking link set for this client. Add one in Settings.");
+      return;
+    }
+    await sendMessage(bookingLink);
+    // Move this conversation's lead to link_sent if they're in messaged
+    if (selectedConv?.handle && selectedClientId) {
+      const lead = leads.find(
+        (l) => l.handle?.toLowerCase() === selectedConv.handle?.toLowerCase()
+      );
+      if (lead && lead.status === "messaged") {
+        moveStatus(lead, "link_sent");
+      } else if (!lead) {
+        // Create them directly as link_sent
+        await fetch("/api/dm-leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: selectedClientId,
+            name: selectedConv.name,
+            handle: selectedConv.handle,
+            status: "link_sent",
+            date: toYMD(new Date()),
+          }),
+        });
+        loadLeads();
+      }
     }
   }
 
@@ -536,7 +573,20 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
                 </div>
 
                 {/* Reply input */}
-                <div className="px-4 py-3 border-t border-slate-200 flex-shrink-0 bg-white">
+                <div className="px-4 py-3 border-t border-slate-200 flex-shrink-0 bg-white space-y-2">
+                  {/* Quick actions */}
+                  {client?.bookingLink && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={sendBookingLink}
+                        disabled={sending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 disabled:opacity-40 transition-colors border border-emerald-200"
+                      >
+                        🔗 Send Booking Link
+                      </button>
+                      <span className="text-[10px] text-slate-400 truncate max-w-[200px]">{client.bookingLink}</span>
+                    </div>
+                  )}
                   <div className="flex items-end gap-2">
                     <textarea
                       value={replyText}
