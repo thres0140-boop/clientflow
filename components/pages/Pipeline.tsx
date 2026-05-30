@@ -1409,23 +1409,29 @@ function ContentDetailModal({
     setIgPosting(true);
     setIgPostMsg(null);
     try {
-      const res = await fetch("/api/instagram/publish", {
+      // Post immediately via Zernio (same path as the main Post to Instagram modal)
+      const res = await fetch("/api/zernio/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: piece.clientId, caption, videoUrl, shareToFeed: true }),
+        body: JSON.stringify({
+          clientId: piece.clientId,
+          content: caption,
+          mediaUrls: [videoUrl],
+          // no scheduledFor = post now
+        }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        setIgPostMsg({ ok: false, text: data.error || data.message || "Instagram posting failed" });
+        setIgPostMsg({ ok: false, text: data.error || data.message || "Posting failed" });
       } else {
-        // Update status + igMediaId in DB
+        // Mark as posted in DB
         await fetch(`/api/content/${piece.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "posted", igMediaId: data.igMediaId }),
+          body: JSON.stringify({ status: "posted" }),
         });
         onStatusChange("posted");
-        setIgPostMsg({ ok: true, text: "✓ Posted to Instagram!" });
+        setIgPostMsg({ ok: true, text: "✓ Posted to Instagram via Zernio!" });
         onSaved();
       }
     } catch (err) {
