@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
 
   const appId = process.env.INSTAGRAM_APP_ID!;
   const appSecret = process.env.INSTAGRAM_APP_SECRET!;
-  const redirectUri = `${appUrl}/api/auth/instagram/callback`;
+  // Must exactly match the redirect_uri used in the authorization request
+  const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || "https://clientflow-ten.vercel.app/api/auth/instagram/callback";
 
   try {
     // 1. Exchange code for short-lived token
