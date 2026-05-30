@@ -10,14 +10,14 @@ export async function GET(req: NextRequest) {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://www.ordoagency.com").replace(/\/$/, "");
   const redirectUri = `${appUrl}/api/auth/instagram/callback`;
 
-  const url = new URL("https://www.instagram.com/oauth/authorize");
+  // instagram_business_* scopes require the Facebook/Meta dialog, NOT instagram.com/oauth/authorize
+  // (which is only for the consumer Instagram Platform with instagram_basic scopes)
+  const url = new URL("https://www.facebook.com/dialog/oauth");
   url.searchParams.set("client_id", appId);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("scope", "instagram_business_basic,instagram_business_manage_insights,instagram_business_manage_messages");
   url.searchParams.set("state", clientId);
   url.searchParams.set("response_type", "code");
-  // auth_type=rerequest is Facebook Login-specific and not valid for instagram.com/oauth/authorize
-  // url.searchParams.set("auth_type", "rerequest");
 
   // Debug: return the URL as JSON if ?debug=1 is passed
   if (req.nextUrl.searchParams.get("debug") === "1") {
