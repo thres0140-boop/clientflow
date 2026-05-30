@@ -957,10 +957,10 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
     setPostedNow(postNow);
     setErrorMsg("");
     try {
-      let scheduledFor: string | undefined;
-      if (!postNow) {
-        scheduledFor = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
-      }
+      // postNow = schedule for right now so Zernio publishes immediately (no scheduledFor = draft)
+      const scheduledFor = postNow
+        ? new Date().toISOString()
+        : new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
       const res = await fetch("/api/zernio/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1409,7 +1409,7 @@ function ContentDetailModal({
     setIgPosting(true);
     setIgPostMsg(null);
     try {
-      // Post immediately via Zernio (same path as the main Post to Instagram modal)
+      // Post immediately via Zernio — set scheduledFor to now so Zernio publishes right away
       const res = await fetch("/api/zernio/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1417,7 +1417,7 @@ function ContentDetailModal({
           clientId: piece.clientId,
           content: caption,
           mediaUrls: [videoUrl],
-          // no scheduledFor = post now
+          scheduledFor: new Date().toISOString(),
         }),
       });
       const data = await res.json();
