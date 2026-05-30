@@ -126,10 +126,6 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
           unreadCount: c.unreadCount ?? c.unread_count ?? 0,
         }));
         setConversations(convs);
-        // Background: check messages for booking link already sent outside the app
-        if (client?.bookingLink) {
-          syncPipelineFromMessages(convs).catch(() => {});
-        }
       }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);

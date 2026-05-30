@@ -3,6 +3,10 @@
     {
       "path": "/api/unipile/sync-followers",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/sync-pipeline",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
