@@ -38,7 +38,7 @@ async function syncClient(clientId: number, accessToken: string) {
   let mediaItems: any[] = [];
   try {
     const mediaUrl = new URL(`${IG_BASE}/me/media`);
-    mediaUrl.searchParams.set("fields", "id,media_type,timestamp,like_count,comments_count");
+    mediaUrl.searchParams.set("fields", "id,media_type,media_product_type,timestamp,like_count,comments_count");
     mediaUrl.searchParams.set("access_token", accessToken);
     mediaUrl.searchParams.set("limit", "50");
 
@@ -60,8 +60,11 @@ async function syncClient(clientId: number, accessToken: string) {
   }
 
   // ─── Step B: link media to ContentPieces by timestamp (±3 hours) ────────
+  // Instagram Graph API: media_type is "VIDEO" for both regular videos and Reels.
+  // media_product_type === "REELS" distinguishes Reels from regular videos.
+  // We accept both here since we want to link any video content.
   const videoItems = mediaItems.filter(
-    (m: any) => m.media_type === "VIDEO" || m.media_type === "REELS"
+    (m: any) => m.media_type === "VIDEO" || m.media_product_type === "REELS"
   );
 
   for (const media of videoItems) {
@@ -83,7 +86,7 @@ async function syncClient(clientId: number, accessToken: string) {
       if (Math.abs(pieceTs - mediaTs) <= THREE_HOURS) {
         await (prisma as any).contentPiece.update({
           where: { id: piece.id },
-          data: { igMediaId: media.id },
+          data: { igMediaId: media.id, status: "posted" },
         });
         linked++;
         break; // one media → one piece
