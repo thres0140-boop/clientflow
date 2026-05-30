@@ -126,10 +126,14 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
           unreadCount: c.unreadCount ?? c.unread_count ?? 0,
         }));
         setConversations(convs);
+        // Background: check messages for booking link already sent outside the app
+        if (client?.bookingLink) {
+          syncPipelineFromMessages(convs).catch(() => {});
+        }
       }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);
-  }, [selectedClientId]);
+  }, [selectedClientId, client?.bookingLink]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (view === "inbox") loadInbox();
@@ -223,35 +227,69 @@ export default function DmsPage({ clients, selectedClientId }: Props) {
     if (failed) setReplyText(failed);
   }
 
+  // Strip @ from handle for consistent comparison
+  function normalizeHandle(h: string | null | undefined) {
+    return (h ?? "").replace(/^@/, "").toLowerCase().trim();
+  }
+
+  async function promoteToStatus(conv: Conversation, status: string) {
+    if (!selectedClientId) return;
+    const convHandle = normalizeHandle(conv.handle);
+    const lead = leads.find((l) => normalizeHandle(l.handle) === convHandle);
+    const statusOrder = ["messaged", "link_sent", "booked", "closed"];
+    const currentIdx = statusOrder.indexOf(lead?.status ?? "");
+    const newIdx = statusOrder.indexOf(status);
+    if (lead) {
+      // Only promote, never demote
+      if (newIdx > currentIdx) moveStatus(lead, status);
+    } else {
+      // Not in pipeline yet — create at this status
+      await fetch("/api/dm-leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: selectedClientId,
+          name: conv.name,
+          handle: conv.handle?.replace(/^@/, "") || null,
+          status,
+          date: toYMD(new Date()),
+        }),
+      });
+      loadLeads();
+    }
+  }
+
   async function sendBookingLink() {
     const bookingLink = client?.bookingLink;
     if (!bookingLink) {
       alert("No booking link set for this client. Add one in Settings.");
       return;
     }
+    if (!selectedConv) return;
     await sendMessage(bookingLink);
-    // Move this conversation's lead to link_sent if they're in messaged
-    if (selectedConv?.handle && selectedClientId) {
-      const lead = leads.find(
-        (l) => l.handle?.toLowerCase() === selectedConv.handle?.toLowerCase()
-      );
-      if (lead && lead.status === "messaged") {
-        moveStatus(lead, "link_sent");
-      } else if (!lead) {
-        // Create them directly as link_sent
-        await fetch("/api/dm-leads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId: selectedClientId,
-            name: selectedConv.name,
-            handle: selectedConv.handle,
-            status: "link_sent",
-            date: toYMD(new Date()),
-          }),
-        });
-        loadLeads();
-      }
+    await promoteToStatus(selectedConv, "link_sent");
+  }
+
+  // Scan recent messages for all conversations and auto-sync pipeline status.
+  // Runs in background after inbox loads — checks if booking link was already sent.
+  async function syncPipelineFromMessages(convs: Conversation[]) {
+    const bookingLink = client?.bookingLink;
+    if (!bookingLink || !selectedClientId) return;
+    // Only check convs that are in the pipeline or might match
+    for (const conv of convs.slice(0, 30)) { // limit to latest 30 to avoid hammering API
+      try {
+        const data = await fetch(
+          `/api/zernio/conversations/${conv.id}/messages?clientId=${selectedClientId}`
+        ).then((r) => r.json());
+        if (data.error) continue;
+        const raw: any[] = data.messages ?? data.items ?? data.data ?? [];
+        const hasLinkSent = raw.some(
+          (m: any) =>
+            (m.direction === "outgoing" || m.isOwn) &&
+            (m.message ?? m.text ?? "").includes(bookingLink)
+        );
+        if (hasLinkSent) await promoteToStatus(conv, "link_sent");
+      } catch { /* ignore per-conv errors */ }
     }
   }
 
