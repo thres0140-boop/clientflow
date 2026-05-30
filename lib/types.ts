@@ -188,6 +188,7 @@ export type ContentPiece = {
   notes?: string | null;
   currentStageId?: number | null;
   rawContentUrl?: string | null;
+  igMediaId?: string | null;
   createdAt: string;
   client?: { name: string; color: string };
   concept?: { name: string } | null;

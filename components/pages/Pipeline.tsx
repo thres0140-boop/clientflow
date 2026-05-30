@@ -413,20 +413,28 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                           </div>
                         )}
                         <div className="space-y-1">
-                          {pieces.slice(0, 3).map((piece) => (
-                            <button
-                              key={piece.id}
-                              onClick={() => setSelected(piece)}
-                              className="w-full text-left rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight hover:opacity-90 transition-opacity truncate"
-                              style={{
-                                backgroundColor: (piece.client?.color || "#6366f1") + "20",
-                                borderLeft: `2px solid ${piece.client?.color || "#6366f1"}`,
-                                color: "#1e293b",
-                              }}
-                            >
-                              <div className="truncate">{piece.title}</div>
-                            </button>
-                          ))}
+                          {pieces.slice(0, 3).map((piece) => {
+                            const isPosted = piece.status === "posted" || !!piece.igMediaId;
+                            return (
+                              <button
+                                key={piece.id}
+                                onClick={() => setSelected(piece)}
+                                className="w-full text-left rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight hover:opacity-90 transition-opacity truncate"
+                                style={isPosted ? {
+                                  backgroundColor: "#dcfce7",
+                                  borderLeft: "2px solid #16a34a",
+                                  color: "#15803d",
+                                } : {
+                                  backgroundColor: (piece.client?.color || "#6366f1") + "20",
+                                  borderLeft: `2px solid ${piece.client?.color || "#6366f1"}`,
+                                  color: "#1e293b",
+                                }}
+                              >
+                                <div className="truncate">{piece.title}</div>
+                                {isPosted && <div className="text-[8px] font-semibold text-green-600 mt-0.5">✓ Posted</div>}
+                              </button>
+                            );
+                          })}
                           {pieces.length > 3 && (
                             <p className="text-[9px] text-slate-400 pl-1">+{pieces.length - 3} more</p>
                           )}
@@ -461,8 +469,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
             /* Week view */
             <div className="grid grid-cols-7 divide-x divide-slate-100">
               {weekDays.map((date, i) => {
-                const pieces = content.filter((c) => c.scheduledDate === date);
-                const draftsOnDay = scheduledDrafts.filter((d) => d.scheduledDate === date);
+                const pieces = content.filter((c) => c.scheduledDate?.startsWith(date));
+                const draftsOnDay = scheduledDrafts.filter((d) => d.scheduledDate?.startsWith(date));
                 const isToday = date === todayStr;
                 const isDragTargetWeek = date === dragOverDate && dragDraftId !== null;
                 const templateConceptId = dayTemplate[i];
@@ -489,21 +497,32 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                       </div>
                     )}
                     <div className="flex-1 space-y-1.5">
-                      {pieces.map((piece) => (
-                        <button
-                          key={piece.id}
-                          onClick={() => setSelected(piece)}
-                          className="w-full text-left rounded-lg px-2 py-2 text-xs hover:opacity-90 transition-opacity"
-                          style={{
-                            backgroundColor: (piece.client?.color || "#6366f1") + "18",
-                            borderLeft: `3px solid ${piece.client?.color || "#6366f1"}`,
-                          }}
-                        >
-                          <p className="font-semibold text-slate-800 truncate leading-snug">{piece.title}</p>
-                          {piece.concept && <p className="text-slate-400 truncate text-[10px] mt-0.5">💡 {piece.concept.name}</p>}
-                          <div className="mt-1"><StatusBadge status={piece.status} /></div>
-                        </button>
-                      ))}
+                      {pieces.map((piece) => {
+                        const isPosted = piece.status === "posted" || !!piece.igMediaId;
+                        return (
+                          <button
+                            key={piece.id}
+                            onClick={() => setSelected(piece)}
+                            className="w-full text-left rounded-lg px-2 py-2 text-xs hover:opacity-90 transition-opacity"
+                            style={isPosted ? {
+                              backgroundColor: "#dcfce7",
+                              borderLeft: "3px solid #16a34a",
+                            } : {
+                              backgroundColor: (piece.client?.color || "#6366f1") + "18",
+                              borderLeft: `3px solid ${piece.client?.color || "#6366f1"}`,
+                            }}
+                          >
+                            <p className={`font-semibold truncate leading-snug ${isPosted ? "text-green-800" : "text-slate-800"}`}>{piece.title}</p>
+                            {piece.concept && <p className={`truncate text-[10px] mt-0.5 ${isPosted ? "text-green-600" : "text-slate-400"}`}>💡 {piece.concept.name}</p>}
+                            <div className="mt-1">
+                              {isPosted
+                                ? <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-100 rounded px-1.5 py-0.5">✓ Posted</span>
+                                : <StatusBadge status={piece.status} />
+                              }
+                            </div>
+                          </button>
+                        );
+                      })}
                       {draftsOnDay.map((draft) => (
                         <div
                           key={`d-${draft.id}`}
