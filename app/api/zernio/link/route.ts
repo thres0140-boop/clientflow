@@ -18,3 +18,18 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
+
+// DELETE /api/zernio/link  { clientId }
+// Clears the Zernio account link for a client.
+export async function DELETE(req: NextRequest) {
+  const { clientId } = await req.json();
+  if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
+
+  const cid = parseInt(clientId);
+  await prisma.instagramConnection.updateMany({
+    where: { clientId: cid },
+    data:  { zernioAccountId: null, igUsername: null },
+  });
+
+  return NextResponse.json({ ok: true });
+}

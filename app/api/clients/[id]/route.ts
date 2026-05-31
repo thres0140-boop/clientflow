@@ -24,6 +24,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await prisma.client.delete({ where: { id: parseInt(id) } });
-  return NextResponse.json({ ok: true });
+  try {
+    await prisma.client.delete({ where: { id: parseInt(id) } });
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    console.error("[DELETE client]", err);
+    return NextResponse.json({ error: err?.message ?? "Delete failed" }, { status: 500 });
+  }
 }

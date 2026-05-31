@@ -35,7 +35,12 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
 
   async function deleteClient(id: number) {
     if (!confirm("Delete this client? All their content and concepts will also be deleted.")) return;
-    await fetch(`/api/clients/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/clients/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert("Delete failed: " + (err?.error ?? res.statusText));
+      return;
+    }
     refreshClients();
   }
 
@@ -142,9 +147,25 @@ function ConnectionsSection({ client }: { client: Client }) {
   const [showPicker, setShowPicker]         = useState(false);
   const [linked, setLinked]                 = useState(!!client.instagramConnection?.zernioAccountId);
   const [linkedUsername, setLinkedUsername] = useState(client.instagramConnection?.igUsername ?? null);
+  const [disconnecting, setDisconnecting]   = useState(false);
 
   const metaConnected  = !!client.instagramConnection?.accessToken;
   const zernioConnected = linked;
+
+  async function disconnectZernio() {
+    if (!confirm("Disconnect Zernio for this client? DMs and scheduling will stop working.")) return;
+    setDisconnecting(true);
+    try {
+      await fetch("/api/zernio/link", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: client.id }),
+      });
+      setLinked(false);
+      setLinkedUsername(null);
+    } catch (e) { alert(String(e)); }
+    setDisconnecting(false);
+  }
 
   async function connectZernio() {
     setConnecting(true);
@@ -203,7 +224,7 @@ function ConnectionsSection({ client }: { client: Client }) {
           </div>
         </div>
         {!showPicker ? (
-          <div className="flex gap-2 mt-2.5">
+          <div className="flex flex-wrap gap-2 mt-2.5">
             <button
               type="button"
               onClick={connectZernio}
@@ -219,6 +240,16 @@ function ConnectionsSection({ client }: { client: Client }) {
             >
               {zernioConnected ? "Switch account" : "2. Link account here"}
             </button>
+            {zernioConnected && (
+              <button
+                type="button"
+                onClick={disconnectZernio}
+                disabled={disconnecting}
+                className="px-3 py-1.5 text-[11px] font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
+              >
+                {disconnecting ? "Disconnecting…" : "Disconnect"}
+              </button>
+            )}
           </div>
         ) : (
           <div className="mt-2 space-y-1.5">
