@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// GET — debug: show all instagram connections
+export async function GET(req: NextRequest) {
+  const secret = req.nextUrl.searchParams.get("token");
+  if (secret !== "zernio-migrate-2024") return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const rows = await (prisma as any).$queryRaw`
+    SELECT c.id, c.name, ic."zernioAccountId", ic."zernioProfileId", ic."igUsername"
+    FROM "Client" c
+    LEFT JOIN "InstagramConnection" ic ON ic."clientId" = c.id
+    ORDER BY c.name
+  `;
+  return NextResponse.json(rows);
+}
+
 // One-time migration endpoint — adds columns that are new in the schema.
 // Call once after deploy, then this is a no-op (IF NOT EXISTS is safe to re-run).
 export async function POST(req: NextRequest) {
