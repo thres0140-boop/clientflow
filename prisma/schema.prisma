@@ -53,6 +53,7 @@ model InstagramConnection {
   followers         Int?
   unipileAccountId  String?
   zernioAccountId   String?
+  zernioProfileId   String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

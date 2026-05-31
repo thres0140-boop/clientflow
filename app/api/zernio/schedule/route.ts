@@ -20,8 +20,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "no_zernio_account" }, { status: 400 });
   }
 
+  const profileId = (conn as any).zernioProfileId || PROFILE_ID;
+
   const body: Record<string, unknown> = {
-    profileId: PROFILE_ID,
+    profileId,
     content,
     platforms: [{ platform: "instagram", accountId: conn.zernioAccountId }],
   };

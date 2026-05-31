@@ -7,9 +7,11 @@ const PROFILE_ID  = process.env.ZERNIO_PROFILE_ID!;
 // GET /api/zernio/accounts
 // Returns all Instagram accounts connected to this Zernio profile.
 // Used so users can pick which account to link to which client.
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  // Allow per-client profile ID override
+  const profileId = req.nextUrl.searchParams.get("profileId") || PROFILE_ID;
   const res = await fetch(
-    `${ZERNIO_BASE}/accounts?profileId=${PROFILE_ID}&platform=instagram`,
+    `${ZERNIO_BASE}/accounts?profileId=${profileId}&platform=instagram`,
     {
       headers: {
         Authorization: `Bearer ${ZERNIO_KEY}`,

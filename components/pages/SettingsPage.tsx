@@ -148,6 +148,7 @@ function ConnectionsSection({ client }: { client: Client }) {
   const [linked, setLinked]                 = useState(!!client.instagramConnection?.zernioAccountId);
   const [linkedUsername, setLinkedUsername] = useState(client.instagramConnection?.igUsername ?? null);
   const [disconnecting, setDisconnecting]   = useState(false);
+  const [profileId, setProfileId]           = useState((client.instagramConnection as any)?.zernioProfileId ?? "");
 
   const metaConnected  = !!client.instagramConnection?.accessToken;
   const zernioConnected = linked;
@@ -179,11 +180,15 @@ function ConnectionsSection({ client }: { client: Client }) {
   }
 
   async function loadAccounts() {
+    if (!profileId.trim()) {
+      alert("Paste the Zernio Profile ID first (the ID shown next to the profile name in Zernio).");
+      return;
+    }
     setLoadingAccounts(true);
     setShowPicker(true);
     try {
-      const data = await fetch("/api/zernio/accounts").then((r) => r.json());
-      setAccounts(data.accounts ?? []);
+      const data = await fetch(`/api/zernio/accounts?profileId=${encodeURIComponent(profileId.trim())}`).then((r) => r.json());
+      setAccounts(data.accounts ?? data ?? []);
     } catch (e) { alert(String(e)); }
     setLoadingAccounts(false);
   }
@@ -194,7 +199,7 @@ function ConnectionsSection({ client }: { client: Client }) {
     await fetch("/api/zernio/link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: client.id, zernioAccountId: accountId, igUsername }),
+      body: JSON.stringify({ clientId: client.id, zernioAccountId: accountId, igUsername, zernioProfileId: profileId.trim() }),
     });
     setLinked(true);
     setLinkedUsername(igUsername);
@@ -223,6 +228,21 @@ function ConnectionsSection({ client }: { client: Client }) {
             <p className="text-[10px] text-slate-400">Required for DM inbox, sending booking links, and scheduling posts to Instagram.</p>
           </div>
         </div>
+        {/* Zernio Profile ID input */}
+        <div className="mt-2.5">
+          <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+            Zernio Profile ID
+            <span className="ml-1 font-normal text-slate-400">(copy from the ID shown next to profile name in Zernio)</span>
+          </label>
+          <input
+            type="text"
+            value={profileId}
+            onChange={(e) => setProfileId(e.target.value)}
+            placeholder="e.g. 6a19c5997e0625080d4974cb"
+            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 font-mono"
+          />
+        </div>
+
         {!showPicker ? (
           <div className="flex flex-wrap gap-2 mt-2.5">
             <button

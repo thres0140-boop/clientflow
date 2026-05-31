@@ -20,8 +20,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "no_zernio_account" }, { status: 200 });
   }
 
+  const profileId = (conn as any).zernioProfileId || PROFILE_ID;
+
   const url = new URL(`${ZERNIO_BASE}/inbox/conversations`);
-  url.searchParams.set("profileId", PROFILE_ID);
+  url.searchParams.set("profileId", profileId);
   url.searchParams.set("accountId", conn.zernioAccountId);
   url.searchParams.set("platform", "instagram");
 

@@ -4,16 +4,16 @@ import { prisma } from "@/lib/prisma";
 // POST /api/zernio/link  { clientId, zernioAccountId, igUsername? }
 // Links a Zernio social account to a client in our DB.
 export async function POST(req: NextRequest) {
-  const { clientId, zernioAccountId, igUsername } = await req.json();
+  const { clientId, zernioAccountId, igUsername, zernioProfileId } = await req.json();
   if (!clientId || !zernioAccountId) {
     return NextResponse.json({ error: "clientId and zernioAccountId required" }, { status: 400 });
   }
 
   const cid = parseInt(clientId);
-  await prisma.instagramConnection.upsert({
+  await (prisma as any).instagramConnection.upsert({
     where:  { clientId: cid },
-    create: { clientId: cid, accessToken: "", igUserId: "", zernioAccountId, igUsername: igUsername ?? null },
-    update: { zernioAccountId, ...(igUsername ? { igUsername } : {}) },
+    create: { clientId: cid, accessToken: "", igUserId: "", zernioAccountId, igUsername: igUsername ?? null, zernioProfileId: zernioProfileId ?? null },
+    update: { zernioAccountId, zernioProfileId: zernioProfileId ?? null, ...(igUsername ? { igUsername } : {}) },
   });
 
   return NextResponse.json({ ok: true });
