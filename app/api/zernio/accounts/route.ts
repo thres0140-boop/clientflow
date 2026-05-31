@@ -20,6 +20,6 @@ export async function GET(req: NextRequest) {
     }
   );
   const data = await res.json();
-  if (!res.ok) return NextResponse.json({ error: data?.message ?? "Failed" }, { status: 400 });
+  if (!res.ok) return NextResponse.json({ error: data?.message ?? data?.error ?? JSON.stringify(data), raw: data }, { status: 400 });
   return NextResponse.json(data);
 }

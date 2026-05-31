@@ -178,7 +178,7 @@ function ConnectionsSection({ client }: { client: Client }) {
       const res  = await fetch(`/api/zernio/accounts?profileId=${encodeURIComponent(profileId.trim())}`);
       const data = await res.json();
       if (!res.ok) {
-        alert("Could not load accounts: " + (data?.error ?? res.status));
+        alert("Zernio error: " + (data?.error ?? res.status) + (data?.raw ? "\n\nRaw: " + JSON.stringify(data.raw) : ""));
         setShowPicker(false);
         setLoadingAccounts(false);
         return;
