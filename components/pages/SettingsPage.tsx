@@ -141,7 +141,6 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
 
 // ─── Connections section (inside Edit Client modal) ───────────────────────────
 function ConnectionsSection({ client }: { client: Client }) {
-  const [connecting, setConnecting]         = useState(false);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [accounts, setAccounts]             = useState<any[]>([]);
   const [showPicker, setShowPicker]         = useState(false);
@@ -166,17 +165,6 @@ function ConnectionsSection({ client }: { client: Client }) {
       setLinkedUsername(null);
     } catch (e) { alert(String(e)); }
     setDisconnecting(false);
-  }
-
-  async function connectZernio() {
-    setConnecting(true);
-    try {
-      const res  = await fetch(`/api/zernio/connect?clientId=${client.id}`);
-      const data = await res.json();
-      if (data.authUrl) window.open(data.authUrl, "_blank");
-      else alert("Could not get Zernio connect URL: " + JSON.stringify(data.error));
-    } catch (e) { alert(String(e)); }
-    setConnecting(false);
   }
 
   async function loadAccounts() {
@@ -247,18 +235,10 @@ function ConnectionsSection({ client }: { client: Client }) {
           <div className="flex flex-wrap gap-2 mt-2.5">
             <button
               type="button"
-              onClick={connectZernio}
-              disabled={connecting}
-              className="px-3 py-1.5 text-[11px] font-semibold bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50"
-            >
-              {connecting ? "Opening…" : zernioConnected ? "Reconnect on Zernio ↗" : "1. Connect on Zernio ↗"}
-            </button>
-            <button
-              type="button"
               onClick={loadAccounts}
               className="px-3 py-1.5 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
             >
-              {zernioConnected ? "Switch account" : "2. Link account here"}
+              {zernioConnected ? "Switch account" : "Link account here"}
             </button>
             {zernioConnected && (
               <button
@@ -276,7 +256,7 @@ function ConnectionsSection({ client }: { client: Client }) {
             {loadingAccounts ? (
               <p className="text-[11px] text-slate-400">Loading accounts…</p>
             ) : accounts.length === 0 ? (
-              <p className="text-[11px] text-slate-400">No accounts found. Complete step 1 first — connect on Zernio, then try again.</p>
+              <p className="text-[11px] text-slate-400">No accounts found. Make sure the Zernio Profile ID is correct and Instagram is connected in Zernio, then try again.</p>
             ) : (
               accounts.map((acc: any) => {
                 const id = acc._id ?? acc.id;
