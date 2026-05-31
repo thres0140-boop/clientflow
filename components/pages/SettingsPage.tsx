@@ -206,11 +206,16 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
   async function linkAccount(acc: any) {
     const accountId = acc._id ?? acc.id;
     const igUsername = acc.username ?? acc.igUsername ?? null;
-    await fetch("/api/zernio/link", {
+    const res = await fetch("/api/zernio/link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clientId: client.id, zernioAccountId: accountId, igUsername, zernioProfileId: profileId.trim() }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert("Failed to save: " + (err?.error ?? res.status));
+      return;
+    }
     setLinked(true);
     setLinkedUsername(igUsername);
     setShowPicker(false);

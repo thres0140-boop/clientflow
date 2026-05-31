@@ -6,7 +6,7 @@ export async function GET() {
     orderBy: { name: "asc" },
     include: {
       instagramConnection: {
-        select: { zernioAccountId: true, accessToken: true, igUsername: true },
+        select: { zernioAccountId: true, accessToken: true, igUsername: true, zernioProfileId: true },
       },
     },
   });
