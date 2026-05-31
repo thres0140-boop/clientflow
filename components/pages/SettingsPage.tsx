@@ -175,9 +175,20 @@ function ConnectionsSection({ client }: { client: Client }) {
     setLoadingAccounts(true);
     setShowPicker(true);
     try {
-      const data = await fetch(`/api/zernio/accounts?profileId=${encodeURIComponent(profileId.trim())}`).then((r) => r.json());
-      setAccounts(data.accounts ?? data ?? []);
-    } catch (e) { alert(String(e)); }
+      const res  = await fetch(`/api/zernio/accounts?profileId=${encodeURIComponent(profileId.trim())}`);
+      const data = await res.json();
+      if (!res.ok) {
+        alert("Could not load accounts: " + (data?.error ?? res.status));
+        setShowPicker(false);
+        setLoadingAccounts(false);
+        return;
+      }
+      const list = Array.isArray(data) ? data : Array.isArray(data.accounts) ? data.accounts : Array.isArray(data.data) ? data.data : [];
+      setAccounts(list);
+    } catch (e) {
+      alert("Network error: " + String(e));
+      setShowPicker(false);
+    }
     setLoadingAccounts(false);
   }
 
