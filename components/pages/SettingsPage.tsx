@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Client, PLATFORMS } from "@/lib/types";
 import Modal from "@/components/ui/Modal";
 import ClientAvatar from "@/components/ui/ClientAvatar";
@@ -32,6 +32,15 @@ const COLORS = [
 export default function SettingsPage({ clients, refreshClients, onNavigateToPipeline }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
+
+  // Keep editing in sync when clients refresh (e.g. after linking Zernio)
+  useEffect(() => {
+    if (editing) {
+      const updated = clients.find((c) => c.id === editing.id);
+      if (updated) setEditing(updated);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
 
   async function deleteClient(id: number) {
     if (!confirm("Delete this client? All their content and concepts will also be deleted.")) return;
@@ -133,6 +142,7 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
           client={editing}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); refreshClients(); }}
+          onRefresh={refreshClients}
         />
       )}
     </div>
@@ -140,7 +150,7 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
 }
 
 // ─── Connections section (inside Edit Client modal) ───────────────────────────
-function ConnectionsSection({ client }: { client: Client }) {
+function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: () => void }) {
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [accounts, setAccounts]             = useState<any[]>([]);
   const [showPicker, setShowPicker]         = useState(false);
@@ -163,6 +173,7 @@ function ConnectionsSection({ client }: { client: Client }) {
       });
       setLinked(false);
       setLinkedUsername(null);
+      onLinked?.();
     } catch (e) { alert(String(e)); }
     setDisconnecting(false);
   }
@@ -204,6 +215,7 @@ function ConnectionsSection({ client }: { client: Client }) {
     setLinkedUsername(igUsername);
     setShowPicker(false);
     setAccounts([]);
+    onLinked?.();
   }
 
   return (
@@ -348,11 +360,12 @@ function InviteLinkModal({ url, onClose }: { url: string; onClose: () => void })
 }
 
 function ClientModal({
-  client, onClose, onSaved,
+  client, onClose, onSaved, onRefresh,
 }: {
   client?: Client;
   onClose: () => void;
   onSaved: () => void;
+  onRefresh?: () => void;
 }) {
   const [step, setStep] = useState<"details" | "connect">("details");
   const [newClientId, setNewClientId] = useState<number | null>(null);
@@ -530,7 +543,7 @@ function ClientModal({
         </div>
         {/* ── Connections ─────────────────────────────────────────────── */}
         {client?.id && (
-          <ConnectionsSection client={client} />
+          <ConnectionsSection client={client} onLinked={onRefresh} />
         )}
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Booking Link</label>
