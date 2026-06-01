@@ -287,12 +287,27 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
     await promoteToStatus(selectedConv, "link_sent");
   }
 
+  // Mark a lead as replied (prospect sent us a message) — counts toward "Msgs Answered"
+  async function markReplied(conv: Conversation) {
+    if (!selectedClientId) return;
+    const fresh: DmLead[] = await fetch(`/api/dm-leads?clientId=${selectedClientId}`).then((r) => r.json()).catch(() => []);
+    const convHandle = normalizeHandle(conv.handle);
+    const lead = fresh.find((l) =>
+      convHandle ? normalizeHandle(l.handle) === convHandle : l.name.toLowerCase().trim() === conv.name.toLowerCase().trim()
+    );
+    if (!lead || (lead as any).repliedAt) return; // not tracked, or already counted
+    await fetch(`/api/dm-leads/${lead.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repliedAt: toYMD(new Date()) }),
+    });
+  }
+
   // Scan recent messages for all conversations and auto-sync pipeline status.
-  // Runs in background after inbox loads — checks if booking link was already sent.
+  // Runs in background after inbox loads — detects booking link sent + prospect replies.
   async function syncPipelineFromMessages(convs: Conversation[]) {
+    if (!selectedClientId) return;
     const bookingLink = client?.bookingLink;
-    if (!bookingLink || !selectedClientId) return;
-    // Only check convs that are in the pipeline or might match
     for (const conv of convs.slice(0, 30)) { // limit to latest 30 to avoid hammering API
       try {
         const data = await fetch(
@@ -300,12 +315,22 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
         ).then((r) => r.json());
         if (data.error) continue;
         const raw: any[] = data.messages ?? data.items ?? data.data ?? [];
-        const hasLinkSent = raw.some(
-          (m: any) =>
-            (m.direction === "outgoing" || m.isOwn) &&
-            (m.message ?? m.text ?? "").includes(bookingLink)
+
+        // Reply detection: any incoming (not-own) message means the prospect answered
+        const hasReply = raw.some((m: any) =>
+          m.direction === "incoming" || m.isOwn === false || m.is_sender === false
         );
-        if (hasLinkSent) await promoteToStatus(conv, "link_sent");
+        if (hasReply) await markReplied(conv);
+
+        // Link detection
+        if (bookingLink) {
+          const hasLinkSent = raw.some(
+            (m: any) =>
+              (m.direction === "outgoing" || m.isOwn) &&
+              (m.message ?? m.text ?? "").includes(bookingLink)
+          );
+          if (hasLinkSent) await promoteToStatus(conv, "link_sent");
+        }
       } catch { /* ignore per-conv errors */ }
     }
   }
@@ -729,6 +754,9 @@ function LeadCardInner({ lead, onEdit, onDelete }: {
           <p className="text-xs font-semibold text-slate-800 truncate">{lead.name}</p>
           {lead.handle && <p className="text-[10px] text-slate-400 truncate">@{lead.handle.replace(/^@/, "")}</p>}
           {lead.date && <p className="text-[10px] text-slate-300 mt-0.5">{lead.date.slice(5).replace("-", "/")}</p>}
+          {(lead as any).repliedAt && (
+            <p className="text-[10px] font-medium text-emerald-500 mt-1">💬 Replied</p>
+          )}
           {lead.status === "link_sent" && lead.updatedAt && (
             <p className="text-[10px] font-medium text-purple-500 mt-1">🔗 Link sent {timeAgoShort(lead.updatedAt)}</p>
           )}

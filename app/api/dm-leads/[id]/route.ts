@@ -17,13 +17,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       status: body.status !== undefined ? body.status            : undefined,
       date:   body.date   !== undefined ? (body.date   || null)  : undefined,
       notes:  body.notes  !== undefined ? (body.notes  || null)  : undefined,
-    },
+      ...(body.repliedAt !== undefined ? { repliedAt: body.repliedAt || null } : {}),
+    } as any,
   });
 
   // Auto-fill analytics on the day a status transition happens
   if (body.status !== undefined && prev && prev.status !== body.status) {
     if (body.status === "link_sent") bumpAnalytics(lead.clientId, "linksSent", todayYMD());
     if (body.status === "booked")    bumpAnalytics(lead.clientId, "bookedCalls", todayYMD());
+  }
+
+  // First time a reply is recorded → count it as an answered message
+  if (body.repliedAt && prev && !(prev as any).repliedAt) {
+    bumpAnalytics(lead.clientId, "messagesAnswered", todayYMD());
   }
 
   return NextResponse.json(lead);

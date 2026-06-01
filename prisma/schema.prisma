@@ -348,6 +348,7 @@ model DmLead {
   handle    String?
   status    String   @default("messaged") // messaged | link_sent | booked | showed | no_show | closed
   date      String?  // YYYY-MM-DD date first messaged
+  repliedAt String?  // YYYY-MM-DD date the prospect first replied (null = no reply yet)
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

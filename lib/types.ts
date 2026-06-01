@@ -222,6 +222,7 @@ export type DmLead = {
   handle?: string | null;
   status: string;
   date?: string | null;
+  repliedAt?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;

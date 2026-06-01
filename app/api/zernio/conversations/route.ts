@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { bumpAnalytics } from "@/lib/analyticsBump";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
@@ -75,6 +76,7 @@ async function syncLeadsInBackground(clientId: number, conversations: any[]) {
     await prisma.dmLead.create({
       data: { clientId, name, handle, status: "messaged", date: today },
     });
+    await bumpAnalytics(clientId, "messagesSent", today);
 
     // Add to set so we don't double-create within this batch
     existingHandles.add(handle.toLowerCase());
