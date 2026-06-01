@@ -21,6 +21,7 @@ type IGReel = {
   reach?: number;
   saved?: number;
   shares?: number;
+  is_shared_to_feed?: boolean;
   handle?: string;
   instagramUrl?: string;
 };
@@ -307,6 +308,12 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
                   <span className="text-3xl opacity-30">▶</span>
                 </div>
             }
+            {/* Trial reel badge */}
+            {reel.is_shared_to_feed === false && (
+              <div className="absolute top-2 left-2 z-10">
+                <span className="bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide shadow">Trial</span>
+              </div>
+            )}
             {/* Always-visible gradient + stat chips */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
             <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-wrap gap-1">

@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
   const { accessToken, igUserId } = conn;
 
   // Paginate through all media (Instagram returns max 50 per page)
-  const FIELDS = "id,caption,media_type,media_product_type,thumbnail_url,media_url,timestamp,like_count,comments_count";
+  // is_shared_to_feed = false → trial reel (not published to main feed)
+  const FIELDS = "id,caption,media_type,media_product_type,is_shared_to_feed,thumbnail_url,media_url,timestamp,like_count,comments_count";
   let allMedia: any[] = [];
   let nextUrl: string | null =
     `https://graph.instagram.com/v21.0/me/media?fields=${FIELDS}&limit=50&access_token=${accessToken}`;
