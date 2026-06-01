@@ -117,6 +117,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
           igId: c.participantId ?? c.id,
           name: c.participantName ?? c.participant?.name ?? c.name ?? "Unknown",
           handle: c.participantUsername ?? c.participant?.username ?? c.handle ?? "",
+          avatar: c.participantProfilePicture ?? c.participantAvatar ?? c.profilePicture ?? c.avatar ?? c.participant?.profilePicture ?? c.participant?.avatar ?? null,
           snippet: typeof c.lastMessage === "string" ? c.lastMessage : (c.lastMessage?.text ?? c.snippet ?? ""),
           updatedTime: c.updatedTime ?? c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
           unreadCount: c.unreadCount ?? c.unread_count ?? 0,
@@ -512,8 +513,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                     <button key={conv.id} onClick={() => setSelectedConv(conv)}
                       className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-slate-50 hover:bg-slate-50 transition-colors ${selectedConv?.id === conv.id ? "bg-indigo-50 border-l-2 border-l-indigo-500" : ""}`}>
                       {/* Avatar */}
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                        {conv.name?.[0]?.toUpperCase() ?? "?"}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden">
+                        {conv.avatar ? <img src={conv.avatar} alt={conv.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} /> : (conv.name?.[0]?.toUpperCase() ?? "?")}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
@@ -548,8 +549,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                 {/* Thread header */}
                 <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between flex-shrink-0 bg-white">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
-                      {selectedConv.name?.[0]?.toUpperCase()}
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
+                      {selectedConv.avatar ? <img src={selectedConv.avatar} alt={selectedConv.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} /> : selectedConv.name?.[0]?.toUpperCase()}
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-800">{selectedConv.name}</p>
