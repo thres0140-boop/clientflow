@@ -20,42 +20,43 @@ export async function GET(req: NextRequest) {
 
   // Show all videos/reels
   const reels = mediaData.data.filter(
-    (m: { media_type: string }) => m.media_type === "VIDEO" || m.media_type === "REEL"
+    (m: any) => m.media_type === "VIDEO" || m.media_type === "REEL" || m.media_product_type === "REELS"
   );
 
   const reelsWithInsights = await Promise.all(
     reels.map(async (reel: { id: string; [key: string]: unknown }) => {
       const insights: Record<string, number> = {};
 
-      // Fetch reach, saved, shares (work for all video types)
+      // Helper: extract value from insights response item
+      const extractVal = (item: any) =>
+        item?.values?.[0]?.value ?? item?.value ?? item?.total_value?.value ?? 0;
+
+      // Fetch reach, saved, shares — no period for newer API versions
       try {
         const baseRes = await fetch(
-          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=reach,saved,shares&period=lifetime&access_token=${accessToken}`
+          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=reach,saved,shares&access_token=${accessToken}`
         );
         const baseData = await baseRes.json();
         for (const item of baseData.data || []) {
-          insights[item.name] = item.values?.[0]?.value ?? item.value ?? 0;
+          insights[item.name] = extractVal(item);
         }
       } catch { /* ignore */ }
 
-      // Fetch views separately — try plays (Reels) then video_views (older videos)
-      try {
-        const playsRes = await fetch(
-          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=plays&period=lifetime&access_token=${accessToken}`
-        );
-        const playsData = await playsRes.json();
-        if (!playsData.error && playsData.data?.[0]) {
-          insights.plays = playsData.data[0].values?.[0]?.value ?? playsData.data[0].value ?? 0;
-        } else {
-          const viewsRes = await fetch(
-            `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=video_views&period=lifetime&access_token=${accessToken}`
+      // Fetch view count: try plays first (Reels), then video_views (older), then views
+      const viewMetrics = ["plays", "video_views", "views"];
+      for (const metric of viewMetrics) {
+        if (insights.plays != null) break;
+        try {
+          const r = await fetch(
+            `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=${metric}&access_token=${accessToken}`
           );
-          const viewsData = await viewsRes.json();
-          if (!viewsData.error && viewsData.data?.[0]) {
-            insights.plays = viewsData.data[0].values?.[0]?.value ?? viewsData.data[0].value ?? 0;
+          const d = await r.json();
+          if (!d.error && d.data?.[0]) {
+            const val = extractVal(d.data[0]);
+            if (val > 0) { insights.plays = val; break; }
           }
-        }
-      } catch { /* ignore */ }
+        } catch { /* ignore */ }
+      }
 
       return { ...reel, plays: insights.plays, reach: insights.reach, saved: insights.saved, shares: insights.shares };
     })
