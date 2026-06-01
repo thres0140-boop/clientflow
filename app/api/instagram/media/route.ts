@@ -10,9 +10,11 @@ async function enrichReels(reels: any[], accessToken: string) {
       const extractVal = (item: any) =>
         item?.values?.[0]?.value ?? item?.value ?? item?.total_value?.value ?? 0;
 
+      // Fetch all available metrics in one call
+      const ALL_METRICS = "reach,saved,shares,follows,profile_visits,ig_reels_avg_watch_time";
       try {
         const baseRes = await fetch(
-          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=reach,saved,shares&access_token=${accessToken}`
+          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=${ALL_METRICS}&access_token=${accessToken}`
         );
         const baseData = await baseRes.json();
         for (const item of baseData.data || []) insights[item.name] = extractVal(item);
@@ -30,7 +32,16 @@ async function enrichReels(reels: any[], accessToken: string) {
         } catch { /* ignore */ }
       }
 
-      return { ...reel, plays: insights.plays, reach: insights.reach, saved: insights.saved, shares: insights.shares };
+      return {
+        ...reel,
+        plays: insights.plays,
+        reach: insights.reach,
+        saved: insights.saved,
+        shares: insights.shares,
+        follows: insights.follows,
+        profileVisits: insights.profile_visits,
+        avgWatchTime: insights.ig_reels_avg_watch_time,
+      };
     })
   );
 }

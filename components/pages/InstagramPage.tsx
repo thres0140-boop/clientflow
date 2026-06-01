@@ -21,6 +21,9 @@ type IGReel = {
   reach?: number;
   saved?: number;
   shares?: number;
+  follows?: number;
+  profileVisits?: number;
+  avgWatchTime?: number; // milliseconds
   is_shared_to_feed?: boolean;
   handle?: string;
   instagramUrl?: string;
@@ -757,14 +760,31 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
     setSaved(true);
   }
 
-  const stats = [
-    { label: "Views", value: reel.plays, icon: "▶" },
-    { label: "Reach", value: reel.reach, icon: "👁" },
-    { label: "Likes", value: reel.like_count, icon: "♥" },
-    { label: "Comments", value: reel.comments_count, icon: "💬" },
-    { label: "Saved", value: reel.saved, icon: "🔖" },
-    { label: "Shares", value: reel.shares, icon: "↗" },
+  const plays = reel.plays ?? 0;
+  const likeRate   = plays > 0 ? ((reel.like_count / plays) * 100).toFixed(1) : null;
+  const saveRate   = plays > 0 && reel.saved   != null ? ((reel.saved   / plays) * 100).toFixed(1) : null;
+  const shareRate  = plays > 0 && reel.shares  != null ? ((reel.shares  / plays) * 100).toFixed(1) : null;
+  const commentRate= plays > 0 ? ((reel.comments_count / plays) * 100).toFixed(1) : null;
+  const avgWatchSec= reel.avgWatchTime != null ? (reel.avgWatchTime / 1000).toFixed(1) : null;
+
+  const primaryStats = [
+    { label: "Views",    value: reel.plays,           icon: "▶",  color: "bg-indigo-50 text-indigo-700" },
+    { label: "Reach",    value: reel.reach,            icon: "👁", color: "bg-sky-50 text-sky-700" },
+    { label: "Follows",  value: reel.follows,          icon: "➕", color: "bg-green-50 text-green-700" },
+    { label: "Profile visits", value: reel.profileVisits, icon: "🔍", color: "bg-purple-50 text-purple-700" },
+    { label: "Likes",    value: reel.like_count,       icon: "♥",  color: "bg-pink-50 text-pink-700" },
+    { label: "Saves",    value: reel.saved,            icon: "🔖", color: "bg-amber-50 text-amber-700" },
+    { label: "Shares",   value: reel.shares,           icon: "↗",  color: "bg-teal-50 text-teal-700" },
+    { label: "Comments", value: reel.comments_count,   icon: "💬", color: "bg-slate-50 text-slate-700" },
   ];
+
+  const rateStats = [
+    { label: "Like rate",    value: likeRate,    suffix: "%" },
+    { label: "Save rate",    value: saveRate,    suffix: "%" },
+    { label: "Share rate",   value: shareRate,   suffix: "%" },
+    { label: "Comment rate", value: commentRate, suffix: "%" },
+    { label: "Avg watch",    value: avgWatchSec, suffix: "s" },
+  ].filter(s => s.value != null);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { const t = setTimeout(() => setMounted(true), 10); return () => clearTimeout(t); }, []);
@@ -821,14 +841,29 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
             )}
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2.5">Analytics</p>
-              <div className="grid grid-cols-3 gap-2">
-                {stats.map(({ label, value, icon }) => (
-                  <div key={label} className="bg-slate-50 rounded-xl p-3 text-center">
-                    <p className="text-[11px] text-slate-400 mb-0.5">{icon} {label}</p>
-                    <p className="text-base font-bold text-slate-800">{value != null ? fmt(value) : "—"}</p>
+              {/* Primary counts */}
+              <div className="grid grid-cols-4 gap-1.5 mb-2">
+                {primaryStats.map(({ label, value, icon, color }) => (
+                  <div key={label} className={`rounded-xl p-2.5 text-center ${color}`}>
+                    <p className="text-[10px] font-medium opacity-70 mb-0.5">{icon} {label}</p>
+                    <p className="text-sm font-bold">{value != null ? fmt(value) : "—"}</p>
                   </div>
                 ))}
               </div>
+              {/* Engagement rates */}
+              {rateStats.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[10px] font-semibold text-slate-400 mb-2">Engagement rates</p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {rateStats.map(({ label, value, suffix }) => (
+                      <div key={label} className="text-center">
+                        <p className="text-[9px] text-slate-400 mb-0.5">{label}</p>
+                        <p className="text-xs font-bold text-slate-700">{value}{suffix}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
