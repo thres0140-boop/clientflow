@@ -21,9 +21,11 @@ type IGReel = {
   reach?: number;
   saved?: number;
   shares?: number;
-  follows?: number;
-  profileVisits?: number;
-  avgWatchTime?: number; // milliseconds
+  reposts?: number;
+  totalInteractions?: number;
+  avgWatchTime?: number; // ms
+  totalWatchTime?: number; // ms
+  skipRate?: number; // 0-1 ratio
   is_shared_to_feed?: boolean;
   handle?: string;
   instagramUrl?: string;
@@ -765,23 +767,29 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   const saveRate   = plays > 0 && reel.saved   != null ? ((reel.saved   / plays) * 100).toFixed(1) : null;
   const shareRate  = plays > 0 && reel.shares  != null ? ((reel.shares  / plays) * 100).toFixed(1) : null;
   const commentRate= plays > 0 ? ((reel.comments_count / plays) * 100).toFixed(1) : null;
-  const avgWatchSec= reel.avgWatchTime != null ? (reel.avgWatchTime / 1000).toFixed(1) : null;
+  const avgWatchSec   = reel.avgWatchTime   != null ? (reel.avgWatchTime / 1000).toFixed(1) : null;
+  const totalWatchMin = reel.totalWatchTime != null ? Math.round(reel.totalWatchTime / 60000) : null;
+  const skipRatePct   = reel.skipRate       != null ? (reel.skipRate * 100).toFixed(1) : null;
 
   const primaryStats = [
-    { label: "Views",    value: reel.plays,         icon: "▶",  color: "bg-indigo-50 text-indigo-700" },
-    { label: "Reach",    value: reel.reach,          icon: "👁", color: "bg-sky-50 text-sky-700" },
-    { label: "Likes",    value: reel.like_count,     icon: "♥",  color: "bg-pink-50 text-pink-700" },
-    { label: "Saves",    value: reel.saved,          icon: "🔖", color: "bg-amber-50 text-amber-700" },
-    { label: "Shares",   value: reel.shares,         icon: "↗",  color: "bg-teal-50 text-teal-700" },
-    { label: "Comments", value: reel.comments_count, icon: "💬", color: "bg-slate-50 text-slate-700" },
+    { label: "Views",       value: reel.plays,             icon: "▶",  color: "bg-indigo-50 text-indigo-700" },
+    { label: "Reach",       value: reel.reach,              icon: "👁", color: "bg-sky-50 text-sky-700" },
+    { label: "Likes",       value: reel.like_count,         icon: "♥",  color: "bg-pink-50 text-pink-700" },
+    { label: "Saves",       value: reel.saved,              icon: "🔖", color: "bg-amber-50 text-amber-700" },
+    { label: "Shares",      value: reel.shares,             icon: "↗",  color: "bg-teal-50 text-teal-700" },
+    { label: "Comments",    value: reel.comments_count,     icon: "💬", color: "bg-slate-50 text-slate-700" },
+    { label: "Reposts",     value: reel.reposts,            icon: "🔁", color: "bg-green-50 text-green-700" },
+    { label: "Interactions",value: reel.totalInteractions,  icon: "⚡", color: "bg-violet-50 text-violet-700" },
   ];
 
   const rateStats = [
-    { label: "Like rate",    value: likeRate,    suffix: "%" },
-    { label: "Save rate",    value: saveRate,    suffix: "%" },
-    { label: "Share rate",   value: shareRate,   suffix: "%" },
-    { label: "Comment rate", value: commentRate, suffix: "%" },
-    { label: "Avg watch",    value: avgWatchSec, suffix: "s" },
+    { label: "Skip rate",    value: skipRatePct,                                              suffix: "%" },
+    { label: "Like rate",    value: likeRate,                                                 suffix: "%" },
+    { label: "Save rate",    value: saveRate,                                                 suffix: "%" },
+    { label: "Share rate",   value: shareRate,                                                suffix: "%" },
+    { label: "Comment rate", value: commentRate,                                              suffix: "%" },
+    { label: "Avg watch",    value: avgWatchSec,                                              suffix: "s" },
+    { label: "Total watch",  value: totalWatchMin != null ? fmt(totalWatchMin) : null,        suffix: "m" },
   ].filter(s => s.value != null);
 
   const [mounted, setMounted] = useState(false);
@@ -852,7 +860,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
               {rateStats.length > 0 && (
                 <div className="bg-slate-50 rounded-xl p-3">
                   <p className="text-[10px] font-semibold text-slate-400 mb-2">Engagement rates</p>
-                  <div className="grid grid-cols-5 gap-1.5">
+                  <div className="grid grid-cols-4 gap-1.5">
                     {rateStats.map(({ label, value, suffix }) => (
                       <div key={label} className="text-center">
                         <p className="text-[9px] text-slate-400 mb-0.5">{label}</p>
