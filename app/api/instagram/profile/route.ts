@@ -18,11 +18,19 @@ export async function GET(req: NextRequest) {
     );
     const data = await res.json();
     if (data.error) {
-      // OAuth token expired or invalid
       if (data.error.code === 190 || data.error.type === "OAuthException") {
         return NextResponse.json({ error: "token_expired" }, { status: 401 });
       }
     }
+
+    // Persist profile picture so sidebar can use it without extra API calls
+    if (data.profile_picture_url) {
+      await prisma.instagramConnection.update({
+        where: { clientId: parseInt(clientId) },
+        data: { profilePictureUrl: data.profile_picture_url } as any,
+      }).catch(() => {/* ignore if column not yet migrated */});
+    }
+
     return NextResponse.json({
       igUserId,
       username: data.username || igUsername,
