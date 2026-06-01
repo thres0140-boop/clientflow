@@ -33,7 +33,17 @@ export async function POST(req: NextRequest) {
   }
 
   if (scheduledFor) {
-    body.scheduledAt = scheduledFor; // ISO 8601 — Zernio field name
+    const scheduledDate = new Date(scheduledFor);
+    const isNow = scheduledDate.getTime() - Date.now() < 60_000; // within 1 min = post now
+    if (isNow) {
+      // Publish immediately
+      body.status = "published";
+    } else {
+      // Schedule for future — try both field names Zernio might use
+      body.scheduledAt  = scheduledFor;
+      body.publishAt    = scheduledFor;
+      body.status       = "scheduled";
+    }
   }
 
   console.log("[zernio/schedule] sending body:", JSON.stringify(body));
