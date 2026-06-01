@@ -45,9 +45,19 @@ export async function POST(req: NextRequest) {
     inviteeName  = attendee?.name  ?? body.payload?.title ?? null;
     inviteeEmail = attendee?.email ?? null;
   }
+  // GoHighLevel: { type: "AppointmentCreate", contact: { name, email } }
+  // or: { type: "AppointmentCreate", first_name, last_name, email }
+  else if (body?.type?.toLowerCase().includes("appointment") || body?.type?.toLowerCase().includes("contact")) {
+    const contact = body.contact ?? body;
+    const fullName = contact.name ?? contact.full_name ??
+      [contact.first_name, contact.last_name].filter(Boolean).join(" ") ?? null;
+    inviteeName  = fullName || null;
+    inviteeEmail = contact.email ?? null;
+  }
   // Generic fallback: look for name/email anywhere at the top level
   else {
-    inviteeName  = body?.name  ?? body?.inviteeName  ?? null;
+    inviteeName  = body?.name ?? body?.full_name ?? body?.inviteeName ??
+      ([body?.first_name, body?.last_name].filter(Boolean).join(" ") || null);
     inviteeEmail = body?.email ?? body?.inviteeEmail ?? null;
   }
 
