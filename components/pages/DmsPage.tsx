@@ -123,6 +123,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
           unreadCount: c.unreadCount ?? c.unread_count ?? 0,
         }));
         setConversations(convs);
+        // Background: detect booking links already sent via Instagram directly
+        setTimeout(() => syncPipelineFromMessages(convs), 500);
       }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);
@@ -160,11 +162,20 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
           }
           return merged;
         });
+
+        // Auto-detect if booking link was already sent in this conversation
+        const bookingLink = client?.bookingLink;
+        if (bookingLink) {
+          const linkSent = msgs.some(
+            (m) => m.isOwn && m.text.includes(bookingLink)
+          );
+          if (linkSent) promoteToStatus(conv, "link_sent");
+        }
       }
     } finally {
       setMessagesLoading(false);
     }
-  }, [selectedClientId]);
+  }, [selectedClientId, client?.bookingLink]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedConv) return;
