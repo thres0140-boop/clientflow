@@ -4,22 +4,27 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   const where = clientId ? { clientId: parseInt(clientId) } : {};
-  const content = await prisma.contentPiece.findMany({
-    where,
-    include: {
-      client: { select: { name: true, color: true } },
-      concept: { select: { name: true } },
-      stageHistory: {
-        include: {
-          stage: true,
-          completedBy: { select: { name: true, color: true } },
+  try {
+    const content = await prisma.contentPiece.findMany({
+      where,
+      include: {
+        client: { select: { name: true, color: true } },
+        concept: { select: { name: true } },
+        stageHistory: {
+          include: {
+            stage: true,
+            completedBy: { select: { name: true, color: true } },
+          },
+          orderBy: { createdAt: "asc" },
         },
-        orderBy: { createdAt: "asc" },
       },
-    },
-    orderBy: { scheduledDate: "asc" },
-  });
-  return NextResponse.json(content);
+      orderBy: { scheduledDate: "asc" },
+    });
+    return NextResponse.json(content);
+  } catch (err) {
+    console.error("[api/content GET] error:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
