@@ -962,19 +962,9 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
       const scheduledFor = postNow
         ? new Date().toISOString()
         : new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
-      const res = await fetch("/api/zernio/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor, contentPieceId: piece?.id }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to post to Instagram");
-      }
-
-      // Save to DB so it appears on the content calendar
+      // Save to DB first so we have a contentPieceId to send to Zernio
       const title = caption.split("\n")[0].trim().slice(0, 80) || `Instagram Post – ${scheduleDate}`;
-      await fetch("/api/content", {
+      const contentRes = await fetch("/api/content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -988,6 +978,19 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
           scheduledDate: `${scheduleDate}T${scheduleTime}:00`,
         }),
       });
+      const contentData = await contentRes.json().catch(() => ({}));
+      const newPieceId = contentData?.id ?? null;
+
+      const res = await fetch("/api/zernio/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor, contentPieceId: newPieceId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to post to Instagram");
+      }
+
       onPosted(); // reload calendar
       setStatus("done");
     } catch (err) {
