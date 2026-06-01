@@ -13,8 +13,6 @@ async function enrichReels(reels: any[], accessToken: string) {
       // Fetch metrics in separate calls so one bad metric doesn't kill the rest
       const metricGroups = [
         "reach,saved,shares",
-        "follows",
-        "profile_visits",
         "ig_reels_avg_watch_time",
       ];
       for (const group of metricGroups) {

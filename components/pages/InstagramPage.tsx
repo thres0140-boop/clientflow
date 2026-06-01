@@ -768,14 +768,12 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   const avgWatchSec= reel.avgWatchTime != null ? (reel.avgWatchTime / 1000).toFixed(1) : null;
 
   const primaryStats = [
-    { label: "Views",    value: reel.plays,           icon: "▶",  color: "bg-indigo-50 text-indigo-700" },
-    { label: "Reach",    value: reel.reach,            icon: "👁", color: "bg-sky-50 text-sky-700" },
-    { label: "Follows",  value: reel.follows,          icon: "➕", color: "bg-green-50 text-green-700" },
-    { label: "Profile visits", value: reel.profileVisits, icon: "🔍", color: "bg-purple-50 text-purple-700" },
-    { label: "Likes",    value: reel.like_count,       icon: "♥",  color: "bg-pink-50 text-pink-700" },
-    { label: "Saves",    value: reel.saved,            icon: "🔖", color: "bg-amber-50 text-amber-700" },
-    { label: "Shares",   value: reel.shares,           icon: "↗",  color: "bg-teal-50 text-teal-700" },
-    { label: "Comments", value: reel.comments_count,   icon: "💬", color: "bg-slate-50 text-slate-700" },
+    { label: "Views",    value: reel.plays,         icon: "▶",  color: "bg-indigo-50 text-indigo-700" },
+    { label: "Reach",    value: reel.reach,          icon: "👁", color: "bg-sky-50 text-sky-700" },
+    { label: "Likes",    value: reel.like_count,     icon: "♥",  color: "bg-pink-50 text-pink-700" },
+    { label: "Saves",    value: reel.saved,          icon: "🔖", color: "bg-amber-50 text-amber-700" },
+    { label: "Shares",   value: reel.shares,         icon: "↗",  color: "bg-teal-50 text-teal-700" },
+    { label: "Comments", value: reel.comments_count, icon: "💬", color: "bg-slate-50 text-slate-700" },
   ];
 
   const rateStats = [
