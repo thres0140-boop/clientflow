@@ -769,7 +769,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   const commentRate= plays > 0 ? ((reel.comments_count / plays) * 100).toFixed(1) : null;
   const avgWatchSec   = reel.avgWatchTime   != null ? (reel.avgWatchTime / 1000).toFixed(1) : null;
   const totalWatchMin = reel.totalWatchTime != null ? Math.round(reel.totalWatchTime / 60000) : null;
-  const skipRatePct   = reel.skipRate       != null ? (reel.skipRate * 100).toFixed(1) : null;
+  const skipRatePct   = reel.skipRate       != null ? reel.skipRate.toFixed(1) : null;
 
   const primaryStats = [
     { label: "Views",       value: reel.plays,             icon: "▶",  color: "bg-indigo-50 text-indigo-700" },
