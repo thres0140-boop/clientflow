@@ -10,15 +10,20 @@ async function enrichReels(reels: any[], accessToken: string) {
       const extractVal = (item: any) =>
         item?.values?.[0]?.value ?? item?.value ?? item?.total_value?.value ?? 0;
 
-      // Fetch all available metrics in one call
-      const ALL_METRICS = "reach,saved,shares,follows,profile_visits,ig_reels_avg_watch_time";
-      try {
-        const baseRes = await fetch(
-          `https://graph.instagram.com/v21.0/${reel.id}/insights?metric=${ALL_METRICS}&access_token=${accessToken}`
-        );
-        const baseData = await baseRes.json();
-        for (const item of baseData.data || []) insights[item.name] = extractVal(item);
-      } catch { /* ignore */ }
+      // Fetch metrics in separate calls so one bad metric doesn't kill the rest
+      const metricGroups = [
+        "reach,saved,shares",
+        "follows",
+        "profile_visits",
+        "ig_reels_avg_watch_time",
+      ];
+      for (const group of metricGroups) {
+        try {
+          const r = await fetch(`https://graph.instagram.com/v21.0/${reel.id}/insights?metric=${group}&access_token=${accessToken}`);
+          const d = await r.json();
+          if (!d.error) for (const item of d.data || []) insights[item.name] = extractVal(item);
+        } catch { /* ignore */ }
+      }
 
       for (const metric of ["plays", "video_views", "views"]) {
         if (insights.plays != null) break;
