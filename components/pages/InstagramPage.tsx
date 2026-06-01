@@ -82,9 +82,24 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
   const fetchReels = useCallback(async () => {
     if (!client || !connected) return;
     setLoadingReels(true);
+    let cursor: string | null = null;
+    let first = true;
     try {
-      const res = await fetch(`/api/instagram/media?clientId=${client.id}`);
-      if (res.ok) setReels(await res.json());
+      while (true) {
+        const url = `/api/instagram/media?clientId=${client.id}${cursor ? `&cursor=${cursor}` : ""}`;
+        const res = await fetch(url);
+        if (!res.ok) break;
+        const { reels: page, nextCursor } = await res.json();
+        if (first) {
+          setReels(page);          // show first 25 immediately
+          setLoadingReels(false);  // hide spinner right away
+          first = false;
+        } else {
+          setReels((prev) => [...prev, ...page]); // append subsequent pages silently
+        }
+        if (!nextCursor) break;
+        cursor = nextCursor;
+      }
     } catch {/* ignore */}
     setLoadingReels(false);
   }, [client, connected]);
