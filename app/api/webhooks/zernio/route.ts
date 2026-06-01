@@ -12,16 +12,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const event = body.event ?? body.type ?? body.name;
+  const event = String(body.event ?? body.type ?? body.name ?? "").toLowerCase();
   console.log("[zernio-webhook] event:", event, JSON.stringify(body).slice(0, 500));
 
-  if (event === "post.published" || event === "post.platform.published") {
+  // Match on substrings so we catch post.published, post.platform.published, published, etc.
+  if (event.includes("publish") && !event.includes("unpublish")) {
     await handlePublished(body);
-  } else if (event === "post.failed") {
+  } else if (event.includes("fail")) {
     await handleFailed(body);
-  } else if (event === "post.scheduled") {
-    // Just log — already marked scheduled when we created it
-    console.log("[zernio-webhook] post scheduled:", body?.post?.id);
+  } else if (event.includes("schedul")) {
+    console.log("[zernio-webhook] post scheduled:", body?.post?._id ?? body?.post?.id);
   }
 
   return NextResponse.json({ ok: true });
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 async function handlePublished(body: any) {
   try {
     const post = body.post ?? body.data ?? body;
-    const zernioPostId = String(post.id ?? post.postId ?? "");
+    const zernioPostId = String(post._id ?? post.id ?? post.postId ?? "");
     // Instagram media ID may be in platforms array or directly on post
     const platforms: any[] = post.platforms ?? post.accounts ?? [];
     const igPlatform = platforms.find((p: any) =>
@@ -49,7 +49,7 @@ async function handlePublished(body: any) {
 
     // Fallback: match by scheduledDate within ±10 minutes of post's scheduled/published time
     if (!piece) {
-      const postTime = post.scheduledAt ?? post.publishedAt ?? post.scheduled_at ?? post.created_at;
+      const postTime = post.scheduledFor ?? post.publishedAt ?? post.scheduledAt ?? post.scheduled_at ?? post.created_at;
       if (postTime) {
         const ts = new Date(postTime).getTime();
         const TEN_MIN = 10 * 60 * 1000;
@@ -82,9 +82,9 @@ async function handlePublished(body: any) {
 async function handleFailed(body: any) {
   try {
     const post = body.post ?? body.data ?? body;
-    console.error("[zernio-webhook] post FAILED:", post.id, post.failureReason ?? post.error);
+    console.error("[zernio-webhook] post FAILED:", post._id ?? post.id, post.failureReason ?? post.error);
     // Optionally: revert status back to "scheduled" so user knows to retry
-    const zernioPostId = String(post.id ?? "");
+    const zernioPostId = String(post._id ?? post.id ?? "");
     if (zernioPostId) {
       const piece = await (prisma as any).contentPiece.findFirst({ where: { zernioPostId } });
       if (piece) {
