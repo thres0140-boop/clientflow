@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { bumpAnalytics, todayYMD } from "@/lib/analyticsBump";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json();
+
+  // Read previous status so we only count a transition once
+  const prev = await prisma.dmLead.findUnique({ where: { id: parseInt(id) } });
+
   const lead = await prisma.dmLead.update({
     where: { id: parseInt(id) },
     data: {
@@ -14,6 +19,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       notes:  body.notes  !== undefined ? (body.notes  || null)  : undefined,
     },
   });
+
+  // Auto-fill analytics on the day a status transition happens
+  if (body.status !== undefined && prev && prev.status !== body.status) {
+    if (body.status === "link_sent") bumpAnalytics(lead.clientId, "linksSent", todayYMD());
+    if (body.status === "booked")    bumpAnalytics(lead.clientId, "bookedCalls", todayYMD());
+  }
+
   return NextResponse.json(lead);
 }
 
