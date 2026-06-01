@@ -112,17 +112,23 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
 
         {/* Client avatars */}
         <div className="flex flex-col items-center gap-2.5 py-3 flex-1 overflow-y-auto">
-          {session?.type !== "member" && clients.map((c) => (
-            <button key={c.id} onClick={() => onSelectClient(c.id)} title={c.name}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-bold text-white transition-all flex-shrink-0"
-              style={{
-                backgroundColor: c.color,
-                opacity: c.id === selectedClientId ? 1 : 0.4,
-                boxShadow: c.id === selectedClientId ? "0 0 0 2px white" : "none",
-              }}>
-              {c.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-            </button>
-          ))}
+          {session?.type !== "member" && clients.map((c) => {
+            const pic = (c.instagramConnection as any)?.profilePictureUrl;
+            return (
+              <button key={c.id} onClick={() => onSelectClient(c.id)} title={c.name}
+                className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-[10px] font-bold text-white transition-all flex-shrink-0"
+                style={{
+                  backgroundColor: c.color,
+                  opacity: c.id === selectedClientId ? 1 : 0.45,
+                  boxShadow: c.id === selectedClientId ? "0 0 0 2px white" : "none",
+                }}>
+                {pic
+                  ? <img src={pic} alt={c.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  : c.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+                }
+              </button>
+            );
+          })}
         </div>
 
         {/* Strip footer: profile avatar */}

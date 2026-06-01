@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     // 3. Get profile info — use id from /me as the canonical igUserId (tokenData.user_id can differ)
     const profileRes = await fetch(
-      `https://graph.instagram.com/v21.0/me?fields=id,username,followers_count&access_token=${longToken}`
+      `https://graph.instagram.com/v21.0/me?fields=id,username,followers_count,profile_picture_url&access_token=${longToken}`
     );
     const profileData = await profileRes.json();
     const canonicalUserId = profileData.id ? String(profileData.id) : igUserId;
@@ -59,12 +59,14 @@ export async function GET(req: NextRequest) {
         igUserId: canonicalUserId,
         igUsername: profileData.username || null,
         followers: profileData.followers_count || null,
+        profilePictureUrl: profileData.profile_picture_url || null,
       },
       update: {
         accessToken: longToken,
         igUserId: canonicalUserId,
         igUsername: profileData.username || null,
         followers: profileData.followers_count || null,
+        profilePictureUrl: profileData.profile_picture_url || null,
       },
     });
 
