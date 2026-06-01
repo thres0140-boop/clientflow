@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { postId: st
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({ scheduledAt: scheduledFor, publishAt: scheduledFor, status: "scheduled" }),
+    body: JSON.stringify({ scheduledFor, timezone: "Europe/Amsterdam" }),
   });
 
   const data = await res.json().catch(() => ({}));

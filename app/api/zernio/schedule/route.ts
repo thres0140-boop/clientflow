@@ -9,7 +9,7 @@ const PROFILE_ID  = process.env.ZERNIO_PROFILE_ID!;
 // Body: { clientId, content, mediaUrls?, scheduledFor? }
 // schedules (or publishes immediately) an Instagram post via Zernio
 export async function POST(req: NextRequest) {
-  const { clientId, content, mediaUrls, scheduledFor } = await req.json();
+  const { clientId, content, mediaUrls, scheduledFor, contentPieceId } = await req.json();
 
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
 
@@ -36,14 +36,15 @@ export async function POST(req: NextRequest) {
     const scheduledDate = new Date(scheduledFor);
     const isNow = scheduledDate.getTime() - Date.now() < 60_000; // within 1 min = post now
     if (isNow) {
-      // Publish immediately
-      body.status = "published";
+      body.publishNow = true;
     } else {
-      // Schedule for future — try both field names Zernio might use
-      body.scheduledAt  = scheduledFor;
-      body.publishAt    = scheduledFor;
-      body.status       = "scheduled";
+      // scheduledFor must be in UTC ISO 8601 — Zernio interprets it in the given timezone
+      body.scheduledFor = scheduledFor;
+      body.timezone     = "Europe/Amsterdam"; // TODO: make per-client if needed
     }
+  } else {
+    // No time given — publish now
+    body.publishNow = true;
   }
 
   console.log("[zernio/schedule] sending body:", JSON.stringify(body));
@@ -65,9 +66,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: data?.message ?? data?.error ?? "Failed to post", raw: data }, { status: 400 });
   }
 
-  // Save zernioPostId on the ContentPiece so we can update/delete it later
-  const zernioPostId = data?.id ?? data?.postId ?? data?.data?.id ?? null;
-  const { contentPieceId } = await req.json().catch(() => ({})) as any;
+  // Save zernioPostId — Zernio returns _id (MongoDB style)
+  const zernioPostId = data?._id ?? data?.id ?? null;
   if (zernioPostId && contentPieceId) {
     await (prisma as any).contentPiece.update({
       where: { id: parseInt(contentPieceId) },

@@ -709,7 +709,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                   clientId: selectedClientId,
                   content: opts.caption,
                   mediaUrls: mediaUrl ? [mediaUrl] : [],
-                  scheduledFor: new Date(pendingDrop.date + "T09:00:00Z").toISOString(),
+                  scheduledFor: new Date(pendingDrop.date + "T09:00:00").toISOString(),
+                  contentPieceId: pendingDrop.draft.id,
                 }),
               });
               if (!res.ok) {
@@ -964,7 +965,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
       const res = await fetch("/api/zernio/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor }),
+        body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor, contentPieceId: piece?.id }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -1418,6 +1419,7 @@ function ContentDetailModal({
           content: caption,
           mediaUrls: [videoUrl],
           scheduledFor: new Date().toISOString(),
+          contentPieceId: piece.id,
         }),
       });
       const data = await res.json();
