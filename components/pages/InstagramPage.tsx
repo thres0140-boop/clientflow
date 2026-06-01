@@ -307,26 +307,21 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
                   <span className="text-3xl opacity-30">▶</span>
                 </div>
             }
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-            <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
-                  <span className="opacity-70">▶</span>
-                  <span>{reel.plays != null ? fmt(reel.plays) : "—"}</span>
-                </div>
-                <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
-                  <span className="opacity-70">♥</span>
-                  <span>{fmt(reel.like_count)}</span>
-                </div>
-                <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
-                  <span className="opacity-70">🔖</span>
-                  <span>{reel.saved != null ? fmt(reel.saved) : "—"}</span>
-                </div>
-                <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
-                  <span className="opacity-70">💬</span>
-                  <span>{fmt(reel.comments_count)}</span>
-                </div>
-              </div>
+            {/* Always-visible gradient + stat chips */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-wrap gap-1">
+              {reel.plays != null && (
+                <span className="flex items-center gap-0.5 bg-indigo-500/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">▶ {fmt(reel.plays)}</span>
+              )}
+              {reel.like_count > 0 && (
+                <span className="flex items-center gap-0.5 bg-pink-500/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">♥ {fmt(reel.like_count)}</span>
+              )}
+              {reel.saved != null && reel.saved > 0 && (
+                <span className="flex items-center gap-0.5 bg-amber-500/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">🔖 {fmt(reel.saved)}</span>
+              )}
+              {reel.comments_count > 0 && (
+                <span className="flex items-center gap-0.5 bg-slate-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">💬 {fmt(reel.comments_count)}</span>
+              )}
             </div>
           </button>
         ))}
