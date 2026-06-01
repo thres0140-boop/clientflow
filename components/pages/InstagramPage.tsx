@@ -50,7 +50,8 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingReels, setLoadingReels] = useState(false);
   const [selected, setSelected] = useState<IGReel | null>(null);
-  const [connected, setConnected] = useState(false);
+  // Pre-seed from client data so we never flash "not connected" while profile loads
+  const [connected, setConnected] = useState(!!client?.instagramConnection?.accessToken);
   const [tokenExpired, setTokenExpired] = useState(false);
 
   const fetchProfile = useCallback(async () => {
@@ -90,9 +91,9 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
   useEffect(() => {
     setProfile(null);
     setReels([]);
-    setConnected(false);
+    setConnected(!!client?.instagramConnection?.accessToken);
     fetchProfile();
-  }, [fetchProfile]);
+  }, [fetchProfile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (connected) fetchReels();

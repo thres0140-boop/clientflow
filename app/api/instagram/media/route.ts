@@ -12,14 +12,24 @@ export async function GET(req: NextRequest) {
 
   const { accessToken, igUserId } = conn;
 
-  const mediaRes = await fetch(
-    `https://graph.instagram.com/v21.0/me/media?fields=id,caption,media_type,media_product_type,thumbnail_url,media_url,timestamp,like_count,comments_count&limit=50&access_token=${accessToken}`
-  );
-  const mediaData = await mediaRes.json();
-  if (!mediaData.data) return NextResponse.json([]);
+  // Paginate through all media (Instagram returns max 50 per page)
+  const FIELDS = "id,caption,media_type,media_product_type,thumbnail_url,media_url,timestamp,like_count,comments_count";
+  let allMedia: any[] = [];
+  let nextUrl: string | null =
+    `https://graph.instagram.com/v21.0/me/media?fields=${FIELDS}&limit=50&access_token=${accessToken}`;
+
+  while (nextUrl && allMedia.length < 500) {
+    const mediaRes = await fetch(nextUrl);
+    const mediaData = await mediaRes.json();
+    if (!mediaData.data) break;
+    allMedia = allMedia.concat(mediaData.data);
+    nextUrl = mediaData.paging?.next ?? null;
+  }
+
+  if (allMedia.length === 0) return NextResponse.json([]);
 
   // Show all videos/reels
-  const reels = mediaData.data.filter(
+  const reels = allMedia.filter(
     (m: any) => m.media_type === "VIDEO" || m.media_type === "REEL" || m.media_product_type === "REELS"
   );
 
