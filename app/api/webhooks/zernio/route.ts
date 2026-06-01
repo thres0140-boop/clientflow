@@ -38,27 +38,40 @@ async function handlePublished(body: any) {
     );
     const igMediaId: string | null = igPlatform?.platformPostId ?? igPlatform?.mediaId ?? igPlatform?.postId ?? null;
 
-    // Match ContentPiece by zernioPostId (if stored) OR by scheduledDate proximity
+    const content: string = (post.content ?? "").trim();
+
+    // Match ContentPiece — try several strategies, most specific first.
     let piece: any = null;
 
+    // 1. By stored Zernio post ID (most reliable for new posts)
     if (zernioPostId) {
-      piece = await (prisma as any).contentPiece.findFirst({
-        where: { zernioPostId },
-      });
+      piece = await (prisma as any).contentPiece.findFirst({ where: { zernioPostId } });
     }
 
-    // Fallback: match by scheduledDate within ±10 minutes of post's scheduled/published time
+    // 2. By caption/content match among not-yet-posted pieces
+    if (!piece && content) {
+      const candidates = await (prisma as any).contentPiece.findMany({
+        where: { status: { in: ["scheduled", "edited"] } },
+        orderBy: { createdAt: "desc" },
+      });
+      piece = candidates.find((c: any) => {
+        const cap = (c.caption ?? c.title ?? "").trim();
+        return cap === content || cap.startsWith(content) || content.startsWith(cap.split("\n")[0]);
+      }) ?? null;
+    }
+
+    // 3. By scheduledDate proximity — wide ±3h window to tolerate timezone storage differences
     if (!piece) {
       const postTime = post.scheduledFor ?? post.publishedAt ?? post.scheduledAt ?? post.scheduled_at ?? post.created_at;
       if (postTime) {
         const ts = new Date(postTime).getTime();
-        const TEN_MIN = 10 * 60 * 1000;
+        const THREE_H = 3 * 60 * 60 * 1000;
         const candidates = await (prisma as any).contentPiece.findMany({
           where: { status: { in: ["scheduled", "edited"] }, scheduledDate: { not: null } },
         });
         piece = candidates.find((c: any) => {
           if (!c.scheduledDate) return false;
-          return Math.abs(new Date(c.scheduledDate).getTime() - ts) <= TEN_MIN;
+          return Math.abs(new Date(c.scheduledDate).getTime() - ts) <= THREE_H;
         }) ?? null;
       }
     }
@@ -66,13 +79,14 @@ async function handlePublished(body: any) {
     if (piece) {
       const updateData: any = { status: "posted" };
       if (igMediaId) updateData.igMediaId = igMediaId;
+      if (zernioPostId && !piece.zernioPostId) updateData.zernioPostId = zernioPostId; // backfill
       await (prisma as any).contentPiece.update({
         where: { id: piece.id },
         data: updateData,
       });
       console.log(`[zernio-webhook] marked piece ${piece.id} as posted${igMediaId ? ` igMediaId=${igMediaId}` : ""}`);
     } else {
-      console.log("[zernio-webhook] no matching ContentPiece found for published post");
+      console.log("[zernio-webhook] no matching ContentPiece found for published post; content=", content);
     }
   } catch (err) {
     console.error("[zernio-webhook] handlePublished error:", err);
