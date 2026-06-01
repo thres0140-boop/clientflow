@@ -43,11 +43,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     where: { id: parseInt(id) },
     data,
   });
+  // If scheduledDate changed and post is in Zernio, sync the new time
+  if (body.scheduledDate !== undefined && piece?.zernioPostId) {
+    const base = process.env.NEXT_PUBLIC_APP_URL || "https://www.ordoagency.com";
+    fetch(`${base}/api/zernio/posts/${piece.zernioPostId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledFor: new Date(body.scheduledDate).toISOString() }),
+    }).catch(() => {});
+  }
   return NextResponse.json(piece);
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Cancel in Zernio first if it has a scheduled post there
+  const piece = await (prisma as any).contentPiece.findUnique({ where: { id: parseInt(id) } });
+  if (piece?.zernioPostId) {
+    const base = process.env.NEXT_PUBLIC_APP_URL || "https://www.ordoagency.com";
+    fetch(`${base}/api/zernio/posts/${piece.zernioPostId}`, { method: "DELETE" }).catch(() => {});
+  }
   await prisma.contentPiece.delete({ where: { id: parseInt(id) } });
   return NextResponse.json({ ok: true });
 }

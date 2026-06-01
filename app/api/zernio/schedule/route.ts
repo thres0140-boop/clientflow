@@ -64,5 +64,16 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     return NextResponse.json({ error: data?.message ?? data?.error ?? "Failed to post", raw: data }, { status: 400 });
   }
-  return NextResponse.json(data);
+
+  // Save zernioPostId on the ContentPiece so we can update/delete it later
+  const zernioPostId = data?.id ?? data?.postId ?? data?.data?.id ?? null;
+  const { contentPieceId } = await req.json().catch(() => ({})) as any;
+  if (zernioPostId && contentPieceId) {
+    await (prisma as any).contentPiece.update({
+      where: { id: parseInt(contentPieceId) },
+      data: { zernioPostId: String(zernioPostId) },
+    }).catch(() => {/* ignore */});
+  }
+
+  return NextResponse.json({ ...data, zernioPostId });
 }

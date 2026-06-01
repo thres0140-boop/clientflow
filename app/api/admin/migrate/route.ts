@@ -49,6 +49,10 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "InstagramConnection"
       ADD COLUMN IF NOT EXISTS "profilePictureUrl" TEXT;
     `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "ContentPiece"
+      ADD COLUMN IF NOT EXISTS "zernioPostId" TEXT;
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

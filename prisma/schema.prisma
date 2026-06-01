@@ -267,6 +267,7 @@ model ContentPiece {
   currentStageId Int?
   rawContentUrl  String?
   igMediaId      String?
+  zernioPostId   String?
   createdAt      DateTime @default(now())
 
   client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
