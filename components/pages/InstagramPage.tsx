@@ -849,10 +849,10 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2.5">Analytics</p>
               {/* Primary counts */}
               <div className="grid grid-cols-4 gap-1.5 mb-2">
-                {primaryStats.map(({ label, value, icon, color }) => (
+                {primaryStats.filter(s => s.value != null).map(({ label, value, icon, color }) => (
                   <div key={label} className={`rounded-xl p-2.5 text-center ${color}`}>
                     <p className="text-[10px] font-medium opacity-70 mb-0.5">{icon} {label}</p>
-                    <p className="text-sm font-bold">{value != null ? fmt(value) : "—"}</p>
+                    <p className="text-sm font-bold">{fmt(value as number)}</p>
                   </div>
                 ))}
               </div>
