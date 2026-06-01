@@ -709,6 +709,16 @@ function DraggableLeadCard({ lead, onEdit, onDelete }: {
 }
 
 // ── Card content ──────────────────────────────────────────────────────────────
+function timeAgoShort(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
+
 function LeadCardInner({ lead, onEdit, onDelete }: {
   lead: DmLead; onEdit?: () => void; onDelete?: () => void;
 }) {
@@ -719,6 +729,9 @@ function LeadCardInner({ lead, onEdit, onDelete }: {
           <p className="text-xs font-semibold text-slate-800 truncate">{lead.name}</p>
           {lead.handle && <p className="text-[10px] text-slate-400 truncate">@{lead.handle.replace(/^@/, "")}</p>}
           {lead.date && <p className="text-[10px] text-slate-300 mt-0.5">{lead.date.slice(5).replace("-", "/")}</p>}
+          {lead.status === "link_sent" && lead.updatedAt && (
+            <p className="text-[10px] font-medium text-purple-500 mt-1">🔗 Link sent {timeAgoShort(lead.updatedAt)}</p>
+          )}
         </div>
         {(onEdit || onDelete) && (
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
