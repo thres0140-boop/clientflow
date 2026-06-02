@@ -22,11 +22,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       structure: maybe(body.structure),
       guidelines: maybe(body.guidelines),
       exampleUrl: maybe(body.exampleUrl),
+      ...(body.reelUrls !== undefined ? { reelUrls: typeof body.reelUrls === "string" ? body.reelUrls : JSON.stringify(body.reelUrls) } : {}),
       scriptExamples: maybe(body.scriptExamples),
       scriptRules: maybe(body.scriptRules),
       notes: maybe(body.notes),
       ...(body.isIdea !== undefined ? { isIdea: body.isIdea } : {}),
-    },
+    } as any,
     include: { client: { select: { name: true, color: true } } },
   });
   return NextResponse.json(concept);

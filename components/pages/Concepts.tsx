@@ -98,60 +98,53 @@ export default function Concepts({ clients, selectedClientId }: Props) {
               <p className="text-slate-500">No concepts yet. Promote an idea or create one manually.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
-              {realConcepts.map((concept) => (
-                <button
-                  key={concept.id}
-                  onClick={() => setSelected(concept)}
-                  className="w-full flex items-center gap-4 px-5 py-3.5 text-left hover:bg-slate-50 transition-colors group"
-                >
-                  {/* Color dot */}
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
-                    style={{ backgroundColor: concept.client?.color || "#6366f1" }}
-                  >
-                    {concept.name[0]}
+            <div className="space-y-5">
+              {(() => {
+                // Group concepts by category (conceptType); uncategorised last
+                const groups = new Map<string, Concept[]>();
+                for (const c of realConcepts) {
+                  const cat = ((c as any).conceptType || "Uncategorised") as string;
+                  if (!groups.has(cat)) groups.set(cat, []);
+                  groups.get(cat)!.push(c);
+                }
+                const ordered = Array.from(groups.entries()).sort((a, b) => {
+                  if (a[0] === "Uncategorised") return 1;
+                  if (b[0] === "Uncategorised") return -1;
+                  return a[0].localeCompare(b[0]);
+                });
+                return ordered.map(([cat, list]) => (
+                  <div key={cat}>
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{cat}</span>
+                      <span className="text-xs text-slate-400">{list.length} concept{list.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                      {list.map((concept) => (
+                        <button key={concept.id} onClick={() => setSelected(concept)}
+                          className="w-full flex items-center gap-4 px-5 py-3.5 text-left hover:bg-slate-50 transition-colors group">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
+                            style={{ backgroundColor: concept.client?.color || "#6366f1" }}>
+                            {concept.name[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-800 truncate">{concept.name}</p>
+                            {concept.textHook && <p className="text-xs text-slate-400 italic truncate mt-0.5">"{concept.textHook}"</p>}
+                          </div>
+                          <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
+                            {(() => { try { const r = JSON.parse((concept as any).reelUrls || "[]"); return r.length ? <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">📎 {r.length}</span> : null; } catch { return null; } })()}
+                            {concept.hookType && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">{concept.hookType}</span>}
+                            {concept.videoType && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">{concept.videoType}</span>}
+                          </div>
+                          <span className="text-xs text-slate-300 flex-shrink-0 ml-2">×{concept.timesUsed}</span>
+                          <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                            <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-
-                  {/* Name + hook */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{concept.name}</p>
-                    {concept.textHook && (
-                      <p className="text-xs text-slate-400 italic truncate mt-0.5">"{concept.textHook}"</p>
-                    )}
-                  </div>
-
-                  {/* Tags */}
-                  <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
-                    {(concept as any).conceptType && (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                        {(concept as any).conceptType}
-                      </span>
-                    )}
-                    {concept.hookType && (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">
-                        {concept.hookType}
-                      </span>
-                    )}
-                    {concept.videoType && (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">
-                        {concept.videoType}
-                      </span>
-                    )}
-                    {concept.angle && (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                        {concept.angle}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Used count */}
-                  <span className="text-xs text-slate-300 flex-shrink-0 ml-2">×{concept.timesUsed}</span>
-                  <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" viewBox="0 0 16 16" fill="none">
-                    <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              ))}
+                ));
+              })()}
             </div>
           )}
         </>
@@ -733,10 +726,34 @@ export function ConceptModal({
 }
 
 function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; onClose: () => void; onDelete: () => void }) {
+  const [reels, setReels] = useState<string[]>(() => {
+    try { return JSON.parse((concept as any).reelUrls || "[]"); } catch { return []; }
+  });
+  const [newReel, setNewReel] = useState("");
+
+  async function saveReels(next: string[]) {
+    setReels(next);
+    await fetch(`/api/concepts/${concept.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reelUrls: next }),
+    });
+  }
+  function addReel() {
+    const u = newReel.trim();
+    if (!u) return;
+    saveReels([...reels, u]);
+    setNewReel("");
+  }
+
   return (
     <Modal title={concept.name} onClose={onClose} wide>
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
+          {(concept as any).conceptType && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+              {(concept as any).conceptType}
+            </span>
+          )}
           {concept.hookType && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
               🎣 {concept.hookType}
@@ -764,6 +781,28 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
             Used {concept.timesUsed}×
           </span>
+        </div>
+
+        {/* Attached reels */}
+        <div>
+          <p className="text-xs font-semibold text-slate-500 mb-1.5">📎 ATTACHED REELS ({reels.length})</p>
+          <div className="space-y-1.5 mb-2">
+            {reels.map((u, i) => (
+              <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                <a href={u} target="_blank" rel="noopener noreferrer" className="flex-1 text-xs text-indigo-600 hover:underline truncate">{u}</a>
+                <button onClick={() => saveReels(reels.filter((_, idx) => idx !== i))}
+                  className="text-slate-300 hover:text-red-500 text-xs flex-shrink-0">✕</button>
+              </div>
+            ))}
+            {reels.length === 0 && <p className="text-xs text-slate-300">No reels attached yet.</p>}
+          </div>
+          <div className="flex items-center gap-2">
+            <input value={newReel} onChange={(e) => setNewReel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") addReel(); }}
+              placeholder="Paste a reel link to attach…"
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            <button onClick={addReel} className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Add</button>
+          </div>
         </div>
 
         {concept.textHook && (
