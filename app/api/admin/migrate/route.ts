@@ -14,6 +14,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: count });
   }
 
+  // ?resync=clientId — clear lastConvTime so the next sync re-scans all conversations
+  // (used to backfill corrected dates onto existing leads)
+  const resync = req.nextUrl.searchParams.get("resync");
+  if (resync) {
+    const cid = parseInt(resync);
+    const { count } = await (prisma as any).dmLead.updateMany({
+      where: { clientId: cid },
+      data: { lastConvTime: null },
+    });
+    return NextResponse.json({ ok: true, cleared: count });
+  }
+
   // ?testconv=clientId — probe Zernio conversations endpoint and return the raw result
   const testconv = req.nextUrl.searchParams.get("testconv");
   if (testconv) {

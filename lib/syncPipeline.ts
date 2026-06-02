@@ -12,6 +12,11 @@ export const DM_STATUS_ORDER = [
 function ymd(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+function ymdFrom(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : ymd(d);
+}
 function normHandle(h?: string | null) {
   return (h ?? "").replace(/^@/, "").toLowerCase().trim();
 }
@@ -75,8 +80,10 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
       let lead = leadByConv.get(convId) ?? (h ? leadByHandle.get(h) : null);
 
       if (!lead) {
+        // Stamp with the conversation's real activity date, not the sync time
+        const convDate = ymdFrom(convTime) ?? today;
         lead = await prisma.dmLead.create({
-          data: { clientId, name, handle: h || null, status: "messaged", date: today, convId } as any,
+          data: { clientId, name, handle: h || null, status: "messaged", date: convDate, convId } as any,
         });
         leadByConv.set(convId, lead);
         if (h) leadByHandle.set(h, lead);
@@ -121,6 +128,17 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
       const patch: any = {};
       let bumpAnswered = false, bumpLink = false;
       let target = lead.status as string;
+
+      // Correct the lead's date to the actual first-message date (not sync-creation date)
+      const msgTimes = messages
+        .map((m: any) => m.createdAt ?? m.sentAt ?? m.timestamp ?? m.created_at)
+        .filter(Boolean)
+        .map((t: string) => new Date(t).getTime())
+        .filter((n: number) => !isNaN(n));
+      if (msgTimes.length > 0) {
+        const firstDate = ymdFrom(new Date(Math.min(...msgTimes)).toISOString());
+        if (firstDate && firstDate !== lead.date) patch.date = firstDate;
+      }
 
       // Upgrade anonymous lead once Zernio resolves a real name/handle
       if (h && !normHandle(lead.handle)) patch.handle = h;
