@@ -66,6 +66,39 @@ const DEFAULT_RULES = `1. VOICE IS EVERYTHING
    pillar, it's not specific enough to the creator. Merge pillars
    for stronger, more unique content`;
 
+// Rules for B-roll + on-screen TEXT-HOOK reels (no voiceover). Kept in sync with
+// the server fallback in /api/script-drafts/generate.
+const TEXT_HOOK_RULES = `THIS IS A TEXT-HOOK + B-ROLL FORMAT. THERE IS NO SPOKEN SCRIPT. NO ONE TALKS.
+The reel is silent b-roll footage with short on-screen TEXT CARDS. Your output is the on-screen text only.
+
+1. SAME HOOK, NEW WORDS — THIS IS THE WHOLE JOB
+   This format reuses ONE proven hook. Every variation you write is the SAME core
+   hook idea rephrased in DIFFERENT words. Do NOT invent new topics, new angles, or
+   new themes. Same message, said a different way each time.
+
+2. FIRST, DECODE WHY IT WORKS
+   Before rewriting, identify what makes the example hook go viral:
+   - the core emotional trigger / recognition moment ("oh, that's me")
+   - the sentence shape (e.g. "Op een dag [realisation that you didn't see coming]")
+   - the turn — a calm/relatable opening that flips into a harder truth or reframe
+   Keep that exact mechanism in EVERY variation. That DNA is non-negotiable.
+
+3. ON-SCREEN TEXT, NOT SPEECH
+   Short text cards. One thought per line. 4–8 lines, ~3–9 words per line.
+   No spoken filler ("weet je", "en dan", "dus"), no flowing monologue, no
+   connective sentences that only make sense out loud. It must read as text on a screen.
+
+4. KEEP THE TURN
+   Open with the calm/relatable line, then deliver the turn. Don't lose the beat
+   that makes people stop scrolling.
+
+5. SHORT & PUNCHY
+   Every line earns its place. Cut filler. One sentence per card, max.
+
+6. CAPTION ≠ ON-SCREEN TEXT
+   The caption approaches the same theme from a completely different angle than the
+   on-screen text — it is not a repeat of the cards.`;
+
 type BlueprintDraft = {
   hookType: string;
   textHook: string;
@@ -120,6 +153,19 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   function startConceptRulesEdit(concept: Concept) {
     setConceptRulesText((prev) => ({ ...prev, [concept.id]: concept.scriptRules ?? DEFAULT_RULES }));
     setConceptRulesEditing(concept.id);
+  }
+
+  // Swap the whole rule set between talking-head and viral text-hook presets.
+  async function applyRuleSet(conceptId: number, rules: string) {
+    setSavingConceptRules(conceptId);
+    await fetch(`/api/concepts/${conceptId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptRules: rules }),
+    });
+    setConcepts((prev) => prev.map((c) => c.id === conceptId ? { ...c, scriptRules: rules } : c));
+    setConceptRulesText((prev) => ({ ...prev, [conceptId]: rules }));
+    setSavingConceptRules(null);
   }
 
   function startBlueprintEdit(concept: Concept) {
@@ -353,6 +399,25 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                   className="w-full flex items-center justify-between py-1.5 hover:opacity-80 transition-opacity">
                   <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide">📐 Writing Rules</p>
                   <div className="flex items-center gap-2">
+                    {conceptRulesEditing !== concept.id && openSections.rules && (() => {
+                      const isTextHook = (concept.scriptRules ?? "") === TEXT_HOOK_RULES;
+                      const isTalking  = !concept.scriptRules || concept.scriptRules === DEFAULT_RULES;
+                      const saving = savingConceptRules === concept.id;
+                      return (
+                        <>
+                          <span onClick={(e) => { e.stopPropagation(); if (!isTalking && !saving) applyRuleSet(concept.id, DEFAULT_RULES); }}
+                            title="Spoken talking-head script rules"
+                            className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${isTalking ? "bg-indigo-500 text-white border-indigo-500 cursor-default" : "text-indigo-500 border-indigo-200 hover:bg-indigo-50 cursor-pointer"}`}>
+                            🎙 Talking-head
+                          </span>
+                          <span onClick={(e) => { e.stopPropagation(); if (!isTextHook && !saving) applyRuleSet(concept.id, TEXT_HOOK_RULES); }}
+                            title="Viral B-roll + on-screen text-hook rules"
+                            className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${isTextHook ? "bg-pink-500 text-white border-pink-500 cursor-default" : "text-pink-500 border-pink-200 hover:bg-pink-50 cursor-pointer"}`}>
+                            📝 Viral text-hook
+                          </span>
+                        </>
+                      );
+                    })()}
                     {conceptRulesEditing !== concept.id && openSections.rules && (
                       <span onClick={(e) => { e.stopPropagation(); startConceptRulesEdit(concept); }}
                         className="text-[9px] text-amber-500 hover:text-amber-700 font-semibold px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-50 transition-colors">
