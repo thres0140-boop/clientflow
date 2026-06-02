@@ -8,6 +8,8 @@ import { ConceptModal } from "./Concepts";
 type Props = {
   clients: Client[];
   selectedClientId: number | null;
+  attachConcept?: { id: number; name: string } | null;
+  onExitAttach?: () => void;
 };
 
 type IGReel = {
@@ -50,7 +52,7 @@ function fmt(n: number) {
 
 type Tab = "reels" | "competitors";
 
-export default function InstagramPage({ clients, selectedClientId }: Props) {
+export default function InstagramPage({ clients, selectedClientId, attachConcept, onExitAttach }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [tab, setTab] = useState<Tab>("reels");
   const [profile, setProfile] = useState<IGProfile | null>(null);
@@ -154,6 +156,12 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
 
   return (
     <div className="space-y-5">
+      {attachConcept && (
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-indigo-600 text-white shadow-lg">
+          <p className="text-sm font-semibold">🎬 Adding reels to "{attachConcept.name}" — open a reel and tap "Add to concept group".</p>
+          <button onClick={onExitAttach} className="px-3 py-1.5 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-lg">✕ Done</button>
+        </div>
+      )}
       <ProfileHeader
         client={client}
         profile={profile}
@@ -197,7 +205,7 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
             : reels.length > 0
               ? <>
                   <ReelsGrid reels={reels} onSelect={setSelected} />
-                  {selected && <ReelDetailPanel reel={selected} client={client} onClose={() => setSelected(null)} />}
+                  {selected && <ReelDetailPanel reel={selected} client={client} onClose={() => setSelected(null)} attachConcept={attachConcept} />}
                 </>
               : <div className="text-center py-16 text-slate-400 text-sm">No reels found on this account.</div>
           : <NotConnectedReels client={client} />
@@ -701,7 +709,7 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
   );
 }
 
-function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Client; onClose: () => void }) {
+function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGReel; client: Client; onClose: () => void; attachConcept?: { id: number; name: string } | null }) {
   const storageKey = `reel_transcript_${reel.id}`;
   const [transcript, setTranscript] = useState<string | null>(() => {
     try { return localStorage.getItem(storageKey); } catch { return null; }
@@ -709,6 +717,25 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   const [transcribing, setTranscribing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [attachState, setAttachState] = useState<"idle" | "saving" | "added">("idle");
+
+  // Add this reel to the active concept group (attach mode)
+  async function addToConceptGroup() {
+    if (!attachConcept) return;
+    setAttachState("saving");
+    const url = reel.permalink || `https://instagram.com/reel/${reel.id}`;
+    try {
+      const concept = await fetch(`/api/concepts/${attachConcept.id}`).then((r) => r.json()).catch(() => null);
+      let current: string[] = [];
+      try { current = JSON.parse(concept?.reelUrls || "[]"); } catch { current = []; }
+      if (!current.includes(url)) current.push(url);
+      await fetch(`/api/concepts/${attachConcept.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reelUrls: current }),
+      });
+      setAttachState("added");
+    } catch { setAttachState("idle"); }
+  }
   const [showConceptModal, setShowConceptModal] = useState(false);
   const [existingConcepts, setExistingConcepts] = useState<any[]>([]);
 
@@ -932,7 +959,12 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
           </div>
         </div>
         <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 flex gap-2.5">
-          {saved ? (
+          {attachConcept ? (
+            <button onClick={addToConceptGroup} disabled={attachState !== "idle"}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${attachState === "added" ? "bg-green-100 text-green-700" : "bg-indigo-600 text-white hover:bg-indigo-700"} disabled:opacity-70`}>
+              {attachState === "added" ? `✓ Added to ${attachConcept.name}` : attachState === "saving" ? "Adding…" : `➕ Add to "${attachConcept.name}"`}
+            </button>
+          ) : saved ? (
             <div className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">✓ Saved</div>
           ) : (
             <>

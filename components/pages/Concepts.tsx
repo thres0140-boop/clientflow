@@ -67,7 +67,7 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
   );
 }
 
-export default function Concepts({ clients, selectedClientId }: Props) {
+export default function Concepts({ clients, selectedClientId, onAttachReels }: Props & { onAttachReels?: (c: { id: number; name: string }) => void }) {
   const [tab, setTab] = useState<Tab>("ideas");
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -226,6 +226,7 @@ export default function Concepts({ clients, selectedClientId }: Props) {
           existingConcepts={concepts.map((c) => ({ conceptType: (c as any).conceptType, name: c.name }))}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); reload(); }}
+          onAttachReels={onAttachReels}
         />
       )}
 
@@ -589,7 +590,7 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
 const DEFAULT_CATEGORIES = ["Viral", "Value", "Authentic", "Authority"];
 
 export function ConceptModal({
-  clients, selectedClientId, onClose, onSaved, initial, existingConcepts,
+  clients, selectedClientId, onClose, onSaved, initial, existingConcepts, onAttachReels,
 }: {
   clients: Client[];
   selectedClientId: number | null;
@@ -597,6 +598,7 @@ export function ConceptModal({
   onSaved: () => void;
   initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string; reelUrls?: string[] };
   existingConcepts?: { conceptType?: string | null; name?: string | null }[];
+  onAttachReels?: (c: { id: number; name: string }) => void;
 }) {
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
   const existing = existingConcepts ?? [];
@@ -624,15 +626,28 @@ export function ConceptModal({
     setScriptBoxesC((p) => Array.from({ length: count }, (_, i) => p[i] ?? ""));
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function save(): Promise<any> {
     const scriptExamples = scriptBoxes.filter(Boolean).join("\n\n");
-    await fetch("/api/concepts", {
+    return fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, scriptExamples, reelUrls, isIdea: false }),
-    });
+    }).then((r) => r.json());
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    await save();
     onSaved();
+  }
+
+  // Save the concept, then jump into the reels view to add reels to it
+  async function saveAndAttach() {
+    if (!form.conceptType || !form.name) { alert("Fill in Concept + Concept Type first."); return; }
+    const created = await save();
+    onClose();
+    if (created?.id && onAttachReels) onAttachReels({ id: created.id, name: form.name });
+    else onSaved();
   }
 
   return (
@@ -806,6 +821,11 @@ export function ConceptModal({
         </div>
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          {onAttachReels && (
+            <button type="button" onClick={saveAndAttach} className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+              🎬 Save & add reels
+            </button>
+          )}
           <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Concept</button>
         </div>
       </form>
