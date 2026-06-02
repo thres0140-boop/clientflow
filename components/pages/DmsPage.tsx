@@ -348,6 +348,16 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
   const countOf = (statuses: string[]) => filtered.filter((l) => statuses.includes(l.status)).length;
   const leadsBy = (s: string) => filtered.filter((l) => l.status === s);
 
+  // Funnel (cumulative) counts for the summary cards — "how many reached this stage",
+  // matching the Analytics totals. Columns below still show current state.
+  const funnelCount = (s: string) => {
+    if (s === "messaged")  return filtered.length;
+    if (s === "answered")  return filtered.filter((l) => (l as any).repliedAt).length;
+    if (s === "link_sent") return filtered.filter((l) => (l as any).linkSentAt).length;
+    if (s === "booked")    return filtered.filter((l) => (l as any).bookedAt).length;
+    return filtered.filter((l) => l.status === s).length; // terminal outcomes = current state
+  };
+
   const filteredConvs = conversations.filter((c) =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
     (c.handle && c.handle.toLowerCase().includes(search.toLowerCase()))
@@ -426,7 +436,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
               {/* Stats row — pinned (doesn't scroll vertically) */}
               <div className="flex gap-2 pb-1 flex-shrink-0">
                 {DM_STATUSES.map((s) => {
-                  const count = leadsBy(s.value).length;
+                  const count = funnelCount(s.value);
                   return (
                     <div key={s.value} className={`flex-1 rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
                       <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>

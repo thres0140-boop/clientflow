@@ -142,11 +142,14 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     const d = new Date(s);
     return isNaN(d.getTime()) ? null : toYMD(d);
   }
+  // Cohort funnel: bucket every metric by the day the lead was MESSAGED, then count how
+  // many of that day's cohort reached each stage. Keeps the funnel consistent + matches the pipeline.
   function dmCount(date: string, key: ManualKey): number {
-    if (key === "messagesSent")     return dmLeads.filter((l) => ymdOf(l.date) === date).length;
-    if (key === "messagesAnswered") return dmLeads.filter((l) => ymdOf(l.repliedAt) === date).length;
-    if (key === "linksSent")        return dmLeads.filter((l) => ymdOf(l.linkSentAt) === date).length;
-    if (key === "bookedCalls")      return dmLeads.filter((l) => ymdOf(l.bookedAt) === date).length;
+    const cohort = dmLeads.filter((l) => ymdOf(l.date) === date);
+    if (key === "messagesSent")     return cohort.length;
+    if (key === "messagesAnswered") return cohort.filter((l) => l.repliedAt).length;
+    if (key === "linksSent")        return cohort.filter((l) => l.linkSentAt).length;
+    if (key === "bookedCalls")      return cohort.filter((l) => l.bookedAt).length;
     return 0;
   }
   const DM_AUTO_KEYS: ManualKey[] = ["messagesSent", "messagesAnswered", "linksSent", "bookedCalls"];
