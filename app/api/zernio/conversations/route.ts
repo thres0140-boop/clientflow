@@ -38,7 +38,11 @@ export async function GET(req: NextRequest) {
   const data = await res.json();
 
   if (!res.ok) {
-    return NextResponse.json({ error: data?.message ?? "Failed to fetch conversations" }, { status: 400 });
+    console.error("[zernio/conversations] Zernio error", res.status, JSON.stringify(data), "profileId=", profileId, "accountId=", conn.zernioAccountId);
+    return NextResponse.json(
+      { error: data?.message ?? data?.error ?? "Failed to fetch conversations", zernioStatus: res.status, raw: data },
+      { status: res.status === 429 ? 429 : 400 },
+    );
   }
 
   // ── Auto-sync leads ──────────────────────────────────────────────────────
