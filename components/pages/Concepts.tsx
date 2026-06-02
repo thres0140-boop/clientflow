@@ -123,6 +123,11 @@ export default function Concepts({ clients, selectedClientId }: Props) {
 
                   {/* Tags */}
                   <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
+                    {(concept as any).conceptType && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                        {(concept as any).conceptType}
+                      </span>
+                    )}
                     {concept.hookType && (
                       <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">
                         {concept.hookType}
@@ -165,6 +170,7 @@ export default function Concepts({ clients, selectedClientId }: Props) {
         <ConceptModal
           clients={clients}
           selectedClientId={selectedClientId}
+          categories={Array.from(new Set(concepts.map((c) => (c as any).conceptType).filter(Boolean)))}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); reload(); }}
         />
@@ -527,23 +533,29 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
   );
 }
 
+const DEFAULT_CATEGORIES = ["Viral", "Value", "Authentic", "Authority"];
+
 export function ConceptModal({
-  clients, selectedClientId, onClose, onSaved, initial,
+  clients, selectedClientId, onClose, onSaved, initial, categories,
 }: {
   clients: Client[];
   selectedClientId: number | null;
   onClose: () => void;
   onSaved: () => void;
-  initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string };
+  initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string; reelUrls?: string[] };
+  categories?: string[]; // existing per-client categories to suggest in the dropdown
 }) {
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
+  const catOptions = Array.from(new Set([...DEFAULT_CATEGORIES, ...(categories ?? [])]));
 
   const [form, setForm] = useState({
     name: initial?.name ?? "", clientId: selectedClientId?.toString() || "",
+    conceptType: "",
     hookType: "", textHook: "", audioHook: "", videoType: "",
     angle: "", structure: "", guidelines: "",
     exampleUrl: initial?.exampleUrl ?? "", notes: initial?.notes ?? "",
   });
+  const reelUrls = initial?.reelUrls ?? [];
   const [scriptBoxes, setScriptBoxesC] = useState<string[]>([initial?.scriptExamples || ""]);
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
   function setBox(i: number, v: string) { setScriptBoxesC((p) => p.map((b, idx) => idx === i ? v : b)); }
@@ -558,7 +570,7 @@ export function ConceptModal({
     await fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, scriptExamples, isIdea: false }),
+      body: JSON.stringify({ ...form, scriptExamples, reelUrls, isIdea: false }),
     });
     onSaved();
   }
@@ -594,11 +606,35 @@ export function ConceptModal({
           </div>
         )}
 
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Concept Name *</label>
-          <input required value={form.name} onChange={(e) => set("name", e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Concept *</label>
+            <input list="conceptCatList" required value={form.conceptType} onChange={(e) => set("conceptType", e.target.value)}
+              placeholder="Viral, Value, Authentic…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <datalist id="conceptCatList">
+              {catOptions.map((c) => <option key={c} value={c} />)}
+            </datalist>
+            <p className="text-[10px] text-slate-400 mt-0.5">Pick one or type a new category</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Concept Name *</label>
+            <input required value={form.name} onChange={(e) => set("name", e.target.value)}
+              placeholder="specific name for this concept"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
         </div>
+
+        {reelUrls.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            <p className="text-[10px] font-semibold text-slate-500 mb-1">📎 {reelUrls.length} reel{reelUrls.length !== 1 ? "s" : ""} attached</p>
+            <div className="flex flex-wrap gap-1">
+              {reelUrls.map((u, i) => (
+                <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-600 hover:underline truncate max-w-[160px]">reel {i + 1} ↗</a>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>

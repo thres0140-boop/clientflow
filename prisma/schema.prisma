@@ -192,6 +192,7 @@ model Concept {
   structure      String?
   guidelines     String?
   exampleUrl     String?
+  reelUrls       String?  // JSON array of reel permalinks attached to this concept
   scriptExamples       String?
   scriptRules          String?
   aiMemory             String?

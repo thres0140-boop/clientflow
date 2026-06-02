@@ -958,6 +958,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
         initial={{
           name: reel.caption?.slice(0, 80) || `Reel ${new Date(reel.timestamp).toLocaleDateString()}`,
           exampleUrl: reel.permalink || `https://instagram.com/reel/${reel.id}`,
+          reelUrls: [reel.permalink || `https://instagram.com/reel/${reel.id}`],
           notes: [
             reel.plays != null ? `Views: ${fmt(reel.plays)}` : null,
             reel.reach != null ? `Reach: ${fmt(reel.reach)}` : null,

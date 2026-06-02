@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
     data: {
       clientId: body.clientId ? parseInt(body.clientId) : null,
       name: body.name,
+      conceptType: body.conceptType || null,
+      reelUrls: body.reelUrls ? (typeof body.reelUrls === "string" ? body.reelUrls : JSON.stringify(body.reelUrls)) : null,
       hookType: body.hookType || null,
       textHook: body.textHook || null,
       audioHook: body.audioHook || null,
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
       scriptExamples: body.scriptExamples || null,
       notes: body.notes || null,
       isIdea: body.isIdea === true,
-    },
+    } as any,
     include: { client: { select: { name: true, color: true } } },
   });
   return NextResponse.json(concept, { status: 201 });
