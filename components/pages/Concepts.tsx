@@ -654,6 +654,11 @@ export function ConceptModal({
   const [showReelPicker, setShowReelPicker] = useState(false);
   // Text-overlay flag — explicitly passed when the reel had no speech (vision-read its on-screen text)
   const [textOverlay, setTextOverlay] = useState<boolean>(initial?.textOverlay ?? false);
+  // Client-owned: the client writes the scripts themselves on a recurring cadence
+  const [clientOwned, setClientOwned] = useState(false);
+  const [clientQuota, setClientQuota] = useState("3");
+  const [clientIntervalDays, setClientIntervalDays] = useState("7");
+  const [clientAnchor, setClientAnchor] = useState("");
   // Concept Types saved under the selected category
   const typeOptions = Array.from(new Set(
     existing.filter((c) => c.conceptType === form.conceptType).map((c) => c.name).filter(Boolean) as string[]
@@ -702,7 +707,13 @@ export function ConceptModal({
     const created = await fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, scriptExamples, reelUrls, textOverlay, isIdea: false }),
+      body: JSON.stringify({
+        ...form, scriptExamples, reelUrls, textOverlay, isIdea: false,
+        clientOwned,
+        clientQuota: clientOwned ? clientQuota : null,
+        clientIntervalDays: clientOwned ? clientIntervalDays : null,
+        clientAnchor: clientOwned ? clientAnchor : null,
+      }),
     }).then((r) => r.json());
     // Auto-pull on-screen text from all attached reels as example scripts (background).
     if (created?.id && reelUrls.length) {
@@ -816,6 +827,44 @@ export function ConceptModal({
             <p className="text-[10px] text-slate-400">For viral text-on-screen reels. The AI writes on-screen <strong>text hooks/overlays</strong> in this style instead of a spoken script. Paste the on-screen text into Script Examples below.</p>
           </div>
         </label>
+
+        {/* Client-owned: the client writes the scripts themselves */}
+        <div className={`rounded-lg border ${clientOwned ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200"}`}>
+          <label className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer">
+            <input type="checkbox" checked={clientOwned} onChange={(e) => setClientOwned(e.target.checked)} className="mt-0.5" />
+            <div>
+              <p className="text-xs font-semibold text-slate-700">🧑‍💻 Client writes the scripts</p>
+              <p className="text-[10px] text-slate-400">No AI generation. The client gets a recurring task to write the scripts themselves; their submissions land as drafts for your review.</p>
+            </div>
+          </label>
+          {clientOwned && (
+            <div className="px-3 pb-3 grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 mb-1">How many scripts</label>
+                <input type="number" min={1} max={50} value={clientQuota} onChange={(e) => setClientQuota(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 mb-1">How often</label>
+                <select value={clientIntervalDays} onChange={(e) => setClientIntervalDays(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  <option value="7">Every week</option>
+                  <option value="14">Every 2 weeks</option>
+                  <option value="21">Every 3 weeks</option>
+                  <option value="28">Every 4 weeks</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 mb-1">First due date</label>
+                <input type="date" value={clientAnchor} onChange={(e) => setClientAnchor(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+              </div>
+              <p className="col-span-3 text-[10px] text-blue-500">
+                e.g. {clientQuota || "?"} scripts {clientIntervalDays === "7" ? "every week" : `every ${parseInt(clientIntervalDays || "7") / 7} weeks`}{clientAnchor ? `, starting ${clientAnchor}` : " (pick a start date)"}.
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* AI auto-fill — analyzes the script/on-screen text and fills the whole blueprint */}
         <button type="button" onClick={aiAnalyze} disabled={analyzing}

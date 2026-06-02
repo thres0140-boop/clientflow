@@ -191,6 +191,13 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "Concept"
       ADD COLUMN IF NOT EXISTS "textOverlay" BOOLEAN NOT NULL DEFAULT false;
     `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "Concept"
+      ADD COLUMN IF NOT EXISTS "clientOwned" BOOLEAN NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "clientQuota" INTEGER,
+      ADD COLUMN IF NOT EXISTS "clientIntervalDays" INTEGER,
+      ADD COLUMN IF NOT EXISTS "clientAnchor" TEXT;
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

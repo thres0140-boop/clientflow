@@ -204,6 +204,12 @@ model Concept {
   notes          String?
   createdAt      DateTime @default(now())
 
+  // Client-owned concept: the client writes the scripts themselves (no AI gen).
+  clientOwned        Boolean  @default(false)
+  clientQuota        Int?     // how many scripts the client must write per cycle
+  clientIntervalDays Int?     // cycle length in days (7 = weekly, 14 = biweekly, 28 = ~monthly)
+  clientAnchor       String?  // YYYY-MM-DD — first due date; cycles repeat every intervalDays from here
+
   client           Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   contentPieces    ContentPiece[]
   trackedVideos    TrackedVideo[]

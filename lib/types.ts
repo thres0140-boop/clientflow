@@ -165,6 +165,10 @@ export type Concept = {
   conceptType?: string | null;
   reelUrls?: string | null;
   textOverlay?: boolean;
+  clientOwned?: boolean;
+  clientQuota?: number | null;
+  clientIntervalDays?: number | null;
+  clientAnchor?: string | null;
   scriptExamples?: string | null;
   scriptRules?: string | null;
   aiMemory?: string | null;
