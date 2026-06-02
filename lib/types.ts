@@ -226,6 +226,7 @@ export type DmLead = {
   repliedAt?: string | null;
   source?: string | null;
   convId?: string | null;
+  linkSentAt?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;

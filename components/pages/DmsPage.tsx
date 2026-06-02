@@ -285,16 +285,6 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
     }
   }
 
-  async function sendBookingLink() {
-    const bookingLink = client?.bookingLink;
-    if (!bookingLink) {
-      alert("No booking link set for this client. Add one in Settings.");
-      return;
-    }
-    if (!selectedConv) return;
-    await sendMessage(bookingLink);
-    await promoteToStatus(selectedConv, "link_sent");
-  }
 
   async function addToPipeline(conv: Conversation) {
     if (!selectedClientId) return;
@@ -591,26 +581,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                 </div>
 
                 {/* Reply input */}
-                <div className="px-4 py-3 border-t border-slate-200 flex-shrink-0 bg-white space-y-2">
-                  {/* Quick actions */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={sendBookingLink}
-                      disabled={sending || !client?.bookingLink}
-                      title={!client?.bookingLink ? "Add a booking link in Settings first" : client.bookingLink}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                        client?.bookingLink
-                          ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200"
-                          : "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                      }`}
-                    >
-                      🔗 Send Booking Link
-                    </button>
-                    {client?.bookingLink
-                      ? <span className="text-[10px] text-slate-400 truncate max-w-[200px]">{client.bookingLink}</span>
-                      : <span className="text-[10px] text-slate-400">No booking link set — add one in Settings</span>
-                    }
-                  </div>
+                <div className="px-4 py-3 border-t border-slate-200 flex-shrink-0 bg-white">
                   <div className="flex items-end gap-2">
                     <textarea
                       value={replyText}
@@ -721,8 +692,8 @@ function LeadCardInner({ lead, onEdit, onDelete }: {
           {(lead as any).source === "cta" && (
             <p className="text-[10px] font-medium text-orange-500 mt-1">⚡ CTA inbound</p>
           )}
-          {lead.status === "link_sent" && lead.updatedAt && (
-            <p className="text-[10px] font-medium text-purple-500 mt-1">🔗 Link sent {timeAgoShort(lead.updatedAt)}</p>
+          {lead.status === "link_sent" && (lead as any).linkSentAt && (
+            <p className="text-[10px] font-medium text-purple-500 mt-1">🔗 Link sent {timeAgoShort((lead as any).linkSentAt)}</p>
           )}
         </div>
         {(onEdit || onDelete) && (

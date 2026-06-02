@@ -129,12 +129,16 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
         patch.source = "cta";
         r.ctaFound++;
       }
-      // Link sent → promote to link_sent
+      // Link sent → promote to link_sent (capture the actual message timestamp)
       if (bookingLink) {
-        const sentLink = messages.some((m: any) =>
+        const linkMsg = messages.find((m: any) =>
           (m.direction === "outgoing" || m.isOwn === true) && (m.message ?? m.text ?? "").includes(bookingLink)
         );
-        if (sentLink && idx(target) < idx("link_sent")) { target = "link_sent"; bumpLink = true; }
+        if (linkMsg && idx(target) < idx("link_sent")) {
+          target = "link_sent";
+          bumpLink = true;
+          patch.linkSentAt = linkMsg.createdAt ?? linkMsg.sentAt ?? linkMsg.timestamp ?? linkMsg.created_at ?? new Date().toISOString();
+        }
       }
 
       if (target !== lead.status) patch.status = target;
