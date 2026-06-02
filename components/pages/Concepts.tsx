@@ -634,7 +634,7 @@ export function ConceptModal({
   selectedClientId: number | null;
   onClose: () => void;
   onSaved: () => void;
-  initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string; reelUrls?: string[] };
+  initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string; reelUrls?: string[]; textOverlay?: boolean };
   existingConcepts?: { conceptType?: string | null; name?: string | null }[];
   onAttachReels?: (c: { id: number; name: string }) => void;
 }) {
@@ -652,10 +652,8 @@ export function ConceptModal({
   const [reelUrls, setReelUrls] = useState<string[]>(initial?.reelUrls ?? []);
   const [newReel, setNewReel] = useState("");
   const [showReelPicker, setShowReelPicker] = useState(false);
-  // Auto-detect a B-roll/text-overlay reel: opened from a reel but transcript came back empty/tiny
-  const [textOverlay, setTextOverlay] = useState<boolean>(
-    !!initial?.reelUrls?.length && (initial?.scriptExamples ?? "").trim().length < 40
-  );
+  // Text-overlay flag — explicitly passed when the reel had no speech (vision-read its on-screen text)
+  const [textOverlay, setTextOverlay] = useState<boolean>(initial?.textOverlay ?? false);
   // Concept Types saved under the selected category
   const typeOptions = Array.from(new Set(
     existing.filter((c) => c.conceptType === form.conceptType).map((c) => c.name).filter(Boolean) as string[]

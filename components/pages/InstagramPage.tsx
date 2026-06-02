@@ -738,8 +738,10 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
   }
   const [showConceptModal, setShowConceptModal] = useState(false);
   const [existingConcepts, setExistingConcepts] = useState<any[]>([]);
+  const [conceptInitial, setConceptInitial] = useState<any>(null);
 
-  // Transcribe (if needed) + load the client's concepts, then open the New Concept form
+  // Transcribe (if needed) + load the client's concepts, then open the New Concept form.
+  // For B-roll/text reels (no speech) we read the on-screen text overlay via vision instead.
   async function openConceptForm() {
     setSaving(true);
     let t = transcript;
@@ -753,10 +755,32 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
         if (!data.error) { t = data.transcript || ""; setTranscript(t); try { localStorage.setItem(storageKey, t!); } catch {} }
       } catch {/* ignore */}
     }
+
+    // No meaningful speech → likely a B-roll + text-overlay reel. Read the on-screen text.
+    const isTextOverlay = (t ?? "").trim().length < 40;
+    let overlayText = "";
+    if (isTextOverlay && reel.thumbnail_url) {
+      try {
+        const r = await fetch("/api/instagram/read-text", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageUrl: reel.thumbnail_url }),
+        });
+        const d = await r.json();
+        overlayText = (d.text || "").trim();
+      } catch {/* ignore */}
+    }
+
     try {
       const cs = await fetch(`/api/concepts?clientId=${client.id}`).then((r) => r.json());
       setExistingConcepts(Array.isArray(cs) ? cs : []);
     } catch {/* ignore */}
+
+    setConceptInitial({
+      exampleUrl: reel.permalink || `https://instagram.com/reel/${reel.id}`,
+      reelUrls: [reel.permalink || `https://instagram.com/reel/${reel.id}`],
+      scriptExamples: isTextOverlay ? overlayText : (t || ""),
+      textOverlay: isTextOverlay,
+    });
     setSaving(false);
     setShowConceptModal(true);
   }
@@ -993,7 +1017,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
         clients={[client]}
         selectedClientId={client.id}
         existingConcepts={existingConcepts.map((c: any) => ({ conceptType: c.conceptType, name: c.name }))}
-        initial={{
+        initial={conceptInitial || {
           exampleUrl: reel.permalink || `https://instagram.com/reel/${reel.id}`,
           reelUrls: [reel.permalink || `https://instagram.com/reel/${reel.id}`],
           scriptExamples: transcript || "",
