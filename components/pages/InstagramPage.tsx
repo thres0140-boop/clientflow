@@ -711,8 +711,14 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
 
 function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGReel; client: Client; onClose: () => void; attachConcept?: { id: number; name: string } | null }) {
   const storageKey = `reel_transcript_${reel.id}`;
+  const clearedKey = `reel_transcript_cleared_${reel.id}`;
   const [transcript, setTranscript] = useState<string | null>(() => {
     try { return localStorage.getItem(storageKey); } catch { return null; }
+  });
+  // Set when the user explicitly clears the transcript — stops auto-transcribe
+  // (on save / open concept) from silently re-adding it.
+  const [cleared, setCleared] = useState<boolean>(() => {
+    try { return localStorage.getItem(clearedKey) === "1"; } catch { return false; }
   });
   const [transcribing, setTranscribing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -750,7 +756,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
       /^(thank(s| you)( so much)?( for watching)?|please subscribe|like and subscribe|don'?t forget to subscribe|see you( next time| in the next video)?|bye|you|music|\[music( playing)?\]|♪+)[.!?\s]*$/i
         .test((s || "").trim());
     let t = isHallucination(transcript) ? "" : transcript;
-    if (!t && reel.media_url) {
+    if (!t && !cleared && reel.media_url) {
       try {
         const res = await fetch("/api/instagram/transcribe", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -805,8 +811,9 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
       const data = await res.json();
       const text = data.error ? `Error: ${data.error}` : (data.transcript || "No speech detected.");
       setTranscript(text);
+      setCleared(false);
       if (!data.error) {
-        try { localStorage.setItem(storageKey, text); } catch { /* ignore */ }
+        try { localStorage.setItem(storageKey, text); localStorage.removeItem(clearedKey); } catch { /* ignore */ }
       }
     } catch {
       setTranscript("Transcription failed. Please try again.");
@@ -814,10 +821,16 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
     setTranscribing(false);
   }
 
+  function clearTranscript() {
+    setTranscript("");
+    setCleared(true);
+    try { localStorage.removeItem(storageKey); localStorage.setItem(clearedKey, "1"); } catch { /* ignore */ }
+  }
+
   async function saveAsConcept(asIdea: boolean) {
     setSaving(true);
     let finalTranscript = transcript;
-    if (!finalTranscript && reel.media_url) {
+    if (!finalTranscript && !cleared && reel.media_url) {
       try {
         const res = await fetch("/api/instagram/transcribe", {
           method: "POST",
@@ -966,11 +979,19 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Transcript</p>
-                {!transcript && (
-                  <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50">
-                    {transcribing ? "Transcribing…" : "↯ Auto-transcribe"}
-                  </button>
-                )}
+                {transcript
+                  ? <div className="flex items-center gap-3">
+                      <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50">
+                        {transcribing ? "Transcribing…" : "↻ Redo"}
+                      </button>
+                      <button onClick={clearTranscript} disabled={transcribing} className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50">
+                        ✕ Clear
+                      </button>
+                    </div>
+                  : <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50">
+                      {transcribing ? "Transcribing…" : "↯ Auto-transcribe"}
+                    </button>
+                }
               </div>
               {transcript
                 ? <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3.5 text-sm text-slate-700 leading-relaxed max-h-40 overflow-y-auto">{transcript}</div>
