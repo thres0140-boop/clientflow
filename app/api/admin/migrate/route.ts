@@ -14,6 +14,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: count });
   }
 
+  // ?testconv=clientId — probe Zernio conversations endpoint and return the raw result
+  const testconv = req.nextUrl.searchParams.get("testconv");
+  if (testconv) {
+    const cid = parseInt(testconv);
+    const conn = await prisma.instagramConnection.findUnique({ where: { clientId: cid } });
+    if (!conn?.zernioAccountId) return NextResponse.json({ error: "no_zernio_account", conn });
+    const profileId = (conn as any).zernioProfileId || process.env.ZERNIO_PROFILE_ID;
+    const url = new URL("https://zernio.com/api/v1/inbox/conversations");
+    url.searchParams.set("profileId", String(profileId));
+    url.searchParams.set("accountId", conn.zernioAccountId);
+    url.searchParams.set("platform", "instagram");
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${process.env.ZERNIO_API_KEY}`, Accept: "application/json" },
+    });
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json({
+      requestedUrl: url.toString().replace(String(process.env.ZERNIO_API_KEY), "***"),
+      profileId, accountId: conn.zernioAccountId,
+      status: res.status, ok: res.ok, body: data,
+    });
+  }
+
   const rows = await (prisma as any).$queryRaw`
     SELECT c.id, c.name, ic."zernioAccountId", ic."zernioProfileId", ic."igUsername",
            (SELECT COUNT(*) FROM "DmLead" dl WHERE dl."clientId" = c.id) as "leadCount"
