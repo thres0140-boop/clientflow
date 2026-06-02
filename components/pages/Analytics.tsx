@@ -98,7 +98,8 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   useEffect(() => {
     if (!selectedClientId) return;
     setAllContent([]); setAllVideos([]); setManual({});
-    Promise.all([
+
+    const loadAll = () => Promise.all([
       fetch(`/api/content?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/videos?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/analytics?clientId=${selectedClientId}`).then((r) => r.json()),
@@ -119,6 +120,12 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       }
       setManual(m);
     });
+
+    loadAll();
+    // Trigger server-side DM detection, then reload analytics to reflect fresh counts
+    fetch(`/api/zernio/sync-pipeline?clientId=${selectedClientId}`)
+      .then(() => loadAll())
+      .catch(() => {});
   }, [selectedClientId]);
 
   // Build auto data (views/likes/shares from TrackedVideo, concepts from ContentPiece)

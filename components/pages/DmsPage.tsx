@@ -58,6 +58,7 @@ const NEXT: Record<string, string> = { messaged: "link_sent", link_sent: "booked
 type Conversation = {
   id: string; name: string; handle: string | null; igId: string | null;
   updatedTime: string; snippet: string | null; unreadCount: number | null;
+  avatar?: string | null;
 };
 type Message = {
   id: string; text: string; fromId: string; fromName: string;
@@ -123,18 +124,24 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
           unreadCount: c.unreadCount ?? c.unread_count ?? 0,
         }));
         setConversations(convs);
-        // Background: detect booking links already sent via Instagram directly
-        setTimeout(() => syncPipelineFromMessages(convs), 500);
       }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);
-  }, [selectedClientId, client?.bookingLink]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Run the inbox load (which triggers reply/CTA/link detection) whenever the
-  // DM page is open for a client — not just the inbox tab — so pipeline badges populate.
+  // Server-side detection: scans Zernio convos + messages, updates leads + analytics.
+  // Runs whenever the DM page opens for a client, then refreshes the cards.
+  const runSync = useCallback(async () => {
+    if (!selectedClientId) return;
+    try {
+      await fetch(`/api/zernio/sync-pipeline?clientId=${selectedClientId}`);
+    } catch { /* ignore */ }
+    loadLeads();
+  }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    if (selectedClientId) loadInbox();
-  }, [selectedClientId, loadInbox]);
+    if (selectedClientId) { loadInbox(); runSync(); }
+  }, [selectedClientId, loadInbox, runSync]);
 
   // Load messages for selected conversation
   const loadMessages = useCallback(async (conv: Conversation) => {
@@ -287,68 +294,6 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
     if (!selectedConv) return;
     await sendMessage(bookingLink);
     await promoteToStatus(selectedConv, "link_sent");
-  }
-
-  // Patch a lead's tracking fields (repliedAt / source) — idempotent per field
-  async function patchLeadTracking(conv: Conversation, patch: { repliedAt?: string; source?: string }) {
-    if (!selectedClientId) return;
-    const fresh: DmLead[] = await fetch(`/api/dm-leads?clientId=${selectedClientId}`).then((r) => r.json()).catch(() => []);
-    const convHandle = normalizeHandle(conv.handle);
-    const lead = fresh.find((l) =>
-      convHandle ? normalizeHandle(l.handle) === convHandle : l.name.toLowerCase().trim() === conv.name.toLowerCase().trim()
-    );
-    if (!lead) return;
-    // Skip fields already set so we don't re-fire (repliedAt counts toward analytics once)
-    const body: any = {};
-    if (patch.repliedAt && !(lead as any).repliedAt) body.repliedAt = patch.repliedAt;
-    if (patch.source   && !(lead as any).source)    body.source   = patch.source;
-    if (Object.keys(body).length === 0) return;
-    await fetch(`/api/dm-leads/${lead.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  }
-
-  // Scan recent messages for all conversations and auto-sync pipeline status.
-  // Runs in background after inbox loads — detects link sent, prospect replies, CTA inbound.
-  async function syncPipelineFromMessages(convs: Conversation[]) {
-    if (!selectedClientId) return;
-    const bookingLink = client?.bookingLink;
-    const cta = (client?.ctaKeyword ?? "").trim().toLowerCase();
-    for (const conv of convs.slice(0, 30)) { // limit to latest 30 to avoid hammering API
-      try {
-        const data = await fetch(
-          `/api/zernio/conversations/${conv.id}/messages?clientId=${selectedClientId}`
-        ).then((r) => r.json());
-        if (data.error) continue;
-        const raw: any[] = data.messages ?? data.items ?? data.data ?? [];
-
-        const incoming = raw.filter((m: any) =>
-          m.direction === "incoming" || m.isOwn === false || m.is_sender === false
-        );
-
-        // Reply detection: any incoming message means the prospect answered
-        if (incoming.length > 0) await patchLeadTracking(conv, { repliedAt: toYMD(new Date()) });
-
-        // CTA detection: an incoming message containing the client's CTA keyword
-        if (cta && incoming.some((m: any) => (m.message ?? m.text ?? "").toLowerCase().includes(cta))) {
-          await patchLeadTracking(conv, { source: "cta" });
-        }
-
-        // Link detection
-        if (bookingLink) {
-          const hasLinkSent = raw.some(
-            (m: any) =>
-              (m.direction === "outgoing" || m.isOwn) &&
-              (m.message ?? m.text ?? "").includes(bookingLink)
-          );
-          if (hasLinkSent) await promoteToStatus(conv, "link_sent");
-        }
-      } catch { /* ignore per-conv errors */ }
-    }
-    // Refresh leads so newly-detected Replied/CTA badges show on the pipeline
-    loadLeads();
   }
 
   async function addToPipeline(conv: Conversation) {
