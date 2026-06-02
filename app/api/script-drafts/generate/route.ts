@@ -39,6 +39,41 @@ const DEFAULT_RULES = `1. VOICE IS EVERYTHING
    pillar, it's not specific enough to the creator. Merge pillars
    for stronger, more unique content`;
 
+// Distinct rules for B-roll + on-screen TEXT-HOOK reels (no voiceover).
+// This format is fundamentally different: you are NOT writing new scripts on a
+// topic — you are taking ONE proven text hook and producing variations of THAT
+// SAME hook in different words, keeping whatever makes it go viral.
+const TEXT_HOOK_RULES = `THIS IS A TEXT-HOOK + B-ROLL FORMAT. THERE IS NO SPOKEN SCRIPT. NO ONE TALKS.
+The reel is silent b-roll footage with short on-screen TEXT CARDS. Your output is the on-screen text only.
+
+1. SAME HOOK, NEW WORDS — THIS IS THE WHOLE JOB
+   This format reuses ONE proven hook. Every variation you write is the SAME core
+   hook idea rephrased in DIFFERENT words. Do NOT invent new topics, new angles, or
+   new themes. Same message, said a different way each time.
+
+2. FIRST, DECODE WHY IT WORKS
+   Before rewriting, identify what makes the example hook go viral:
+   - the core emotional trigger / recognition moment ("oh, that's me")
+   - the sentence shape (e.g. "Op een dag [realisation that you didn't see coming]")
+   - the turn — a calm/relatable opening that flips into a harder truth or reframe
+   Keep that exact mechanism in EVERY variation. That DNA is non-negotiable.
+
+3. ON-SCREEN TEXT, NOT SPEECH
+   Short text cards. One thought per line. 4–8 lines, ~3–9 words per line.
+   No spoken filler ("weet je", "en dan", "dus"), no flowing monologue, no
+   connective sentences that only make sense out loud. It must read as text on a screen.
+
+4. KEEP THE TURN
+   Open with the calm/relatable line, then deliver the turn. Don't lose the beat
+   that makes people stop scrolling.
+
+5. SHORT & PUNCHY
+   Every line earns its place. Cut filler. One sentence per card, max.
+
+6. CAPTION ≠ ON-SCREEN TEXT
+   The caption approaches the same theme from a completely different angle than the
+   on-screen text — it is not a repeat of the cards.`;
+
 export async function POST(req: NextRequest) {
   if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === "your_key_here") {
     return NextResponse.json({ error: "Add your ANTHROPIC_API_KEY to .env.local" }, { status: 400 });
@@ -78,7 +113,7 @@ export async function POST(req: NextRequest) {
           .map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n")
       : "";
 
-    const writingRules = concept.scriptRules ?? DEFAULT_RULES;
+    // (writingRules chosen below, after the format is known)
 
     const captionStyle = clientData.captionStyle
       ? `\n\nCAPTION STYLE:\n${clientData.captionStyle}`
@@ -97,6 +132,10 @@ export async function POST(req: NextRequest) {
     const isTalkingHead = /talking[\s_-]*head|voiceover|spoken|interview|monolog/.test(vt);
     // Talking-head wins ties — only treat as text-overlay if signals fire AND it isn't explicitly a talking head.
     const isTextOverlay = textOverlaySignals && !isTalkingHead;
+
+    // Pick the rule set that matches the format. Honor a user-customized scriptRules
+    // only if they actually set one; otherwise pick the right default per format.
+    const writingRules = concept.scriptRules ?? (isTextOverlay ? TEXT_HOOK_RULES : DEFAULT_RULES);
 
     const formatInstruction = isTextOverlay
       ? `FORMAT = B-ROLL + ON-SCREEN TEXT (NO VOICEOVER). This is NOT a spoken script. There is no one talking.
@@ -143,7 +182,13 @@ Nothing else. No commentary. Just the JSON array.`;
     }
 
     // --- New user message for this generation ---
-    const userMessage = `Generate EXACTLY ${count} completely different script alternatives for ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}. Each must have a different hook angle. 80–130 words each. Make them feel fresh — don't repeat any hook, angle, or structure pattern you've used before in this conversation.`;
+    // Text-hook format wants the SAME proven hook reworded; talking-head wants fresh angles.
+    const proven = concept.textHook ? `\n\nThe proven hook to vary is: "${concept.textHook}".` : "";
+    const userMessage = isTextOverlay
+      ? `Generate EXACTLY ${count} VARIATIONS of this concept's proven on-screen text hook for ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}.${proven}
+
+This is a text-hook + b-roll format, so the goal is NOT new angles or new topics — it's the SAME viral hook idea, rephrased in different words each time. First internalize WHY the original hook works (the recognition moment, the sentence shape, the emotional turn), then write ${count} fresh on-screen-text versions that keep that exact DNA but use different wording. Each one is short on-screen text cards (one thought per line, 4–8 lines), NOT a spoken script. Don't reuse the exact wording of versions you've already written in this conversation — vary the words, keep the mechanism.`
+      : `Generate EXACTLY ${count} completely different script alternatives for ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}. Each must have a different hook angle. 80–130 words each. Make them feel fresh — don't repeat any hook, angle, or structure pattern you've used before in this conversation.`;
 
     const messages: { role: "user" | "assistant"; content: string }[] = [
       ...history,
