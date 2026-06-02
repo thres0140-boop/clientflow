@@ -826,6 +826,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   useEffect(() => { const t = setTimeout(() => setMounted(true), 10); return () => clearTimeout(t); }, []);
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/40" onClick={onClose}>
       <div
         className={`w-[520px] h-full bg-white flex flex-col shadow-2xl overflow-hidden transform transition-transform duration-300 ease-out ${mounted ? "translate-x-0" : "translate-x-full"}`}
@@ -948,26 +949,27 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
           )}
         </div>
       </div>
-
-      {showConceptModal && (
-        <ConceptModal
-          clients={[client]}
-          selectedClientId={client.id}
-          initial={{
-            name: reel.caption?.slice(0, 80) || `Reel ${new Date(reel.timestamp).toLocaleDateString()}`,
-            exampleUrl: reel.permalink || `https://instagram.com/reel/${reel.id}`,
-            notes: [
-              reel.plays != null ? `Views: ${fmt(reel.plays)}` : null,
-              reel.reach != null ? `Reach: ${fmt(reel.reach)}` : null,
-              `Likes: ${fmt(reel.like_count)}`,
-              reel.saved != null ? `Saved: ${fmt(reel.saved)}` : null,
-            ].filter(Boolean).join(" · "),
-            scriptExamples: transcript || "",
-          }}
-          onClose={() => setShowConceptModal(false)}
-          onSaved={() => { setShowConceptModal(false); setSaved(true); }}
-        />
-      )}
     </div>
+
+    {showConceptModal && (
+      <ConceptModal
+        clients={[client]}
+        selectedClientId={client.id}
+        initial={{
+          name: reel.caption?.slice(0, 80) || `Reel ${new Date(reel.timestamp).toLocaleDateString()}`,
+          exampleUrl: reel.permalink || `https://instagram.com/reel/${reel.id}`,
+          notes: [
+            reel.plays != null ? `Views: ${fmt(reel.plays)}` : null,
+            reel.reach != null ? `Reach: ${fmt(reel.reach)}` : null,
+            `Likes: ${fmt(reel.like_count)}`,
+            reel.saved != null ? `Saved: ${fmt(reel.saved)}` : null,
+          ].filter(Boolean).join(" · "),
+          scriptExamples: transcript || "",
+        }}
+        onClose={() => setShowConceptModal(false)}
+        onSaved={() => { setShowConceptModal(false); setSaved(true); }}
+      />
+    )}
+    </>
   );
 }
