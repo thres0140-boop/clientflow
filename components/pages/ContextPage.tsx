@@ -158,9 +158,17 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
 
   // Read on-screen text from every attached reel and add them as example scripts.
   async function pullFromReels(conceptId: number) {
+    const concept = concepts.find((c) => c.id === conceptId);
+    const hasExamples = !!concept?.scriptExamples?.trim();
+    const replace = hasExamples
+      ? confirm("Replace the existing example scripts with fresh ones pulled from the attached reels?\n\nOK = replace all · Cancel = just add any new ones")
+      : false;
     setPullingExamples(conceptId);
     try {
-      const d = await fetch(`/api/concepts/${conceptId}/extract-examples`, { method: "POST" }).then((r) => r.json());
+      const d = await fetch(`/api/concepts/${conceptId}/extract-examples`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replace }),
+      }).then((r) => r.json());
       if (d.error) { alert(d.error); return; }
       await reload();
       alert(d.added > 0

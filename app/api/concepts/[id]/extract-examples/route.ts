@@ -74,6 +74,8 @@ function tokenOf(url: string): string {
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const conceptId = parseInt(id);
+  // replace=true wipes existing examples and rebuilds them fresh from the reels.
+  const replace = (await req.json().catch(() => ({})))?.replace === true;
 
   const concept = await prisma.concept.findUnique({ where: { id: conceptId } });
   if (!concept) return NextResponse.json({ error: "Concept not found" }, { status: 404 });
@@ -108,18 +110,42 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     url = data.paging?.next || null;
   }
 
-  // Existing examples — used to dedupe.
-  const existing = (concept.scriptExamples || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+  // Existing examples — used to dedupe (cleared in replace mode for a fresh rebuild).
+  const existing = replace ? [] : (concept.scriptExamples || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
   const seen = new Set(existing.map((e) => e.toLowerCase()));
   const added: string[] = [];
   const skipped: string[] = [];
 
-  // Helper: read on-screen text via vision; fall back to transcription.
+  // Match the EXTRACTION method to the concept's format:
+  //  - text-overlay / B-roll text-hook  → read the on-screen text (vision)
+  //  - talking-head / spoken            → transcribe the full spoken script (Whisper)
+  // Using the wrong method gives a short cover snippet for a talking video, or a
+  // hallucinated transcript for a silent text reel — which is what went wrong before.
+  const vt = (concept.videoType || "").toLowerCase();
+  const struct = (concept.structure || "").toLowerCase();
+  const guide = (concept.guidelines || "").toLowerCase();
+  const isTextOverlay =
+    (concept as any).textOverlay === true ||
+    /broll|b-roll|text[\s_-]*overlay|text[\s_-]*hook|on[\s_-]*screen/.test(vt) ||
+    /op\s*scherm|tekstkaart|text\s*card|on[\s-]*screen|overlay|regel\s*\d/.test(struct) ||
+    /tekstkaart|op\s*scherm|text\s*card|geen\s*voice|no\s*voice/.test(guide);
+
+  // Helper: extract the example text using the right primary method for this format.
   async function extractText(m: any): Promise<string> {
-    let text = await readOnScreenText(m.thumbnail_url || m.media_url);
+    if (isTextOverlay) {
+      // On-screen text first; only transcribe if the cover had no readable text.
+      let text = await readOnScreenText(m.thumbnail_url || m.media_url);
+      if (text.length < 8) {
+        const t = await transcribeAudio(m.media_url);
+        if (t.length >= 8) text = t;
+      }
+      return text;
+    }
+    // Talking-head: transcribe the spoken script first; vision only as a fallback.
+    let text = await transcribeAudio(m.media_url);
     if (text.length < 8) {
-      const t = await transcribeAudio(m.media_url);
-      if (t.length >= 8) text = t;
+      const v = await readOnScreenText(m.thumbnail_url || m.media_url);
+      if (v.length >= 8) text = v;
     }
     return text;
   }
