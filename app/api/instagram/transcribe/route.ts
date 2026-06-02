@@ -1,5 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Whisper hallucinates these phrases on silent / music-only audio (common for
+// B-roll + text-overlay reels). If the WHOLE transcript is just one of these,
+// treat it as empty so the on-screen-text vision path takes over instead.
+const HALLUCINATIONS = [
+  "thanks for watching",
+  "thank you for watching",
+  "thank you for watching!",
+  "thanks for watching!",
+  "thank you so much for watching",
+  "thank you.",
+  "thank you",
+  "please subscribe",
+  "don't forget to subscribe",
+  "like and subscribe",
+  "see you next time",
+  "see you in the next video",
+  "bye",
+  "you",
+  "subtitles by the amara.org community",
+  "transcription by castingwords",
+  "♪",
+  "[music]",
+  "[music playing]",
+  "music",
+];
+
+function stripHallucination(text: string): string {
+  const t = (text || "").trim();
+  if (!t) return "";
+  // Normalize: lowercase, strip surrounding punctuation/quotes/emoji/whitespace.
+  const norm = t.toLowerCase().replace(/[\s.,!?"'♪♫🎵🎶()[\]-]+/g, " ").trim();
+  if (HALLUCINATIONS.some((h) => {
+    const hn = h.toLowerCase().replace(/[\s.,!?"'♪♫🎵🎶()[\]-]+/g, " ").trim();
+    return norm === hn;
+  })) {
+    return "";
+  }
+  return t;
+}
+
 export async function POST(req: NextRequest) {
   const { mediaUrl } = await req.json();
   if (!mediaUrl) return NextResponse.json({ error: "mediaUrl required" }, { status: 400 });
@@ -37,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     if (!whisperRes.ok) throw new Error(result.error?.message || "Whisper API error");
 
-    return NextResponse.json({ transcript: result.text?.trim() || "" });
+    return NextResponse.json({ transcript: stripHallucination(result.text || "") });
   } catch (err) {
     console.error("Transcribe error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

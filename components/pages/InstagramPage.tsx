@@ -744,7 +744,12 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
   // For B-roll/text reels (no speech) we read the on-screen text overlay via vision instead.
   async function openConceptForm() {
     setSaving(true);
-    let t = transcript;
+    // Whisper hallucinates "thanks for watching" etc. on silent/music b-roll audio.
+    // Ignore a cached hallucinated transcript so the on-screen-text path can run.
+    const isHallucination = (s: string | null) =>
+      /^(thank(s| you)( so much)?( for watching)?|please subscribe|like and subscribe|don'?t forget to subscribe|see you( next time| in the next video)?|bye|you|music|\[music( playing)?\]|♪+)[.!?\s]*$/i
+        .test((s || "").trim());
+    let t = isHallucination(transcript) ? "" : transcript;
     if (!t && reel.media_url) {
       try {
         const res = await fetch("/api/instagram/transcribe", {
