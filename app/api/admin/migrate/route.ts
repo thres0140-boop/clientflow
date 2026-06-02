@@ -43,6 +43,41 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ count: leads.length, leads });
   }
 
+  // ?fixreplied=clientId — recompute repliedAt for ALL answered leads from real message
+  // timestamps, bypassing the sync's skip optimization. One-time cleanup of detection-date artifacts.
+  const fixreplied = req.nextUrl.searchParams.get("fixreplied");
+  if (fixreplied) {
+    const cid = parseInt(fixreplied);
+    const conn = await prisma.instagramConnection.findUnique({ where: { clientId: cid } });
+    if (!conn?.zernioAccountId) return NextResponse.json({ error: "no_zernio_account" });
+    const profileId = (conn as any).zernioProfileId || process.env.ZERNIO_PROFILE_ID;
+    const KEY = process.env.ZERNIO_API_KEY;
+    const ymd = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? null : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+    const leads = await prisma.dmLead.findMany({ where: { clientId: cid, repliedAt: { not: null } } as any });
+    let fixed = 0;
+    for (const lead of leads) {
+      const convId = (lead as any).convId;
+      if (!convId) continue;
+      try {
+        const u = new URL(`https://zernio.com/api/v1/inbox/conversations/${convId}/messages`);
+        u.searchParams.set("accountId", conn.zernioAccountId);
+        const r = await fetch(u.toString(), { headers: { Authorization: `Bearer ${KEY}`, Accept: "application/json" } });
+        if (!r.ok) continue;
+        const d = await r.json();
+        const msgs: any[] = d.messages ?? d.data ?? d.items ?? [];
+        const inc = msgs.filter((m: any) => m.direction === "incoming" || m.isOwn === false || m.is_sender === false);
+        const times = inc.map((m: any) => new Date(m.createdAt ?? m.sentAt ?? m.timestamp ?? m.created_at).getTime()).filter((n) => !isNaN(n));
+        if (!times.length) continue;
+        const first = ymd(new Date(Math.min(...times)).toISOString());
+        if (first && first !== (lead as any).repliedAt) {
+          await prisma.dmLead.update({ where: { id: lead.id }, data: { repliedAt: first } as any });
+          fixed++;
+        }
+      } catch { /* ignore */ }
+    }
+    return NextResponse.json({ ok: true, checked: leads.length, fixed });
+  }
+
   // ?resync=clientId — clear lastConvTime so the next sync re-scans all conversations
   // (used to backfill corrected dates onto existing leads)
   const resync = req.nextUrl.searchParams.get("resync");
