@@ -147,6 +147,11 @@ HARD RULES for the "script" field:
   • NO flowing monologue, NO spoken dialogue, NO connective filler ("en dan", "weet je", "dus") that only makes sense when spoken.
   • NO stage directions, NO "[B-roll: ...]", NO camera notes.
   • Match the rhythm and punch of the example on-screen text exactly.
+SAME MESSAGE — NOT A NEW TOPIC:
+  • The Example Scripts ARE the proven hook. You are REWORDING THAT EXACT MESSAGE, not writing a new one.
+  • Keep the identical theme, subject and emotional payoff as the examples. If the examples are about stepping out of survival mode and realizing how damaged you were, EVERY variation is about that same realisation — just said with different words / a different payoff word.
+  • The "Text Hook" template's [brackets] are ONLY the sentence rhythm. They are NOT permission to swap in a different action or a new topic. Do NOT drift to a different subject (e.g. don't turn it into "saying no", "crying", "calling back" — that's a different message).
+  • Think of the examples as one sentence with a few interchangeable words. Change the words, keep the sentence's meaning.
 The "hook" is the FIRST on-screen card.`
       : `FORMAT = TALKING-HEAD / SPOKEN SCRIPT. A person speaks this to camera.
 The "script" field is the full spoken voiceover — natural, conversational, the way the creator actually talks.`;
@@ -182,12 +187,14 @@ Nothing else. No commentary. Just the JSON array.`;
     }
 
     // --- New user message for this generation ---
-    // Text-hook format wants the SAME proven hook reworded; talking-head wants fresh angles.
-    const proven = concept.textHook ? `\n\nThe proven hook to vary is: "${concept.textHook}".` : "";
+    // Text-hook format wants the SAME proven MESSAGE (from the example scripts) reworded;
+    // talking-head wants fresh angles.
     const userMessage = isTextOverlay
-      ? `Generate EXACTLY ${count} VARIATIONS of this concept's proven on-screen text hook for ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}.${proven}
+      ? `Generate EXACTLY ${count} VARIATIONS of this concept's proven on-screen text hook for ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}.
 
-This is a text-hook + b-roll format, so the goal is NOT new angles or new topics — it's the SAME viral hook idea, rephrased in different words each time. First internalize WHY the original hook works (the recognition moment, the sentence shape, the emotional turn), then write ${count} fresh on-screen-text versions that keep that exact DNA but use different wording. Each one is short on-screen text cards (one thought per line, 4–8 lines), NOT a spoken script. Don't reuse the exact wording of versions you've already written in this conversation — vary the words, keep the mechanism.`
+The EXAMPLE SCRIPTS above are the proven hook — they all say the SAME thing in slightly different words. Your job is to keep doing exactly that: reword that SAME message and stay on that EXACT theme. Do NOT invent a new topic or a different action — if the examples are about stepping out of survival mode and realizing how damaged you were, every variation must be about that same realisation, just with different wording or a different payoff word.
+
+Steps: (1) read the example scripts and lock onto their single shared message + sentence shape + emotional turn; (2) write ${count} fresh on-screen-text versions that say THAT SAME THING with different words. Short text cards, one thought per line, 4–8 lines — NOT a spoken script. Don't reuse the exact wording of versions already written in this conversation, and never drift to a different subject.`
       : `Generate EXACTLY ${count} completely different script alternatives for ${weekLabel}${dayLabel ? `, ${dayLabel}` : ""}. Each must have a different hook angle. 80–130 words each. Make them feel fresh — don't repeat any hook, angle, or structure pattern you've used before in this conversation.`;
 
     const messages: { role: "user" | "assistant"; content: string }[] = [
