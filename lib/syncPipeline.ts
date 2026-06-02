@@ -141,15 +141,20 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
       if (h && !normHandle(lead.handle)) patch.handle = h;
       if (name && name !== "Instagram User" && (!lead.name || lead.name === "Instagram User")) patch.name = name;
 
-      // Reply → record the ACTUAL first-reply date (correct existing wrong values too)
+      // Reply → record the FIRST time the lead responded. Only ever moves EARLIER,
+      // never later — so subsequent replies don't change the answered date.
       if (incoming.length > 0) {
         const replyTimes = incoming
           .map((m: any) => m.createdAt ?? m.sentAt ?? m.timestamp ?? m.created_at)
           .filter(Boolean).map((t: string) => new Date(t).getTime()).filter((n: number) => !isNaN(n));
-        const firstReply = replyTimes.length ? ymdFrom(new Date(Math.min(...replyTimes)).toISOString()) : (lead as any).repliedAt ?? today;
-        if (firstReply && firstReply !== (lead as any).repliedAt) {
+        const firstReply = replyTimes.length ? ymdFrom(new Date(Math.min(...replyTimes)).toISOString()) : null;
+        const cur = (lead as any).repliedAt as string | null;
+        if (firstReply && (!cur || firstReply < cur)) {
           patch.repliedAt = firstReply;
-          if (!(lead as any).repliedAt) r.answered++;
+          if (!cur) r.answered++;
+        } else if (!cur && !firstReply) {
+          patch.repliedAt = today; // fallback if no timestamps available
+          r.answered++;
         }
         if (idx(target) < idx("answered")) target = "answered";
       }
