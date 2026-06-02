@@ -7,6 +7,66 @@ import Modal from "@/components/ui/Modal";
 type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void };
 type Tab = "ideas" | "concepts";
 
+// ── Reel picker: browse the client's reels and click to attach ──────────────────
+function reelUrlOf(r: any): string {
+  return r.permalink || `https://instagram.com/reel/${r.id}`;
+}
+export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
+  clientId: number; attached: string[]; onClose: () => void; onConfirm: (urls: string[]) => void;
+}) {
+  const [reels, setReels] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set(attached));
+
+  useEffect(() => {
+    fetch(`/api/instagram/media?clientId=${clientId}`).then((r) => r.json())
+      .then((d) => setReels(Array.isArray(d?.reels) ? d.reels : Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [clientId]);
+
+  function toggle(url: string) {
+    setSelected((prev) => { const n = new Set(prev); n.has(url) ? n.delete(url) : n.add(url); return n; });
+  }
+
+  return (
+    <Modal title="Attach reels" onClose={onClose} wide>
+      <div className="space-y-3">
+        <p className="text-xs text-slate-500">Click reels to select. {selected.size} selected.</p>
+        {loading ? (
+          <div className="py-16 text-center text-sm text-slate-400">Loading reels…</div>
+        ) : reels.length === 0 ? (
+          <div className="py-16 text-center text-sm text-slate-400">No reels found for this client.</div>
+        ) : (
+          <div className="grid grid-cols-4 gap-2 max-h-[55vh] overflow-y-auto">
+            {reels.map((r) => {
+              const url = reelUrlOf(r);
+              const isSel = selected.has(url);
+              return (
+                <button key={r.id} type="button" onClick={() => toggle(url)}
+                  className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all ${isSel ? "border-indigo-500 ring-2 ring-indigo-300" : "border-transparent hover:border-slate-300"}`}>
+                  {r.thumbnail_url
+                    ? <img src={r.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">▶</div>}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
+                  {r.plays != null && <span className="absolute bottom-1 left-1 text-[9px] font-bold text-white">▶ {r.plays >= 1000 ? (r.plays/1000).toFixed(1)+"K" : r.plays}</span>}
+                  {isSel && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] flex items-center justify-center">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="button" onClick={() => { onConfirm(Array.from(selected)); onClose(); }}
+            className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Attach {selected.size} reel{selected.size !== 1 ? "s" : ""}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export default function Concepts({ clients, selectedClientId }: Props) {
   const [tab, setTab] = useState<Tab>("ideas");
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -551,6 +611,7 @@ export function ConceptModal({
   });
   const [reelUrls, setReelUrls] = useState<string[]>(initial?.reelUrls ?? []);
   const [newReel, setNewReel] = useState("");
+  const [showReelPicker, setShowReelPicker] = useState(false);
   // Concept Types saved under the selected category
   const typeOptions = Array.from(new Set(
     existing.filter((c) => c.conceptType === form.conceptType).map((c) => c.name).filter(Boolean) as string[]
@@ -575,6 +636,7 @@ export function ConceptModal({
   }
 
   return (
+    <>
     <Modal title="New Concept" onClose={onClose} wide>
       <form onSubmit={submit} className="space-y-4">
         {activeClient ? (
@@ -630,7 +692,13 @@ export function ConceptModal({
 
         {/* Attached reels — editable */}
         <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
-          <p className="text-[10px] font-semibold text-slate-500 mb-1.5">📎 {reelUrls.length} reel{reelUrls.length !== 1 ? "s" : ""} attached</p>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] font-semibold text-slate-500">📎 {reelUrls.length} reel{reelUrls.length !== 1 ? "s" : ""} attached</p>
+            {form.clientId && (
+              <button type="button" onClick={() => setShowReelPicker(true)}
+                className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800">🎬 Pick from reels</button>
+            )}
+          </div>
           <div className="space-y-1 mb-1.5">
             {reelUrls.map((u, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -742,6 +810,15 @@ export function ConceptModal({
         </div>
       </form>
     </Modal>
+    {showReelPicker && form.clientId && (
+      <ReelPickerModal
+        clientId={parseInt(form.clientId)}
+        attached={reelUrls}
+        onClose={() => setShowReelPicker(false)}
+        onConfirm={(urls) => setReelUrls(urls)}
+      />
+    )}
+    </>
   );
 }
 
@@ -749,6 +826,7 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
   const [reels, setReels] = useState<string[]>(() => {
     try { return JSON.parse((concept as any).reelUrls || "[]"); } catch { return []; }
   });
+  const [showReelPicker, setShowReelPicker] = useState(false);
   const [newReel, setNewReel] = useState("");
 
   async function saveReels(next: string[]) {
@@ -766,6 +844,7 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
   }
 
   return (
+    <>
     <Modal title={concept.name} onClose={onClose} wide>
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
@@ -805,7 +884,13 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
 
         {/* Attached reels */}
         <div>
-          <p className="text-xs font-semibold text-slate-500 mb-1.5">📎 ATTACHED REELS ({reels.length})</p>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-xs font-semibold text-slate-500">📎 ATTACHED REELS ({reels.length})</p>
+            {concept.clientId && (
+              <button onClick={() => setShowReelPicker(true)}
+                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800">🎬 Pick from reels</button>
+            )}
+          </div>
           <div className="space-y-1.5 mb-2">
             {reels.map((u, i) => (
               <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
@@ -890,5 +975,14 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
         </div>
       </div>
     </Modal>
+    {showReelPicker && concept.clientId && (
+      <ReelPickerModal
+        clientId={concept.clientId}
+        attached={reels}
+        onClose={() => setShowReelPicker(false)}
+        onConfirm={(urls) => saveReels(urls)}
+      />
+    )}
+    </>
   );
 }
