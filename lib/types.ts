@@ -224,6 +224,8 @@ export type DmLead = {
   status: string;
   date?: string | null;
   repliedAt?: string | null;
+  source?: string | null;
+  convId?: string | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;

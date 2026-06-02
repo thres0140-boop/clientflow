@@ -51,28 +51,41 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
   const convData = await convRes.json();
   const conversations: any[] = convData.data ?? convData.conversations ?? convData.items ?? [];
 
-  // 2. Existing leads
+  // 2. Existing leads — index by convId (primary) and handle (legacy fallback)
   const leads = await prisma.dmLead.findMany({ where: { clientId } });
+  const leadByConv = new Map<string, any>();
   const leadByHandle = new Map<string, any>();
-  for (const l of leads) { const h = normHandle(l.handle); if (h) leadByHandle.set(h, l); }
+  for (const l of leads) {
+    if ((l as any).convId) leadByConv.set((l as any).convId, l);
+    const h = normHandle(l.handle);
+    if (h) leadByHandle.set(h, l);
+  }
 
   const r: SyncResult = { ...empty, scanned: Math.min(conversations.length, 30) };
 
   for (const conv of conversations.slice(0, 30)) {
     try {
+      const convId = String(conv.id);
       const name   = conv.participantName ?? conv.participant?.name ?? conv.name ?? "Instagram User";
       const handle = conv.participantUsername ?? conv.participant?.username ?? conv.handle ?? null;
       const h = normHandle(handle);
-      if (!h) continue;
 
-      let lead = leadByHandle.get(h);
+      // Find existing lead: by convId first, then by handle (legacy leads created before convId)
+      let lead = leadByConv.get(convId) ?? (h ? leadByHandle.get(h) : null);
+
       if (!lead) {
         lead = await prisma.dmLead.create({
-          data: { clientId, name, handle: h, status: "messaged", date: today },
+          data: { clientId, name, handle: h || null, status: "messaged", date: today, convId } as any,
         });
-        leadByHandle.set(h, lead);
+        leadByConv.set(convId, lead);
+        if (h) leadByHandle.set(h, lead);
         await bumpAnalytics(clientId, "messagesSent", today);
         r.created++;
+      } else if (!(lead as any).convId) {
+        // Backfill convId on a legacy lead matched by handle (prevents future duplicates)
+        await prisma.dmLead.update({ where: { id: lead.id }, data: { convId } as any });
+        (lead as any).convId = convId;
+        leadByConv.set(convId, lead);
       }
 
       // Skip the message fetch if there's nothing left to detect for this lead:
@@ -100,6 +113,10 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
       const patch: any = {};
       let bumpAnswered = false, bumpLink = false;
       let target = lead.status as string;
+
+      // Upgrade anonymous lead once Zernio resolves a real name/handle
+      if (h && !normHandle(lead.handle)) patch.handle = h;
+      if (name && name !== "Instagram User" && (!lead.name || lead.name === "Instagram User")) patch.name = name;
 
       // Reply → record + promote messaged → answered
       if (incoming.length > 0) {
