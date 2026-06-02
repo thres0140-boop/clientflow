@@ -342,7 +342,12 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
   const days     = periodDays(period);
   const from     = period !== "all" ? toYMD(startDate) : null;
   const to       = period !== "all" ? toYMD(addDays(startDate, days - 1)) : null;
-  const filtered = leads.filter((l) => period === "all" || (l.date && from && to && l.date >= from && l.date <= to));
+  // A lead belongs to the period if ANY of its activity (messaged, replied, link sent, booked)
+  // falls within it — so a conversation that progresses this week shows even if messaged earlier.
+  const inRange  = (d?: string | null) => { const x = d?.slice(0, 10); return !!x && !!from && !!to && x >= from && x <= to; };
+  const filtered = leads.filter((l) =>
+    period === "all" || inRange(l.date) || inRange((l as any).repliedAt) || inRange((l as any).linkSentAt) || inRange((l as any).bookedAt)
+  );
 
   const total      = filtered.length;
   const countOf = (statuses: string[]) => filtered.filter((l) => statuses.includes(l.status)).length;
