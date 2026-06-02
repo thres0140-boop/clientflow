@@ -84,16 +84,33 @@ export async function POST(req: NextRequest) {
       ? `\n\nCAPTION STYLE:\n${clientData.captionStyle}`
       : "";
 
-    const isTextOverlay = (concept as any).textOverlay === true;
+    // Decide the format from EVERY available signal, not just the lone checkbox.
+    // A talking-head concept stays spoken; a B-roll/text-hook concept must be tight on-screen cards.
+    const vt = (concept.videoType || "").toLowerCase();
+    const struct = (concept.structure || "").toLowerCase();
+    const guide = (concept.guidelines || "").toLowerCase();
+    const textOverlaySignals =
+      (concept as any).textOverlay === true ||                                  // explicit flag
+      /broll|b-roll|text[\s_-]*overlay|text[\s_-]*hook|on[\s_-]*screen/.test(vt) || // video type
+      /op\s*scherm|tekstkaart|text\s*card|on[\s-]*screen|overlay|regel\s*\d/.test(struct) || // structure
+      /tekstkaart|op\s*scherm|text\s*card|geen\s*voice|no\s*voice|on[\s-]*screen\s*text/.test(guide); // guidelines
+    const isTalkingHead = /talking[\s_-]*head|voiceover|spoken|interview|monolog/.test(vt);
+    // Talking-head wins ties — only treat as text-overlay if signals fire AND it isn't explicitly a talking head.
+    const isTextOverlay = textOverlaySignals && !isTalkingHead;
 
     const formatInstruction = isTextOverlay
-      ? `THIS IS A B-ROLL + TEXT-OVERLAY CONCEPT — there is NO spoken voiceover.
-The reel is silent b-roll footage with short punchy TEXT that appears on screen.
-So the "script" field must be the ON-SCREEN TEXT OVERLAY — a few short, high-impact lines/sentences
-that appear over the footage (the way the example reels do), NOT a spoken monologue.
-Match the exact phrasing energy, length, and punch of the example text. The "hook" is the first on-screen line.
-Keep it tight — on-screen text is short. Do NOT write spoken dialogue or "[B-roll: ...]" stage directions inside the script field.`
-      : `This is a spoken-script concept. The "script" field is the full spoken voiceover/talking script.`;
+      ? `FORMAT = B-ROLL + ON-SCREEN TEXT (NO VOICEOVER). This is NOT a spoken script. There is no one talking.
+The reel is silent b-roll footage with short TEXT CARDS that appear on screen one after another.
+So the "script" field is the SEQUENCE OF ON-SCREEN TEXT CARDS — short, punchy, one thought per line.
+HARD RULES for the "script" field:
+  • Each line = one text card that appears on screen. Use line breaks between cards.
+  • Keep it SHORT: aim for 4–8 lines, ~3–9 words per line. This is text on a screen, not a paragraph.
+  • NO flowing monologue, NO spoken dialogue, NO connective filler ("en dan", "weet je", "dus") that only makes sense when spoken.
+  • NO stage directions, NO "[B-roll: ...]", NO camera notes.
+  • Match the rhythm and punch of the example on-screen text exactly.
+The "hook" is the FIRST on-screen card.`
+      : `FORMAT = TALKING-HEAD / SPOKEN SCRIPT. A person speaks this to camera.
+The "script" field is the full spoken voiceover — natural, conversational, the way the creator actually talks.`;
 
     const systemPrompt = `You are a dedicated script writer for ${clientData.name}, working exclusively on their "${concept.name}" concept. You are in an ongoing collaboration — you remember every script you've written and every piece of feedback you've received.
 
