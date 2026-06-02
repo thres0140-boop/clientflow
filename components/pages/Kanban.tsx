@@ -1663,7 +1663,7 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
                     }`}>
                       {selectedConcepts.includes(c.id) && <span className="text-white text-[9px] font-bold">✓</span>}
                     </span>
-                    {c.name}
+                    {(c as any).conceptType ? <><span className="opacity-50">{(c as any).conceptType} · </span>{c.name}</> : c.name}
                   </button>
                 ))}
               </div>
