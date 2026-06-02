@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Client, Competitor } from "@/lib/types";
 import Modal from "@/components/ui/Modal";
+import { ConceptModal } from "./Concepts";
 
 type Props = {
   clients: Client[];
@@ -708,6 +709,25 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   const [transcribing, setTranscribing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showConceptModal, setShowConceptModal] = useState(false);
+
+  // Transcribe (if needed) then open the full New Concept form pre-filled with this reel's info
+  async function openConceptForm() {
+    setSaving(true);
+    let t = transcript;
+    if (!t && reel.media_url) {
+      try {
+        const res = await fetch("/api/instagram/transcribe", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mediaUrl: reel.media_url }),
+        });
+        const data = await res.json();
+        if (!data.error) { t = data.transcript || ""; setTranscript(t); try { localStorage.setItem(storageKey, t!); } catch {} }
+      } catch {/* ignore */}
+    }
+    setSaving(false);
+    setShowConceptModal(true);
+  }
 
   async function transcribe() {
     if (!reel.media_url) {
@@ -914,9 +934,9 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-60">
                 {saving ? "Saving…" : "💡 Save as Idea"}
               </button>
-              <button onClick={() => saveAsConcept(false)} disabled={saving}
+              <button onClick={openConceptForm} disabled={saving}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60">
-                {saving ? "Saving…" : "✅ Save as Concept"}
+                {saving ? "Preparing…" : "✅ Save as Concept"}
               </button>
             </>
           )}
@@ -928,6 +948,26 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
           )}
         </div>
       </div>
+
+      {showConceptModal && (
+        <ConceptModal
+          clients={[client]}
+          selectedClientId={client.id}
+          initial={{
+            name: reel.caption?.slice(0, 80) || `Reel ${new Date(reel.timestamp).toLocaleDateString()}`,
+            exampleUrl: reel.permalink || `https://instagram.com/reel/${reel.id}`,
+            notes: [
+              reel.plays != null ? `Views: ${fmt(reel.plays)}` : null,
+              reel.reach != null ? `Reach: ${fmt(reel.reach)}` : null,
+              `Likes: ${fmt(reel.like_count)}`,
+              reel.saved != null ? `Saved: ${fmt(reel.saved)}` : null,
+            ].filter(Boolean).join(" · "),
+            scriptExamples: transcript || "",
+          }}
+          onClose={() => setShowConceptModal(false)}
+          onSaved={() => { setShowConceptModal(false); setSaved(true); }}
+        />
+      )}
     </div>
   );
 }

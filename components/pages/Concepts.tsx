@@ -527,22 +527,24 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
   );
 }
 
-function ConceptModal({
-  clients, selectedClientId, onClose, onSaved,
+export function ConceptModal({
+  clients, selectedClientId, onClose, onSaved, initial,
 }: {
   clients: Client[];
   selectedClientId: number | null;
   onClose: () => void;
   onSaved: () => void;
+  initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string };
 }) {
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
 
   const [form, setForm] = useState({
-    name: "", clientId: selectedClientId?.toString() || "",
+    name: initial?.name ?? "", clientId: selectedClientId?.toString() || "",
     hookType: "", textHook: "", audioHook: "", videoType: "",
-    angle: "", structure: "", guidelines: "", exampleUrl: "", notes: "",
+    angle: "", structure: "", guidelines: "",
+    exampleUrl: initial?.exampleUrl ?? "", notes: initial?.notes ?? "",
   });
-  const [scriptBoxes, setScriptBoxesC] = useState<string[]>([""]);
+  const [scriptBoxes, setScriptBoxesC] = useState<string[]>([initial?.scriptExamples || ""]);
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
   function setBox(i: number, v: string) { setScriptBoxesC((p) => p.map((b, idx) => idx === i ? v : b)); }
   function setBoxCount(n: number) {
