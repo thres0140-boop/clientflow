@@ -8,7 +8,7 @@ import {
 import { Client, DmLead, DM_STATUSES } from "@/lib/types";
 
 type Props = { clients: Client[]; selectedClientId: number | null; onGoToSettings?: () => void };
-type Period = "week" | "2weeks" | "month" | "all";
+type Period = "day" | "week" | "2weeks" | "month" | "all";
 type View = "pipeline" | "inbox";
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -25,11 +25,21 @@ function addDays(date: Date, n: number): Date {
   const d = new Date(date); d.setDate(d.getDate() + n); return d;
 }
 function periodDays(p: Period): number {
-  return p === "week" ? 7 : p === "2weeks" ? 14 : p === "month" ? 28 : Infinity;
+  return p === "day" ? 1 : p === "week" ? 7 : p === "2weeks" ? 14 : p === "month" ? 28 : Infinity;
 }
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
 function rangeLabel(start: Date, count: number): string {
   if (!isFinite(count)) return "All time";
+  // Single-day view → "Today" / "Yesterday" / the date
+  if (count === 1) {
+    const today = new Date();
+    if (isSameDay(start, today)) return "Today";
+    if (isSameDay(start, addDays(today, -1))) return "Yesterday";
+    return `${MONTHS[start.getMonth()]} ${start.getDate()}, ${start.getFullYear()}`;
+  }
   const end = addDays(start, count - 1);
   const sm = MONTHS[start.getMonth()], em = MONTHS[end.getMonth()];
   return start.getMonth() === end.getMonth()
@@ -382,10 +392,14 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
           {/* Date controls */}
           <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
             <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
-              {(["week","2weeks","month","all"] as Period[]).map((p) => (
-                <button key={p} onClick={() => { setPeriod(p); if (p !== "all") setStartDate(getMonday(new Date())); }}
+              {(["day","week","2weeks","month","all"] as Period[]).map((p) => (
+                <button key={p} onClick={() => {
+                  setPeriod(p);
+                  if (p === "day") { const t = new Date(); t.setHours(0,0,0,0); setStartDate(t); }
+                  else if (p !== "all") setStartDate(getMonday(new Date()));
+                }}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-                  {p === "week" ? "1 Week" : p === "2weeks" ? "2 Weeks" : p === "month" ? "Month" : "All time"}
+                  {p === "day" ? "Day" : p === "week" ? "1 Week" : p === "2weeks" ? "2 Weeks" : p === "month" ? "Month" : "All time"}
                 </button>
               ))}
             </div>
@@ -396,7 +410,10 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                   <span className="px-4 text-sm font-medium text-slate-700 whitespace-nowrap">{rangeLabel(startDate, days)}</span>
                   <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-slate-50 text-slate-500 border-l border-slate-200">›</button>
                 </div>
-                <button onClick={() => setStartDate(getMonday(new Date()))}
+                <button onClick={() => {
+                  if (period === "day") { const t = new Date(); t.setHours(0,0,0,0); setStartDate(t); }
+                  else setStartDate(getMonday(new Date()));
+                }}
                   className="px-3 py-2 text-xs border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 bg-white">Now</button>
               </>
             )}
