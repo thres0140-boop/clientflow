@@ -101,17 +101,27 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
     setLeads(Array.isArray(data) ? data : []);
   }
 
-  // Load inbox conversations via Zernio
+  // Load inbox conversations via Zernio — auto-retries transient failures
   const loadInbox = useCallback(async () => {
     if (!selectedClientId) return;
     setInboxLoading(true);
     setInboxError(null);
+
+    const attempt = async (): Promise<any> => {
+      const res = await fetch(`/api/zernio/conversations?clientId=${selectedClientId}`);
+      return res.json();
+    };
+
     try {
-      const data = await fetch(`/api/zernio/conversations?clientId=${selectedClientId}`).then((r) => r.json());
+      let data = await attempt();
+      // Retry once after a short delay if Zernio hiccupped (rate limit / transient)
+      if (data?.error && data.error !== "no_zernio_account") {
+        await new Promise((r) => setTimeout(r, 1500));
+        data = await attempt();
+      }
       if (data.error === "no_zernio_account") { setInboxError("no_zernio_account"); }
       else if (data.error) { setInboxError(data.error); }
       else {
-        // Normalise Zernio conversation objects to our Conversation shape
         const raw: any[] = data.data ?? data.conversations ?? data.items ?? [];
         const convs = raw.map((c: any) => ({
           id: c.id,

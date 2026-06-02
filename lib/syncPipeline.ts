@@ -98,7 +98,8 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
         linkTimestampDone;
       if (nothingLeft) continue;
 
-      // Messages
+      // Messages — gentle throttle to avoid bursting Zernio's rate limit
+      await new Promise((res) => setTimeout(res, 120));
       const msgUrl = new URL(`${ZERNIO_BASE}/inbox/conversations/${conv.id}/messages`);
       msgUrl.searchParams.set("accountId", conn.zernioAccountId);
       const msgRes = await fetch(msgUrl.toString(), {
