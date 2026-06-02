@@ -86,6 +86,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [planMode, setPlanMode] = useState<PlanningMode>("calendar");
   const [offset, setOffset] = useState(0);
   const [openDatePicker, setOpenDatePicker] = useState<string | null>(null);
+  const [openTemplateDay, setOpenTemplateDay] = useState<number | null>(null);
   const [dateTags, setDateTags] = useState<Record<string, number>>({});
 
   const today = new Date();
@@ -323,24 +324,30 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         <span className="opacity-70">×</span>
                       </button>
                     ) : (
-                      <div className="relative group">
-                        <button className="w-4 h-4 rounded-full bg-slate-200 hover:bg-indigo-500 text-slate-500 hover:text-white text-[10px] font-bold flex items-center justify-center transition-colors leading-none">
+                      <div className="relative">
+                        <button onClick={() => setOpenTemplateDay(openTemplateDay === i ? null : i)}
+                          className="w-4 h-4 rounded-full bg-slate-200 hover:bg-indigo-500 text-slate-500 hover:text-white text-[10px] font-bold flex items-center justify-center transition-colors leading-none">
                           +
                         </button>
-                        {/* Dropdown on hover */}
-                        <div className="absolute top-5 left-0 z-20 hidden group-hover:block bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[160px]">
-                          {concepts.length === 0 ? (
-                            <p className="px-3 py-2 text-xs text-slate-400">No concepts yet</p>
-                          ) : concepts.map((c) => (
-                            <button
-                              key={c.id}
-                              onClick={() => saveDayTemplate({ ...dayTemplate, [i]: c.id })}
-                              className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-                            >
-                              {conceptLabel(c.id, c.name)}
-                            </button>
-                          ))}
-                        </div>
+                        {openTemplateDay === i && (
+                          <>
+                            {/* click-away backdrop */}
+                            <div className="fixed inset-0 z-10" onClick={() => setOpenTemplateDay(null)} />
+                            <div className="absolute top-5 left-0 z-20 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[160px] max-h-64 overflow-y-auto">
+                              {concepts.length === 0 ? (
+                                <p className="px-3 py-2 text-xs text-slate-400">No concepts yet</p>
+                              ) : concepts.map((c) => (
+                                <button
+                                  key={c.id}
+                                  onClick={() => { saveDayTemplate({ ...dayTemplate, [i]: c.id }); setOpenTemplateDay(null); }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                                >
+                                  {conceptLabel(c.id, c.name)}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
                     )
                   )}
