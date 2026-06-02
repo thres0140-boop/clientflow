@@ -27,6 +27,7 @@ type IGReel = {
   totalWatchTime?: number; // ms
   skipRate?: number; // 0-1 ratio
   is_shared_to_feed?: boolean;
+  permalink?: string;
   handle?: string;
   instagramUrl?: string;
 };
@@ -91,10 +92,11 @@ export default function InstagramPage({ clients, selectedClientId }: Props) {
     let first = true;
     try {
       while (true) {
-        const url = `/api/instagram/media?clientId=${client.id}${cursor ? `&cursor=${cursor}` : ""}`;
+        const url: string = `/api/instagram/media?clientId=${client.id}${cursor ? `&cursor=${cursor}` : ""}`;
         const res = await fetch(url);
         if (!res.ok) break;
-        const { reels: page, nextCursor } = await res.json();
+        const data: any = await res.json();
+        const page = data.reels; const nextCursor: string | null = data.nextCursor ?? null;
         if (first) {
           setReels(page);          // show first 25 immediately
           setLoadingReels(false);  // hide spinner right away
@@ -332,6 +334,14 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
             {reel.is_shared_to_feed === false && (
               <div className="absolute top-2 left-2 z-10">
                 <span className="bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide shadow">Trial</span>
+              </div>
+            )}
+            {/* Posted date */}
+            {reel.timestamp && (
+              <div className="absolute top-2 right-2 z-10">
+                <span className="bg-black/55 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                  {new Date(reel.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                </span>
               </div>
             )}
             {/* Always-visible gradient + stat chips */}

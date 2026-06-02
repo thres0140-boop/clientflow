@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const FIELDS = "id,caption,media_type,media_product_type,is_shared_to_feed,thumbnail_url,media_url,timestamp,like_count,comments_count";
+const FIELDS = "id,caption,media_type,media_product_type,is_shared_to_feed,permalink,thumbnail_url,media_url,timestamp,like_count,comments_count";
 
 async function enrichReels(reels: any[], accessToken: string) {
   return Promise.all(

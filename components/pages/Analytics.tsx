@@ -75,6 +75,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   const [allContent, setAllContent] = useState<ContentPiece[]>([]);
   const [allVideos,  setAllVideos]  = useState<TrackedVideo[]>([]);
   const [dmLeads,    setDmLeads]    = useState<any[]>([]);
+  const [igReels,    setIgReels]    = useState<any[]>([]); // live posted reels from Instagram
 
   // Manual entries: date → ManualEntry
   const [manual, setManual] = useState<Record<string, ManualEntry>>({});
@@ -127,8 +128,17 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       fetch(`/api/dm-leads?clientId=${selectedClientId}`).then((r) => r.json())
         .then((d) => setDmLeads(Array.isArray(d) ? d : [])).catch(() => {});
 
+    // Live posted reels from Instagram — so analytics shows real post performance even
+    // when a reel isn't linked to a concept/scheduled content.
+    const loadReels = () =>
+      fetch(`/api/instagram/media?clientId=${selectedClientId}`).then((r) => r.json())
+        .then((d) => setIgReels(Array.isArray(d?.reels) ? d.reels : Array.isArray(d) ? d : []))
+        .catch(() => {});
+
+    setIgReels([]);
     loadAll();
     loadLeads();
+    loadReels();
     // Trigger server-side DM detection, then reload analytics + leads to reflect fresh data
     fetch(`/api/zernio/sync-pipeline?clientId=${selectedClientId}`)
       .then(() => { loadAll(); loadLeads(); })
@@ -172,13 +182,24 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       if (day && map[day]) {
         const name = c.concept?.name;
         if (name && !map[day].concepts.includes(name)) map[day].concepts.push(name);
-        // Fall back to the content piece's media for the reel link
         if (!map[day].videoUrl) {
           map[day].videoUrl = c.igMediaId
             ? `https://www.instagram.com/reel/${c.igMediaId}/`
             : (c.rawContentUrl || null);
         }
       }
+    }
+    // Real posted reels from Instagram — bucket by posted date (works without a concept link)
+    for (const r of igReels) {
+      if (!r.timestamp) continue;
+      const day = new Date(r.timestamp);
+      if (isNaN(day.getTime())) continue;
+      const ymd = toYMD(day);
+      if (!map[ymd]) continue;
+      map[ymd].views  += r.plays ?? 0;
+      map[ymd].likes  += r.like_count ?? 0;
+      map[ymd].shares += r.shares ?? 0;
+      if (!map[ymd].videoUrl) map[ymd].videoUrl = r.permalink ?? r.media_url ?? null;
     }
     return map;
   }
