@@ -710,8 +710,9 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showConceptModal, setShowConceptModal] = useState(false);
+  const [existingConcepts, setExistingConcepts] = useState<any[]>([]);
 
-  // Transcribe (if needed) then open the full New Concept form pre-filled with this reel's info
+  // Transcribe (if needed) + load the client's concepts, then open the New Concept form
   async function openConceptForm() {
     setSaving(true);
     let t = transcript;
@@ -725,6 +726,10 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
         if (!data.error) { t = data.transcript || ""; setTranscript(t); try { localStorage.setItem(storageKey, t!); } catch {} }
       } catch {/* ignore */}
     }
+    try {
+      const cs = await fetch(`/api/concepts?clientId=${client.id}`).then((r) => r.json());
+      setExistingConcepts(Array.isArray(cs) ? cs : []);
+    } catch {/* ignore */}
     setSaving(false);
     setShowConceptModal(true);
   }
@@ -955,16 +960,10 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
       <ConceptModal
         clients={[client]}
         selectedClientId={client.id}
+        existingConcepts={existingConcepts.map((c: any) => ({ conceptType: c.conceptType, name: c.name }))}
         initial={{
-          name: reel.caption?.slice(0, 80) || `Reel ${new Date(reel.timestamp).toLocaleDateString()}`,
           exampleUrl: reel.permalink || `https://instagram.com/reel/${reel.id}`,
           reelUrls: [reel.permalink || `https://instagram.com/reel/${reel.id}`],
-          notes: [
-            reel.plays != null ? `Views: ${fmt(reel.plays)}` : null,
-            reel.reach != null ? `Reach: ${fmt(reel.reach)}` : null,
-            `Likes: ${fmt(reel.like_count)}`,
-            reel.saved != null ? `Saved: ${fmt(reel.saved)}` : null,
-          ].filter(Boolean).join(" · "),
           scriptExamples: transcript || "",
         }}
         onClose={() => setShowConceptModal(false)}

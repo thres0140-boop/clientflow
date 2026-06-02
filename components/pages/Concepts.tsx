@@ -163,7 +163,7 @@ export default function Concepts({ clients, selectedClientId }: Props) {
         <ConceptModal
           clients={clients}
           selectedClientId={selectedClientId}
-          categories={Array.from(new Set(concepts.map((c) => (c as any).conceptType).filter(Boolean)))}
+          existingConcepts={concepts.map((c) => ({ conceptType: (c as any).conceptType, name: c.name }))}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); reload(); }}
         />
@@ -529,17 +529,18 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
 const DEFAULT_CATEGORIES = ["Viral", "Value", "Authentic", "Authority"];
 
 export function ConceptModal({
-  clients, selectedClientId, onClose, onSaved, initial, categories,
+  clients, selectedClientId, onClose, onSaved, initial, existingConcepts,
 }: {
   clients: Client[];
   selectedClientId: number | null;
   onClose: () => void;
   onSaved: () => void;
   initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string; reelUrls?: string[] };
-  categories?: string[]; // existing per-client categories to suggest in the dropdown
+  existingConcepts?: { conceptType?: string | null; name?: string | null }[];
 }) {
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
-  const catOptions = Array.from(new Set([...DEFAULT_CATEGORIES, ...(categories ?? [])]));
+  const existing = existingConcepts ?? [];
+  const catOptions = Array.from(new Set([...DEFAULT_CATEGORIES, ...existing.map((c) => c.conceptType).filter(Boolean) as string[]]));
 
   const [form, setForm] = useState({
     name: initial?.name ?? "", clientId: selectedClientId?.toString() || "",
@@ -548,7 +549,12 @@ export function ConceptModal({
     angle: "", structure: "", guidelines: "",
     exampleUrl: initial?.exampleUrl ?? "", notes: initial?.notes ?? "",
   });
-  const reelUrls = initial?.reelUrls ?? [];
+  const [reelUrls, setReelUrls] = useState<string[]>(initial?.reelUrls ?? []);
+  const [newReel, setNewReel] = useState("");
+  // Concept Types saved under the selected category
+  const typeOptions = Array.from(new Set(
+    existing.filter((c) => c.conceptType === form.conceptType).map((c) => c.name).filter(Boolean) as string[]
+  ));
   const [scriptBoxes, setScriptBoxesC] = useState<string[]>([initial?.scriptExamples || ""]);
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
   function setBox(i: number, v: string) { setScriptBoxesC((p) => p.map((b, idx) => idx === i ? v : b)); }
@@ -611,23 +617,37 @@ export function ConceptModal({
             <p className="text-[10px] text-slate-400 mt-0.5">Pick one or type a new category</p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Concept Name *</label>
-            <input required value={form.name} onChange={(e) => set("name", e.target.value)}
-              placeholder="specific name for this concept"
+            <label className="block text-xs font-medium text-slate-600 mb-1">Concept Type *</label>
+            <input list="conceptTypeList" required value={form.name} onChange={(e) => set("name", e.target.value)}
+              placeholder={form.conceptType ? `type under ${form.conceptType}…` : "pick a concept first"}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <datalist id="conceptTypeList">
+              {typeOptions.map((t) => <option key={t} value={t} />)}
+            </datalist>
+            <p className="text-[10px] text-slate-400 mt-0.5">Pick an existing type or make a new one</p>
           </div>
         </div>
 
-        {reelUrls.length > 0 && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-            <p className="text-[10px] font-semibold text-slate-500 mb-1">📎 {reelUrls.length} reel{reelUrls.length !== 1 ? "s" : ""} attached</p>
-            <div className="flex flex-wrap gap-1">
-              {reelUrls.map((u, i) => (
-                <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-600 hover:underline truncate max-w-[160px]">reel {i + 1} ↗</a>
-              ))}
-            </div>
+        {/* Attached reels — editable */}
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+          <p className="text-[10px] font-semibold text-slate-500 mb-1.5">📎 {reelUrls.length} reel{reelUrls.length !== 1 ? "s" : ""} attached</p>
+          <div className="space-y-1 mb-1.5">
+            {reelUrls.map((u, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <a href={u} target="_blank" rel="noopener noreferrer" className="flex-1 text-[11px] text-indigo-600 hover:underline truncate">{u}</a>
+                <button type="button" onClick={() => setReelUrls(reelUrls.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-red-500 text-xs flex-shrink-0">✕</button>
+              </div>
+            ))}
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            <input value={newReel} onChange={(e) => setNewReel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (newReel.trim()) { setReelUrls([...reelUrls, newReel.trim()]); setNewReel(""); } } }}
+              placeholder="Paste another reel link…"
+              className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            <button type="button" onClick={() => { if (newReel.trim()) { setReelUrls([...reelUrls, newReel.trim()]); setNewReel(""); } }}
+              className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Add</button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
