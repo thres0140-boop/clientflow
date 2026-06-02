@@ -509,6 +509,15 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           }}
           onReviewSubmitted={() => reload()}
           team={team}
+          isTextOverlay={(() => {
+            const dc = concepts.find((c) => c.id === detailDraft.conceptId);
+            if (!dc) return false;
+            const vt = (dc.videoType || "").toLowerCase();
+            const struct = (dc.structure || "").toLowerCase();
+            return (dc as any).textOverlay === true
+              || /broll|b-roll|text[\s_-]*overlay|text[\s_-]*hook|on[\s_-]*screen/.test(vt)
+              || /op\s*scherm|tekstkaart|text\s*card|on[\s-]*screen|overlay|regel\s*\d/.test(struct);
+          })()}
         />
       )}
 
@@ -688,9 +697,10 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat,
+  draft, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[]; client?: { name: string; color: string } | null;
+  isTextOverlay?: boolean;
   onClose: () => void; onAccept: () => void; onReject: () => void;
   onSaveAsIdea: (weeks: number) => void;
   onScriptUpdated: (script: string, hook: string | null) => void;
@@ -771,38 +781,64 @@ function DraftDetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Hook */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Text Hook</label>
-            <input value={hook}
-              onChange={(e) => { setHook(e.target.value); onScriptUpdated(script, e.target.value); }}
-              onBlur={(e) => {
-                if (inStage && e.target.value !== prevHook) {
-                  fetch("/api/draft-changes", { method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ draftId: draft.id, field: "hook", before: prevHook, after: e.target.value, author: authorName }) })
-                    .then(r => r.json()).then(c => { if (c) setChanges(prev => [...prev, c]); });
-                  setPrevHook(e.target.value);
-                }
-              }}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
+          {isTextOverlay ? (
+            /* Text-hook + B-roll format: no spoken script — just the on-screen text. */
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Text Hook · on-screen text</label>
+              <textarea rows={8} value={script}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const firstLine = v.split("\n").map((l) => l.trim()).find(Boolean) || "";
+                  setScript(v); setHook(firstLine);
+                  onScriptUpdated(v, firstLine || null);
+                }}
+                onBlur={(e) => {
+                  if (inStage && e.target.value !== prevScript) {
+                    fetch("/api/draft-changes", { method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ draftId: draft.id, field: "script", before: prevScript, after: e.target.value, author: authorName }) })
+                      .then(r => r.json()).then(c => { if (c) setChanges(prev => [...prev, c]); });
+                    setPrevScript(e.target.value);
+                  }
+                }}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+              <p className="text-[10px] text-slate-400 mt-1">on-screen text cards · {script.split(" ").filter(Boolean).length} words</p>
+            </div>
+          ) : (
+            <>
+              {/* Hook */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Text Hook</label>
+                <input value={hook}
+                  onChange={(e) => { setHook(e.target.value); onScriptUpdated(script, e.target.value); }}
+                  onBlur={(e) => {
+                    if (inStage && e.target.value !== prevHook) {
+                      fetch("/api/draft-changes", { method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ draftId: draft.id, field: "hook", before: prevHook, after: e.target.value, author: authorName }) })
+                        .then(r => r.json()).then(c => { if (c) setChanges(prev => [...prev, c]); });
+                      setPrevHook(e.target.value);
+                    }
+                  }}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
 
-          {/* Script */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Script</label>
-            <textarea rows={8} value={script}
-              onChange={(e) => { setScript(e.target.value); onScriptUpdated(e.target.value, hook || null); }}
-              onBlur={(e) => {
-                if (inStage && e.target.value !== prevScript) {
-                  fetch("/api/draft-changes", { method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ draftId: draft.id, field: "script", before: prevScript, after: e.target.value, author: authorName }) })
-                    .then(r => r.json()).then(c => { if (c) setChanges(prev => [...prev, c]); });
-                  setPrevScript(e.target.value);
-                }
-              }}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-            <p className="text-[10px] text-slate-400 mt-1">{script.split(" ").filter(Boolean).length} words</p>
-          </div>
+              {/* Script */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Script</label>
+                <textarea rows={8} value={script}
+                  onChange={(e) => { setScript(e.target.value); onScriptUpdated(e.target.value, hook || null); }}
+                  onBlur={(e) => {
+                    if (inStage && e.target.value !== prevScript) {
+                      fetch("/api/draft-changes", { method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ draftId: draft.id, field: "script", before: prevScript, after: e.target.value, author: authorName }) })
+                        .then(r => r.json()).then(c => { if (c) setChanges(prev => [...prev, c]); });
+                      setPrevScript(e.target.value);
+                    }
+                  }}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                <p className="text-[10px] text-slate-400 mt-1">{script.split(" ").filter(Boolean).length} words</p>
+              </div>
+            </>
+          )}
 
           {/* Schedule to calendar — owner only */}
           {inStage && !isClient && (
