@@ -625,7 +625,10 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                     <span className="text-indigo-600 text-sm font-bold">{concept.name[0]}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800">{concept.name}</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {concept.conceptType && <span className="text-slate-400 font-normal">{concept.conceptType} · </span>}
+                      {concept.name}
+                    </p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {topReasons.map(([type, count]) => {
                         const meta = REASON_LABELS[type];
@@ -670,7 +673,10 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                     <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                       <span className="text-slate-400 text-xs font-bold">{concept.name[0]}</span>
                     </div>
-                    <p className="text-sm text-slate-500">{concept.name}</p>
+                    <p className="text-sm text-slate-500">
+                      {concept.conceptType && <span className="text-slate-400">{concept.conceptType} · </span>}
+                      {concept.name}
+                    </p>
                     <span className="ml-auto text-[10px] text-slate-300">View pipeline</span>
                     <span className={`text-slate-300 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
                   </button>
