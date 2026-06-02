@@ -14,6 +14,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: count });
   }
 
+  // ?leads=clientId — dump lead dates for debugging analytics
+  const leadsDump = req.nextUrl.searchParams.get("leads");
+  if (leadsDump) {
+    const cid = parseInt(leadsDump);
+    const leads = await prisma.dmLead.findMany({
+      where: { clientId: cid },
+      select: { name: true, handle: true, status: true, date: true, repliedAt: true, linkSentAt: true, bookedAt: true } as any,
+      orderBy: { date: "asc" },
+    });
+    return NextResponse.json({ count: leads.length, leads });
+  }
+
   // ?resync=clientId — clear lastConvTime so the next sync re-scans all conversations
   // (used to backfill corrected dates onto existing leads)
   const resync = req.nextUrl.searchParams.get("resync");
