@@ -52,7 +52,7 @@ function timeAgo(dateStr: string): string {
 const STATUS_MAP = Object.fromEntries(DM_STATUSES.map((s) => [s.value, s]));
 function statusMeta(status: string) { return STATUS_MAP[status] ?? STATUS_MAP["messaged"]; }
 const PIPELINE_COLS = DM_STATUSES.map((s) => s.value);
-const NEXT: Record<string, string> = { messaged: "link_sent", link_sent: "booked", booked: "closed" };
+const NEXT: Record<string, string> = { messaged: "answered", answered: "link_sent", link_sent: "booked", booked: "closed" };
 
 // ── Inbox types ───────────────────────────────────────────────────────────────
 type Conversation = {
@@ -261,7 +261,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
       return l.name.toLowerCase().trim() === conv.name.toLowerCase().trim();
     });
 
-    const statusOrder = ["messaged", "link_sent", "booked", "no_show", "unqualified", "no_close", "closed"];
+    const statusOrder = ["messaged", "answered", "link_sent", "booked", "no_show", "unqualified", "no_close", "closed"];
     const currentIdx = statusOrder.indexOf(lead?.status ?? "");
     const newIdx = statusOrder.indexOf(status);
 
@@ -717,9 +717,6 @@ function LeadCardInner({ lead, onEdit, onDelete }: {
           {lead.date && <p className="text-[10px] text-slate-300 mt-0.5">{lead.date.slice(5).replace("-", "/")}</p>}
           {(lead as any).source === "cta" && (
             <p className="text-[10px] font-medium text-orange-500 mt-1">⚡ CTA inbound</p>
-          )}
-          {(lead as any).repliedAt && (
-            <p className="text-[10px] font-medium text-emerald-500 mt-1">💬 Replied</p>
           )}
           {lead.status === "link_sent" && lead.updatedAt && (
             <p className="text-[10px] font-medium text-purple-500 mt-1">🔗 Link sent {timeAgoShort(lead.updatedAt)}</p>

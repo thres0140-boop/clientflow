@@ -231,6 +231,7 @@ export type DmLead = {
 
 export const DM_STATUSES = [
   { value: "messaged",          label: "Messaged",             bg: "bg-indigo-50",   text: "text-indigo-700",   border: "border-indigo-200"  },
+  { value: "answered",          label: "Answered",             bg: "bg-emerald-50",  text: "text-emerald-700",  border: "border-emerald-200" },
   { value: "link_sent",         label: "Link Sent",            bg: "bg-purple-50",   text: "text-purple-700",   border: "border-purple-200"  },
   { value: "booked",            label: "Booked",               bg: "bg-blue-50",     text: "text-blue-700",     border: "border-blue-200"    },
   { value: "no_show",           label: "No Show",              bg: "bg-red-50",      text: "text-red-600",      border: "border-red-200"     },

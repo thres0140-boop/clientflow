@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
   // ── Find the best matching lead ───────────────────────────────────────────
 
-  const statusOrder = ["messaged", "link_sent", "booked", "no_show", "unqualified", "no_close", "closed"];
+  const statusOrder = ["messaged", "answered", "link_sent", "booked", "no_show", "unqualified", "no_close", "closed"];
   const bookedIdx   = statusOrder.indexOf("booked");
 
   const leads = await prisma.dmLead.findMany({ where: { clientId } });
