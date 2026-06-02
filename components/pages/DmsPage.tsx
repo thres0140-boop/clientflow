@@ -130,9 +130,11 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
     setInboxLoading(false);
   }, [selectedClientId, client?.bookingLink]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Run the inbox load (which triggers reply/CTA/link detection) whenever the
+  // DM page is open for a client — not just the inbox tab — so pipeline badges populate.
   useEffect(() => {
-    if (view === "inbox") loadInbox();
-  }, [view, selectedClientId, loadInbox]);
+    if (selectedClientId) loadInbox();
+  }, [selectedClientId, loadInbox]);
 
   // Load messages for selected conversation
   const loadMessages = useCallback(async (conv: Conversation) => {
@@ -345,6 +347,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
         }
       } catch { /* ignore per-conv errors */ }
     }
+    // Refresh leads so newly-detected Replied/CTA badges show on the pipeline
+    loadLeads();
   }
 
   async function addToPipeline(conv: Conversation) {
