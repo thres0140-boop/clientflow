@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       guidelines: maybe(body.guidelines),
       exampleUrl: maybe(body.exampleUrl),
       ...(body.reelUrls !== undefined ? { reelUrls: typeof body.reelUrls === "string" ? body.reelUrls : JSON.stringify(body.reelUrls) } : {}),
+      ...(body.textOverlay !== undefined ? { textOverlay: body.textOverlay === true } : {}),
       scriptExamples: maybe(body.scriptExamples),
       scriptRules: maybe(body.scriptRules),
       notes: maybe(body.notes),

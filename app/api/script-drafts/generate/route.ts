@@ -84,11 +84,25 @@ export async function POST(req: NextRequest) {
       ? `\n\nCAPTION STYLE:\n${clientData.captionStyle}`
       : "";
 
+    const isTextOverlay = (concept as any).textOverlay === true;
+
+    const formatInstruction = isTextOverlay
+      ? `THIS IS A B-ROLL + TEXT-OVERLAY CONCEPT — there is NO spoken voiceover.
+The reel is silent b-roll footage with short punchy TEXT that appears on screen.
+So the "script" field must be the ON-SCREEN TEXT OVERLAY — a few short, high-impact lines/sentences
+that appear over the footage (the way the example reels do), NOT a spoken monologue.
+Match the exact phrasing energy, length, and punch of the example text. The "hook" is the first on-screen line.
+Keep it tight — on-screen text is short. Do NOT write spoken dialogue or "[B-roll: ...]" stage directions inside the script field.`
+      : `This is a spoken-script concept. The "script" field is the full spoken voiceover/talking script.`;
+
     const systemPrompt = `You are a dedicated script writer for ${clientData.name}, working exclusively on their "${concept.name}" concept. You are in an ongoing collaboration — you remember every script you've written and every piece of feedback you've received.
 
 CONCEPT BLUEPRINT:
 ${blueprintLines || "No blueprint set yet."}
 ${examplesSection}
+
+FORMAT:
+${formatInstruction}
 
 WRITING RULES — follow strictly:
 ${writingRules}
@@ -98,7 +112,7 @@ LANGUAGE: ${langInstruction}
 
 Your job: when asked to generate scripts, output ONLY a valid JSON array:
 [
-  { "title": "short title", "hook": "opening hook line", "script": "full script text", "caption": "caption text (completely different angle from script)" },
+  { "title": "short title", "hook": "${isTextOverlay ? "first on-screen text line" : "opening hook line"}", "script": "${isTextOverlay ? "the on-screen text overlay (short punchy lines)" : "full script text"}", "caption": "caption text (completely different angle from script)" },
   ...
 ]
 Nothing else. No commentary. Just the JSON array.`;

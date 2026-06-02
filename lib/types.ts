@@ -164,6 +164,7 @@ export type Concept = {
   exampleUrl?: string | null;
   conceptType?: string | null;
   reelUrls?: string | null;
+  textOverlay?: boolean;
   scriptExamples?: string | null;
   scriptRules?: string | null;
   aiMemory?: string | null;

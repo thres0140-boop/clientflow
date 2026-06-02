@@ -652,6 +652,10 @@ export function ConceptModal({
   const [reelUrls, setReelUrls] = useState<string[]>(initial?.reelUrls ?? []);
   const [newReel, setNewReel] = useState("");
   const [showReelPicker, setShowReelPicker] = useState(false);
+  // Auto-detect a B-roll/text-overlay reel: opened from a reel but transcript came back empty/tiny
+  const [textOverlay, setTextOverlay] = useState<boolean>(
+    !!initial?.reelUrls?.length && (initial?.scriptExamples ?? "").trim().length < 40
+  );
   // Concept Types saved under the selected category
   const typeOptions = Array.from(new Set(
     existing.filter((c) => c.conceptType === form.conceptType).map((c) => c.name).filter(Boolean) as string[]
@@ -669,7 +673,7 @@ export function ConceptModal({
     return fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, scriptExamples, reelUrls, isIdea: false }),
+      body: JSON.stringify({ ...form, scriptExamples, reelUrls, textOverlay, isIdea: false }),
     }).then((r) => r.json());
   }
 
@@ -769,6 +773,15 @@ export function ConceptModal({
               className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Add</button>
           </div>
         </div>
+
+        {/* B-roll / text-overlay format */}
+        <label className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer border ${textOverlay ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
+          <input type="checkbox" checked={textOverlay} onChange={(e) => setTextOverlay(e.target.checked)} className="mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold text-slate-700">📝 B-roll + text overlay (no voiceover)</p>
+            <p className="text-[10px] text-slate-400">For viral text-on-screen reels. The AI writes on-screen <strong>text hooks/overlays</strong> in this style instead of a spoken script. Paste the on-screen text into Script Examples below.</p>
+          </div>
+        </label>
 
         <div className="grid grid-cols-2 gap-4">
           <div>

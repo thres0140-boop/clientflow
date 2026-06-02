@@ -187,6 +187,10 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "Concept"
       ADD COLUMN IF NOT EXISTS "reelUrls" TEXT;
     `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "Concept"
+      ADD COLUMN IF NOT EXISTS "textOverlay" BOOLEAN NOT NULL DEFAULT false;
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

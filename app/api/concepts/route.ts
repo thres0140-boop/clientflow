@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       name: body.name,
       conceptType: body.conceptType || null,
       reelUrls: body.reelUrls ? (typeof body.reelUrls === "string" ? body.reelUrls : JSON.stringify(body.reelUrls)) : null,
+      textOverlay: body.textOverlay === true,
       hookType: body.hookType || null,
       textHook: body.textHook || null,
       audioHook: body.audioHook || null,

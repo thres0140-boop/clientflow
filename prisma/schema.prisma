@@ -193,6 +193,7 @@ model Concept {
   guidelines     String?
   exampleUrl     String?
   reelUrls       String?  // JSON array of reel permalinks attached to this concept
+  textOverlay    Boolean  @default(false) // B-roll + on-screen text (no voiceover) — AI writes text hooks, not spoken scripts
   scriptExamples       String?
   scriptRules          String?
   aiMemory             String?
