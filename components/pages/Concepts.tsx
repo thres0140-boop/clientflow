@@ -990,6 +990,8 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
   });
   const [showReelPicker, setShowReelPicker] = useState(false);
   const [newReel, setNewReel] = useState("");
+  const [examples, setExamples] = useState<string | null | undefined>(concept.scriptExamples);
+  const [pulling, setPulling] = useState(false);
 
   async function saveReels(next: string[]) {
     setReels(next);
@@ -997,6 +999,32 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reelUrls: next }),
     });
+  }
+
+  // Read each attached reel's text (transcript for talking-head, on-screen text
+  // for text-overlay) and add them as script examples.
+  async function pullFromReels() {
+    const hasExamples = !!(examples?.trim());
+    const replace = hasExamples
+      ? confirm("Replace the existing example scripts with fresh ones pulled from the attached reels?\n\nOK = replace all · Cancel = just add new ones")
+      : false;
+    setPulling(true);
+    try {
+      const d = await fetch(`/api/concepts/${concept.id}/extract-examples`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replace }),
+      }).then((r) => r.json());
+      if (d.error) { alert(d.error); return; }
+      const fresh = await fetch(`/api/concepts/${concept.id}`).then((r) => r.json());
+      setExamples(fresh?.scriptExamples ?? "");
+      alert(d.added > 0
+        ? `Added ${d.added} example${d.added !== 1 ? "s" : ""} from your attached reels (matched ${d.matched}/${d.attached}).`
+        : `No new text found (matched ${d.matched}/${d.attached} reels).`);
+    } catch {
+      alert("Couldn't pull from reels. Try again.");
+    } finally {
+      setPulling(false);
+    }
   }
   function addReel() {
     const u = newReel.trim();
@@ -1048,10 +1076,19 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-xs font-semibold text-slate-500">📎 ATTACHED REELS ({reels.length})</p>
-            {concept.clientId && (
-              <button onClick={() => setShowReelPicker(true)}
-                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800">🎬 Pick from reels</button>
-            )}
+            <div className="flex items-center gap-3">
+              {reels.length > 0 && concept.clientId && (
+                <button onClick={pullFromReels} disabled={pulling}
+                  title="Read each reel's text and add as Script Examples"
+                  className={`text-[11px] font-semibold ${pulling ? "text-slate-400 cursor-wait" : "text-pink-600 hover:text-pink-800"}`}>
+                  {pulling ? "Reading reels…" : `✨ Pull text from ${reels.length} reel${reels.length !== 1 ? "s" : ""}`}
+                </button>
+              )}
+              {concept.clientId && (
+                <button onClick={() => setShowReelPicker(true)}
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800">🎬 Pick from reels</button>
+              )}
+            </div>
           </div>
           <div className="space-y-1.5 mb-2">
             {reels.map((u, i) => (
@@ -1102,11 +1139,11 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
             </div>
           </div>
         )}
-        {concept.scriptExamples && (
+        {examples && (
           <div>
             <p className="text-xs font-semibold text-slate-500 mb-2">SCRIPT EXAMPLES</p>
             <div className="space-y-2">
-              {concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
+              {examples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
                 <div key={i}>
                   <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">Example {i + 1}</p>
                   <pre className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-slate-700 max-h-48 overflow-y-auto">
