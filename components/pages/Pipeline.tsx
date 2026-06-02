@@ -58,6 +58,14 @@ function parseDayTemplate(raw: string | null | undefined): Record<number, number
 export default function Pipeline({ clients, selectedClientId, refreshNotifications, isClient }: Props) {
   const [content, setContent] = useState<ContentPiece[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
+  // Label a concept as "General Concept · Concept Type" (falls back to just the name).
+  // Looks up the full concept (for conceptType) since embedded objects only carry the name.
+  const conceptLabel = (conceptId?: number | null, fallbackName?: string | null) => {
+    const full = conceptId ? concepts.find((c) => c.id === conceptId) : null;
+    const name = full?.name ?? fallbackName ?? "";
+    const cat = full?.conceptType;
+    return cat ? `${cat} · ${name}` : name;
+  };
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [scheduledDrafts, setScheduledDrafts] = useState<ScriptDraft[]>([]);
@@ -311,7 +319,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         style={{ backgroundColor: "#6366f1" }}
                         title="Click to remove"
                       >
-                        <span className="truncate max-w-[60px]">{concept.name}</span>
+                        <span className="truncate max-w-[90px]">{conceptLabel(concept.id, concept.name)}</span>
                         <span className="opacity-70">×</span>
                       </button>
                     ) : (
@@ -329,7 +337,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                               onClick={() => saveDayTemplate({ ...dayTemplate, [i]: c.id })}
                               className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
                             >
-                              {c.name}
+                              {conceptLabel(c.id, c.name)}
                             </button>
                           ))}
                         </div>
@@ -377,7 +385,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                                 style={{ backgroundColor: "#6366f1" }}
                                 title="Click to remove tag"
                               >
-                                {tagConcept.name}
+                                {conceptLabel(tagConcept.id, tagConcept.name)}
                               </button>
                             ) : (
                               <div className="relative">
@@ -397,7 +405,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                                         onClick={() => setDateTag(date, c.id)}
                                         className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
                                       >
-                                        {c.name}
+                                        {conceptLabel(c.id, c.name)}
                                       </button>
                                     ))}
                                   </div>
@@ -409,7 +417,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         {/* Template hint (faint, only in template mode) */}
                         {planMode === "template" && templateConcept && pieces.length === 0 && (
                           <div className="mb-1 px-1.5 py-0.5 rounded text-[9px] text-slate-400 border border-dashed border-slate-200 truncate">
-                            💡 {templateConcept.name}
+                            💡 {conceptLabel(templateConcept.id, templateConcept.name)}
                           </div>
                         )}
                         <div className="space-y-1">
@@ -447,7 +455,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                               <button onClick={() => setSelectedDraft(draft)} className="w-full text-left">
                                 <div className="truncate font-semibold pr-4">{draft.title}</div>
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                  {draft.concept && <span className="bg-indigo-100 text-indigo-600 rounded px-1 text-[9px]">💡 {draft.concept.name}</span>}
+                                  {draft.concept && <span className="bg-indigo-100 text-indigo-600 rounded px-1 text-[9px]">💡 {conceptLabel(draft.conceptId, draft.concept.name)}</span>}
                                   {draft.stage && <span className="bg-slate-100 text-slate-500 rounded px-1 text-[9px]">📍 {draft.stage.name}</span>}
                                 </div>
                               </button>
@@ -513,7 +521,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             }}
                           >
                             <p className={`font-semibold truncate leading-snug ${isPosted ? "text-green-800" : "text-slate-800"}`}>{piece.title}</p>
-                            {piece.concept && <p className={`truncate text-[10px] mt-0.5 ${isPosted ? "text-green-600" : "text-slate-400"}`}>💡 {piece.concept.name}</p>}
+                            {piece.concept && <p className={`truncate text-[10px] mt-0.5 ${isPosted ? "text-green-600" : "text-slate-400"}`}>💡 {conceptLabel(piece.conceptId, piece.concept.name)}</p>}
                             <div className="mt-1">
                               {isPosted
                                 ? <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-100 rounded px-1.5 py-0.5">✓ Posted</span>
@@ -531,7 +539,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         >
                           <button onClick={() => setSelectedDraft(draft)} className="w-full text-left">
                             <p className="font-semibold text-slate-800 truncate leading-snug pr-4">{draft.title}</p>
-                            {draft.concept && <p className="text-indigo-500 truncate text-[10px] mt-0.5">💡 {draft.concept.name}</p>}
+                            {draft.concept && <p className="text-indigo-500 truncate text-[10px] mt-0.5">💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>}
                             {draft.stage && <p className="text-slate-400 truncate text-[10px]">📍 {draft.stage.name}</p>}
                           </button>
                           <button
@@ -641,7 +649,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                           >
                             <p className="text-xs font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
                             {draft.concept && (
-                              <p className="text-[10px] text-indigo-500 truncate mt-0.5">💡 {draft.concept.name}</p>
+                              <p className="text-[10px] text-indigo-500 truncate mt-0.5">💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>
                             )}
                             <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}</p>
                           </div>
@@ -1341,7 +1349,7 @@ function AddContentModal({
             <select value={form.conceptId} onChange={(e) => set("conceptId", e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="">No concept</option>
-              {concepts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {concepts.map((c) => <option key={c.id} value={c.id}>{(c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name}</option>)}
             </select>
           </div>
         </div>
