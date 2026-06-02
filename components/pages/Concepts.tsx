@@ -659,7 +659,38 @@ export function ConceptModal({
     existing.filter((c) => c.conceptType === form.conceptType).map((c) => c.name).filter(Boolean) as string[]
   ));
   const [scriptBoxes, setScriptBoxesC] = useState<string[]>([initial?.scriptExamples || ""]);
+  const [analyzing, setAnalyzing] = useState(false);
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+
+  // Analyze the script/on-screen text and auto-fill the whole blueprint
+  // (detects talking-head vs B-roll text-hook format).
+  async function aiAnalyze() {
+    const source = scriptBoxes.filter(Boolean).join("\n\n").trim();
+    if (!source) { alert("Add a script example (or on-screen text) first so the AI has something to analyze."); return; }
+    setAnalyzing(true);
+    try {
+      const d = await fetch("/api/ai/analyze-concept", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scriptExamples: source, conceptName: form.name, textOverlay }),
+      }).then((r) => r.json());
+      if (d.error) { alert(d.error); return; }
+      setForm((f) => ({
+        ...f,
+        hookType:   d.hookType   || f.hookType,
+        videoType:  d.videoType  || f.videoType,
+        textHook:   d.textHook   || f.textHook,
+        audioHook:  d.audioHook  || f.audioHook,
+        angle:      d.angle      || f.angle,
+        structure:  d.structure  || f.structure,
+        guidelines: d.guidelines || f.guidelines,
+      }));
+      if (typeof d.isTextOverlay === "boolean") setTextOverlay(d.isTextOverlay);
+    } catch {
+      alert("AI analysis failed. Try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
   function setBox(i: number, v: string) { setScriptBoxesC((p) => p.map((b, idx) => idx === i ? v : b)); }
   function setBoxCount(n: number) {
     const count = Math.max(1, Math.min(10, n));
@@ -780,6 +811,14 @@ export function ConceptModal({
             <p className="text-[10px] text-slate-400">For viral text-on-screen reels. The AI writes on-screen <strong>text hooks/overlays</strong> in this style instead of a spoken script. Paste the on-screen text into Script Examples below.</p>
           </div>
         </label>
+
+        {/* AI auto-fill — analyzes the script/on-screen text and fills the whole blueprint */}
+        <button type="button" onClick={aiAnalyze} disabled={analyzing}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 disabled:opacity-60 transition-colors">
+          {analyzing
+            ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Analyzing reel…</>
+            : <>✨ AI auto-fill from script — detects format, hook, structure & guidelines</>}
+        </button>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
