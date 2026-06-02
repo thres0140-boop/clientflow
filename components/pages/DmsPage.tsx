@@ -348,7 +348,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
   }
 
   return (
-    <div className={view === "inbox" ? "flex flex-col flex-1 min-h-0 gap-4" : "space-y-4"}>
+    <div className="flex flex-col flex-1 min-h-0 gap-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -378,9 +378,9 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
 
       {/* ── PIPELINE VIEW ──────────────────────────────────────────────── */}
       {view === "pipeline" && (
-        <div className="space-y-4">
+        <div className="flex flex-col flex-1 min-h-0 gap-4">
           {/* Date controls */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
             <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
               {(["week","2weeks","month","all"] as Period[]).map((p) => (
                 <button key={p} onClick={() => { setPeriod(p); if (p !== "all") setStartDate(getMonday(new Date())); }}
@@ -403,53 +403,56 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
             <span className="text-xs text-slate-400">{filtered.length} lead{filtered.length !== 1 ? "s" : ""}</span>
           </div>
 
-          {/* Stats + Kanban — single shared scroll container */}
-          <div className="overflow-x-auto">
-            <div style={{ minWidth: `${DM_STATUSES.length * 160}px` }} className="flex gap-2 pb-1">
-              {DM_STATUSES.map((s) => {
-                const count = leadsBy(s.value).length;
-                return (
-                  <div key={s.value} className={`flex-1 rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
-                    <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>
-                    <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{count}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">lead{count !== 1 ? "s" : ""}</p>
-                  </div>
-                );
-              })}
-            </div>
+          {/* Stats + Kanban — horizontal scroll wrapper, fills remaining height */}
+          <div className="flex-1 min-h-0 overflow-x-auto">
+            <div style={{ minWidth: `${DM_STATUSES.length * 160}px` }} className="flex flex-col h-full">
+              {/* Stats row — pinned (doesn't scroll vertically) */}
+              <div className="flex gap-2 pb-1 flex-shrink-0">
+                {DM_STATUSES.map((s) => {
+                  const count = leadsBy(s.value).length;
+                  return (
+                    <div key={s.value} className={`flex-1 rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
+                      <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>
+                      <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{count}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">lead{count !== 1 ? "s" : ""}</p>
+                    </div>
+                  );
+                })}
+              </div>
 
-          {/* Kanban — drag & drop */}
-          <DndContext
-            sensors={sensors}
-            onDragStart={(e: DragStartEvent) => setActiveDragId(Number(e.active.id))}
-            onDragEnd={(e: DragEndEvent) => {
-              setActiveDragId(null);
-              const lead = leads.find((l) => l.id === Number(e.active.id));
-              const toStatus = e.over?.id as string | undefined;
-              if (lead && toStatus && toStatus !== lead.status) moveStatus(lead, toStatus);
-            }}
-            onDragCancel={() => setActiveDragId(null)}
-          >
-            <div style={{ minWidth: `${DM_STATUSES.length * 160}px` }} className="flex gap-3 mt-4 pb-2">
-              {PIPELINE_COLS.map((statusVal) => {
-                const meta = statusMeta(statusVal);
-                const col  = leadsBy(statusVal);
-                return (
-                  <KanbanCol key={statusVal} statusVal={statusVal} meta={meta} col={col}
-                    activeDragId={activeDragId}
-                    onEdit={(lead) => { setEditLead(lead); setShowAdd(true); }}
-                    onDelete={(id) => deleteLead(id)}
-                  />
-                );
-              })}
+              {/* Kanban — drag & drop; each column scrolls internally */}
+              <DndContext
+                sensors={sensors}
+                onDragStart={(e: DragStartEvent) => setActiveDragId(Number(e.active.id))}
+                onDragEnd={(e: DragEndEvent) => {
+                  setActiveDragId(null);
+                  const lead = leads.find((l) => l.id === Number(e.active.id));
+                  const toStatus = e.over?.id as string | undefined;
+                  if (lead && toStatus && toStatus !== lead.status) moveStatus(lead, toStatus);
+                }}
+                onDragCancel={() => setActiveDragId(null)}
+              >
+                <div className="flex gap-3 mt-4 flex-1 min-h-0">
+                  {PIPELINE_COLS.map((statusVal) => {
+                    const meta = statusMeta(statusVal);
+                    const col  = leadsBy(statusVal);
+                    return (
+                      <KanbanCol key={statusVal} statusVal={statusVal} meta={meta} col={col}
+                        activeDragId={activeDragId}
+                        onEdit={(lead) => { setEditLead(lead); setShowAdd(true); }}
+                        onDelete={(id) => deleteLead(id)}
+                      />
+                    );
+                  })}
+                </div>
+                <DragOverlay>
+                  {activeDragId ? (() => {
+                    const lead = leads.find((l) => l.id === activeDragId);
+                    return lead ? <LeadCardInner lead={lead} /> : null;
+                  })() : null}
+                </DragOverlay>
+              </DndContext>
             </div>
-            <DragOverlay>
-              {activeDragId ? (() => {
-                const lead = leads.find((l) => l.id === activeDragId);
-                return lead ? <LeadCardInner lead={lead} /> : null;
-              })() : null}
-            </DragOverlay>
-          </DndContext>
           </div>{/* end overflow-x-auto */}
         </div>
       )}
@@ -654,14 +657,14 @@ function KanbanCol({ statusVal, meta, col, activeDragId, onEdit, onDelete }: {
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: statusVal });
   return (
-    <div className="flex flex-col gap-2 flex-1">
-      <div className={`flex items-center justify-between px-3 py-2 rounded-lg border ${meta.bg} ${meta.border}`}>
+    <div className="flex flex-col gap-2 flex-1 min-h-0">
+      <div className={`flex items-center justify-between px-3 py-2 rounded-lg border flex-shrink-0 ${meta.bg} ${meta.border}`}>
         <span className={`text-xs font-semibold ${meta.text} truncate`}>{meta.label}</span>
         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 ${meta.text} ml-1 flex-shrink-0`}>{col.length}</span>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex flex-col gap-2 min-h-[120px] rounded-xl transition-colors ${isOver && activeDragId ? "bg-indigo-50/60 ring-2 ring-inset ring-indigo-300" : ""}`}
+        className={`flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto rounded-xl transition-colors pb-2 ${isOver && activeDragId ? "bg-indigo-50/60 ring-2 ring-inset ring-indigo-300" : ""}`}
       >
         {col.map((lead) => (
           <DraggableLeadCard key={lead.id} lead={lead}
