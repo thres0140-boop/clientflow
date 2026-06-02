@@ -6,7 +6,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const draft = await prisma.scriptDraft.findUnique({
     where: { id: parseInt(id) },
     include: {
-      concept: { select: { name: true } },
+      concept: { select: { name: true, conceptType: true } },
       client: { select: { name: true, color: true } },
       stage: true,
     },
@@ -39,7 +39,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id: parseInt(id) },
     data,
     include: {
-      concept: { select: { name: true } },
+      concept: { select: { name: true, conceptType: true } },
       client: { select: { name: true, color: true } },
       stage: true,
     },

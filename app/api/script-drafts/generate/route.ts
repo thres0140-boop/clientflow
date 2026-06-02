@@ -254,7 +254,7 @@ Steps: (1) read the example scripts and lock onto their single shared message + 
           isSavedIdea: false,
         },
         include: {
-          concept: { select: { name: true } },
+          concept: { select: { name: true, conceptType: true } },
           client: { select: { name: true, color: true } },
         },
       });

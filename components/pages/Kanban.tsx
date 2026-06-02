@@ -54,7 +54,10 @@ function CardContent({ draft }: { draft: ScriptDraft }) {
       )}
       <p className="text-xs font-semibold text-slate-800 truncate">{draft.title}</p>
       {draft.concept && (
-        <p className="text-[10px] text-indigo-500 font-medium mt-0.5">{draft.concept.name}</p>
+        <p className="text-[10px] text-indigo-500 font-medium mt-0.5">
+          {draft.concept.conceptType ? <span className="opacity-60">{draft.concept.conceptType} · </span> : null}
+          {draft.concept.name}
+        </p>
       )}
       <p className="text-[10px] text-slate-400 mt-1 truncate">{draft.weekLabel}{draft.dayLabel ? ` · ${draft.dayLabel}` : ""}</p>
       {draft.hook && (

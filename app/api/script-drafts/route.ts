@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   if (idParam) {
     const draft = await prisma.scriptDraft.findUnique({
       where: { id: parseInt(idParam) },
-      include: { concept: { select: { name: true } }, client: { select: { name: true, color: true } }, stage: true },
+      include: { concept: { select: { name: true, conceptType: true } }, client: { select: { name: true, color: true } }, stage: true },
     });
     return NextResponse.json(draft);
   }
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     where,
     orderBy: [{ isSavedIdea: "asc" }, { generatedAt: "desc" }],
     include: {
-      concept: { select: { name: true } },
+      concept: { select: { name: true, conceptType: true } },
       client: { select: { name: true, color: true } },
       stage: true,
     },
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       isSavedIdea: false,
     },
     include: {
-      concept: { select: { name: true } },
+      concept: { select: { name: true, conceptType: true } },
       client: { select: { name: true, color: true } },
     },
   });

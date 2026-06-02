@@ -93,7 +93,7 @@ export type ScriptDraft = {
   checkReviewerIds?: string;
   scheduledDate?: string | null;
   generatedAt: string;
-  concept?: { name: string; color?: string } | null;
+  concept?: { name: string; color?: string; conceptType?: string | null } | null;
   client?: { name: string; color: string };
   stage?: WorkflowStage | null;
 };
