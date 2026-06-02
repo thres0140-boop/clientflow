@@ -122,6 +122,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   const [newExampleText, setNewExampleText] = useState<Record<number, string>>({});
   const [savingExample, setSavingExample] = useState<number | null>(null);
   const [savingBlueprint, setSavingBlueprint] = useState<number | null>(null);
+  const [pullingExamples, setPullingExamples] = useState<number | null>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
@@ -153,6 +154,23 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   function startConceptRulesEdit(concept: Concept) {
     setConceptRulesText((prev) => ({ ...prev, [concept.id]: concept.scriptRules ?? DEFAULT_RULES }));
     setConceptRulesEditing(concept.id);
+  }
+
+  // Read on-screen text from every attached reel and add them as example scripts.
+  async function pullFromReels(conceptId: number) {
+    setPullingExamples(conceptId);
+    try {
+      const d = await fetch(`/api/concepts/${conceptId}/extract-examples`, { method: "POST" }).then((r) => r.json());
+      if (d.error) { alert(d.error); return; }
+      await reload();
+      alert(d.added > 0
+        ? `Added ${d.added} example${d.added !== 1 ? "s" : ""} from your attached reels (matched ${d.matched}/${d.attached}).`
+        : `No new text found (matched ${d.matched}/${d.attached} reels). They may already be added or have no readable on-screen text.`);
+    } catch {
+      alert("Couldn't pull from reels. Try again.");
+    } finally {
+      setPullingExamples(null);
+    }
   }
 
   // Swap the whole rule set between talking-head and viral text-hook presets.
@@ -457,6 +475,18 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
           <button onClick={() => toggle("examples")} className="w-full px-4 py-2 bg-violet-100/60 border-b border-violet-200 flex items-center justify-between hover:bg-violet-100/80 transition-colors">
             <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wide">② Example Scripts — reference scripts Claude studied for this concept</p>
             <div className="flex items-center gap-2">
+              {openSections.examples && (() => {
+                let n = 0; try { n = JSON.parse((concept as any).reelUrls || "[]").length; } catch { n = 0; }
+                if (!n) return null;
+                const busy = pullingExamples === concept.id;
+                return (
+                  <span onClick={(e) => { e.stopPropagation(); if (!busy) pullFromReels(concept.id); }}
+                    title="Read the on-screen text from all attached reels and add them as examples"
+                    className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${busy ? "text-slate-400 border-slate-200 cursor-wait" : "text-pink-600 border-pink-200 hover:bg-pink-50 cursor-pointer"}`}>
+                    {busy ? "Reading reels…" : `✨ Pull text from ${n} attached reel${n !== 1 ? "s" : ""}`}
+                  </span>
+                );
+              })()}
               {openSections.examples && addingExample !== concept.id && (
                 <span onClick={(e) => { e.stopPropagation(); setAddingExample(concept.id); setNewExampleText((p) => ({ ...p, [concept.id]: "" })); }}
                   className="text-[9px] text-violet-500 hover:text-violet-700 font-semibold px-2 py-0.5 rounded border border-violet-200 hover:bg-violet-100 transition-colors">

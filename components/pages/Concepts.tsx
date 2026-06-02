@@ -699,11 +699,16 @@ export function ConceptModal({
 
   async function save(): Promise<any> {
     const scriptExamples = scriptBoxes.filter(Boolean).join("\n\n");
-    return fetch("/api/concepts", {
+    const created = await fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, scriptExamples, reelUrls, textOverlay, isIdea: false }),
     }).then((r) => r.json());
+    // Auto-pull on-screen text from all attached reels as example scripts (background).
+    if (created?.id && reelUrls.length) {
+      fetch(`/api/concepts/${created.id}/extract-examples`, { method: "POST" }).catch(() => {});
+    }
+    return created;
   }
 
   async function submit(e: React.FormEvent) {

@@ -739,6 +739,8 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reelUrls: current }),
       });
+      // Pull this reel's on-screen text into the concept's examples (background).
+      fetch(`/api/concepts/${attachConcept.id}/extract-examples`, { method: "POST" }).catch(() => {});
       setAttachState("added");
     } catch { setAttachState("idle"); }
   }
