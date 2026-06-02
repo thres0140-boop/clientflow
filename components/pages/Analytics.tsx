@@ -61,7 +61,7 @@ const MANUAL_COLS: { key: ManualKey; label: string; group?: "dm" | "booking" }[]
 ];
 
 type ManualEntry = Partial<Record<ManualKey, string>> & { id?: number };
-type AutoDay = { views: number; likes: number; shares: number; concepts: string[] };
+type AutoDay = { views: number; likes: number; shares: number; concepts: string[]; videoUrl: string | null };
 
 export default function Analytics({ clients, selectedClientId, refreshClients }: Props) {
   const [tab, setTab]           = useState<MainTab>("general");
@@ -157,19 +157,25 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   // Build auto data (views/likes/shares from TrackedVideo, concepts from ContentPiece)
   function buildAutoMap(dates: string[]): Record<string, AutoDay> {
     const map: Record<string, AutoDay> = {};
-    for (const d of dates) map[d] = { views: 0, likes: 0, shares: 0, concepts: [] };
+    for (const d of dates) map[d] = { views: 0, likes: 0, shares: 0, concepts: [], videoUrl: null };
     for (const v of allVideos) {
       if (v.datePosted && map[v.datePosted]) {
         map[v.datePosted].views  += v.views;
         map[v.datePosted].likes  += v.likes;
         map[v.datePosted].shares += v.shares;
+        if (!map[v.datePosted].videoUrl && v.url) map[v.datePosted].videoUrl = v.url;
       }
     }
     for (const c of allContent) {
-      if (c.scheduledDate && map[c.scheduledDate]) {
+      const day = c.scheduledDate?.slice(0, 10);
+      if (day && map[day]) {
         const name = c.concept?.name;
-        if (name && !map[c.scheduledDate].concepts.includes(name)) {
-          map[c.scheduledDate].concepts.push(name);
+        if (name && !map[day].concepts.includes(name)) map[day].concepts.push(name);
+        // Fall back to the content piece's media for the reel link
+        if (!map[day].videoUrl) {
+          map[day].videoUrl = c.igMediaId
+            ? `https://www.instagram.com/reel/${c.igMediaId}/`
+            : (c.rawContentUrl || null);
         }
       }
     }
@@ -279,7 +285,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
           </thead>
           <tbody className="divide-y divide-slate-100">
             {ds.map((date) => {
-              const auto = autoMap[date] ?? { views: 0, likes: 0, shares: 0, concepts: [] };
+              const auto = autoMap[date] ?? { views: 0, likes: 0, shares: 0, concepts: [], videoUrl: null };
               const man  = manual[date] ?? {};
               const conceptLabel = auto.concepts.length === 0 ? null
                 : auto.concepts.length === 1 ? auto.concepts[0] : "Multiple";
@@ -289,15 +295,21 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                   <td className={`px-3 py-2 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 ${isCompare ? "text-indigo-400" : ""}`}>
                     <span className="font-medium text-slate-700 text-xs whitespace-nowrap">{shortDay(date)}</span>
                   </td>
-                  {/* Concept (auto from scheduled content) */}
+                  {/* Concept (auto from scheduled content) + reel link */}
                   <td className="px-3 py-2">
-                    {conceptLabel ? (
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-600 font-medium max-w-[120px] truncate">
-                        {conceptLabel}
-                      </span>
-                    ) : (
-                      <span className="text-slate-200 text-xs">—</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {conceptLabel ? (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-600 font-medium max-w-[120px] truncate">
+                          {conceptLabel}
+                        </span>
+                      ) : (
+                        <span className="text-slate-200 text-xs">—</span>
+                      )}
+                      {auto.videoUrl && (
+                        <a href={auto.videoUrl} target="_blank" rel="noopener noreferrer"
+                          title="Open reel" className="text-slate-400 hover:text-indigo-600 text-xs flex-shrink-0">▶</a>
+                      )}
+                    </div>
                   </td>
                   {/* Auto stats from TrackedVideo */}
                   {(["views","likes","shares"] as const).map((f) => (
