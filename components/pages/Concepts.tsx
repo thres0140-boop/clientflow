@@ -19,6 +19,7 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set(attached));
+  const [preview, setPreview] = useState<any | null>(null);
 
   async function loadPage(c: string | null) {
     const url = `/api/instagram/media?clientId=${clientId}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`;
@@ -48,7 +49,7 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
   return (
     <Modal title="Attach reels" onClose={onClose} wide>
       <div className="space-y-3">
-        <p className="text-xs text-slate-500">Click a reel to select · tap ↗ to view it. {selected.size} selected.</p>
+        <p className="text-xs text-slate-500">Click a reel to select · tap ▶ to play it. {selected.size} selected.</p>
         {loading ? (
           <div className="py-16 text-center text-sm text-slate-400">Loading reels…</div>
         ) : reels.length === 0 ? (
@@ -67,15 +68,31 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
                   {r.plays != null && <span className="absolute bottom-1 left-1 text-[9px] font-bold text-white">▶ {r.plays >= 1000 ? (r.plays/1000).toFixed(1)+"K" : r.plays}</span>}
-                  {/* View link — opens the reel without toggling selection */}
-                  <a href={url} target="_blank" rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/55 hover:bg-black/80 text-white text-[10px] flex items-center justify-center backdrop-blur-sm">↗</a>
+                  {/* View — plays the reel inline without toggling selection */}
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setPreview(r); }}
+                    className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/55 hover:bg-black/80 text-white text-[10px] flex items-center justify-center backdrop-blur-sm cursor-pointer">▶</span>
                   {isSel && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] flex items-center justify-center">✓</span>}
                 </button>
               );
             })}
             {loadingMore && <div className="col-span-4 py-3 text-center text-xs text-slate-400">Loading more…</div>}
+          </div>
+        )}
+
+        {/* Inline reel preview */}
+        {preview && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={() => setPreview(null)}>
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              {preview.media_url ? (
+                <video src={preview.media_url} poster={preview.thumbnail_url} controls autoPlay
+                  className="max-h-[80vh] w-auto rounded-xl shadow-2xl" />
+              ) : (
+                <div className="bg-white rounded-xl p-8 text-center text-sm text-slate-500">No playable video for this reel.</div>
+              )}
+              <button onClick={() => setPreview(null)}
+                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 shadow-lg flex items-center justify-center text-lg">×</button>
+            </div>
           </div>
         )}
         <div className="flex justify-end gap-2 pt-1">
