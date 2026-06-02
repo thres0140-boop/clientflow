@@ -89,11 +89,13 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
       }
 
       // Skip the message fetch if there's nothing left to detect for this lead:
-      // already replied, already past the answered stage, and CTA either set or not configured.
+      // already replied, past the answered stage, CTA resolved, and (if link_sent) timestamp set.
+      const linkTimestampDone = lead.status !== "link_sent" || (lead as any).linkSentAt;
       const nothingLeft =
         (lead as any).repliedAt &&
         idx(lead.status) >= idx("link_sent") &&
-        (!cta || (lead as any).source);
+        (!cta || (lead as any).source) &&
+        linkTimestampDone;
       if (nothingLeft) continue;
 
       // Messages
@@ -134,10 +136,16 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
         const linkMsg = messages.find((m: any) =>
           (m.direction === "outgoing" || m.isOwn === true) && (m.message ?? m.text ?? "").includes(bookingLink)
         );
-        if (linkMsg && idx(target) < idx("link_sent")) {
-          target = "link_sent";
-          bumpLink = true;
-          patch.linkSentAt = linkMsg.createdAt ?? linkMsg.sentAt ?? linkMsg.timestamp ?? linkMsg.created_at ?? new Date().toISOString();
+        if (linkMsg) {
+          const sentAt = linkMsg.createdAt ?? linkMsg.sentAt ?? linkMsg.timestamp ?? linkMsg.created_at ?? new Date().toISOString();
+          if (idx(target) < idx("link_sent")) {
+            target = "link_sent";
+            bumpLink = true;
+            patch.linkSentAt = sentAt;
+          } else if (lead.status === "link_sent" && !(lead as any).linkSentAt) {
+            // Backfill timestamp for a lead already at link_sent (no double count)
+            patch.linkSentAt = sentAt;
+          }
         }
       }
 
