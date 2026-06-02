@@ -14,6 +14,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: count });
   }
 
+  // ?content=clientId — dump content pieces + tracked videos for debugging analytics
+  const contentDump = req.nextUrl.searchParams.get("content");
+  if (contentDump) {
+    const cid = parseInt(contentDump);
+    const pieces = await prisma.contentPiece.findMany({
+      where: { clientId: cid },
+      orderBy: { scheduledDate: "desc" }, take: 20,
+    });
+    const videos = await (prisma as any).trackedVideo.findMany({
+      where: { clientId: cid }, orderBy: { datePosted: "desc" }, take: 20,
+    }).catch(() => []);
+    return NextResponse.json({
+      pieces: pieces.map((p: any) => ({ title: p.title, scheduledDate: p.scheduledDate, status: p.status, igMediaId: p.igMediaId, hasRaw: !!p.rawContentUrl, concept: p.conceptId })),
+      videos: videos.map((v: any) => ({ title: v.title, datePosted: v.datePosted, url: v.url, views: v.views })),
+    });
+  }
+
   // ?leads=clientId — dump lead dates for debugging analytics
   const leadsDump = req.nextUrl.searchParams.get("leads");
   if (leadsDump) {
