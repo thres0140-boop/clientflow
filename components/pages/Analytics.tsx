@@ -277,6 +277,10 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     const sent = manualSum(ds, "messagesSent");
     return sent > 0 ? Math.round((manualSum(ds, "messagesAnswered") / sent) * 100) : null;
   }
+  function linkRate(ds: string[]): number | null {
+    const answered = manualSum(ds, "messagesAnswered");
+    return answered > 0 ? Math.round((manualSum(ds, "linksSent") / answered) * 100) : null;
+  }
   function bookingRateFn(ds: string[]): number | null {
     const links = manualSum(ds, "linksSent");
     return links > 0 ? Math.round((manualSum(ds, "bookedCalls") / links) * 100) : null;
@@ -289,6 +293,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   // ── Render table (reused for main + compare) ─────────────────────────
   function renderTable(ds: string[], isCompare = false) {
     const ar   = answerRate(ds);
+    const lr   = linkRate(ds);
     const br   = bookingRateFn(ds);
     const ring = isCompare ? "border-indigo-100" : "border-slate-200";
     const head = isCompare ? "bg-indigo-50/50 border-indigo-100" : "bg-slate-50 border-slate-200";
@@ -418,13 +423,14 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
               })}
             </tr>
             {/* Rates row */}
-            {(showDMs || showBooking) && (ar !== null || br !== null) && (
+            {(showDMs || showBooking) && (ar !== null || lr !== null || br !== null) && (
               <tr className={`border-t border-dashed ${isCompare ? "border-indigo-100" : "border-slate-200"}`}>
                 <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 ${isCompare ? "text-indigo-300 bg-white" : "text-slate-400 bg-white"}`}>Rate</td>
                 <td /><td /><td /><td /><td />
                 {visibleCols.map((c) => {
                   let rate: string | null = null;
                   if (c.key === "messagesAnswered" && ar !== null) rate = `${ar}% ans.`;
+                  if (c.key === "linksSent"        && lr !== null) rate = `${lr}% link`;
                   if (c.key === "bookedCalls"      && br !== null) rate = `${br}% bkd.`;
                   return (
                     <td key={c.key} className="px-3 py-1.5 text-right text-xs">
