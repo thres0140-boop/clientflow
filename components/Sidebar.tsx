@@ -100,17 +100,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
       {/* ── LEFT STRIP ── */}
       <div className="flex flex-col h-full flex-shrink-0" style={{ width: 56, backgroundColor: STRIP_BG }}>
 
-        {/* Strip header: + button */}
-        <div className="flex items-center justify-center py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
-          {session?.type !== "member" && (
-            <button onClick={() => onNavigate("settings")} title="Add client"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all text-xl font-light">
-              +
-            </button>
-          )}
-        </div>
-
-        {/* Client avatars */}
+        {/* Client avatars + add button (Discord-style: add sits under the last project) */}
         <div className="flex flex-col items-center gap-2.5 py-3 flex-1 overflow-y-auto">
           {session?.type !== "member" && clients.map((c) => {
             const pic = (c.instagramConnection as any)?.profilePictureUrl;
@@ -129,6 +119,12 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
               </button>
             );
           })}
+          {session?.type !== "member" && (
+            <button onClick={() => onNavigate("settings")} title="Add client"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all text-xl font-light flex-shrink-0">
+              +
+            </button>
+          )}
         </div>
 
         {/* Strip footer: profile avatar */}
@@ -144,12 +140,6 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
 
       {/* ── RIGHT NAV ── */}
       <div className="flex flex-col flex-1 h-full" style={{ backgroundColor: NAV_BG }}>
-
-        {/* Nav header: logo only */}
-        <div className="flex items-center px-4 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
-          <img src="/logo.png" alt="ORDO" className="h-7 w-auto" />
-        </div>
-
 
         {/* Nav items */}
         <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
