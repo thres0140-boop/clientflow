@@ -733,7 +733,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
     setTranscribing(false);
   }
 
-  async function saveAsConceptIdea() {
+  async function saveAsConcept(asIdea: boolean) {
     setSaving(true);
     let finalTranscript = transcript;
     if (!finalTranscript && reel.media_url) {
@@ -765,7 +765,7 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
           reel.saved != null ? `Saved: ${fmt(reel.saved)}` : null,
         ].filter(Boolean).join(" · "),
         scriptExamples: finalTranscript || "",
-        isIdea: true,
+        isIdea: asIdea,
       }),
     });
     setSaving(false);
@@ -906,10 +906,20 @@ function ReelDetailPanel({ reel, client, onClose }: { reel: IGReel; client: Clie
           </div>
         </div>
         <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 flex gap-2.5">
-          <button onClick={saveAsConceptIdea} disabled={saved || saving}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${saved ? "bg-green-100 text-green-700 cursor-default" : "bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"}`}>
-            {saved ? "✓ Saved as Concept Idea" : saving ? "Saving…" : "💡 Save as Concept Idea"}
-          </button>
+          {saved ? (
+            <div className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">✓ Saved</div>
+          ) : (
+            <>
+              <button onClick={() => saveAsConcept(true)} disabled={saving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-60">
+                {saving ? "Saving…" : "💡 Save as Idea"}
+              </button>
+              <button onClick={() => saveAsConcept(false)} disabled={saving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60">
+                {saving ? "Saving…" : "✅ Save as Concept"}
+              </button>
+            </>
+          )}
           {reel.media_url && (
             <a href={reel.media_url} target="_blank" rel="noopener noreferrer"
               className="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200">
