@@ -15,15 +15,31 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
   clientId: number; attached: string[]; onClose: () => void; onConfirm: (urls: string[]) => void;
 }) {
   const [reels, setReels] = useState<any[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set(attached));
 
+  async function loadPage(c: string | null) {
+    const url = `/api/instagram/media?clientId=${clientId}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`;
+    const d = await fetch(url).then((r) => r.json()).catch(() => ({}));
+    const page = Array.isArray(d?.reels) ? d.reels : Array.isArray(d) ? d : [];
+    setReels((prev) => (c ? [...prev, ...page] : page));
+    setCursor(d?.nextCursor ?? null);
+  }
+
   useEffect(() => {
-    fetch(`/api/instagram/media?clientId=${clientId}`).then((r) => r.json())
-      .then((d) => setReels(Array.isArray(d?.reels) ? d.reels : Array.isArray(d) ? d : []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [clientId]);
+    setLoading(true);
+    loadPage(null).finally(() => setLoading(false));
+  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    if (cursor && !loadingMore && el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
+      setLoadingMore(true);
+      loadPage(cursor).finally(() => setLoadingMore(false));
+    }
+  }
 
   function toggle(url: string) {
     setSelected((prev) => { const n = new Set(prev); n.has(url) ? n.delete(url) : n.add(url); return n; });
@@ -32,13 +48,13 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
   return (
     <Modal title="Attach reels" onClose={onClose} wide>
       <div className="space-y-3">
-        <p className="text-xs text-slate-500">Click reels to select. {selected.size} selected.</p>
+        <p className="text-xs text-slate-500">Click a reel to select · tap ↗ to view it. {selected.size} selected.</p>
         {loading ? (
           <div className="py-16 text-center text-sm text-slate-400">Loading reels…</div>
         ) : reels.length === 0 ? (
           <div className="py-16 text-center text-sm text-slate-400">No reels found for this client.</div>
         ) : (
-          <div className="grid grid-cols-4 gap-2 max-h-[55vh] overflow-y-auto">
+          <div className="grid grid-cols-4 gap-2 max-h-[55vh] overflow-y-auto" onScroll={onScroll}>
             {reels.map((r) => {
               const url = reelUrlOf(r);
               const isSel = selected.has(url);
@@ -51,10 +67,15 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
                   {r.plays != null && <span className="absolute bottom-1 left-1 text-[9px] font-bold text-white">▶ {r.plays >= 1000 ? (r.plays/1000).toFixed(1)+"K" : r.plays}</span>}
+                  {/* View link — opens the reel without toggling selection */}
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/55 hover:bg-black/80 text-white text-[10px] flex items-center justify-center backdrop-blur-sm">↗</a>
                   {isSel && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] flex items-center justify-center">✓</span>}
                 </button>
               );
             })}
+            {loadingMore && <div className="col-span-4 py-3 text-center text-xs text-slate-400">Loading more…</div>}
           </div>
         )}
         <div className="flex justify-end gap-2 pt-1">
