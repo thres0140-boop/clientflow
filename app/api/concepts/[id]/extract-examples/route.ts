@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 
+// Transcribing several videos can take a while — give the function room.
+export const maxDuration = 120;
+export const dynamic = "force-dynamic";
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const FIELDS = "id,caption,media_type,media_product_type,permalink,thumbnail_url,media_url,timestamp";
@@ -150,10 +154,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return text;
   }
 
-  for (const reelUrl of reelUrls) {
+  // Extract every reel in PARALLEL (each transcription/vision call is slow),
+  // then dedupe sequentially to keep order stable.
+  const extracted = await Promise.all(reelUrls.map(async (reelUrl) => {
     const m = matched[tokenOf(reelUrl)] || matched[reelUrl];
-    if (!m) { skipped.push(reelUrl); continue; }
-    const text = await extractText(m);
+    if (!m) return { reelUrl, text: "" };
+    try { return { reelUrl, text: await extractText(m) }; }
+    catch { return { reelUrl, text: "" }; }
+  }));
+
+  for (const { reelUrl, text } of extracted) {
     if (!text || text.length < 8) { skipped.push(reelUrl); continue; }
     if (seen.has(text.toLowerCase())) continue; // already an example
     seen.add(text.toLowerCase());
