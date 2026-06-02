@@ -1,7 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import Anthropic from "@anthropic-ai/sdk";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const FIELDS = "id,caption,media_type,media_product_type,permalink,thumbnail_url,media_url,timestamp";
+
+const HALLUCINATIONS = new Set([
+  "thanks for watching", "thank you for watching", "thank you", "please subscribe",
+  "like and subscribe", "see you next time", "bye", "you", "music", "[music]", "♪",
+]);
+function isHallucination(text: string): boolean {
+  const norm = (text || "").toLowerCase().replace(/[\s.,!?"'♪♫🎵🎶()[\]-]+/g, " ").trim();
+  return HALLUCINATIONS.has(norm);
+}
+
+// Read on-screen text from an image (reel cover/frame) via Claude vision.
+async function readOnScreenText(imageUrl: string): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY || !imageUrl) return "";
+  try {
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return "";
+    const buf = Buffer.from(await imgRes.arrayBuffer());
+    const ct = imgRes.headers.get("content-type") || "image/jpeg";
+    const media = (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(ct) ? ct : "image/jpeg") as any;
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 500,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: media, data: buf.toString("base64") } },
+          { type: "text", text: "This is a frame from an Instagram reel that uses on-screen text overlay. Read and output ONLY the exact on-screen text shown, word for word, preserving line breaks. Do not describe the image or add commentary. If there is no readable text overlay, output nothing." },
+        ],
+      }],
+    });
+    return msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
+  } catch { return ""; }
+}
+
+// Transcribe spoken audio via Whisper (fallback for talking-head reels).
+async function transcribeAudio(mediaUrl: string): Promise<string> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key || !mediaUrl) return "";
+  try {
+    const vr = await fetch(mediaUrl);
+    if (!vr.ok) return "";
+    const buf = await vr.arrayBuffer();
+    if (buf.byteLength / (1024 * 1024) > 24) return "";
+    const fd = new FormData();
+    fd.append("file", new File([buf], "reel.mp4", { type: "video/mp4" }));
+    fd.append("model", "whisper-1");
+    const wr = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST", headers: { Authorization: `Bearer ${key}` }, body: fd,
+    });
+    const d = await wr.json();
+    if (!wr.ok) return "";
+    const t = (d.text || "").trim();
+    return isHallucination(t) ? "" : t;
+  } catch { return ""; }
+}
 
 // Pull the shortcode (or id) token out of an instagram URL: .../reel/<token>/
 function tokenOf(url: string): string {
@@ -28,7 +86,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const conn = await prisma.instagramConnection.findUnique({ where: { clientId: concept.clientId } });
   if (!conn?.accessToken) return NextResponse.json({ error: "Instagram not connected for this client." }, { status: 400 });
 
-  const origin = new URL(req.url).origin;
   const wantedTokens = new Set(reelUrls.map(tokenOf));
 
   // Walk the client's media pages, collecting reels that match the attached URLs.
@@ -59,26 +116,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Helper: read on-screen text via vision; fall back to transcription.
   async function extractText(m: any): Promise<string> {
-    let text = "";
-    if (m.thumbnail_url || m.media_url) {
-      try {
-        const r = await fetch(`${origin}/api/instagram/read-text`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: m.thumbnail_url || m.media_url }),
-        });
-        const d = await r.json();
-        text = (d.text || "").trim();
-      } catch { /* ignore */ }
-    }
-    if (text.length < 8 && m.media_url) {
-      try {
-        const r = await fetch(`${origin}/api/instagram/transcribe`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mediaUrl: m.media_url }),
-        });
-        const d = await r.json();
-        if (!d.error && (d.transcript || "").trim().length >= 8) text = d.transcript.trim();
-      } catch { /* ignore */ }
+    let text = await readOnScreenText(m.thumbnail_url || m.media_url);
+    if (text.length < 8) {
+      const t = await transcribeAudio(m.media_url);
+      if (t.length >= 8) text = t;
     }
     return text;
   }
