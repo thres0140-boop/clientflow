@@ -487,6 +487,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           ownerName={ownerName}
           isClient={isClient}
           onProceed={() => { proceedToNextStage(detailDraft); setDetailDraft(null); }}
+          onMoveToStage={(sid) => { moveDraft(detailDraft.id, sid); setDetailDraft(null); }}
           getNextStage={(id) => getNextStage(id)}
           onOpenChat={onOpenChat}
           onUploaded={(urls) => {
@@ -697,7 +698,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
+  draft, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[]; client?: { name: string; color: string } | null;
   isTextOverlay?: boolean;
@@ -705,6 +706,7 @@ function DraftDetailPanel({
   onSaveAsIdea: (weeks: number) => void;
   onScriptUpdated: (script: string, hook: string | null) => void;
   onProceed: () => void;
+  onMoveToStage?: (stageId: number | null) => void;
   getNextStage: (stageId: number) => WorkflowStage | null;
   onUploaded: (urls: string[]) => void;
   onEditedVideoUploaded: (url: string) => void;
@@ -1046,6 +1048,21 @@ function DraftDetailPanel({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+          {/* Jump straight to any stage — skip steps you don't need (e.g. no filming needed) */}
+          {onMoveToStage && !isClient && stages.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 whitespace-nowrap">⤳ Jump to stage</span>
+              <select
+                value={draft.stageId ?? ""}
+                onChange={(e) => { const v = e.target.value; onMoveToStage(v === "" ? null : parseInt(v)); }}
+                className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                <option value="">💡 Ideas (not started)</option>
+                {stages.map((s, i) => (
+                  <option key={s.id} value={s.id}>{i + 1}. {s.name}</option>
+                ))}
+              </select>
             </div>
           )}
           {inStage ? (() => {
