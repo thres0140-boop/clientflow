@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { bumpAnalytics } from "@/lib/analyticsBump";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
@@ -87,7 +86,6 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
         });
         leadByConv.set(convId, lead);
         if (h) leadByHandle.set(h, lead);
-        await bumpAnalytics(clientId, "messagesSent", today);
         r.created++;
       } else if (!(lead as any).convId) {
         // Backfill convId on a legacy lead matched by handle (prevents future duplicates)
@@ -126,7 +124,6 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
       );
 
       const patch: any = {};
-      let bumpAnswered = false, bumpLink = false;
       let target = lead.status as string;
 
       // Correct the lead's date to the actual first-message date (not sync-creation date)
@@ -144,9 +141,15 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
       if (h && !normHandle(lead.handle)) patch.handle = h;
       if (name && name !== "Instagram User" && (!lead.name || lead.name === "Instagram User")) patch.name = name;
 
-      // Reply → record + promote messaged → answered
+      // Reply → record (actual first-reply date) + promote messaged → answered
       if (incoming.length > 0) {
-        if (!(lead as any).repliedAt) { patch.repliedAt = today; bumpAnswered = true; }
+        if (!(lead as any).repliedAt) {
+          const replyTimes = incoming
+            .map((m: any) => m.createdAt ?? m.sentAt ?? m.timestamp ?? m.created_at)
+            .filter(Boolean).map((t: string) => new Date(t).getTime()).filter((n: number) => !isNaN(n));
+          patch.repliedAt = replyTimes.length ? ymdFrom(new Date(Math.min(...replyTimes)).toISOString()) : today;
+          r.answered++;
+        }
         if (idx(target) < idx("answered")) target = "answered";
       }
       // CTA inbound
@@ -164,10 +167,9 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
           const sentAt = linkMsg.createdAt ?? linkMsg.sentAt ?? linkMsg.timestamp ?? linkMsg.created_at ?? new Date().toISOString();
           if (idx(target) < idx("link_sent")) {
             target = "link_sent";
-            bumpLink = true;
+            r.linked++;
             patch.linkSentAt = sentAt;
           } else if (lead.status === "link_sent" && !(lead as any).linkSentAt) {
-            // Backfill timestamp for a lead already at link_sent (no double count)
             patch.linkSentAt = sentAt;
           }
         }
@@ -180,8 +182,6 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
 
       if (Object.keys(patch).length > 0) {
         await prisma.dmLead.update({ where: { id: lead.id }, data: patch });
-        if (bumpAnswered) { await bumpAnalytics(clientId, "messagesAnswered", today); r.answered++; }
-        if (bumpLink)     { await bumpAnalytics(clientId, "linksSent", today); r.linked++; }
         Object.assign(lead, patch);
       }
     } catch { /* ignore per-conv errors */ }

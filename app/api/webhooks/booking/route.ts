@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { bumpAnalytics, todayYMD } from "@/lib/analyticsBump";
+import { todayYMD } from "@/lib/analyticsBump";
 
 /**
  * Booking webhook — called by Calendly or Cal.com when someone books.
@@ -109,9 +109,8 @@ export async function POST(req: NextRequest) {
 
     await prisma.dmLead.update({
       where: { id: bestLead.id },
-      data:  { status: "booked" },
+      data:  { status: "booked", bookedAt: todayYMD() } as any,
     });
-    await bumpAnalytics(clientId, "bookedCalls", todayYMD());
 
     console.log(`[booking-webhook] Promoted lead ${bestLead.id} (@${bestLead.handle}) from "${bestLead.status}" → "booked" (score=${bestScore})`);
     return NextResponse.json({ ok: true, action: "promoted", leadId: bestLead.id, from: bestLead.status });
@@ -125,11 +124,10 @@ export async function POST(req: NextRequest) {
       handle: inviteeEmail ?? null,   // store email as handle placeholder if no IG handle
       status: "booked",
       date:   today,
+      bookedAt: today,
       notes:  inviteeEmail ? `Email: ${inviteeEmail}` : null,
-    },
+    } as any,
   });
-
-  await bumpAnalytics(clientId, "bookedCalls", todayYMD());
 
   console.log(`[booking-webhook] No match found — created new "booked" lead ${newLead.id} for "${inviteeName}"`);
   return NextResponse.json({ ok: true, action: "created", leadId: newLead.id });

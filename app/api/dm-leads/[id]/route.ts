@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { bumpAnalytics, todayYMD } from "@/lib/analyticsBump";
+import { todayYMD } from "@/lib/analyticsBump";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json();
 
-  // Read previous status so we only count a transition once
   const prev = await prisma.dmLead.findUnique({ where: { id: parseInt(id) } });
+
+  // When a status transition happens (e.g. manual drag), stamp the relevant date field
+  // so the funnel analytics — computed from these dates — reflects the move on today's date.
+  const stamp: any = {};
+  if (body.status !== undefined && prev && prev.status !== body.status) {
+    const now = new Date().toISOString();
+    if (body.status === "answered"  && !(prev as any).repliedAt)  stamp.repliedAt  = todayYMD();
+    if (body.status === "link_sent" && !(prev as any).linkSentAt) stamp.linkSentAt = now;
+    if (body.status === "booked"    && !(prev as any).bookedAt)   stamp.bookedAt   = todayYMD();
+  }
 
   const lead = await prisma.dmLead.update({
     where: { id: parseInt(id) },
@@ -19,19 +28,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       notes:  body.notes  !== undefined ? (body.notes  || null)  : undefined,
       ...(body.repliedAt !== undefined ? { repliedAt: body.repliedAt || null } : {}),
       ...(body.source !== undefined ? { source: body.source || null } : {}),
+      ...stamp,
     } as any,
   });
-
-  // Auto-fill analytics on the day a status transition happens
-  if (body.status !== undefined && prev && prev.status !== body.status) {
-    if (body.status === "link_sent") bumpAnalytics(lead.clientId, "linksSent", todayYMD());
-    if (body.status === "booked")    bumpAnalytics(lead.clientId, "bookedCalls", todayYMD());
-  }
-
-  // First time a reply is recorded → count it as an answered message
-  if (body.repliedAt && prev && !(prev as any).repliedAt) {
-    bumpAnalytics(lead.clientId, "messagesAnswered", todayYMD());
-  }
 
   return NextResponse.json(lead);
 }

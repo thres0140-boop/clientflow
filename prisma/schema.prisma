@@ -353,6 +353,7 @@ model DmLead {
   source    String?  // "cta" = inbound from a CTA keyword DM, else null/outbound
   convId    String?  // Zernio conversation id — primary dedup key (handles anonymous DMs)
   linkSentAt String? // ISO timestamp the booking link was actually sent (from the message)
+  bookedAt   String? // YYYY-MM-DD the call was booked
   lastConvTime String? // Zernio conversation updatedTime at last message-scan (skip refetch if unchanged)
   notes     String?
   createdAt DateTime @default(now())

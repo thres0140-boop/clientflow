@@ -74,6 +74,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   // Raw data
   const [allContent, setAllContent] = useState<ContentPiece[]>([]);
   const [allVideos,  setAllVideos]  = useState<TrackedVideo[]>([]);
+  const [dmLeads,    setDmLeads]    = useState<any[]>([]);
 
   // Manual entries: date → ManualEntry
   const [manual, setManual] = useState<Record<string, ManualEntry>>({});
@@ -121,12 +122,34 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       setManual(m);
     });
 
+    const loadLeads = () =>
+      fetch(`/api/dm-leads?clientId=${selectedClientId}`).then((r) => r.json())
+        .then((d) => setDmLeads(Array.isArray(d) ? d : [])).catch(() => {});
+
     loadAll();
-    // Trigger server-side DM detection, then reload analytics to reflect fresh counts
+    loadLeads();
+    // Trigger server-side DM detection, then reload analytics + leads to reflect fresh data
     fetch(`/api/zernio/sync-pipeline?clientId=${selectedClientId}`)
-      .then(() => loadAll())
+      .then(() => { loadAll(); loadLeads(); })
       .catch(() => {});
   }, [selectedClientId]);
+
+  // DM funnel columns are computed from the pipeline leads' real dates (source of truth),
+  // not stored counters — so they land on the day each event actually happened.
+  function ymdOf(s?: string | null): string | null {
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : toYMD(d);
+  }
+  function dmCount(date: string, key: ManualKey): number {
+    if (key === "messagesSent")     return dmLeads.filter((l) => ymdOf(l.date) === date).length;
+    if (key === "messagesAnswered") return dmLeads.filter((l) => ymdOf(l.repliedAt) === date).length;
+    if (key === "linksSent")        return dmLeads.filter((l) => ymdOf(l.linkSentAt) === date).length;
+    if (key === "bookedCalls")      return dmLeads.filter((l) => ymdOf(l.bookedAt) === date).length;
+    return 0;
+  }
+  const DM_AUTO_KEYS: ManualKey[] = ["messagesSent", "messagesAnswered", "linksSent", "bookedCalls"];
 
   // Build auto data (views/likes/shares from TrackedVideo, concepts from ContentPiece)
   function buildAutoMap(dates: string[]): Record<string, AutoDay> {
@@ -208,6 +231,8 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     return ds.reduce((s, d) => s + (autoMap[d]?.[field] ?? 0), 0);
   }
   function manualSum(ds: string[], key: ManualKey): number {
+    // DM funnel columns are computed from leads; follows stays from manual entry
+    if (DM_AUTO_KEYS.includes(key)) return ds.reduce((s, d) => s + dmCount(d, key), 0);
     return ds.reduce((s, d) => s + (parseInt(manualRef.current[d]?.[key] ?? "0") || 0), 0);
   }
   function answerRate(ds: string[]): number | null {
@@ -279,21 +304,31 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                       </span>
                     </td>
                   ))}
-                  {/* Manual editable columns */}
-                  {visibleCols.map((c) => (
-                    <td key={c.key} className="px-1.5 py-1.5">
-                      <input
-                        type="number"
-                        min="0"
-                        value={man[c.key] ?? ""}
-                        onChange={(e) => handleManualChange(date, c.key, e.target.value)}
-                        placeholder="—"
-                        className={`w-full text-right text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-300 rounded px-2 py-1 placeholder-slate-200 min-w-[58px] ${
-                          c.group === "dm" ? "text-blue-600" : c.group === "booking" ? "text-purple-600" : "text-slate-700"
-                        }`}
-                      />
-                    </td>
-                  ))}
+                  {/* DM funnel columns = computed (read-only); follows = manual input */}
+                  {visibleCols.map((c) => {
+                    if (DM_AUTO_KEYS.includes(c.key)) {
+                      const v = dmCount(date, c.key);
+                      return (
+                        <td key={c.key} className="px-3 py-2 text-right">
+                          <span className={`text-xs font-medium ${v > 0 ? (c.group === "dm" ? "text-blue-600" : "text-purple-600") : "text-slate-200"}`}>
+                            {v > 0 ? v : "—"}
+                          </span>
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={c.key} className="px-1.5 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          value={man[c.key] ?? ""}
+                          onChange={(e) => handleManualChange(date, c.key, e.target.value)}
+                          placeholder="—"
+                          className="w-full text-right text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-300 rounded px-2 py-1 placeholder-slate-200 min-w-[58px] text-slate-700"
+                        />
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
