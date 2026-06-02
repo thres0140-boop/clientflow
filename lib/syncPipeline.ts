@@ -66,6 +66,7 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
   for (const conv of conversations.slice(0, 30)) {
     try {
       const convId = String(conv.id);
+      const convTime = conv.updatedTime ?? conv.updatedAt ?? conv.updated_at ?? "";
       const name   = conv.participantName ?? conv.participant?.name ?? conv.name ?? "Instagram User";
       const handle = conv.participantUsername ?? conv.participant?.username ?? conv.handle ?? null;
       const h = normHandle(handle);
@@ -97,6 +98,10 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
         (!cta || (lead as any).source) &&
         linkTimestampDone;
       if (nothingLeft) continue;
+
+      // Skip if the conversation hasn't changed since we last scanned it — saves ~90%
+      // of the per-conversation message fetches in steady state.
+      if (convTime && (lead as any).lastConvTime === convTime) continue;
 
       // Messages — gentle throttle to avoid bursting Zernio's rate limit
       await new Promise((res) => setTimeout(res, 120));
@@ -151,6 +156,9 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
       }
 
       if (target !== lead.status) patch.status = target;
+
+      // Mark this conversation as scanned at its current updatedTime
+      if (convTime) patch.lastConvTime = convTime;
 
       if (Object.keys(patch).length > 0) {
         await prisma.dmLead.update({ where: { id: lead.id }, data: patch });
