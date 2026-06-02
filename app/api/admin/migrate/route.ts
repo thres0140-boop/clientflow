@@ -18,11 +18,11 @@ export async function GET(req: NextRequest) {
   const leadsDump = req.nextUrl.searchParams.get("leads");
   if (leadsDump) {
     const cid = parseInt(leadsDump);
-    const leads = await prisma.dmLead.findMany({
-      where: { clientId: cid },
-      select: { name: true, handle: true, status: true, date: true, repliedAt: true, linkSentAt: true, bookedAt: true } as any,
-      orderBy: { date: "asc" },
-    });
+    const all = await prisma.dmLead.findMany({ where: { clientId: cid }, orderBy: { date: "asc" } });
+    const leads = all.map((l: any) => ({
+      name: l.name, status: l.status, date: l.date,
+      repliedAt: l.repliedAt, linkSentAt: l.linkSentAt, bookedAt: l.bookedAt,
+    }));
     return NextResponse.json({ count: leads.length, leads });
   }
 
