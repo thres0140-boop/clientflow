@@ -287,27 +287,33 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
     await promoteToStatus(selectedConv, "link_sent");
   }
 
-  // Mark a lead as replied (prospect sent us a message) — counts toward "Msgs Answered"
-  async function markReplied(conv: Conversation) {
+  // Patch a lead's tracking fields (repliedAt / source) — idempotent per field
+  async function patchLeadTracking(conv: Conversation, patch: { repliedAt?: string; source?: string }) {
     if (!selectedClientId) return;
     const fresh: DmLead[] = await fetch(`/api/dm-leads?clientId=${selectedClientId}`).then((r) => r.json()).catch(() => []);
     const convHandle = normalizeHandle(conv.handle);
     const lead = fresh.find((l) =>
       convHandle ? normalizeHandle(l.handle) === convHandle : l.name.toLowerCase().trim() === conv.name.toLowerCase().trim()
     );
-    if (!lead || (lead as any).repliedAt) return; // not tracked, or already counted
+    if (!lead) return;
+    // Skip fields already set so we don't re-fire (repliedAt counts toward analytics once)
+    const body: any = {};
+    if (patch.repliedAt && !(lead as any).repliedAt) body.repliedAt = patch.repliedAt;
+    if (patch.source   && !(lead as any).source)    body.source   = patch.source;
+    if (Object.keys(body).length === 0) return;
     await fetch(`/api/dm-leads/${lead.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ repliedAt: toYMD(new Date()) }),
+      body: JSON.stringify(body),
     });
   }
 
   // Scan recent messages for all conversations and auto-sync pipeline status.
-  // Runs in background after inbox loads — detects booking link sent + prospect replies.
+  // Runs in background after inbox loads — detects link sent, prospect replies, CTA inbound.
   async function syncPipelineFromMessages(convs: Conversation[]) {
     if (!selectedClientId) return;
     const bookingLink = client?.bookingLink;
+    const cta = (client?.ctaKeyword ?? "").trim().toLowerCase();
     for (const conv of convs.slice(0, 30)) { // limit to latest 30 to avoid hammering API
       try {
         const data = await fetch(
@@ -316,11 +322,17 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
         if (data.error) continue;
         const raw: any[] = data.messages ?? data.items ?? data.data ?? [];
 
-        // Reply detection: any incoming (not-own) message means the prospect answered
-        const hasReply = raw.some((m: any) =>
+        const incoming = raw.filter((m: any) =>
           m.direction === "incoming" || m.isOwn === false || m.is_sender === false
         );
-        if (hasReply) await markReplied(conv);
+
+        // Reply detection: any incoming message means the prospect answered
+        if (incoming.length > 0) await patchLeadTracking(conv, { repliedAt: toYMD(new Date()) });
+
+        // CTA detection: an incoming message containing the client's CTA keyword
+        if (cta && incoming.some((m: any) => (m.message ?? m.text ?? "").toLowerCase().includes(cta))) {
+          await patchLeadTracking(conv, { source: "cta" });
+        }
 
         // Link detection
         if (bookingLink) {
@@ -754,6 +766,9 @@ function LeadCardInner({ lead, onEdit, onDelete }: {
           <p className="text-xs font-semibold text-slate-800 truncate">{lead.name}</p>
           {lead.handle && <p className="text-[10px] text-slate-400 truncate">@{lead.handle.replace(/^@/, "")}</p>}
           {lead.date && <p className="text-[10px] text-slate-300 mt-0.5">{lead.date.slice(5).replace("-", "/")}</p>}
+          {(lead as any).source === "cta" && (
+            <p className="text-[10px] font-medium text-orange-500 mt-1">⚡ CTA inbound</p>
+          )}
           {(lead as any).repliedAt && (
             <p className="text-[10px] font-medium text-emerald-500 mt-1">💬 Replied</p>
           )}

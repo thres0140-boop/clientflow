@@ -18,6 +18,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       date:   body.date   !== undefined ? (body.date   || null)  : undefined,
       notes:  body.notes  !== undefined ? (body.notes  || null)  : undefined,
       ...(body.repliedAt !== undefined ? { repliedAt: body.repliedAt || null } : {}),
+      ...(body.source !== undefined ? { source: body.source || null } : {}),
     } as any,
   });
 

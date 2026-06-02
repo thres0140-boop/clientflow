@@ -26,6 +26,7 @@ model Client {
 
   bookingLink           String?
   scriptRules           String?
+  ctaKeyword            String?  // e.g. "regie" — inbound DMs containing this are flagged as CTA leads
   isTestAccount         Boolean  @default(false)
 
   concepts              Concept[]
@@ -349,6 +350,7 @@ model DmLead {
   status    String   @default("messaged") // messaged | link_sent | booked | showed | no_show | closed
   date      String?  // YYYY-MM-DD date first messaged
   repliedAt String?  // YYYY-MM-DD date the prospect first replied (null = no reply yet)
+  source    String?  // "cta" = inbound from a CTA keyword DM, else null/outbound
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

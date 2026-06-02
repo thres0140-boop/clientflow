@@ -384,6 +384,7 @@ function ClientModal({
     notes: client?.notes ?? "",
     captionStyle: client?.captionStyle ?? "",
     bookingLink: client?.bookingLink ?? "",
+    ctaKeyword: client?.ctaKeyword ?? "",
     loginEmail: "",
   });
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
@@ -574,6 +575,13 @@ function ClientModal({
               </div>
             </div>
           )}
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">CTA Keyword</label>
+          <p className="text-[10px] text-slate-400 mb-1.5">The word people DM from your content CTA (e.g. <strong>regie</strong>). Inbound DMs containing it are auto-flagged as CTA leads and counted in the funnel.</p>
+          <input type="text" value={form.ctaKeyword} onChange={(e) => set("ctaKeyword", e.target.value)}
+            placeholder="e.g. regie"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
