@@ -60,7 +60,7 @@ const MANUAL_COLS: { key: ManualKey; label: string; group?: "dm" | "booking" }[]
   { key: "bookedCalls",      label: "Booked Calls",   group: "booking" },
 ];
 
-type ManualEntry = Partial<Record<ManualKey, string>> & { id?: number };
+type ManualEntry = Partial<Record<ManualKey, string>> & { id?: number; videoLink?: string };
 type AutoDay = { views: number; likes: number; shares: number; concepts: string[]; videoUrl: string | null };
 
 export default function Analytics({ clients, selectedClientId, refreshClients }: Props) {
@@ -117,6 +117,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
           messagesAnswered: e.messagesAnswered ? String(e.messagesAnswered) : "",
           linksSent:        e.linksSent        ? String(e.linksSent)        : "",
           bookedCalls:      e.bookedCalls      ? String(e.bookedCalls)      : "",
+          videoLink:        (e as any).videoLink ?? "",
         };
       }
       setManual(m);
@@ -188,6 +189,12 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     saveTimers.current[date] = setTimeout(() => saveManual(date), 700);
   }
 
+  function handleLinkChange(date: string, value: string) {
+    setManual((prev) => ({ ...prev, [date]: { ...prev[date], videoLink: value } }));
+    if (saveTimers.current[date]) clearTimeout(saveTimers.current[date]);
+    saveTimers.current[date] = setTimeout(() => saveManual(date), 700);
+  }
+
   async function saveManual(date: string) {
     if (!selectedClientId) return;
     const m = manualRef.current[date] ?? {};
@@ -204,6 +211,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
           messagesAnswered: parseInt(m.messagesAnswered ?? "0") || 0,
           linksSent:        parseInt(m.linksSent        ?? "0") || 0,
           bookedCalls:      parseInt(m.bookedCalls      ?? "0") || 0,
+          videoLink:        m.videoLink ?? "",
         }),
       }).then((r) => r.json());
       setManual((prev) => ({ ...prev, [date]: { ...prev[date], id: saved.id } }));
@@ -273,6 +281,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
             <tr className={`border-b ${head}`}>
               <th className={`px-3 py-2.5 text-left text-xs font-semibold sticky left-0 z-10 min-w-[76px] ${stickyHead} ${isCompare ? "text-indigo-400" : "text-slate-500"}`}>Day</th>
               <th className={`px-3 py-2.5 text-left text-xs font-semibold min-w-[130px] ${isCompare ? "text-indigo-400" : "text-slate-500"}`}>Concept</th>
+              <th className={`px-3 py-2.5 text-left text-xs font-semibold min-w-[100px] ${isCompare ? "text-indigo-400" : "text-slate-500"}`}>Link</th>
               {(["views","likes","shares"] as const).map((f) => (
                 <th key={f} className={`px-3 py-2.5 text-right text-xs font-semibold capitalize ${isCompare ? "text-indigo-300" : "text-slate-400"}`}>{f}</th>
               ))}
@@ -305,11 +314,28 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                       ) : (
                         <span className="text-slate-200 text-xs">—</span>
                       )}
-                      {auto.videoUrl && (
-                        <a href={auto.videoUrl} target="_blank" rel="noopener noreferrer"
-                          title="Open reel" className="text-slate-400 hover:text-indigo-600 text-xs flex-shrink-0">▶</a>
-                      )}
                     </div>
+                  </td>
+                  {/* Reel link — editable, auto-prefilled from detected reel URL */}
+                  <td className="px-2 py-1.5">
+                    {(() => {
+                      const linkVal = man.videoLink ?? auto.videoUrl ?? "";
+                      return (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="url"
+                            value={man.videoLink ?? (auto.videoUrl || "")}
+                            onChange={(e) => handleLinkChange(date, e.target.value)}
+                            placeholder="paste reel link"
+                            className="w-full text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-300 rounded px-2 py-1 placeholder-slate-200 text-slate-600 min-w-[90px]"
+                          />
+                          {linkVal && (
+                            <a href={linkVal} target="_blank" rel="noopener noreferrer"
+                              title="Open reel" className="text-slate-400 hover:text-indigo-600 text-xs flex-shrink-0">↗</a>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   {/* Auto stats from TrackedVideo */}
                   {(["views","likes","shares"] as const).map((f) => (
@@ -352,7 +378,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
             {/* Totals row */}
             <tr className={`border-t-2 ${foot}`}>
               <td className={`px-3 py-2.5 text-xs font-semibold sticky left-0 z-10 ${foot} ${isCompare ? "text-indigo-400" : "text-slate-600"}`}>Total</td>
-              <td />
+              <td /><td />
               {(["views","likes","shares"] as const).map((f) => {
                 const t = autoSum(ds, f);
                 return (
@@ -374,7 +400,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
             {(showDMs || showBooking) && (ar !== null || br !== null) && (
               <tr className={`border-t border-dashed ${isCompare ? "border-indigo-100" : "border-slate-200"}`}>
                 <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 ${isCompare ? "text-indigo-300 bg-white" : "text-slate-400 bg-white"}`}>Rate</td>
-                <td /><td /><td /><td />
+                <td /><td /><td /><td /><td />
                 {visibleCols.map((c) => {
                   let rate: string | null = null;
                   if (c.key === "messagesAnswered" && ar !== null) rate = `${ar}% ans.`;

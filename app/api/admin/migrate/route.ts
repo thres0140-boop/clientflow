@@ -144,6 +144,10 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "DmLead"
       ADD COLUMN IF NOT EXISTS "bookedAt" TEXT;
     `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "AnalyticsEntry"
+      ADD COLUMN IF NOT EXISTS "videoLink" TEXT;
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
       messagesAnswered: parseInt(fields.messagesAnswered ?? 0) || 0,
       linksSent: parseInt(fields.linksSent ?? 0) || 0,
       bookedCalls: parseInt(fields.bookedCalls ?? 0) || 0,
-    },
+      ...(fields.videoLink !== undefined ? { videoLink: fields.videoLink || null } : {}),
+    } as any,
     update: {
       conceptId: conceptId !== undefined ? (conceptId ? parseInt(conceptId) : null) : undefined,
       views: fields.views !== undefined ? (parseInt(fields.views) || 0) : undefined,
@@ -57,7 +58,8 @@ export async function POST(req: NextRequest) {
       messagesAnswered: fields.messagesAnswered !== undefined ? (parseInt(fields.messagesAnswered) || 0) : undefined,
       linksSent: fields.linksSent !== undefined ? (parseInt(fields.linksSent) || 0) : undefined,
       bookedCalls: fields.bookedCalls !== undefined ? (parseInt(fields.bookedCalls) || 0) : undefined,
-    },
+      ...(fields.videoLink !== undefined ? { videoLink: fields.videoLink || null } : {}),
+    } as any,
     include: { concept: { select: { id: true, name: true } } },
   });
 
