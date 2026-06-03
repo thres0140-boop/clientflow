@@ -14,6 +14,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, deleted: count });
   }
 
+  // ?clients=1 — list clients with ids
+  if (req.nextUrl.searchParams.get("clients")) {
+    const cs = await prisma.client.findMany({ select: { id: true, name: true } });
+    return NextResponse.json(cs);
+  }
+
+  // ?igreels=clientId — dump the most recent reels with id/permalink/timestamp to debug the Analytics link
+  const igreels = req.nextUrl.searchParams.get("igreels");
+  if (igreels) {
+    const cid = parseInt(igreels);
+    const conn = await prisma.instagramConnection.findUnique({ where: { clientId: cid } });
+    if (!conn?.accessToken) return NextResponse.json({ error: "not connected" });
+    const url = `https://graph.instagram.com/v21.0/me/media?fields=id,media_type,media_product_type,permalink,timestamp&limit=12&access_token=${conn.accessToken}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    return NextResponse.json({
+      items: (d.data || []).map((m: any) => ({ id: m.id, type: m.media_type, product: m.media_product_type, permalink: m.permalink ?? null, timestamp: m.timestamp })),
+      error: d.error ?? null,
+    });
+  }
+
   // ?content=clientId — dump content pieces + tracked videos for debugging analytics
   const contentDump = req.nextUrl.searchParams.get("content");
   if (contentDump) {
