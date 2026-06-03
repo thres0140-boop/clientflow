@@ -73,7 +73,7 @@ const NAV_GROUPS = [
   ]},
   { label: "MANAGE", items: [
     { id: "team" as Page, label: "Team" },
-    { id: "chat" as Page, label: "Client Chat" },
+    { id: "chat" as Page, label: "Messages" },
     { id: "settings" as Page, label: "Settings" },
   ]},
 ];

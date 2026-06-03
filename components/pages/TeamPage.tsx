@@ -15,7 +15,7 @@ const ALL_PAGES = [
   { id: "instagram", label: "Instagram",           icon: "📸" },
   { id: "board",     label: "Strategy Board",      icon: "🗂️" },
   { id: "team",      label: "Team",                icon: "🤝" },
-  { id: "chat",      label: "Client Chat",         icon: "💬" },
+  { id: "chat",      label: "Messages",            icon: "💬" },
   { id: "settings",  label: "Settings",            icon: "⚙️" },
 ];
 
