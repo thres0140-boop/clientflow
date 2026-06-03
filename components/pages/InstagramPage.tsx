@@ -833,6 +833,41 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
   const [existingConcepts, setExistingConcepts] = useState<any[]>([]);
   const [conceptInitial, setConceptInitial] = useState<any>(null);
 
+  // Link this reel into an EXISTING concept's reel group
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [linkConcepts, setLinkConcepts] = useState<any[]>([]);
+  const [linkBusy, setLinkBusy] = useState<number | null>(null);
+  const [linkedTo, setLinkedTo] = useState<string | null>(null);
+  const reelLink = reel.permalink || reel.instagramUrl || (reel.id ? `https://instagram.com/reel/${reel.id}` : "");
+
+  async function openLinkPicker() {
+    setShowLinkPicker(true);
+    try {
+      const cs = await fetch(`/api/concepts?clientId=${client.id}`).then((r) => r.json());
+      setLinkConcepts((Array.isArray(cs) ? cs : []).filter((c: any) => !c.isIdea));
+    } catch { setLinkConcepts([]); }
+  }
+
+  async function linkToConcept(c: any) {
+    if (!reelLink) return;
+    setLinkBusy(c.id);
+    try {
+      const full = await fetch(`/api/concepts/${c.id}`).then((r) => r.json()).catch(() => null);
+      let urls: string[] = [];
+      try { urls = JSON.parse(full?.reelUrls || "[]"); } catch { urls = []; }
+      if (!urls.includes(reelLink)) urls.push(reelLink);
+      await fetch(`/api/concepts/${c.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reelUrls: urls }),
+      });
+      fetch(`/api/concepts/${c.id}/extract-examples`, { method: "POST" }).catch(() => {});
+      setLinkedTo(c.conceptType ? `${c.conceptType} · ${c.name}` : c.name);
+      setShowLinkPicker(false);
+    } finally {
+      setLinkBusy(null);
+    }
+  }
+
   // Transcribe (if needed) + load the client's concepts, then open the New Concept form.
   // For B-roll/text reels (no speech) we read the on-screen text overlay via vision instead.
   async function openConceptForm() {
@@ -1153,6 +1188,8 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
             </button>
           ) : saved ? (
             <div className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">✓ Saved</div>
+          ) : linkedTo ? (
+            <div className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">✓ Linked to {linkedTo}</div>
           ) : (
             <>
               <button onClick={() => saveAsConcept(true)} disabled={saving}
@@ -1162,6 +1199,10 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
               <button onClick={openConceptForm} disabled={saving}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60">
                 {saving ? "Preparing…" : "✅ Save as Concept"}
+              </button>
+              <button onClick={openLinkPicker} disabled={saving} title="Add this reel to an existing concept's group"
+                className="px-3 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-60">
+                🔗 Link
               </button>
             </>
           )}
@@ -1174,6 +1215,31 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
         </div>
       </div>
     </div>
+
+    {showLinkPicker && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={() => setShowLinkPicker(false)}>
+        <div className="w-[420px] max-h-[70vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <p className="text-sm font-bold text-slate-800">🔗 Link reel to a concept</p>
+            <button onClick={() => setShowLinkPicker(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {linkConcepts.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-8">No concepts yet for this client.</p>
+            ) : linkConcepts.map((c: any) => (
+              <button key={c.id} onClick={() => linkToConcept(c)} disabled={linkBusy === c.id}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-left hover:bg-indigo-50 disabled:opacity-60">
+                <span className="text-sm text-slate-700">
+                  {c.conceptType && <span className="text-slate-400">{c.conceptType} · </span>}
+                  <span className="font-medium">{c.name}</span>
+                </span>
+                <span className="text-[10px] text-slate-400">{linkBusy === c.id ? "Linking…" : (() => { try { return `📎 ${JSON.parse(c.reelUrls || "[]").length}`; } catch { return ""; } })()}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
 
     {showConceptModal && (
       <ConceptModal
