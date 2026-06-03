@@ -46,15 +46,15 @@ function mapItem(it: any): ScrapedReel {
   } as ScrapedReel;
 }
 
-// Fetch reels, following pagination tokens until we've gone back `sinceDays`
-// (or hit `maxPages` as a cost cap). Newest reels come first.
-async function fetchReelsFromProvider(handle: string, sinceDays: number, maxPages: number): Promise<ScrapedReel[]> {
+// Fetch reels (newest first), following pagination tokens up to `maxPages`
+// (a cost cap). We don't date-filter — we store whatever the account has.
+async function fetchReelsFromProvider(handle: string, maxPages: number): Promise<ScrapedReel[]> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) throw new Error("RAPIDAPI_KEY not set");
 
   const username = handle.replace(/^@/, "").trim();
-  const cutoff = Date.now() - sinceDays * 86400000;
   const out: ScrapedReel[] = [];
+  const seen = new Set<string>();
   let token = "";
 
   for (let page = 0; page < maxPages; page++) {
@@ -77,15 +77,16 @@ async function fetchReelsFromProvider(handle: string, sinceDays: number, maxPage
     const items: any[] = (data?.reels ?? data?.data?.reels ?? []) as any[];
     if (!items.length) break;
 
-    const mapped = items.map(mapItem).filter((r) => r.shortcode);
-    out.push(...mapped);
+    let added = 0;
+    for (const it of items.map(mapItem)) {
+      if (!it.shortcode || seen.has(it.shortcode)) continue;
+      seen.add(it.shortcode);
+      out.push(it);
+      added++;
+    }
 
     token = data.pagination_token || data?.data?.pagination_token || "";
-    if (!token) break;
-
-    // Stop once the oldest reel on this page is past our window.
-    const oldest = mapped.reduce((min, r) => (r.postedAt && r.postedAt.getTime() < min ? r.postedAt.getTime() : min), Infinity);
-    if (oldest !== Infinity && oldest < cutoff) break;
+    if (!token || added === 0) break; // no more pages / nothing new
 
     await new Promise((r) => setTimeout(r, 300)); // gentle throttle between pages
   }
@@ -102,14 +103,11 @@ export async function scrapeCompetitor(
   const competitor = await prisma.competitor.findUnique({ where: { id: competitorId } });
   if (!competitor) return { ok: false, reels: 0, error: "not found" };
 
-  const sinceDays = opts.full ? 90 : 14;
-  const maxPages = opts.full ? 12 : 3;
+    // full backfill paginates deep; incremental grabs the latest pages.
+  const maxPages = opts.full ? 12 : 2;
 
   try {
-    const scraped = await fetchReelsFromProvider(competitor.handle, sinceDays, maxPages);
-    const cutoff = Date.now() - sinceDays * 86400000;
-    // Keep reels within the window (or undated ones, which are rare).
-    const recent = scraped.filter((r) => !r.postedAt || r.postedAt.getTime() >= cutoff);
+    const recent = await fetchReelsFromProvider(competitor.handle, maxPages);
 
     let count = 0;
     for (const r of recent) {
