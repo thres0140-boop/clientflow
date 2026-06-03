@@ -35,6 +35,29 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
+  const draftsDump = req.nextUrl.searchParams.get("drafts");
+  if (draftsDump) {
+    const cid = parseInt(draftsDump);
+    const ds = await prisma.scriptDraft.findMany({
+      where: { clientId: cid, isSavedIdea: false },
+      orderBy: { generatedAt: "desc" }, take: 30,
+      select: { id: true, title: true, status: true, stageId: true, clientAuthored: true, rejectionFeedback: true, conceptId: true, generatedAt: true } as any,
+    });
+    return NextResponse.json(ds);
+  }
+
+  // ?markclient=clientId — backfill clientAuthored=true for this client's self-written drafts
+  const markClient = req.nextUrl.searchParams.get("markclient");
+  if (markClient) {
+    const cid = parseInt(markClient);
+    const { count } = await (prisma as any).scriptDraft.updateMany({
+      where: { clientId: cid, title: { contains: " script" } },
+      data: { clientAuthored: true },
+    });
+    return NextResponse.json({ ok: true, marked: count });
+  }
+
   // ?content=clientId — dump content pieces + tracked videos for debugging analytics
   const contentDump = req.nextUrl.searchParams.get("content");
   if (contentDump) {
