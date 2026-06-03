@@ -22,6 +22,18 @@ export async function GET(req: NextRequest) {
 
   const threeDaysAgo = Date.now() - 3 * 86400000;
 
+  // Median views PER competitor — the baseline to spot outliers against that account's norm.
+  const viewsByComp: Record<number, number[]> = {};
+  for (const r of reels) {
+    const v = (r.snapshots?.[r.snapshots.length - 1]?.viewCount) ?? 0;
+    if (v > 0) (viewsByComp[r.competitorId] ||= []).push(v);
+  }
+  const medianByComp: Record<number, number> = {};
+  for (const k of Object.keys(viewsByComp)) {
+    const arr = viewsByComp[+k].sort((a, b) => a - b);
+    medianByComp[+k] = arr.length ? arr[Math.floor(arr.length / 2)] : 0;
+  }
+
   const shaped = reels.map((r: any) => {
     const snaps = r.snapshots as any[];
     const latest = snaps[snaps.length - 1] || {};
@@ -33,6 +45,10 @@ export async function GET(req: NextRequest) {
     const growthPct = viewsThen > 0 ? (delta / viewsThen) * 100 : null;
     // "exploded" = meaningful absolute jump AND strong relative growth in the window
     const exploded = delta >= 5000 && (growthPct === null || growthPct >= 50) && snaps.length >= 2;
+    // "outlier" = did far more than this account's median (their break-out hit)
+    const median = medianByComp[r.competitorId] || 0;
+    const outlierX = median > 0 && viewsNow > 0 ? viewsNow / median : null;
+    const isOutlier = outlierX != null && outlierX >= 2 && viewsNow >= 5000;
     return {
       id: String(r.id),
       handle: r.competitor?.handle,
@@ -48,6 +64,8 @@ export async function GET(req: NextRequest) {
       viewDelta3d: delta,
       growthPct3d: growthPct,
       exploded,
+      outlierX,
+      isOutlier,
       snapshotCount: snaps.length,
     };
   });

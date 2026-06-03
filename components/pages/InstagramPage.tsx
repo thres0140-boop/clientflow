@@ -36,6 +36,8 @@ type IGReel = {
   exploded?: boolean;
   viewDelta3d?: number;
   growthPct3d?: number | null;
+  outlierX?: number | null;
+  isOutlier?: boolean;
 };
 
 type IGProfile = {
@@ -407,7 +409,7 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [lastScraped, setLastScraped] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"7" | "14" | "30" | "90" | "all">("all");
-  const [reelSort, setReelSort] = useState<"recent" | "best">("recent");
+  const [reelSort, setReelSort] = useState<"recent" | "best" | "trending">("recent");
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
 
   const reload = useCallback(async () => {
@@ -485,10 +487,17 @@ function CompetitorsTab({ client }: { client: Client }) {
   );
   const sortedReels = reelSort === "best"
     ? [...filteredReels].sort((a, b) => (b.plays ?? b.like_count ?? 0) - (a.plays ?? a.like_count ?? 0))
-    // recent view: exploded reels float to the top, then newest first
-    : [...filteredReels].sort((a, b) =>
-        (b.exploded ? 1 : 0) - (a.exploded ? 1 : 0) ||
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    : reelSort === "trending"
+      // Trending: biggest recent view-growth first (exploded on top), then by growth %, then views
+      ? [...filteredReels].sort((a, b) =>
+          (b.exploded ? 1 : 0) - (a.exploded ? 1 : 0) ||
+          (b.growthPct3d ?? -1) - (a.growthPct3d ?? -1) ||
+          (b.viewDelta3d ?? 0) - (a.viewDelta3d ?? 0) ||
+          (b.plays ?? 0) - (a.plays ?? 0))
+      // Recent: newest first, but float outliers/exploded up
+      : [...filteredReels].sort((a, b) =>
+          ((b.exploded || b.isOutlier) ? 1 : 0) - ((a.exploded || a.isOutlier) ? 1 : 0) ||
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
     <div className="space-y-4">
@@ -556,12 +565,16 @@ function CompetitorsTab({ client }: { client: Client }) {
       {subTab === "reels" && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => setReelSort(reelSort === "best" ? "recent" : "best")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                reelSort === "best" ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-              }`}>
-              🏆 Best Performing
-            </button>
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+              {([["recent", "🆕 Recent"], ["best", "🏆 Top"], ["trending", "📈 Trending"]] as ["recent"|"best"|"trending", string][]).map(([id, label]) => (
+                <button key={id} onClick={() => setReelSort(id)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    reelSort === id ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
             <span className="text-xs text-slate-400">{sortedReels.length} reels</span>
             {lastScraped && (
               <span className="text-[11px] text-slate-400">· updated {timeAgo(lastScraped)}</span>
@@ -608,6 +621,12 @@ function CompetitorsTab({ client }: { client: Client }) {
                         <span className="text-[9px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full shadow"
                           title={reel.growthPct3d != null ? `+${Math.round(reel.growthPct3d)}% views in 3 days` : "Spiking"}>
                           🚀 {reel.viewDelta3d && reel.viewDelta3d > 0 ? `+${fmt(reel.viewDelta3d)}` : "hot"}
+                        </span>
+                      )}
+                      {reel.isOutlier && reel.outlierX != null && (
+                        <span className="text-[9px] font-bold text-white bg-amber-500 px-1.5 py-0.5 rounded-full shadow"
+                          title="Far above this account's median views — a break-out hit">
+                          🔥 {reel.outlierX.toFixed(1)}× avg
                         </span>
                       )}
                     </div>
