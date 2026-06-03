@@ -46,6 +46,41 @@ function mapItem(it: any): ScrapedReel {
   } as ScrapedReel;
 }
 
+// Re-fetch a fresh, currently-playable video URL for one reel (IG CDN links expire).
+// Searches the latest pages and returns as soon as the shortcode is found.
+export async function freshReelMediaUrl(handle: string, shortcode: string, maxPages = 5): Promise<string | null> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey || !shortcode) return null;
+  const username = handle.replace(/^@/, "").trim();
+  let token = "";
+  for (let page = 0; page < maxPages; page++) {
+    const body = new URLSearchParams({ username_or_url: username, amount: "50" });
+    if (token) body.set("pagination_token", token);
+    let data: any;
+    try {
+      const res = await fetch(`https://${SCRAPER_HOST}/get_ig_user_reels.php`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "x-rapidapi-host": SCRAPER_HOST,
+          "x-rapidapi-key": apiKey,
+        },
+        body: body.toString(),
+      });
+      data = await res.json();
+    } catch { break; }
+    if (data?.detail || data?.error) break;
+    const items: any[] = (data?.reels ?? data?.data?.reels ?? []) as any[];
+    for (const it of items.map(mapItem)) {
+      if (it.shortcode === shortcode && it.mediaUrl) return it.mediaUrl;
+    }
+    token = data.pagination_token || data?.data?.pagination_token || "";
+    if (!token) break;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return null;
+}
+
 // Fetch reels (newest first), following pagination tokens up to `maxPages`
 // (a cost cap). We don't date-filter — we store whatever the account has.
 async function fetchReelsFromProvider(handle: string, maxPages: number): Promise<ScrapedReel[]> {

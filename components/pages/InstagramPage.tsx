@@ -1008,12 +1008,14 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
         <div className="flex-1 overflow-y-auto">
           <div className="relative bg-slate-900 aspect-[9/16] max-h-72 w-full flex items-center justify-center overflow-hidden">
             {(() => {
-              // Competitor reels (have a handle) carry a stale Instagram CDN video URL
-              // that expires — embedding it won't play. Link out to Instagram instead.
               const igLink = reel.permalink || reel.instagramUrl || (reel.id ? `https://www.instagram.com/reel/${reel.id}/` : null);
               const isCompetitor = !!reel.handle;
-              const canEmbed = reel.media_url && !isCompetitor;
-              if (canEmbed) {
+              // Competitor reels: stream a fresh copy through our proxy (their stored
+              // CDN url is expired). Own reels: embed the fresh url directly.
+              if (isCompetitor && reel.id) {
+                return <video src={`/api/competitors/reel-video?id=${reel.id}`} poster={reel.thumbnail_url} controls preload="metadata" className="w-full h-full object-contain" />;
+              }
+              if (reel.media_url) {
                 return <video src={reel.media_url} poster={reel.thumbnail_url} controls className="w-full h-full object-contain" />;
               }
               if (igLink) {
@@ -1039,6 +1041,12 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
                   </div>;
             })()}
           </div>
+          {reel.handle && (reel.permalink || reel.id) && (
+            <a href={reel.permalink || `https://www.instagram.com/reel/${reel.id}/`} target="_blank" rel="noopener noreferrer"
+              className="block text-center text-[11px] text-indigo-500 hover:text-indigo-700 py-1.5 border-b border-slate-100">
+              Doesn't play? Watch on Instagram ↗
+            </a>
+          )}
           <div className="p-5 space-y-5">
             {reel.caption && (
               <div>
