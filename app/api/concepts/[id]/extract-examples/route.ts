@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
+import { addConceptExample } from "@/lib/conceptExamples";
+import { classifyReelFormat } from "@/lib/classifyCompetitorReels";
 
 // Transcribing several videos can take a while — give the function room.
 export const maxDuration = 120;
@@ -168,6 +170,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (seen.has(text.toLowerCase())) continue; // already an example
     seen.add(text.toLowerCase());
     added.push(text);
+
+    // Mirror into the provenance pool with the reel's classified format (for the
+    // generator's dominant-format signal). Reel-derived examples are trusted (human_seed).
+    const m = matched[tokenOf(reelUrl)] || matched[reelUrl];
+    if (m) {
+      let format: string | null = null;
+      try { format = await classifyReelFormat(m.thumbnail_url || m.media_url); } catch { /* ignore */ }
+      addConceptExample(conceptId, text, "human_seed", { reelShortcode: tokenOf(reelUrl), format }).catch(() => {});
+    }
   }
 
   if (added.length) {

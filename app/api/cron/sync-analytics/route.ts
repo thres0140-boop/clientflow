@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { promoteProvenExamples } from "@/lib/conceptExamples";
 
 const IG_BASE = "https://graph.instagram.com/v21.0";
 
@@ -26,8 +27,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  console.log(`[sync-analytics] done — ${totalLinked} media linked, ${totalSynced} analytics entries synced`);
-  return NextResponse.json({ ok: true, totalLinked, totalSynced });
+  // Promote accepted drafts whose posted reel beat the creator's median views.
+  let promoted = 0;
+  try { promoted = (await promoteProvenExamples()).promoted; } catch (e) { console.error("[promote] error", e); }
+
+  console.log(`[sync-analytics] done — ${totalLinked} media linked, ${totalSynced} synced, ${promoted} examples promoted`);
+  return NextResponse.json({ ok: true, totalLinked, totalSynced, promoted });
 }
 
 async function syncClient(clientId: number, accessToken: string) {

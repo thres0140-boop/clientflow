@@ -6,6 +6,9 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const VALID = ["talking_head", "text_overlay", "broll", "other"];
 
 // Classify a single reel thumbnail's content FORMAT via Claude vision (cheap Haiku).
+export async function classifyReelFormat(imageUrl: string): Promise<string | null> {
+  return classifyOne(imageUrl);
+}
 async function classifyOne(imageUrl: string): Promise<string | null> {
   if (!process.env.ANTHROPIC_API_KEY || !imageUrl) return null;
   try {

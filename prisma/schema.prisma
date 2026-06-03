@@ -184,6 +184,7 @@ model ConceptExample {
   hookKey       String?  // first-line hash for dedup
   scriptDraftId Int?
   reelShortcode String?
+  format        String?  // talking_head | text_overlay | broll (for reel-derived examples)
   views         Int?
   createdAt     DateTime @default(now())
 

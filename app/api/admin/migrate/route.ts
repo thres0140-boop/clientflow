@@ -277,6 +277,9 @@ export async function POST(req: NextRequest) {
     await (prisma as any).$executeRaw`
       CREATE INDEX IF NOT EXISTS "ConceptExample_conceptId_source_idx" ON "ConceptExample"("conceptId", "source");
     `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "ConceptExample" ADD COLUMN IF NOT EXISTS "format" TEXT;
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
