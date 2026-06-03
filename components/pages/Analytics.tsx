@@ -12,6 +12,22 @@ type ManualKey = "follows" | "messagesSent" | "messagesAnswered" | "linksSent" |
 function toYMD(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+// Instagram media ID → public shortcode → reel URL. Lets us build a working public
+// link even when the API omits `permalink` (happens for some/very-recent reels).
+const IG_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+function reelUrlFromId(id?: string | number | null): string | null {
+  if (id == null) return null;
+  const pk = String(id).split("_")[0];
+  if (!/^\d+$/.test(pk)) return null;
+  try {
+    let n = BigInt(pk);
+    if (n <= 0n) return null;
+    let code = "";
+    while (n > 0n) { code = IG_ALPHABET[Number(n % 64n)] + code; n = n / 64n; }
+    return code ? `https://www.instagram.com/reel/${code}/` : null;
+  } catch { return null; }
+}
 function fromYMD(s: string): Date {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
@@ -182,9 +198,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
         const name = c.concept?.name;
         if (name && !map[day].concepts.includes(name)) map[day].concepts.push(name);
         if (!map[day].videoUrl) {
-          map[day].videoUrl = c.igMediaId
-            ? `https://www.instagram.com/reel/${c.igMediaId}/`
-            : (c.rawContentUrl || null);
+          map[day].videoUrl = reelUrlFromId(c.igMediaId) || c.rawContentUrl || null;
         }
       }
     }
@@ -198,7 +212,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       map[ymd].views  += r.plays ?? 0;
       map[ymd].likes  += r.like_count ?? 0;
       map[ymd].shares += r.shares ?? 0;
-      if (!map[ymd].videoUrl) map[ymd].videoUrl = r.permalink ?? r.media_url ?? null;
+      if (!map[ymd].videoUrl) map[ymd].videoUrl = r.permalink || reelUrlFromId(r.id) || r.media_url || null;
     }
     return map;
   }
