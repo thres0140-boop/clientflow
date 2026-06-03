@@ -986,6 +986,22 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
   const [mounted, setMounted] = useState(false);
   useEffect(() => { const t = setTimeout(() => setMounted(true), 10); return () => clearTimeout(t); }, []);
 
+  // Competitor reels: their stored CDN url is expired — fetch a fresh one to play directly.
+  const isCompetitorReel = !!reel.handle;
+  const [compUrl, setCompUrl] = useState<string | null>(null);
+  const [compLoading, setCompLoading] = useState(false);
+  useEffect(() => {
+    if (!isCompetitorReel || !reel.id) return;
+    let cancelled = false;
+    setCompLoading(true);
+    fetch(`/api/competitors/reel-media?id=${reel.id}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d.url) setCompUrl(d.url); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setCompLoading(false); });
+    return () => { cancelled = true; };
+  }, [isCompetitorReel, reel.id]);
+
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/40" onClick={onClose}>
@@ -1010,10 +1026,27 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
             {(() => {
               const igLink = reel.permalink || reel.instagramUrl || (reel.id ? `https://www.instagram.com/reel/${reel.id}/` : null);
               const isCompetitor = !!reel.handle;
-              // Competitor reels: stream a fresh copy through our proxy (their stored
-              // CDN url is expired). Own reels: embed the fresh url directly.
+              // Competitor reels: play the freshly-fetched CDN url directly in the browser.
               if (isCompetitor && reel.id) {
-                return <video src={`/api/competitors/reel-video?id=${reel.id}`} poster={reel.thumbnail_url} controls preload="none" className="w-full h-full object-contain" />;
+                if (compUrl) {
+                  return <video src={compUrl} poster={reel.thumbnail_url} controls autoPlay playsInline className="w-full h-full object-contain" />;
+                }
+                // still fetching the fresh url, or it failed → show thumbnail (+ spinner)
+                return (
+                  <div className="relative w-full h-full">
+                    {reel.thumbnail_url
+                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      {compLoading
+                        ? <div className="w-7 h-7 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        : igLink && <a href={igLink} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1.5 text-white">
+                            <span className="text-4xl">▶</span>
+                            <span className="text-xs font-medium opacity-90">Watch on Instagram ↗</span>
+                          </a>}
+                    </div>
+                  </div>
+                );
               }
               if (reel.media_url) {
                 return <video src={reel.media_url} poster={reel.thumbnail_url} controls className="w-full h-full object-contain" />;
