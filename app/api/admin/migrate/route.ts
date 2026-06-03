@@ -36,6 +36,32 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // ?mediaprobe=shortcode — discover which media-by-id endpoint exists (404 vs 429/200)
+  const mediaProbe = req.nextUrl.searchParams.get("mediaprobe");
+  if (mediaProbe) {
+    const apiKey = process.env.RAPIDAPI_KEY || "";
+    const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
+    const url = `https://www.instagram.com/reel/${mediaProbe}/`;
+    const candidates = [
+      "get_media_data.php", "get_ig_media_info.php", "ig_get_post_info.php",
+      "get_post_info.php", "get_ig_post.php", "get_media_by_url.php",
+      "get_ig_media_data.php", "ig_get_media.php", "get_media_info.php",
+    ];
+    const out: any = {};
+    for (const ep of candidates) {
+      try {
+        const res = await fetch(`https://${HOST}/${ep}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey },
+          body: new URLSearchParams({ code_or_id_or_url: url, url, shortcode: mediaProbe }).toString(),
+        });
+        const t = await res.text();
+        out[ep] = { status: res.status, body: t.slice(0, 200) };
+      } catch (e) { out[ep] = { error: String(e) }; }
+    }
+    return NextResponse.json(out);
+  }
+
   // ?profileprobe=handle — fetch one competitor's parsed profile info (debug the enrich)
   const profileProbe = req.nextUrl.searchParams.get("profileprobe");
   if (profileProbe) {
