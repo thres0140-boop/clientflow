@@ -222,7 +222,8 @@ function MemberActions({ member, onEdit, onDelete }: { member: TeamMember; onEdi
 // ── Member Modal ────────────────────────────────────────────────────────────
 
 function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMember; clientId?: number | null; onClose: () => void; onSaved: (inviteUrl?: string) => void }) {
-  const [memberType, setMemberType] = useState<"team" | "client">("team");
+  // Editing a client must open as a client (not default to "team" → "Editor").
+  const [memberType, setMemberType] = useState<"team" | "client">(member?.isClientAccount ? "client" : "team");
 
   // Determine initial role for editing
   const initialRole = member?.role && TEAM_ROLES.find((r) => r.label === member.role)
