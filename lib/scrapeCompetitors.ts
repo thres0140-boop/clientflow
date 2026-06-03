@@ -15,34 +15,52 @@ export type ScrapedReel = {
   commentCount?: number;
 };
 
+const SCRAPER_HOST = "instagram-scraper-stable-api.p.rapidapi.com";
+
+// Instagram media IDs (pk) encode their creation time in the high bits.
+// timestamp_ms = (pk >> 23) + 1314220021721  (Instagram's epoch offset).
+function postedAtFromPk(pk: string): Date | undefined {
+  try {
+    if (!/^\d+$/.test(pk)) return undefined;
+    const ms = Number((BigInt(pk) >> BigInt(23)) + BigInt("1314220021721"));
+    if (!isFinite(ms) || ms < 1262304000000) return undefined; // sanity: after 2010
+    return new Date(ms);
+  } catch { return undefined; }
+}
+
 async function fetchReelsFromProvider(handle: string): Promise<ScrapedReel[]> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) throw new Error("RAPIDAPI_KEY not set");
 
-  const res = await fetch(
-    `https://instagram-scraper-api2.p.rapidapi.com/v1.2/reels?username_or_id_or_url=${encodeURIComponent(handle)}`,
-    { headers: { "X-RapidAPI-Key": apiKey, "X-RapidAPI-Host": "instagram-scraper-api2.p.rapidapi.com" } }
-  );
+  const username = handle.replace(/^@/, "").trim();
+  const res = await fetch(`https://${SCRAPER_HOST}/get_ig_user_reels.php`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "x-rapidapi-host": SCRAPER_HOST,
+      "x-rapidapi-key": apiKey,
+    },
+    body: new URLSearchParams({ username_or_url: username, amount: "20" }).toString(),
+  });
   const data = await res.json();
   if (data.detail || data.error) throw new Error(String(data.detail || data.error));
 
-  const raw: unknown[] = (data?.data?.items ?? data?.items ?? data?.reels ?? []) as unknown[];
-  return raw.map((item) => {
-    const m = item as Record<string, any>;
-    const media = (m.media as Record<string, any>) || m; // some shapes nest under .media
-    const caption = media.caption as Record<string, any> | string | null;
-    const code = media.code || media.shortcode || m.code || m.shortcode || String(media.id ?? media.pk ?? m.id ?? m.pk ?? "");
-    const takenAt = media.taken_at ?? media.taken_at_timestamp ?? m.taken_at;
+  const items: any[] = (data?.reels ?? data?.data?.reels ?? []) as any[];
+  return items.map((it) => {
+    const m = it?.node?.media ?? it?.media ?? it;
+    const code = m.code || m.shortcode || String(m.pk ?? m.id ?? "");
+    const pk = String(m.pk ?? (m.id ? String(m.id).split("_")[0] : ""));
+    const caption = m.caption as Record<string, any> | string | null;
     return {
       shortcode: String(code),
       caption: typeof caption === "string" ? caption : (caption?.text as string) || "",
-      thumbnailUrl: media.thumbnail_url || media.image_versions2?.candidates?.[0]?.url || undefined,
-      mediaUrl: media.video_url || media.video_versions?.[0]?.url || undefined,
+      thumbnailUrl: m.image_versions2?.candidates?.[0]?.url || m.thumbnail_url || undefined,
+      mediaUrl: m.video_versions?.[0]?.url || undefined,
       permalink: code ? `https://www.instagram.com/reel/${code}/` : undefined,
-      postedAt: takenAt ? new Date(Number(takenAt) * (Number(takenAt) > 1e12 ? 1 : 1000)) : undefined,
-      viewCount: Number(media.play_count ?? media.view_count ?? media.ig_play_count ?? 0) || undefined,
-      likeCount: Number(media.like_count ?? 0) || undefined,
-      commentCount: Number(media.comment_count ?? 0) || undefined,
+      postedAt: postedAtFromPk(pk),
+      viewCount: Number(m.play_count ?? m.view_count ?? m.ig_play_count ?? 0) || undefined,
+      likeCount: Number(m.like_count ?? 0) || undefined,
+      commentCount: Number(m.comment_count ?? 0) || undefined,
     } as ScrapedReel;
   }).filter((r) => r.shortcode);
 }
@@ -54,9 +72,9 @@ export async function scrapeCompetitor(competitorId: number, windowDays = 7): Pr
 
   try {
     const scraped = await fetchReelsFromProvider(competitor.handle);
-    const cutoff = Date.now() - windowDays * 86400000;
-    // Keep recent reels; if no postedAt, keep it (better to track than drop).
-    const recent = scraped.filter((r) => !r.postedAt || r.postedAt.getTime() >= cutoff);
+    // The endpoint returns the latest ~20 reels (newest first). Snapshot them all —
+    // older ones naturally fall out of the list once the account posts more.
+    const recent = scraped;
 
     let count = 0;
     for (const r of recent) {
