@@ -50,13 +50,17 @@ export async function GET(req: NextRequest) {
   // ?comps=clientId (or all) — dump competitors to verify they still exist + their stats
   const compsDump = req.nextUrl.searchParams.get("comps");
   if (compsDump) {
-    const where = compsDump === "all" ? {} : { clientId: parseInt(compsDump) };
-    const cs = await prisma.competitor.findMany({ where, orderBy: { id: "asc" } });
-    return NextResponse.json(cs.map((c: any) => ({
-      id: c.id, clientId: c.clientId, handle: c.handle,
-      followers: c.followerCount, following: c.followingCount, posts: c.postCount,
-      synced: c.lastProfileSyncAt, scrapeError: c.lastScrapeError,
-    })));
+    try {
+      const cols = await (prisma as any).$queryRaw`
+        SELECT column_name FROM information_schema.columns WHERE table_name = 'Competitor' ORDER BY column_name;
+      `;
+      const raw = await (prisma as any).$queryRaw`
+        SELECT id, "clientId", handle FROM "Competitor" ORDER BY id;
+      `;
+      return NextResponse.json({ columns: cols, rows: raw });
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 200 });
+    }
   }
 
   // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
