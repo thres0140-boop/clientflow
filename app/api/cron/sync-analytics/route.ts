@@ -38,7 +38,7 @@ async function syncClient(clientId: number, accessToken: string) {
   let mediaItems: any[] = [];
   try {
     const mediaUrl = new URL(`${IG_BASE}/me/media`);
-    mediaUrl.searchParams.set("fields", "id,media_type,media_product_type,timestamp,like_count,comments_count");
+    mediaUrl.searchParams.set("fields", "id,media_type,media_product_type,permalink,timestamp,like_count,comments_count");
     mediaUrl.searchParams.set("access_token", accessToken);
     mediaUrl.searchParams.set("limit", "50");
 
@@ -66,6 +66,26 @@ async function syncClient(clientId: number, accessToken: string) {
   const videoItems = mediaItems.filter(
     (m: any) => m.media_type === "VIDEO" || m.media_product_type === "REELS"
   );
+
+  // ─── Persist each reel's public permalink onto its day's AnalyticsEntry ──
+  // So the Analytics "Link" column is reliable even when the live (heavy) reel
+  // fetch fails. Newest-first → first reel per date wins; never overwrite a
+  // manually-entered link.
+  const seenDates = new Set<string>();
+  for (const media of videoItems) {
+    if (!media.permalink || !media.timestamp) continue;
+    const date = new Date(media.timestamp).toISOString().slice(0, 10);
+    if (seenDates.has(date)) continue;
+    seenDates.add(date);
+    try {
+      const existing = await prisma.analyticsEntry.findUnique({ where: { clientId_date: { clientId, date } } });
+      if (!existing) {
+        await prisma.analyticsEntry.create({ data: { clientId, date, videoLink: media.permalink } as any });
+      } else if (!(existing as any).videoLink) {
+        await prisma.analyticsEntry.update({ where: { clientId_date: { clientId, date } }, data: { videoLink: media.permalink } as any });
+      }
+    } catch { /* ignore */ }
+  }
 
   for (const media of videoItems) {
     const mediaTs = new Date(media.timestamp).getTime();
