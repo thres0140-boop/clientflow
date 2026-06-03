@@ -39,12 +39,18 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
   function cycle(c: Concept) {
     const interval = ((c as any).clientIntervalDays || 7);
     const anchorStr = (c as any).clientAnchor as string | null;
-    const anchor = anchorStr ? new Date(anchorStr + "T00:00:00") : new Date(c.createdAt);
+    const created = new Date(c.createdAt).getTime();
+    const anchorMs = anchorStr ? new Date(anchorStr + "T00:00:00").getTime() : created;
     const now = Date.now();
-    const passed = Math.max(0, Math.floor((now - anchor.getTime()) / DAY / interval));
-    const start = new Date(anchor.getTime() + passed * interval * DAY);
-    const end = new Date(start.getTime() + interval * DAY);
-    return { start, end };
+    // Roll the [start, end) window so it always contains "now" — never excludes a
+    // script the client just submitted, even if the anchor sits in the future.
+    let start = anchorMs;
+    let end = anchorMs + interval * DAY;
+    while (end <= now) { start = end; end += interval * DAY; }
+    while (start > now) { end = start; start -= interval * DAY; }
+    // Don't count drafts from before the concept existed.
+    const lower = Math.max(start, created);
+    return { start: new Date(lower), end: new Date(end) };
   }
 
   async function submit(c: Concept) {
