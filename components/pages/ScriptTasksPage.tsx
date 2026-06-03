@@ -18,7 +18,7 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [drafts, setDrafts] = useState<ScriptDraft[]>([]);
-  const [inputs, setInputs] = useState<Record<number, string[]>>({});
+  const [inputs, setInputs] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,17 +48,15 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
   }
 
   async function submit(c: Concept) {
-    const vals = (inputs[c.id] || []).map((s) => (s || "").trim()).filter(Boolean);
-    if (!vals.length || !client) return;
+    const v = (inputs[c.id] || "").trim();
+    if (!v || !client) return;
     setSubmitting(c.id);
     try {
-      for (const v of vals) {
-        await fetch("/api/script-drafts", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientId: client.id, conceptId: c.id, title: `${c.name} — ${client.name} script`, script: v, weekLabel: `Week ${WEEK_NUMBER}` }),
-        });
-      }
-      setInputs((p) => ({ ...p, [c.id]: [] }));
+      await fetch("/api/script-drafts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: client.id, conceptId: c.id, title: `${c.name} — ${client.name} script`, script: v, weekLabel: `Week ${WEEK_NUMBER}` }),
+      });
+      setInputs((p) => ({ ...p, [c.id]: "" }));
       load();
     } finally {
       setSubmitting(null);
@@ -96,7 +94,6 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
             const remaining = Math.max(0, quota - done);
             const dueStr = end.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
             const cat = (c as any).conceptType ? `${(c as any).conceptType} · ` : "";
-            const boxes = inputs[c.id] ?? [];
             return (
               <div key={c.id} className="bg-white border border-slate-200 rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -109,30 +106,33 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                 {/* Submitted scripts this cycle (visible to owner + client) */}
                 {cycleDrafts.length > 0 && (
                   <div className="space-y-1.5 mb-3">
-                    {cycleDrafts.map((d) => (
+                    {cycleDrafts.map((d, i) => (
                       <div key={d.id} className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                         <span className="text-green-500 text-xs mt-0.5">✓</span>
-                        <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed flex-1">{d.script}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Script {i + 1} · submitted for review</p>
+                          <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{d.script}</p>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Writing area — client only */}
+                {/* Writing area — client writes ONE script at a time and submits it */}
                 {canSubmit && remaining > 0 && (
                   <div className="space-y-2">
-                    {Array.from({ length: remaining }).map((_, i) => (
-                      <textarea key={i} rows={3} value={boxes[i] ?? ""}
-                        onChange={(e) => setInputs((p) => { const arr = [...(p[c.id] ?? [])]; arr[i] = e.target.value; return { ...p, [c.id]: arr }; })}
-                        placeholder={`Script ${done + i + 1} — write the on-screen text / script here…`}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
-                    ))}
+                    <p className="text-[11px] font-semibold text-slate-500">Write script {done + 1} of {quota}</p>
+                    <textarea rows={4} value={inputs[c.id] ?? ""}
+                      onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
+                      placeholder="Write the on-screen text / script here…"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
                     <div className="flex justify-end">
-                      <button onClick={() => submit(c)} disabled={submitting === c.id || !(inputs[c.id] || []).some((s) => (s || "").trim())}
+                      <button onClick={() => submit(c)} disabled={submitting === c.id || !(inputs[c.id] || "").trim()}
                         className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                        {submitting === c.id ? "Submitting…" : "Submit for review"}
+                        {submitting === c.id ? "Submitting…" : "Submit this script for review"}
                       </button>
                     </div>
+                    {remaining > 1 && <p className="text-[11px] text-slate-400 text-right">{remaining - 1} more after this one.</p>}
                   </div>
                 )}
                 {!canSubmit && remaining > 0 && (
