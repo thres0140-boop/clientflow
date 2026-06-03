@@ -280,6 +280,9 @@ export async function POST(req: NextRequest) {
     await (prisma as any).$executeRaw`
       ALTER TABLE "ConceptExample" ADD COLUMN IF NOT EXISTS "format" TEXT;
     `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "TeamMember" ADD COLUMN IF NOT EXISTS "viewOnlyPages" TEXT NOT NULL DEFAULT '';
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

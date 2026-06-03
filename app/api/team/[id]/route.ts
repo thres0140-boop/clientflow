@@ -19,6 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       role: body.role || null,
       color: body.color || "#6366f1",
       pageAccess: body.pageAccess || "all",
+      ...(body.viewOnlyPages !== undefined ? { viewOnlyPages: body.viewOnlyPages } : {}),
     },
   });
   return NextResponse.json(member);

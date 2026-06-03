@@ -106,6 +106,7 @@ export type TeamMember = {
   role?: string | null;
   color: string;
   pageAccess: string; // "all" or comma-separated page ids e.g. "dashboard,pipeline,concepts"
+  viewOnlyPages?: string; // comma-separated page ids the member can view but not edit
   isClientAccount: boolean;
   createdAt: string;
 };

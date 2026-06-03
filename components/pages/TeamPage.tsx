@@ -236,17 +236,39 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
     const roleConf = TEAM_ROLES.find((r) => r.label === initialRole);
     return roleConf?.pages === "all" ? ALL_PAGES.map((p) => p.id) : (roleConf?.pages ?? []);
   });
+  // Pages the member can VIEW but not edit. Clients default to view-only on every page.
+  const [viewOnly, setViewOnly] = useState<string[]>(() => {
+    if (member) return (member.viewOnlyPages || "").split(",").filter(Boolean);
+    return memberType === "client" ? [...CLIENT_PAGES] : [];
+  });
 
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
-  function togglePage(id: string) { setSelectedPages((prev) => prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]); }
-  function toggleAll() { setSelectedPages(selectedPages.length === ALL_PAGES.length ? [] : ALL_PAGES.map((p) => p.id)); }
+
+  // Per-page access state: "off" (hidden) | "view" (read-only) | "use" (full).
+  function pageState(id: string): "off" | "view" | "use" {
+    if (!selectedPages.includes(id)) return "off";
+    return viewOnly.includes(id) ? "view" : "use";
+  }
+  function setPageState(id: string, state: "off" | "view" | "use") {
+    if (state === "off") {
+      setSelectedPages((p) => p.filter((x) => x !== id));
+      setViewOnly((v) => v.filter((x) => x !== id));
+    } else if (state === "view") {
+      setSelectedPages((p) => (p.includes(id) ? p : [...p, id]));
+      setViewOnly((v) => (v.includes(id) ? v : [...v, id]));
+    } else {
+      setSelectedPages((p) => (p.includes(id) ? p : [...p, id]));
+      setViewOnly((v) => v.filter((x) => x !== id));
+    }
+  }
 
   function switchType(t: "team" | "client") {
     setMemberType(t);
-    if (t === "client") setSelectedPages(CLIENT_PAGES);
+    if (t === "client") { setSelectedPages([...CLIENT_PAGES]); setViewOnly([...CLIENT_PAGES]); }
     else {
       const def = TEAM_ROLES.find((r) => r.label === form.role);
       setSelectedPages(def?.pages === "all" ? ALL_PAGES.map((p) => p.id) : (def?.pages ?? ALL_PAGES.map((p) => p.id)));
+      setViewOnly([]);
     }
   }
 
@@ -260,11 +282,12 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const pages = memberType === "client" ? CLIENT_PAGES : selectedPages;
-    const pageAccess = memberType === "client" ? CLIENT_PAGES.join(",") : (pages.length === ALL_PAGES.length ? "all" : pages.join(","));
+    const pages = selectedPages;
+    const pageAccess = pages.length === ALL_PAGES.length ? "all" : pages.join(",");
+    const viewOnlyPages = viewOnly.filter((p) => pages.includes(p)).join(",");
     const method = member ? "PUT" : "POST";
     const url = member ? `/api/team/${member.id}` : "/api/team";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, pageAccess, isClient: !member && isClient, clientId: clientId ?? null }) });
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, pageAccess, viewOnlyPages, isClient: !member && isClient, clientId: clientId ?? null }) });
     const data = await res.json();
     if (!member && isClient && data.inviteUrl) {
       onSaved(data.inviteUrl);
@@ -320,52 +343,40 @@ function MemberModal({ member, clientId, onClose, onSaved }: { member?: TeamMemb
           <input type="email" required={isClient} value={form.email} onChange={(e) => set("email", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
 
-        {/* Page access: show preset tags for fixed roles, manual picker for Custom */}
-        {isClient ? (
-          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-            <p className="text-xs font-medium text-slate-600 mb-2">Page Access (preset)</p>
-            <div className="flex flex-wrap gap-1.5">
-              {ALL_PAGES.filter((p) => CLIENT_PAGES.includes(p.id)).map((p) => (
-                <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
-                  {p.icon} {p.label}
-                </span>
-              ))}
-            </div>
+        {/* Page access — per page: Off (hidden) / View (read-only) / Use (full) */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-2">Page Access <span className="font-normal text-slate-400">· toggle what they can see, and whether they can edit it</span></label>
+          <div className="space-y-1">
+            {ALL_PAGES.map((page) => {
+              const st = pageState(page.id);
+              const OPTIONS: { key: "off" | "view" | "use"; label: string }[] = [
+                { key: "off", label: "Hidden" },
+                { key: "view", label: "👁 View" },
+                { key: "use", label: "✏️ Use" },
+              ];
+              return (
+                <div key={page.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-slate-600 truncate">
+                    <span>{page.icon}</span>{page.label}
+                  </span>
+                  <div className="flex gap-0.5 bg-white rounded-md border border-slate-200 p-0.5 flex-shrink-0">
+                    {OPTIONS.map((o) => (
+                      <button key={o.key} type="button" onClick={() => setPageState(page.id, o.key)}
+                        className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
+                          st === o.key
+                            ? (o.key === "off" ? "bg-slate-200 text-slate-600" : o.key === "view" ? "bg-amber-100 text-amber-700" : "bg-indigo-600 text-white")
+                            : "text-slate-400 hover:text-slate-600"
+                        }`}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ) : isCustomRole ? (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-medium text-slate-600">Page Access</label>
-              <button type="button" onClick={toggleAll} className="text-xs text-indigo-600 hover:underline">{selectedPages.length === ALL_PAGES.length ? "Deselect all" : "Select all"}</button>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {ALL_PAGES.map((page) => {
-                const checked = selectedPages.includes(page.id);
-                return (
-                  <button key={page.id} type="button" onClick={() => togglePage(page.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${checked ? "bg-indigo-50 border-indigo-300 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>
-                    <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${checked ? "bg-indigo-600 border-indigo-600" : "border-slate-300 bg-white"}`}>
-                      {checked && <span className="text-white text-[9px] font-bold">✓</span>}
-                    </span>
-                    <span>{page.icon}</span>
-                    <span className="truncate">{page.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-            <p className="text-xs font-medium text-slate-600 mb-2">Page Access</p>
-            <div className="flex flex-wrap gap-1.5">
-              {rolePages.map((p) => (
-                <span key={p.id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
-                  {p.icon} {p.label}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+          <p className="text-[10px] text-slate-400 mt-1.5">👁 View = can open the page but not add/edit/schedule. ✏️ Use = full access.</p>
+        </div>
 
         {!isClient && (
           <div>

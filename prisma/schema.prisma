@@ -96,6 +96,7 @@ model TeamMember {
   role              String?
   color             String    @default("#6366f1")
   pageAccess        String    @default("all")
+  viewOnlyPages     String    @default("") // comma-separated page ids the member can VIEW but not edit
   isClientAccount   Boolean   @default(false)
   passwordHash      String?
   inviteToken       String?   @unique

@@ -15,6 +15,7 @@ type Props = {
   refreshClients: () => void;
   refreshNotifications: () => void;
   isClient?: boolean;
+  readOnly?: boolean; // view-only: can see the page but not add/schedule/edit
 };
 
 type CalendarView = "month" | "week";
@@ -55,7 +56,9 @@ function parseDayTemplate(raw: string | null | undefined): Record<number, number
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-export default function Pipeline({ clients, selectedClientId, refreshNotifications, isClient }: Props) {
+export default function Pipeline({ clients, selectedClientId, refreshNotifications, isClient, readOnly = false }: Props) {
+  // Editing is allowed unless the page is view-only for this member.
+  const canEdit = !readOnly;
   const [content, setContent] = useState<ContentPiece[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
   // Label a concept as "General Concept · Concept Type" (falls back to just the name).
@@ -256,7 +259,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         </div>
         <div className="flex items-center gap-2">
           <PlanModeSelector current={planMode} onChange={changePlanMode} />
-          {!isClient && (
+          {canEdit && (
             <>
               <button
                 onClick={() => setShowPostIG(true)}
@@ -312,7 +315,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
               <div key={d} className="border-r border-slate-100 last:border-r-0 px-2 py-2">
                 <div className="flex items-center justify-center gap-1.5">
                   <span className="text-xs font-semibold text-slate-400">{d}</span>
-                  {planMode === "template" && (
+                  {planMode === "template" && canEdit && (
                     concept ? (
                       <button
                         onClick={() => saveDayTemplate({ ...dayTemplate, [i]: null })}
@@ -371,9 +374,9 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                   <div
                     key={idx}
                     className={`min-h-[100px] border-r border-b border-slate-100 last:border-r-0 p-1.5 transition-colors ${isToday ? "bg-indigo-50/40" : ""} ${!date ? "bg-slate-50/50" : ""} ${isDragTarget ? "bg-indigo-100/60 ring-2 ring-inset ring-indigo-400" : ""}`}
-                    onDragOver={date ? (e) => { e.preventDefault(); setDragOverDate(date); } : undefined}
+                    onDragOver={date && canEdit ? (e) => { e.preventDefault(); setDragOverDate(date); } : undefined}
                     onDragLeave={() => setDragOverDate(null)}
-                    onDrop={date ? () => handleCalendarDrop(date) : undefined}
+                    onDrop={date && canEdit ? () => handleCalendarDrop(date) : undefined}
                   >
                     {date && (
                       <>
@@ -382,7 +385,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             {date.slice(8).replace(/^0/, "")}
                           </span>
                           {/* Calendar mode: tag picker per individual date */}
-                          {!isClient && planMode === "calendar" && (() => {
+                          {canEdit && planMode === "calendar" && (() => {
                             const tagId = dateTags[date];
                             const tagConcept = tagId ? concepts.find((c) => c.id === tagId) : null;
                             return tagConcept ? (
@@ -495,9 +498,9 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                   <div
                     key={date}
                     className={`min-h-[420px] p-2 flex flex-col transition-colors ${isToday ? "bg-indigo-50/40" : ""} ${isDragTargetWeek ? "bg-indigo-100/60 ring-2 ring-inset ring-indigo-400" : ""}`}
-                    onDragOver={(e) => { e.preventDefault(); setDragOverDate(date); }}
+                    onDragOver={canEdit ? (e) => { e.preventDefault(); setDragOverDate(date); } : undefined}
                     onDragLeave={() => setDragOverDate(null)}
-                    onDrop={() => handleCalendarDrop(date)}
+                    onDrop={canEdit ? () => handleCalendarDrop(date) : undefined}
                   >
                     <div className={`text-center mb-2`}>
                       <p className="text-[10px] font-semibold text-slate-400 uppercase">{DAYS[i]}</p>
@@ -557,7 +560,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         </div>
                       ))}
                     </div>
-                    {!isClient && (
+                    {canEdit && (
                       <button
                         onClick={() => setShowAdd(true)}
                         className="mt-2 w-full text-[10px] text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded py-1 transition-colors text-center"
@@ -649,10 +652,10 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         {group.drafts.map((draft) => (
                           <div
                             key={draft.id}
-                            draggable
-                            onDragStart={() => handleDraftDragStart(draft.id)}
+                            draggable={canEdit}
+                            onDragStart={canEdit ? () => handleDraftDragStart(draft.id) : undefined}
                             onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
-                            className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50 transition-colors select-none"
+                            className={`rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 ${canEdit ? "cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50" : ""} transition-colors select-none`}
                           >
                             <p className="text-xs font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
                             {draft.concept && (

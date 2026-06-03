@@ -145,25 +145,23 @@ export default function App() {
     window.location.href = "/login";
   }
 
-  // Pages still in development — hidden from all client accounts except the test account
-  const WIP_PAGES: Page[] = ["pipeline", "analytics", "dms"];
-  const isTestClient = !!(clients.find((c) => c.id === selectedClientId)?.isTestAccount);
-
-  // Compute which pages the active profile can see
+  // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
     const all: Page[] = ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
       : activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
-    // Always give client logins access to chat
+    // Always give member logins access to chat
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
-    // Hide WIP pages from client accounts except the Test client
-    if (session?.type === "member" && !isTestClient) {
-      return base.filter((p) => !WIP_PAGES.includes(p));
-    }
     return base;
   })();
+
+  // Pages this member may VIEW but not edit (view-only). Empty for the owner.
+  const viewOnlyPages: Page[] = activeProfile?.viewOnlyPages
+    ? (activeProfile.viewOnlyPages.split(",").filter(Boolean) as Page[])
+    : [];
+  const pageReadOnly = viewOnlyPages.includes(page);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -176,7 +174,7 @@ export default function App() {
     }
     const props = { clients, selectedClientId, refreshClients: fetchClients };
     switch (page) {
-      case "pipeline": return <Pipeline {...props} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} />;
+      case "pipeline": return <Pipeline {...props} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} />;
       case "concepts": return <Concepts {...props} onAttachReels={(c) => { setAttachConcept(c); setPage("instagram"); }} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;

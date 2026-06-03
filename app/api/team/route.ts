@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       role: body.role || null,
       color: body.color || "#6366f1",
       pageAccess: body.pageAccess || "all",
+      viewOnlyPages: body.viewOnlyPages ?? "",
       isClientAccount: body.isClient === true,
       ...(inviteToken ? { inviteToken, inviteTokenExpiry } : {}),
     },
