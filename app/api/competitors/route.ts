@@ -27,10 +27,11 @@ export async function POST(req: NextRequest) {
       profileUrl: body.profileUrl || null,
     },
   });
-  // Pull basic profile data (followers/following/posts/bio/avatar) + a full
-  // reel backfill so the new competitor has both stats and history right away.
+  // Fast path so the row + stats appear immediately: pull basic profile data
+  // (one request) and a light incremental reel scrape. The daily cron does the
+  // deep backfill — we never block the Add button on a 12-page crawl.
   await scrapeCompetitorProfile(competitor.id).catch(() => {});
-  await scrapeCompetitor(competitor.id, { full: true }).catch(() => {});
+  await scrapeCompetitor(competitor.id, { full: false }).catch(() => {});
   const fresh = await prisma.competitor.findUnique({ where: { id: competitor.id } });
   return NextResponse.json(fresh ?? competitor, { status: 201 });
 }

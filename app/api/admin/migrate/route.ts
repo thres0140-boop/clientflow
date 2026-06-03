@@ -47,26 +47,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ?comps=clientId (or all) — dump competitors to verify they still exist + their stats
-  const compsDump = req.nextUrl.searchParams.get("comps");
-  if (compsDump) {
-    const out: any = {};
-    try {
-      const cols = await (prisma as any).$queryRaw`
-        SELECT column_name::text AS col FROM information_schema.columns WHERE table_name = 'Competitor' ORDER BY column_name;
-      `;
-      out.columns = cols.map((c: any) => c.col);
-    } catch (e) { out.columnsError = String(e); }
-    try {
-      out.rows = await (prisma as any).$queryRaw`SELECT id, "clientId", handle FROM "Competitor" ORDER BY id;`;
-    } catch (e) { out.rowsError = String(e); }
-    try {
-      await prisma.competitor.findMany({ take: 1 });
-      out.findManyOk = true;
-    } catch (e) { out.findManyError = String(e); }
-    return NextResponse.json(out, { status: 200 });
-  }
-
   // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
   const draftsDump = req.nextUrl.searchParams.get("drafts");
   if (draftsDump) {
