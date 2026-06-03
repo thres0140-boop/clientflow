@@ -7,6 +7,27 @@ import Modal from "@/components/ui/Modal";
 type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void };
 type Tab = "ideas" | "concepts";
 
+// Distinct color per concept category (falls back to a stable hashed palette).
+const CATEGORY_COLORS: Record<string, string> = {
+  Viral:        "bg-pink-100 text-pink-700",
+  Value:        "bg-emerald-100 text-emerald-700",
+  Authentic:    "bg-amber-100 text-amber-700",
+  Authority:    "bg-purple-100 text-purple-700",
+  Trust:        "bg-blue-100 text-blue-700",
+  Uncategorised:"bg-slate-100 text-slate-500",
+};
+const CATEGORY_PALETTE = [
+  "bg-pink-100 text-pink-700", "bg-emerald-100 text-emerald-700", "bg-amber-100 text-amber-700",
+  "bg-purple-100 text-purple-700", "bg-blue-100 text-blue-700", "bg-cyan-100 text-cyan-700",
+  "bg-rose-100 text-rose-700", "bg-indigo-100 text-indigo-700",
+];
+function categoryColor(cat: string): string {
+  if (CATEGORY_COLORS[cat]) return CATEGORY_COLORS[cat];
+  let h = 0;
+  for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) >>> 0;
+  return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length];
+}
+
 // ── Reel picker: browse the client's reels and click to attach ──────────────────
 function reelUrlOf(r: any): string {
   return r.permalink || `https://instagram.com/reel/${r.id}`;
@@ -213,7 +234,7 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
                 return ordered.map(([cat, list]) => (
                   <div key={cat}>
                     <div className="flex items-center gap-2 mb-2 px-1">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{cat}</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${categoryColor(cat)}`}>{cat}</span>
                       <span className="text-xs text-slate-400">{list.length} concept{list.length !== 1 ? "s" : ""}</span>
                     </div>
                     <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
@@ -1039,7 +1060,7 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
           {(concept as any).conceptType && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${categoryColor((concept as any).conceptType)}`}>
               {(concept as any).conceptType}
             </span>
           )}
