@@ -1007,28 +1007,37 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="relative bg-slate-900 aspect-[9/16] max-h-72 w-full flex items-center justify-center overflow-hidden">
-            {reel.media_url
-              ? <video src={reel.media_url} poster={reel.thumbnail_url} controls className="w-full h-full object-contain" />
-              : reel.instagramUrl
-                ? <a href={reel.instagramUrl} target="_blank" rel="noopener noreferrer" className="relative w-full h-full flex items-center justify-center group">
+            {(() => {
+              // Competitor reels (have a handle) carry a stale Instagram CDN video URL
+              // that expires — embedding it won't play. Link out to Instagram instead.
+              const igLink = reel.permalink || reel.instagramUrl || (reel.id ? `https://www.instagram.com/reel/${reel.id}/` : null);
+              const isCompetitor = !!reel.handle;
+              const canEmbed = reel.media_url && !isCompetitor;
+              if (canEmbed) {
+                return <video src={reel.media_url} poster={reel.thumbnail_url} controls className="w-full h-full object-contain" />;
+              }
+              if (igLink) {
+                return (
+                  <a href={igLink} target="_blank" rel="noopener noreferrer" className="relative w-full h-full flex items-center justify-center group">
                     {reel.thumbnail_url
                       ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />
-                    }
+                      : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
                       <div className="flex flex-col items-center gap-1.5">
                         <span className="text-4xl">▶</span>
-                        <p className="text-white text-xs font-medium opacity-80">Open on Instagram</p>
+                        <p className="text-white text-xs font-medium opacity-90">Watch on Instagram ↗</p>
                       </div>
                     </div>
                   </a>
-                : reel.thumbnail_url
-                  ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                  : <div className="flex flex-col items-center gap-2 text-slate-600">
-                      <span className="text-4xl opacity-20">▶</span>
-                      <p className="text-xs opacity-40">No preview available</p>
-                    </div>
-            }
+                );
+              }
+              return reel.thumbnail_url
+                ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                : <div className="flex flex-col items-center gap-2 text-slate-600">
+                    <span className="text-4xl opacity-20">▶</span>
+                    <p className="text-xs opacity-40">No preview available</p>
+                  </div>;
+            })()}
           </div>
           <div className="p-5 space-y-5">
             {reel.caption && (
