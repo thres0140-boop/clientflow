@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   const valid = await bcrypt.compare(password, member.passwordHash);
   if (!valid) return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
 
-  const token = await createSessionToken({ type: "member", memberId: member.id, name: member.name });
+  const token = await createSessionToken({ type: "member", memberId: member.id, name: member.name, clientId: member.clientId ?? null });
   const res = NextResponse.json({ ok: true, type: "member", memberId: member.id });
   setCookie(res, token);
   return res;

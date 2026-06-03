@@ -19,7 +19,22 @@ export async function middleware(req: NextRequest) {
   if (!token) return NextResponse.redirect(new URL("/login", req.url));
 
   try {
-    await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getSecret());
+
+    // Data isolation: a member may only touch their own client's data. If a member
+    // session carries a clientId and an /api request asks for a DIFFERENT clientId,
+    // block it. (Owners are unrestricted; older tokens without clientId are skipped
+    // and re-scoped on next login.)
+    if (
+      pathname.startsWith("/api/") &&
+      (payload as any).type === "member" &&
+      (payload as any).clientId != null
+    ) {
+      const reqClient = req.nextUrl.searchParams.get("clientId");
+      if (reqClient && reqClient !== String((payload as any).clientId)) {
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
+    }
     return NextResponse.next();
   } catch {
     const res = NextResponse.redirect(new URL("/login", req.url));

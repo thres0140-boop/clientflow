@@ -10,6 +10,7 @@ export type SessionPayload = {
   type: "owner" | "member";
   memberId: number | null;
   name: string;
+  clientId?: number | null; // member's assigned client — used to scope data access
 };
 
 export async function createSessionToken(payload: SessionPayload): Promise<string> {
