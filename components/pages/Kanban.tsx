@@ -52,6 +52,11 @@ function CardContent({ draft }: { draft: ScriptDraft }) {
           ↩ Returning idea
         </span>
       )}
+      {draft.clientAuthored && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full mb-2 ml-1">
+          ✍️ Client-written
+        </span>
+      )}
       <p className="text-xs font-semibold text-slate-800 truncate">{draft.title}</p>
       {draft.concept && (
         <p className="text-[10px] text-indigo-500 font-medium mt-0.5">
