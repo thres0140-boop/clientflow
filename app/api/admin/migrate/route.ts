@@ -47,6 +47,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ?colcheck=TableName — list a table's columns (verify a migration actually applied)
+  const colcheck = req.nextUrl.searchParams.get("colcheck");
+  if (colcheck) {
+    try {
+      const cols = await (prisma as any).$queryRawUnsafe(
+        `SELECT column_name::text AS col FROM information_schema.columns WHERE table_name = $1 ORDER BY column_name;`,
+        colcheck
+      );
+      return NextResponse.json({ table: colcheck, columns: cols.map((c: any) => c.col) });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+
   // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
   const draftsDump = req.nextUrl.searchParams.get("drafts");
   if (draftsDump) {
