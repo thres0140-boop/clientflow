@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fetchProfileInfo } from "@/lib/scrapeCompetitors";
+import { fetchProfileInfo, freshReelMediaUrl } from "@/lib/scrapeCompetitors";
 
 // GET — debug: show all instagram connections + lead counts
 export async function GET(req: NextRequest) {
@@ -34,6 +34,23 @@ export async function GET(req: NextRequest) {
       items: (d.data || []).map((m: any) => ({ id: m.id, type: m.media_type, product: m.media_product_type, permalink: m.permalink ?? null, timestamp: m.timestamp })),
       error: d.error ?? null,
     });
+  }
+
+  // ?rawmedia=shortcode — call get_media_data.php and show raw response + parsed video url
+  const rawmedia = req.nextUrl.searchParams.get("rawmedia");
+  if (rawmedia) {
+    const apiKey = process.env.RAPIDAPI_KEY || "";
+    const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
+    const reelUrl = `https://www.instagram.com/reel/${rawmedia}/`;
+    try {
+      const qs = new URLSearchParams({ reel_post_code_or_url: reelUrl, type: "reel" });
+      const res = await fetch(`https://${HOST}/get_media_data.php?${qs.toString()}`, {
+        method: "GET", headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey },
+      });
+      const text = await res.text();
+      const parsed = await freshReelMediaUrl("", rawmedia);
+      return NextResponse.json({ status: res.status, parsedVideoUrl: parsed, raw: text.slice(0, 2000) });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
 
   // ?mediaprobe=shortcode — discover which media-by-id endpoint exists (404 vs 429/200)

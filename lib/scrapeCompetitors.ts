@@ -46,39 +46,48 @@ function mapItem(it: any): ScrapedReel {
   } as ScrapedReel;
 }
 
-// Re-fetch a fresh, currently-playable video URL for one reel (IG CDN links expire).
-// Searches the latest pages and returns as soon as the shortcode is found.
-export async function freshReelMediaUrl(handle: string, shortcode: string, maxPages = 5): Promise<string | null> {
-  const apiKey = process.env.RAPIDAPI_KEY;
-  if (!apiKey || !shortcode) return null;
-  const username = handle.replace(/^@/, "").trim();
-  let token = "";
-  for (let page = 0; page < maxPages; page++) {
-    const body = new URLSearchParams({ username_or_url: username, amount: "50" });
-    if (token) body.set("pagination_token", token);
-    let data: any;
-    try {
-      const res = await fetch(`https://${SCRAPER_HOST}/get_ig_user_reels.php`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "x-rapidapi-host": SCRAPER_HOST,
-          "x-rapidapi-key": apiKey,
-        },
-        body: body.toString(),
-      });
-      data = await res.json();
-    } catch { break; }
-    if (data?.detail || data?.error) break;
-    const items: any[] = (data?.reels ?? data?.data?.reels ?? []) as any[];
-    for (const it of items.map(mapItem)) {
-      if (it.shortcode === shortcode && it.mediaUrl) return it.mediaUrl;
+// Deep-search an object for the first Instagram CDN video URL. The detailed-reel
+// response shape isn't documented, so we walk it and pick a .mp4/video_versions url.
+function findVideoUrl(obj: any, depth = 0): string | null {
+  if (!obj || depth > 6) return null;
+  if (typeof obj === "string") {
+    return /\.mp4|video_dash|video_versions/.test(obj) && obj.startsWith("http") ? obj : null;
+  }
+  if (Array.isArray(obj)) {
+    for (const v of obj) { const r = findVideoUrl(v, depth + 1); if (r) return r; }
+    return null;
+  }
+  if (typeof obj === "object") {
+    // Prefer explicit video fields first.
+    const vv = obj.video_versions ?? obj.videoVersions;
+    if (Array.isArray(vv) && vv[0]?.url) return vv[0].url as string;
+    for (const k of ["video_url", "videoUrl", "play_url", "playback_url"]) {
+      if (typeof obj[k] === "string" && obj[k].startsWith("http")) return obj[k];
     }
-    token = data.pagination_token || data?.data?.pagination_token || "";
-    if (!token) break;
-    await new Promise((r) => setTimeout(r, 250));
+    for (const v of Object.values(obj)) { const r = findVideoUrl(v, depth + 1); if (r) return r; }
   }
   return null;
+}
+
+// Re-fetch a fresh, currently-playable video URL for one reel (IG CDN links expire).
+// Uses the single-media endpoint (get_media_data.php) — one request per reel,
+// and unlike the reels-list endpoint it actually returns the video file URL.
+export async function freshReelMediaUrl(handle: string, shortcode: string): Promise<string | null> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey || !shortcode) return null;
+  const reelUrl = `https://www.instagram.com/reel/${shortcode}/`;
+  try {
+    const qs = new URLSearchParams({ reel_post_code_or_url: reelUrl, type: "reel" });
+    const res = await fetch(`https://${SCRAPER_HOST}/get_media_data.php?${qs.toString()}`, {
+      method: "GET",
+      headers: { "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
+    });
+    const data = await res.json();
+    if (data?.detail || data?.error || data?.message) return null;
+    return findVideoUrl(data);
+  } catch {
+    return null;
+  }
 }
 
 // Fetch reels (newest first), following pagination tokens up to `maxPages`
