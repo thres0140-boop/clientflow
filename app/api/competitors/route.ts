@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { scrapeCompetitor } from "@/lib/scrapeCompetitors";
+import { scrapeCompetitor, scrapeCompetitorProfile } from "@/lib/scrapeCompetitors";
 
 export const maxDuration = 120;
 
@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
       profileUrl: body.profileUrl || null,
     },
   });
-  // Full backfill (last ~90 days) immediately so the new competitor has history.
+  // Pull basic profile data (followers/following/posts/bio/avatar) + a full
+  // reel backfill so the new competitor has both stats and history right away.
+  await scrapeCompetitorProfile(competitor.id).catch(() => {});
   await scrapeCompetitor(competitor.id, { full: true }).catch(() => {});
-  return NextResponse.json(competitor, { status: 201 });
+  const fresh = await prisma.competitor.findUnique({ where: { id: competitor.id } });
+  return NextResponse.json(fresh ?? competitor, { status: 201 });
 }

@@ -401,6 +401,7 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [editing, setEditing] = useState<Competitor | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
   // Reels sub-tab state
   const [allReels, setAllReels] = useState<IGReel[]>([]);
@@ -425,6 +426,20 @@ function CompetitorsTab({ client }: { client: Client }) {
     if (!confirm("Remove this competitor?")) return;
     await fetch(`/api/competitors/${id}`, { method: "DELETE" });
     reload();
+  }
+
+  async function syncProfiles() {
+    setSyncing(true);
+    try {
+      const d = await fetch("/api/competitors/enrich", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: client.id }),
+      }).then((r) => r.json());
+      if (d.synced === 0 && d.error) alert(`Couldn't sync profile data: ${d.error}`);
+      reload();
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function suggestCompetitors() {
@@ -523,6 +538,12 @@ function CompetitorsTab({ client }: { client: Client }) {
               <p className="text-xs text-slate-400 mt-0.5">Track what's working in your niche</p>
             </div>
             <div className="flex gap-2">
+              {competitors.length > 0 && (
+                <button onClick={syncProfiles} disabled={syncing}
+                  className="px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50">
+                  {syncing ? "Syncing…" : "↻ Sync data"}
+                </button>
+              )}
               <button onClick={suggestCompetitors} disabled={suggesting}
                 className="px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-50">
                 {suggesting ? "Thinking…" : "✨ Suggest competitors"}
@@ -556,10 +577,24 @@ function CompetitorsTab({ client }: { client: Client }) {
               <p className="text-xs text-slate-400 mt-1">Add handles manually or let AI suggest accounts in your niche.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {competitors.map((c) => (
-                <CompetitorCard key={c.id} competitor={c} onEdit={() => setEditing(c)} onDelete={() => remove(c.id)} />
-              ))}
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                    <th className="px-4 py-3">Account</th>
+                    <th className="px-3 py-3 text-right">Followers</th>
+                    <th className="px-3 py-3 text-right">Following</th>
+                    <th className="px-3 py-3 text-right">Posts</th>
+                    <th className="px-4 py-3">Niche</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {competitors.map((c) => (
+                    <CompetitorRow key={c.id} competitor={c} onEdit={() => setEditing(c)} onDelete={() => remove(c.id)} />
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -687,43 +722,50 @@ function CompetitorsTab({ client }: { client: Client }) {
 }
 
 
-function CompetitorCard({ competitor, onEdit, onDelete }: { competitor: Competitor; onEdit: () => void; onDelete: () => void }) {
+function CompetitorRow({ competitor: c, onEdit, onDelete }: { competitor: Competitor; onEdit: () => void; onDelete: () => void }) {
+  const url = c.profileUrl || `https://instagram.com/${c.handle}`;
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-bold text-slate-800">@{competitor.handle}</span>
-            <a href={competitor.profileUrl || `https://instagram.com/${competitor.handle}`}
-              target="_blank" rel="noopener noreferrer"
-              className="text-slate-300 hover:text-indigo-500 text-xs">↗</a>
+    <tr className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          {c.profilePicUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={c.profilePicUrl} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-slate-100" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-bold flex-shrink-0">
+              {c.handle.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-slate-800 hover:text-indigo-600 truncate">@{c.handle}</a>
+              {c.verified && <span className="text-blue-500 text-xs" title="Verified">✔</span>}
+            </div>
+            {c.name && <p className="text-xs text-slate-400 truncate max-w-[220px]">{c.name}</p>}
           </div>
-          {competitor.name && <p className="text-xs text-slate-400 mt-0.5">{competitor.name}</p>}
         </div>
-        {competitor.followerCount && (
-          <span className="text-xs font-semibold text-slate-500 flex-shrink-0 ml-2">
-            {fmt(competitor.followerCount)} followers
-          </span>
-        )}
-      </div>
-      {competitor.niche && (
-        <div className="flex flex-wrap gap-1 mb-3">
-          {competitor.niche.split(",").map((n) => (
-            <span key={n} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] rounded-full font-medium">{n.trim()}</span>
-          ))}
+      </td>
+      <td className="px-3 py-3 text-right font-semibold text-slate-700 tabular-nums">{c.followerCount != null ? fmt(c.followerCount) : "—"}</td>
+      <td className="px-3 py-3 text-right text-slate-500 tabular-nums">{c.followingCount != null ? fmt(c.followingCount) : "—"}</td>
+      <td className="px-3 py-3 text-right text-slate-500 tabular-nums">{c.postCount != null ? fmt(c.postCount) : "—"}</td>
+      <td className="px-4 py-3">
+        {c.niche ? (
+          <div className="flex flex-wrap gap-1">
+            {c.niche.split(",").slice(0, 3).map((n) => (
+              <span key={n} className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] rounded-full font-medium">{n.trim()}</span>
+            ))}
+          </div>
+        ) : <span className="text-slate-300">—</span>}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-1.5">
+          <a href={url} target="_blank" rel="noopener noreferrer"
+            className="px-2.5 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100">View ↗</a>
+          <button onClick={onEdit} className="px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
+          <button onClick={onDelete} className="px-2.5 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">✕</button>
         </div>
-      )}
-      {competitor.notes && <p className="text-xs text-slate-500 line-clamp-2 mb-3">{competitor.notes}</p>}
-      <div className="flex gap-2">
-        <a href={competitor.profileUrl || `https://instagram.com/${competitor.handle}`}
-          target="_blank" rel="noopener noreferrer"
-          className="flex-1 text-center py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100">
-          View Profile ↗
-        </a>
-        <button onClick={onEdit} className="px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
-        <button onClick={onDelete} className="px-2.5 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">✕</button>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 

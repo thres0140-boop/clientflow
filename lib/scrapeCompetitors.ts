@@ -128,6 +128,84 @@ async function fetchReelsFromProvider(handle: string, maxPages: number): Promise
   return out;
 }
 
+// ── Profile info (followers, following, posts, bio, avatar) ──────────────────
+export type ProfileInfo = {
+  name?: string;
+  bio?: string;
+  followerCount?: number;
+  followingCount?: number;
+  postCount?: number;
+  profilePicUrl?: string;
+  verified?: boolean;
+};
+
+const numOr = (...vals: any[]): number | undefined => {
+  for (const v of vals) {
+    if (v === null || v === undefined) continue;
+    const n = typeof v === "object" ? Number(v.count) : Number(v);
+    if (isFinite(n) && n >= 0) return n;
+  }
+  return undefined;
+};
+const strOr = (...vals: any[]): string | undefined => {
+  for (const v of vals) if (typeof v === "string" && v.trim()) return v.trim();
+  return undefined;
+};
+
+// Fetch basic profile data for a handle. The provider's response shape isn't
+// documented, so we dig through the common containers and field aliases
+// (private-API style + graphql style).
+export async function fetchProfileInfo(handle: string): Promise<ProfileInfo> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) throw new Error("RAPIDAPI_KEY not set");
+  const username = handle.replace(/^@/, "").trim();
+  const res = await fetch(`https://${SCRAPER_HOST}/ig_get_fb_profile.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
+    body: new URLSearchParams({ username_or_url: username }).toString(),
+  });
+  const data = await res.json();
+  if (data?.detail || data?.error || data?.message) {
+    throw new Error(String(data.detail || data.error || data.message).slice(0, 200));
+  }
+  // Unwrap likely containers.
+  const u = data?.user ?? data?.data?.user ?? data?.graphql?.user ?? data?.data ?? data ?? {};
+  return {
+    name: strOr(u.full_name, u.fullName, u.name),
+    bio: strOr(u.biography, u.bio),
+    followerCount: numOr(u.follower_count, u.followers, u.followersCount, u.edge_followed_by),
+    followingCount: numOr(u.following_count, u.followings, u.followingCount, u.edge_follow),
+    postCount: numOr(u.media_count, u.posts, u.postsCount, u.edge_owner_to_timeline_media),
+    profilePicUrl: strOr(u.profile_pic_url_hd, u.profile_pic_url, u.profilePicUrl, u.hd_profile_pic_url_info?.url),
+    verified: typeof (u.is_verified ?? u.verified) === "boolean" ? (u.is_verified ?? u.verified) : undefined,
+  };
+}
+
+// Fetch + persist profile info onto the Competitor row. Best-effort.
+export async function scrapeCompetitorProfile(competitorId: number): Promise<{ ok: boolean; error?: string }> {
+  const competitor = await prisma.competitor.findUnique({ where: { id: competitorId } });
+  if (!competitor) return { ok: false, error: "not found" };
+  try {
+    const p = await fetchProfileInfo(competitor.handle);
+    await prisma.competitor.update({
+      where: { id: competitorId },
+      data: {
+        name: p.name ?? competitor.name,
+        bio: p.bio ?? undefined,
+        followerCount: p.followerCount ?? competitor.followerCount,
+        followingCount: p.followingCount ?? undefined,
+        postCount: p.postCount ?? undefined,
+        profilePicUrl: p.profilePicUrl ?? undefined,
+        verified: p.verified ?? undefined,
+        lastProfileSyncAt: new Date(),
+      } as any,
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err instanceof Error ? err.message : err).slice(0, 200) };
+  }
+}
+
 // ── Scrape one competitor: upsert reels + append a snapshot for each ──
 // full=true  → backfill the last ~90 days (paginate deep). Use on first add.
 // full=false → just the latest 2-3 pages (new posts + recent updates). Use on cron/refresh.

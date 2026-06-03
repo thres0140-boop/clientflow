@@ -5,6 +5,12 @@ export type Competitor = {
   name?: string | null;
   niche?: string | null;
   followerCount?: number | null;
+  followingCount?: number | null;
+  postCount?: number | null;
+  bio?: string | null;
+  profilePicUrl?: string | null;
+  verified?: boolean | null;
+  lastProfileSyncAt?: string | null;
   notes?: string | null;
   profileUrl?: string | null;
   createdAt: string;

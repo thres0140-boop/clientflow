@@ -164,6 +164,12 @@ model Competitor {
   name          String?
   niche         String?
   followerCount Int?
+  followingCount Int?
+  postCount     Int?
+  bio           String?
+  profilePicUrl String?
+  verified      Boolean?
+  lastProfileSyncAt DateTime?
   notes         String?
   profileUrl    String?
   createdAt     DateTime @default(now())

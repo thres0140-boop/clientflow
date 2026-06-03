@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { fetchProfileInfo } from "@/lib/scrapeCompetitors";
 
 // GET — debug: show all instagram connections + lead counts
 export async function GET(req: NextRequest) {
@@ -35,31 +36,15 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // ?profileprobe=handle — try candidate profile-info endpoints on the scraper provider
+  // ?profileprobe=handle — fetch one competitor's parsed profile info (debug the enrich)
   const profileProbe = req.nextUrl.searchParams.get("profileprobe");
   if (profileProbe) {
-    const apiKey = process.env.RAPIDAPI_KEY;
-    const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
-    const username = profileProbe.replace(/^@/, "").trim();
-    const candidates = [
-      "get_ig_user_info.php",
-      "ig_get_fb_profile.php",
-      "get_ig_profile_info.php",
-      "get_ig_user_profile.php",
-    ];
-    const results: any = {};
-    for (const ep of candidates) {
-      try {
-        const res = await fetch(`https://${HOST}/${ep}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey || "" },
-          body: new URLSearchParams({ username_or_url: username }).toString(),
-        });
-        const text = await res.text();
-        results[ep] = { status: res.status, body: text.slice(0, 1500) };
-      } catch (e) { results[ep] = { error: String(e) }; }
+    try {
+      const info = await fetchProfileInfo(profileProbe);
+      return NextResponse.json({ ok: true, info });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: String(e) });
     }
-    return NextResponse.json(results);
   }
 
   // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
@@ -338,6 +323,15 @@ export async function POST(req: NextRequest) {
     `;
     await (prisma as any).$executeRaw`
       ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "rejectionFeedback" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "Competitor"
+        ADD COLUMN IF NOT EXISTS "followingCount" INTEGER,
+        ADD COLUMN IF NOT EXISTS "postCount" INTEGER,
+        ADD COLUMN IF NOT EXISTS "bio" TEXT,
+        ADD COLUMN IF NOT EXISTS "profilePicUrl" TEXT,
+        ADD COLUMN IF NOT EXISTS "verified" BOOLEAN,
+        ADD COLUMN IF NOT EXISTS "lastProfileSyncAt" TIMESTAMP(3);
     `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {

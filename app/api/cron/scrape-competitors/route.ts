@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { scrapeCompetitor } from "@/lib/scrapeCompetitors";
+import { scrapeCompetitor, scrapeCompetitorProfile } from "@/lib/scrapeCompetitors";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
       continue;
     }
     try {
+      await scrapeCompetitorProfile(c.id).catch(() => {}); // refresh follower/post stats
       const r = await scrapeCompetitor(c.id, { full });
       results.push({ id: c.id, handle: c.handle, ...r });
     } catch (err) {
