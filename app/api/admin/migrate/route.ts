@@ -59,6 +59,23 @@ export async function GET(req: NextRequest) {
     } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
 
+  // ?reeldump=clientId — sample competitor reels to see if a video mediaUrl was stored
+  const reeldump = req.nextUrl.searchParams.get("reeldump");
+  if (reeldump) {
+    const comps = await prisma.competitor.findMany({ where: { clientId: parseInt(reeldump) }, select: { id: true, handle: true } });
+    const ids = comps.map((c) => c.id);
+    const reels = await (prisma as any).competitorReel.findMany({
+      where: { competitorId: { in: ids } }, orderBy: { postedAt: "desc" }, take: 6,
+      select: { id: true, shortcode: true, mediaUrl: true, mediaUrlAt: true, thumbnailUrl: true } as any,
+    });
+    return NextResponse.json(reels.map((r: any) => ({
+      id: r.id, shortcode: r.shortcode,
+      hasVideo: !!r.mediaUrl, mediaUrlAt: r.mediaUrlAt,
+      hasThumb: !!r.thumbnailUrl,
+      mediaUrlSample: r.mediaUrl ? r.mediaUrl.slice(0, 80) : null,
+    })));
+  }
+
   // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
   const draftsDump = req.nextUrl.searchParams.get("drafts");
   if (draftsDump) {
