@@ -261,6 +261,22 @@ export async function POST(req: NextRequest) {
     await (prisma as any).$executeRaw`
       ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "format" TEXT;
     `;
+    await (prisma as any).$executeRaw`
+      CREATE TABLE IF NOT EXISTS "ConceptExample" (
+        "id" SERIAL PRIMARY KEY,
+        "conceptId" INTEGER NOT NULL REFERENCES "Concept"("id") ON DELETE CASCADE,
+        "source" TEXT NOT NULL,
+        "text" TEXT NOT NULL,
+        "hookKey" TEXT,
+        "scriptDraftId" INTEGER,
+        "reelShortcode" TEXT,
+        "views" INTEGER,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now()
+      );
+    `;
+    await (prisma as any).$executeRaw`
+      CREATE INDEX IF NOT EXISTS "ConceptExample_conceptId_source_idx" ON "ConceptExample"("conceptId", "source");
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

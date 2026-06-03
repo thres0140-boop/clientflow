@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
+import { buildExamplesBlock } from "@/lib/conceptExamples";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -107,11 +108,14 @@ export async function POST(req: NextRequest) {
       concept.guidelines && `Guidelines:\n${concept.guidelines}`,
     ].filter(Boolean).join("\n");
 
-    const examplesSection = concept.scriptExamples
-      ? `\n\nEXAMPLE SCRIPTS — study these, this is the exact voice and style to match:\n` +
+    // Provenance-aware, capped, deduped example block (proven references + a few
+    // labeled accepted-but-unproven drafts). Falls back to raw scriptExamples.
+    let examplesSection = await buildExamplesBlock(concept);
+    if (!examplesSection && concept.scriptExamples) {
+      examplesSection = `\n\nEXAMPLE SCRIPTS — study these, this is the exact voice and style to match:\n` +
         concept.scriptExamples.split(/\n{2,}/).filter(Boolean)
-          .map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n")
-      : "";
+          .map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n");
+    }
 
     // (writingRules chosen below, after the format is known)
 

@@ -173,6 +173,25 @@ model Competitor {
   reels  CompetitorReel[]
 }
 
+// Provenance-aware example pool the script generator studies. `scriptExamples`
+// on Concept stays the human-curated / reel-pulled set (trusted); this table adds
+// accepted-but-unproven drafts (recent context) and performance-promoted winners.
+model ConceptExample {
+  id            Int      @id @default(autoincrement())
+  conceptId     Int
+  source        String   // human_seed | accepted_draft | proven_winner
+  text          String
+  hookKey       String?  // first-line hash for dedup
+  scriptDraftId Int?
+  reelShortcode String?
+  views         Int?
+  createdAt     DateTime @default(now())
+
+  concept Concept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@index([conceptId, source])
+}
+
 // A competitor's reel, scraped + persisted. Stats live in snapshots over time.
 model CompetitorReel {
   id            Int       @id @default(autoincrement())
@@ -253,6 +272,7 @@ model Concept {
   scriptDrafts     ScriptDraft[]
   analyticsEntries AnalyticsEntry[]
   feedbacks        ConceptFeedback[]
+  examples         ConceptExample[]
 }
 
 model ScriptDraft {
