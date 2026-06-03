@@ -22,9 +22,10 @@ function reelUrlFromId(id?: string | number | null): string | null {
   if (!/^\d+$/.test(pk)) return null;
   try {
     let n = BigInt(pk);
-    if (n <= 0n) return null;
+    const SIXTYFOUR = BigInt(64);
+    if (n <= BigInt(0)) return null;
     let code = "";
-    while (n > 0n) { code = IG_ALPHABET[Number(n % 64n)] + code; n = n / 64n; }
+    while (n > BigInt(0)) { code = IG_ALPHABET[Number(n % SIXTYFOUR)] + code; n = n / SIXTYFOUR; }
     return code ? `https://www.instagram.com/reel/${code}/` : null;
   } catch { return null; }
 }
