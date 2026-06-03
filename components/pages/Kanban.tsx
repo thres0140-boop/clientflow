@@ -134,15 +134,14 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 
   useEffect(() => { reload(); }, [reload]);
 
-  // Clients see their whole kanban; team members only see stages assigned to them
-  // Also show stages assigned to "client" since client logins are team members too
+  // Everyone except the owner sees ONLY the stages assigned to them. A client login
+  // sees stages assigned to the "client" role (or to them specifically); a team
+  // member sees stages assigned to them. The owner (no activeProfile) sees all.
   const visibleStages = activeProfile
-    ? activeProfile.isClientAccount
-      ? stages
-      : stages.filter((s) => {
-          const assignees = getStageAssignees(s);
-          return assignees.includes(`member:${activeProfile.id}`) || assignees.includes("client");
-        })
+    ? stages.filter((s) => {
+        const assignees = getStageAssignees(s);
+        return assignees.includes(`member:${activeProfile.id}`) || (activeProfile.isClientAccount && assignees.includes("client"));
+      })
     : stages;
 
   const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId);
