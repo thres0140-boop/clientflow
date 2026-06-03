@@ -166,8 +166,44 @@ model Competitor {
   notes         String?
   profileUrl    String?
   createdAt     DateTime @default(now())
+  lastScrapedAt DateTime?
+  lastScrapeError String?
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reels  CompetitorReel[]
+}
+
+// A competitor's reel, scraped + persisted. Stats live in snapshots over time.
+model CompetitorReel {
+  id            Int       @id @default(autoincrement())
+  competitorId  Int
+  shortcode     String
+  caption       String?
+  thumbnailUrl  String?
+  mediaUrl      String?
+  permalink     String?
+  postedAt      DateTime?
+  firstSeenAt   DateTime  @default(now())
+  lastScrapedAt DateTime  @default(now())
+
+  competitor Competitor               @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  snapshots  CompetitorReelSnapshot[]
+
+  @@unique([competitorId, shortcode])
+}
+
+// Point-in-time stats for a reel — one row per scrape, so we can detect "exploded".
+model CompetitorReelSnapshot {
+  id           Int      @id @default(autoincrement())
+  reelId       Int
+  capturedAt   DateTime @default(now())
+  viewCount    Int?
+  likeCount    Int?
+  commentCount Int?
+
+  reel CompetitorReel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+
+  @@index([reelId, capturedAt])
 }
 
 model Board {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { scrapeCompetitor } from "@/lib/scrapeCompetitors";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
@@ -24,5 +25,7 @@ export async function POST(req: NextRequest) {
       profileUrl: body.profileUrl || null,
     },
   });
+  // Backfill immediately so the new competitor isn't blank until the next cron run.
+  scrapeCompetitor(competitor.id).catch(() => {});
   return NextResponse.json(competitor, { status: 201 });
 }

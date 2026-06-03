@@ -198,6 +198,45 @@ export async function POST(req: NextRequest) {
       ADD COLUMN IF NOT EXISTS "clientIntervalDays" INTEGER,
       ADD COLUMN IF NOT EXISTS "clientAnchor" TEXT;
     `;
+    // Competitor scrape state
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "Competitor"
+      ADD COLUMN IF NOT EXISTS "lastScrapedAt" TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS "lastScrapeError" TEXT;
+    `;
+    // Competitor reels + time-series snapshots
+    await (prisma as any).$executeRaw`
+      CREATE TABLE IF NOT EXISTS "CompetitorReel" (
+        "id" SERIAL PRIMARY KEY,
+        "competitorId" INTEGER NOT NULL REFERENCES "Competitor"("id") ON DELETE CASCADE,
+        "shortcode" TEXT NOT NULL,
+        "caption" TEXT,
+        "thumbnailUrl" TEXT,
+        "mediaUrl" TEXT,
+        "permalink" TEXT,
+        "postedAt" TIMESTAMP,
+        "firstSeenAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "lastScrapedAt" TIMESTAMP NOT NULL DEFAULT now()
+      );
+    `;
+    await (prisma as any).$executeRaw`
+      CREATE UNIQUE INDEX IF NOT EXISTS "CompetitorReel_competitorId_shortcode_key"
+      ON "CompetitorReel"("competitorId", "shortcode");
+    `;
+    await (prisma as any).$executeRaw`
+      CREATE TABLE IF NOT EXISTS "CompetitorReelSnapshot" (
+        "id" SERIAL PRIMARY KEY,
+        "reelId" INTEGER NOT NULL REFERENCES "CompetitorReel"("id") ON DELETE CASCADE,
+        "capturedAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "viewCount" INTEGER,
+        "likeCount" INTEGER,
+        "commentCount" INTEGER
+      );
+    `;
+    await (prisma as any).$executeRaw`
+      CREATE INDEX IF NOT EXISTS "CompetitorReelSnapshot_reelId_capturedAt_idx"
+      ON "CompetitorReelSnapshot"("reelId", "capturedAt");
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

@@ -33,6 +33,9 @@ type IGReel = {
   permalink?: string;
   handle?: string;
   instagramUrl?: string;
+  exploded?: boolean;
+  viewDelta3d?: number;
+  growthPct3d?: number | null;
 };
 
 type IGProfile = {
@@ -48,6 +51,16 @@ function fmt(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
   if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
   return String(n);
+}
+
+function timeAgo(ms: number) {
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 type Tab = "reels" | "competitors";
@@ -391,6 +404,8 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [fetchErrors, setFetchErrors] = useState<{ handle: string; error: string }[]>([]);
   const [loadingReels, setLoadingReels] = useState(false);
   const [reelsFetched, setReelsFetched] = useState(false);
+  const [lastScraped, setLastScraped] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"7" | "14" | "30" | "90" | "all">("all");
   const [reelSort, setReelSort] = useState<"recent" | "best">("recent");
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
@@ -430,30 +445,38 @@ function CompetitorsTab({ client }: { client: Client }) {
     setSuggesting(false);
   }
 
-  async function fetchAllReels() {
-    if (competitors.length === 0) return;
+  // Read-only: load the reels the cron already scraped into the DB. Instant + free.
+  async function loadReels() {
     setLoadingReels(true);
-    setAllReels([]);
-    setFetchErrors([]);
-    const results = await Promise.allSettled(
-      competitors.map(async (c) => {
-        const res = await fetch(`/api/instagram/competitor-reels?handle=${encodeURIComponent(c.handle)}`);
-        const data = await res.json();
-        if (data.error) return { handle: c.handle, reels: [] as IGReel[], error: data.error as string };
-        return { handle: c.handle, reels: (data.reels || []) as IGReel[], error: null };
-      })
-    );
-    const reels = results.flatMap((r) => r.status === "fulfilled" ? r.value.reels : []);
-    const errors = results.flatMap((r) => r.status === "fulfilled" && r.value.error ? [{ handle: r.value.handle, error: r.value.error }] : []);
-    setAllReels(reels);
-    setFetchErrors(errors);
+    try {
+      const data = await fetch(`/api/competitors/reels?clientId=${client.id}`).then((r) => r.json());
+      setAllReels((data.reels || []) as IGReel[]);
+      setFetchErrors(data.errors || []);
+      setLastScraped(data.lastScraped || null);
+    } catch {
+      setAllReels([]);
+    }
     setLoadingReels(false);
     setReelsFetched(true);
   }
 
+  // Manual "Refresh now" — actually hits the scraper (with a server-side cooldown).
+  async function refreshNow() {
+    setRefreshing(true);
+    try {
+      const d = await fetch(`/api/competitors/reels?clientId=${client.id}`, { method: "POST" }).then((r) => r.json());
+      if (d.error) { alert(d.error); }
+      else if (d.scraped === 0) { alert(`Already fresh — competitors were scraped within the last ${d.cooldownHours}h. Try again later.`); }
+      await loadReels();
+    } catch {
+      alert("Refresh failed. Try again.");
+    }
+    setRefreshing(false);
+  }
+
   useEffect(() => {
-    if (subTab === "reels" && !reelsFetched && competitors.length > 0) fetchAllReels();
-  }, [subTab, reelsFetched, competitors.length]);
+    if (subTab === "reels" && !reelsFetched) loadReels();
+  }, [subTab, reelsFetched]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const now = Date.now();
   const days = timeFilter === "all" ? Infinity : parseInt(timeFilter);
@@ -462,7 +485,10 @@ function CompetitorsTab({ client }: { client: Client }) {
   );
   const sortedReels = reelSort === "best"
     ? [...filteredReels].sort((a, b) => (b.plays ?? b.like_count ?? 0) - (a.plays ?? a.like_count ?? 0))
-    : [...filteredReels].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // recent view: exploded reels float to the top, then newest first
+    : [...filteredReels].sort((a, b) =>
+        (b.exploded ? 1 : 0) - (a.exploded ? 1 : 0) ||
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   return (
     <div className="space-y-4">
@@ -537,9 +563,12 @@ function CompetitorsTab({ client }: { client: Client }) {
               🏆 Best Performing
             </button>
             <span className="text-xs text-slate-400">{sortedReels.length} reels</span>
-            <button onClick={fetchAllReels} disabled={loadingReels}
-              className="ml-auto px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-200 disabled:opacity-50">
-              {loadingReels ? "Loading…" : "↻ Refresh"}
+            {lastScraped && (
+              <span className="text-[11px] text-slate-400">· updated {timeAgo(lastScraped)}</span>
+            )}
+            <button onClick={refreshNow} disabled={refreshing}
+              className="ml-auto px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+              {refreshing ? "Scraping…" : "↻ Refresh now"}
             </button>
           </div>
 
@@ -548,12 +577,12 @@ function CompetitorsTab({ client }: { client: Client }) {
               <div className="text-3xl">🎬</div>
               <div>
                 <p className="text-sm font-semibold text-slate-700">
-                  {loadingReels ? "Fetching reels…" : competitors.length === 0 ? "Add competitors first" : "No reels found"}
+                  {loadingReels ? "Loading…" : competitors.length === 0 ? "Add competitors first" : "No reels yet"}
                 </p>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm">
                   {competitors.length === 0
                     ? "Go to the List tab and add competitor accounts to track."
-                    : "Reels are auto-fetched from competitor accounts via the scraper API."}
+                    : "Reels are scraped twice daily in the background. Hit “Refresh now” to pull the latest immediately."}
                 </p>
               </div>
             </div>
@@ -572,6 +601,14 @@ function CompetitorsTab({ client }: { client: Client }) {
                       <div className="absolute top-2 left-2">
                         <span className="text-[10px] font-semibold text-white bg-black/50 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
                           @{reel.handle}
+                        </span>
+                      </div>
+                    )}
+                    {reel.exploded && (
+                      <div className="absolute top-2 right-2">
+                        <span className="text-[10px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full shadow"
+                          title={reel.growthPct3d != null ? `+${Math.round(reel.growthPct3d)}% views in 3 days` : "Spiking"}>
+                          🚀 {reel.viewDelta3d && reel.viewDelta3d > 0 ? `+${fmt(reel.viewDelta3d)}` : "hot"}
                         </span>
                       </div>
                     )}

@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/sync-analytics",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/scrape-competitors",
+      "schedule": "0 4,16 * * *"
     }
   ]
 }
