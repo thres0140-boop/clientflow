@@ -21,12 +21,15 @@ async function classifyOne(imageUrl: string): Promise<string | null> {
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: media, data: buf.toString("base64") } },
-          { type: "text", text: `Classify this Instagram reel thumbnail's FORMAT. Reply with EXACTLY one word, nothing else:
-- talking_head = a person talking to camera is the main subject (captions/subtitles are fine)
-- text_overlay = large on-screen TEXT over footage is the dominant element (viral text-hook style), the person is not the focus or absent
-- broll = footage/scenery, no talking person and no dominant text
-- other = photo, carousel, or unclear
-One word only.` },
+          { type: "text", text: `Classify this Instagram reel thumbnail's FORMAT. Reply with EXACTLY one word, nothing else.
+
+DECISION RULE (in order):
+1. Is there a person visibly talking/speaking to the camera (face/upper body is a main subject)? → "talking_head". This wins even if there are big captions, subtitles, or a text hook on screen. Captions do NOT make it text_overlay.
+2. Otherwise, is the frame mostly footage/scenery/objects with the message delivered as large ON-SCREEN TEXT, and NObody is talking to camera? → "text_overlay".
+3. Otherwise, footage/scenery with no talking person and no dominant text? → "broll".
+4. Photo, carousel, or unclear? → "other".
+
+One word only: talking_head, text_overlay, broll, or other.` },
         ],
       }],
     });
@@ -39,7 +42,10 @@ One word only.` },
 
 // Classify up to `limit` reels that don't have a format yet. Bounded concurrency
 // so we don't hammer the model or blow the function timeout.
-export async function classifyUnclassified(limit = 300): Promise<{ classified: number; remaining: number }> {
+export async function classifyUnclassified(limit = 300, reset = false): Promise<{ classified: number; remaining: number }> {
+  if (reset) {
+    await (prisma as any).competitorReel.updateMany({ data: { format: null } });
+  }
   const reels = await (prisma as any).competitorReel.findMany({
     where: { format: null, thumbnailUrl: { not: null } },
     take: limit,

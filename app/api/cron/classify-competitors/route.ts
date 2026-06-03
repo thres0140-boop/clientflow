@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 // Runs after the scrape cron; sweeps a batch each run until everything is classified.
 export async function GET(req: NextRequest) {
   const limit = parseInt(req.nextUrl.searchParams.get("limit") || "300");
-  const r = await classifyUnclassified(limit);
+  const reset = req.nextUrl.searchParams.get("reset") === "1";
+  const r = await classifyUnclassified(limit, reset);
   return NextResponse.json({ ok: true, ...r });
 }
