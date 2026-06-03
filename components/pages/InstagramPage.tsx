@@ -597,31 +597,40 @@ function CompetitorsTab({ client }: { client: Client }) {
                           <span className="text-3xl opacity-30">▶</span>
                         </div>
                     }
-                    {reel.handle && (
-                      <div className="absolute top-2 left-2">
+                    {/* handle (+ exploded badge under it) top-left */}
+                    <div className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
+                      {reel.handle && (
                         <span className="text-[10px] font-semibold text-white bg-black/50 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
                           @{reel.handle}
                         </span>
-                      </div>
-                    )}
-                    {reel.exploded && (
-                      <div className="absolute top-2 right-2">
-                        <span className="text-[10px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full shadow"
+                      )}
+                      {reel.exploded && (
+                        <span className="text-[9px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full shadow"
                           title={reel.growthPct3d != null ? `+${Math.round(reel.growthPct3d)}% views in 3 days` : "Spiking"}>
                           🚀 {reel.viewDelta3d && reel.viewDelta3d > 0 ? `+${fmt(reel.viewDelta3d)}` : "hot"}
                         </span>
+                      )}
+                    </div>
+                    {/* posted date top-right */}
+                    {reel.timestamp && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <span className="bg-black/55 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                          {new Date(reel.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                        </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                    <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
-                          <span className="opacity-70">♥</span><span>{reel.like_count > 0 ? fmt(reel.like_count) : "—"}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-white text-[11px] font-semibold">
-                          <span className="opacity-70">💬</span><span>{reel.comments_count > 0 ? fmt(reel.comments_count) : "—"}</span>
-                        </div>
-                      </div>
+                    {/* always-visible gradient + stat chips */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-wrap gap-1">
+                      {reel.plays != null && (
+                        <span className="flex items-center gap-0.5 bg-indigo-500/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">▶ {fmt(reel.plays)}</span>
+                      )}
+                      {reel.like_count > 0 && (
+                        <span className="flex items-center gap-0.5 bg-pink-500/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">♥ {fmt(reel.like_count)}</span>
+                      )}
+                      {reel.comments_count > 0 && (
+                        <span className="flex items-center gap-0.5 bg-slate-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">💬 {fmt(reel.comments_count)}</span>
+                      )}
                     </div>
                   </button>
                 </div>
