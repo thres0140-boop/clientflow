@@ -93,16 +93,20 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
   const [showNotifs, setShowNotifs] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
+  // Client accounts only ever have one project — hide the project-switcher strip for them.
+  // Team members keep it (so they can toggle between projects they're assigned to).
+  const isClient = session?.type === "member" && !!activeProfile?.isClientAccount;
 
   return (
     <aside className="fixed top-0 left-0 h-full flex z-10" style={{ width: 280 }}>
 
-      {/* ── LEFT STRIP ── */}
+      {/* ── LEFT STRIP (hidden for client accounts) ── */}
+      {!isClient && (
       <div className="flex flex-col h-full flex-shrink-0" style={{ width: 56, backgroundColor: STRIP_BG }}>
 
         {/* Client avatars + add button (Discord-style: add sits under the last project) */}
         <div className="flex flex-col items-center gap-2.5 py-3 flex-1 overflow-y-auto">
-          {session?.type !== "member" && clients.map((c) => {
+          {clients.map((c) => {
             const pic = (c.instagramConnection as any)?.profilePictureUrl;
             return (
               <button key={c.id} onClick={() => onSelectClient(c.id)} title={c.name}
@@ -137,6 +141,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
           </div>
         </div>
       </div>
+      )}
 
       {/* ── RIGHT NAV ── */}
       <div className="flex flex-col flex-1 h-full" style={{ backgroundColor: NAV_BG }}>
