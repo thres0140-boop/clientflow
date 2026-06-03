@@ -75,6 +75,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   // Raw data
   const [allContent, setAllContent] = useState<ContentPiece[]>([]);
   const [allVideos,  setAllVideos]  = useState<TrackedVideo[]>([]);
+  const [concepts,   setConcepts]   = useState<any[]>([]);
   const [dmLeads,    setDmLeads]    = useState<any[]>([]);
   const [igReels,    setIgReels]    = useState<any[]>([]); // live posted reels from Instagram
 
@@ -100,15 +101,17 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   // Fetch all data when client changes
   useEffect(() => {
     if (!selectedClientId) return;
-    setAllContent([]); setAllVideos([]); setManual({});
+    setAllContent([]); setAllVideos([]); setManual({}); setConcepts([]);
 
     const loadAll = () => Promise.all([
       fetch(`/api/content?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/videos?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/analytics?clientId=${selectedClientId}`).then((r) => r.json()),
-    ]).then(([content, videos, analytics]) => {
+      fetch(`/api/concepts?clientId=${selectedClientId}`).then((r) => r.json()),
+    ]).then(([content, videos, analytics, concepts]) => {
       setAllContent(Array.isArray(content) ? content : []);
       setAllVideos(Array.isArray(videos) ? videos : []);
+      setConcepts(Array.isArray(concepts) ? concepts.filter((c: any) => !c.isIdea) : []);
       const entries: AnalyticsEntry[] = Array.isArray(analytics) ? analytics : [];
       const m: Record<string, ManualEntry> = {};
       for (const e of entries) {
@@ -165,10 +168,30 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   }
   const DM_AUTO_KEYS: ManualKey[] = ["messagesSent", "messagesAnswered", "linksSent", "bookedCalls"];
 
-  // Build auto data (views/likes/shares from TrackedVideo, concepts from ContentPiece)
+  // Map reel shortcode -> concept label, from each concept's attached reel group.
+  function shortcodeOf(url: string): string | null {
+    const m = (url || "").match(/\/(?:reel|reels|p|tv)\/([^/?#]+)/i);
+    return m ? m[1] : null;
+  }
+  function buildConceptByShortcode(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const c of concepts) {
+      let urls: string[] = [];
+      try { urls = JSON.parse(c.reelUrls || "[]"); } catch { urls = []; }
+      const label = c.conceptType ? `${c.conceptType} · ${c.name}` : c.name;
+      for (const u of urls) {
+        const sc = shortcodeOf(u);
+        if (sc && !out[sc]) out[sc] = label;
+      }
+    }
+    return out;
+  }
+
+  // Build auto data (views/likes/shares from TrackedVideo, concepts from ContentPiece + reel groups)
   function buildAutoMap(dates: string[]): Record<string, AutoDay> {
     const map: Record<string, AutoDay> = {};
     for (const d of dates) map[d] = { views: 0, likes: 0, shares: 0, concepts: [], videoUrl: null };
+    const conceptBySc = buildConceptByShortcode();
     for (const v of allVideos) {
       if (v.datePosted && map[v.datePosted]) {
         map[v.datePosted].views  += v.views;
@@ -198,6 +221,10 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       map[ymd].likes  += r.like_count ?? 0;
       map[ymd].shares += r.shares ?? 0;
       if (!map[ymd].videoUrl) map[ymd].videoUrl = r.permalink || r.media_url || null;
+      // If this reel is attached to a concept group, surface that concept on the day.
+      const sc = shortcodeOf(r.permalink || "");
+      const lbl = sc ? conceptBySc[sc] : null;
+      if (lbl && !map[ymd].concepts.includes(lbl)) map[ymd].concepts.push(lbl);
     }
     return map;
   }
