@@ -30,22 +30,42 @@ export async function GET(req: NextRequest) {
   // keep the stored URL fresh-ish for other uses
   (prisma as any).competitorReel.update({ where: { id: reel.id }, data: { mediaUrl: fresh } }).catch(() => {});
 
-  // Proxy with Range support so the player can seek.
-  const range = req.headers.get("range");
-  const upstream = await fetch(fresh, { headers: range ? { Range: range } : {} });
-  if (!upstream.ok && upstream.status !== 206) {
+  // Download the full video once (a browser-like UA avoids CDN blocks), then serve it —
+  // honouring Range requests so the player can seek/scrub.
+  const upstream = await fetch(fresh, {
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" },
+  });
+  if (!upstream.ok) {
     return NextResponse.json({ error: "upstream_failed", permalink: reel.permalink }, { status: 502 });
   }
+  const buf = new Uint8Array(await upstream.arrayBuffer());
+  const total = buf.length;
+  const ctype = upstream.headers.get("content-type") || "video/mp4";
 
-  const headers = new Headers();
-  const pass = ["content-type", "content-length", "content-range", "accept-ranges"];
-  for (const h of pass) {
-    const v = upstream.headers.get(h);
-    if (v) headers.set(h, v);
+  const range = req.headers.get("range");
+  const m = range ? /bytes=(\d+)-(\d*)/.exec(range) : null;
+  if (m) {
+    const start = parseInt(m[1], 10);
+    const end = m[2] ? parseInt(m[2], 10) : total - 1;
+    const chunk = buf.subarray(start, end + 1);
+    return new Response(chunk, {
+      status: 206,
+      headers: {
+        "content-type": ctype,
+        "content-range": `bytes ${start}-${end}/${total}`,
+        "accept-ranges": "bytes",
+        "content-length": String(chunk.length),
+        "cache-control": "private, max-age=3600",
+      },
+    });
   }
-  if (!headers.has("content-type")) headers.set("content-type", "video/mp4");
-  if (!headers.has("accept-ranges")) headers.set("accept-ranges", "bytes");
-  headers.set("cache-control", "private, max-age=3600");
-
-  return new Response(upstream.body, { status: upstream.status, headers });
+  return new Response(buf, {
+    status: 200,
+    headers: {
+      "content-type": ctype,
+      "content-length": String(total),
+      "accept-ranges": "bytes",
+      "cache-control": "private, max-age=3600",
+    },
+  });
 }

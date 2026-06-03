@@ -1013,7 +1013,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
               // Competitor reels: stream a fresh copy through our proxy (their stored
               // CDN url is expired). Own reels: embed the fresh url directly.
               if (isCompetitor && reel.id) {
-                return <video src={`/api/competitors/reel-video?id=${reel.id}`} poster={reel.thumbnail_url} controls preload="metadata" className="w-full h-full object-contain" />;
+                return <video src={`/api/competitors/reel-video?id=${reel.id}`} poster={reel.thumbnail_url} controls preload="none" className="w-full h-full object-contain" />;
               }
               if (reel.media_url) {
                 return <video src={reel.media_url} poster={reel.thumbnail_url} controls className="w-full h-full object-contain" />;
