@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Client, Notification, TeamMember } from "@/lib/types";
 import type { SessionPayload } from "@/lib/session";
 
-type Page = "pipeline" | "kanban" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context";
+type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context";
 
 function IconCalendar({ active }: { active: boolean }) {
   const c = active ? "white" : "rgba(147,197,253,0.6)";
@@ -50,6 +50,10 @@ function IconSettings({ active }: { active: boolean }) {
   const c = active ? "white" : "rgba(147,197,253,0.6)";
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke={c} strokeWidth="1.3"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M12.6 3.4l-.85.85M4.25 11.75l-.85.85" stroke={c} strokeWidth="1.3" strokeLinecap="round"/></svg>;
 }
+function IconTasks({ active }: { active: boolean }) {
+  const c = active ? "white" : "rgba(147,197,253,0.6)";
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke={c} strokeWidth="1.3"/><path d="M4.8 6l1 1 1.8-1.8M4.8 10l1 1 1.8-1.8M9.5 6.2h2.2M9.5 10.2h2.2" stroke={c} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
 
 const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   pipeline: (a) => <IconCalendar active={a} />, kanban: (a) => <IconKanban active={a} />,
@@ -57,6 +61,7 @@ const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   analytics: (a) => <IconAnalytics active={a} />, dms: (a) => <IconDMs active={a} />,
   instagram: (a) => <IconInstagram active={a} />, board: (a) => <IconBoard active={a} />,
   team: (a) => <IconTeam active={a} />, chat: (a) => <IconChat active={a} />,
+  tasks: (a) => <IconTasks active={a} />,
   settings: (a) => <IconSettings active={a} />,
 };
 
@@ -64,6 +69,7 @@ const NAV_GROUPS = [
   { label: "WORK", items: [
     { id: "pipeline" as Page, label: "Content Scheduling" },
     { id: "kanban" as Page, label: "Script Kanban" },
+    { id: "tasks" as Page, label: "Script Tasks" },
     { id: "concepts" as Page, label: "Concept Library" },
     { id: "context" as Page, label: "AI Context" },
     { id: "analytics" as Page, label: "Analytics" },

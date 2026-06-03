@@ -9,6 +9,7 @@ import TeamPage from "@/components/pages/TeamPage";
 import ChatPage from "@/components/pages/ChatPage";
 import SettingsPage from "@/components/pages/SettingsPage";
 import Kanban from "@/components/pages/Kanban";
+import ScriptTasksPage from "@/components/pages/ScriptTasksPage";
 import InstagramPage from "@/components/pages/InstagramPage";
 import BoardPage from "@/components/pages/BoardPage";
 import DmsPage from "@/components/pages/DmsPage";
@@ -19,6 +20,7 @@ import type { SessionPayload } from "@/lib/session";
 export type Page =
   | "pipeline"
   | "kanban"
+  | "tasks"
   | "concepts"
   | "analytics"
   | "dms"
@@ -147,13 +149,14 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["pipeline","kanban","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
+    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
       : activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
-    // Always give member logins access to chat
+    // Always give member logins access to chat + their script tasks
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
+    if (session?.type === "member" && !base.includes("tasks")) base.push("tasks");
     return base;
   })();
 
@@ -181,6 +184,7 @@ export default function App() {
       case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} reelContext={chatContext} onContextUsed={() => setChatContext(null)} team={team} initialChannel={chatContext?.channel} activeProfile={activeProfile} />;
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
       case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} />;
+      case "tasks": return <ScriptTasksPage clients={clients} selectedClientId={selectedClientId} canSubmit={session?.type === "member"} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} />;
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} />;
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} />;
