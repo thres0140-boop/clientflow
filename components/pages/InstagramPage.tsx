@@ -428,14 +428,16 @@ function CompetitorsTab({ client }: { client: Client }) {
     reload();
   }
 
-  async function syncProfiles() {
+  async function syncProfiles(force = false) {
     setSyncing(true);
     try {
       const d = await fetch("/api/competitors/enrich", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: client.id }),
+        body: JSON.stringify({ clientId: client.id, force }),
       }).then((r) => r.json());
-      if (d.synced === 0 && d.error) alert(`Couldn't sync profile data: ${d.error}`);
+      if (d.upToDate) alert("All competitor data is already up to date.");
+      else if (d.synced === 0 && d.error) alert(`Couldn't sync profile data: ${d.error}`);
+      else if (d.synced > 0) alert(`Synced ${d.synced} competitor${d.synced !== 1 ? "s" : ""}.`);
       reload();
     } finally {
       setSyncing(false);
@@ -539,7 +541,8 @@ function CompetitorsTab({ client }: { client: Client }) {
             </div>
             <div className="flex gap-2">
               {competitors.length > 0 && (
-                <button onClick={syncProfiles} disabled={syncing}
+                <button onClick={() => syncProfiles(false)} disabled={syncing}
+                  title="Pulls follower/post data for competitors that are new or out of date (won't re-hit the API for ones already synced today)."
                   className="px-3 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50">
                   {syncing ? "Syncing…" : "↻ Sync data"}
                 </button>
