@@ -35,6 +35,33 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // ?profileprobe=handle — try candidate profile-info endpoints on the scraper provider
+  const profileProbe = req.nextUrl.searchParams.get("profileprobe");
+  if (profileProbe) {
+    const apiKey = process.env.RAPIDAPI_KEY;
+    const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
+    const username = profileProbe.replace(/^@/, "").trim();
+    const candidates = [
+      "get_ig_user_info.php",
+      "ig_get_fb_profile.php",
+      "get_ig_profile_info.php",
+      "get_ig_user_profile.php",
+    ];
+    const results: any = {};
+    for (const ep of candidates) {
+      try {
+        const res = await fetch(`https://${HOST}/${ep}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": HOST, "x-rapidapi-key": apiKey || "" },
+          body: new URLSearchParams({ username_or_url: username }).toString(),
+        });
+        const text = await res.text();
+        results[ep] = { status: res.status, body: text.slice(0, 1500) };
+      } catch (e) { results[ep] = { error: String(e) }; }
+    }
+    return NextResponse.json(results);
+  }
+
   // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
   const draftsDump = req.nextUrl.searchParams.get("drafts");
   if (draftsDump) {
