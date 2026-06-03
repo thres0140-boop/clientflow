@@ -47,6 +47,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ?comps=clientId (or all) — dump competitors to verify they still exist + their stats
+  const compsDump = req.nextUrl.searchParams.get("comps");
+  if (compsDump) {
+    const where = compsDump === "all" ? {} : { clientId: parseInt(compsDump) };
+    const cs = await prisma.competitor.findMany({ where, orderBy: { id: "asc" } });
+    return NextResponse.json(cs.map((c: any) => ({
+      id: c.id, clientId: c.clientId, handle: c.handle,
+      followers: c.followerCount, following: c.followingCount, posts: c.postCount,
+      synced: c.lastProfileSyncAt, scrapeError: c.lastScrapeError,
+    })));
+  }
+
   // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
   const draftsDump = req.nextUrl.searchParams.get("drafts");
   if (draftsDump) {
