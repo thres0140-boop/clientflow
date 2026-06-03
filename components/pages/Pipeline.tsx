@@ -258,7 +258,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <PlanModeSelector current={planMode} onChange={changePlanMode} />
+          {canEdit && <PlanModeSelector current={planMode} onChange={changePlanMode} />}
           {canEdit && (
             <>
               <button
