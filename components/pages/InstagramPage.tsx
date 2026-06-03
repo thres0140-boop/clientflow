@@ -1083,6 +1083,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
   const isCompetitorReel = !!reel.handle;
   const [compUrl, setCompUrl] = useState<string | null>(null);
   const [compLoading, setCompLoading] = useState(false);
+  const [compTriedRefresh, setCompTriedRefresh] = useState(false);
   useEffect(() => {
     if (!isCompetitorReel || !reel.id) return;
     let cancelled = false;
@@ -1094,6 +1095,20 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
       .finally(() => { if (!cancelled) setCompLoading(false); });
     return () => { cancelled = true; };
   }, [isCompetitorReel, reel.id]);
+
+  // If a cached URL is stale/dead the <video> errors — fetch a guaranteed-fresh
+  // one once (this is the only path that spends an API request on playback).
+  function refreshCompUrl() {
+    if (compTriedRefresh || !reel.id) return;
+    setCompTriedRefresh(true);
+    setCompUrl(null);
+    setCompLoading(true);
+    fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`)
+      .then((r) => r.json())
+      .then((d) => { if (d.url) setCompUrl(d.url); })
+      .catch(() => {})
+      .finally(() => setCompLoading(false));
+  }
 
   return (
     <>
@@ -1122,7 +1137,9 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
               // Competitor reels: play the freshly-fetched CDN url directly in the browser.
               if (isCompetitor && reel.id) {
                 if (compUrl) {
-                  return <video src={compUrl} poster={reel.thumbnail_url} controls autoPlay playsInline className="w-full h-full object-contain" />;
+                  return <video key={compUrl} src={compUrl} poster={reel.thumbnail_url} controls autoPlay playsInline
+                    onError={refreshCompUrl}
+                    className="w-full h-full object-contain" />;
                 }
                 // still fetching the fresh url, or it failed → show thumbnail (+ spinner)
                 return (

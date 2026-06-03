@@ -208,6 +208,7 @@ model CompetitorReel {
   caption       String?
   thumbnailUrl  String?
   mediaUrl      String?
+  mediaUrlAt    DateTime?
   permalink     String?
   postedAt      DateTime?
   firstSeenAt   DateTime  @default(now())
