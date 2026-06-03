@@ -28,53 +28,88 @@ function postedAtFromPk(pk: string): Date | undefined {
   } catch { return undefined; }
 }
 
-async function fetchReelsFromProvider(handle: string): Promise<ScrapedReel[]> {
+function mapItem(it: any): ScrapedReel {
+  const m = it?.node?.media ?? it?.media ?? it;
+  const code = m.code || m.shortcode || String(m.pk ?? m.id ?? "");
+  const pk = String(m.pk ?? (m.id ? String(m.id).split("_")[0] : ""));
+  const caption = m.caption as Record<string, any> | string | null;
+  return {
+    shortcode: String(code),
+    caption: typeof caption === "string" ? caption : (caption?.text as string) || "",
+    thumbnailUrl: m.image_versions2?.candidates?.[0]?.url || m.thumbnail_url || undefined,
+    mediaUrl: m.video_versions?.[0]?.url || undefined,
+    permalink: code ? `https://www.instagram.com/reel/${code}/` : undefined,
+    postedAt: postedAtFromPk(pk),
+    viewCount: Number(m.play_count ?? m.view_count ?? m.ig_play_count ?? 0) || undefined,
+    likeCount: Number(m.like_count ?? 0) || undefined,
+    commentCount: Number(m.comment_count ?? 0) || undefined,
+  } as ScrapedReel;
+}
+
+// Fetch reels, following pagination tokens until we've gone back `sinceDays`
+// (or hit `maxPages` as a cost cap). Newest reels come first.
+async function fetchReelsFromProvider(handle: string, sinceDays: number, maxPages: number): Promise<ScrapedReel[]> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) throw new Error("RAPIDAPI_KEY not set");
 
   const username = handle.replace(/^@/, "").trim();
-  const res = await fetch(`https://${SCRAPER_HOST}/get_ig_user_reels.php`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "x-rapidapi-host": SCRAPER_HOST,
-      "x-rapidapi-key": apiKey,
-    },
-    body: new URLSearchParams({ username_or_url: username, amount: "20" }).toString(),
-  });
-  const data = await res.json();
-  if (data.detail || data.error) throw new Error(String(data.detail || data.error));
+  const cutoff = Date.now() - sinceDays * 86400000;
+  const out: ScrapedReel[] = [];
+  let token = "";
 
-  const items: any[] = (data?.reels ?? data?.data?.reels ?? []) as any[];
-  return items.map((it) => {
-    const m = it?.node?.media ?? it?.media ?? it;
-    const code = m.code || m.shortcode || String(m.pk ?? m.id ?? "");
-    const pk = String(m.pk ?? (m.id ? String(m.id).split("_")[0] : ""));
-    const caption = m.caption as Record<string, any> | string | null;
-    return {
-      shortcode: String(code),
-      caption: typeof caption === "string" ? caption : (caption?.text as string) || "",
-      thumbnailUrl: m.image_versions2?.candidates?.[0]?.url || m.thumbnail_url || undefined,
-      mediaUrl: m.video_versions?.[0]?.url || undefined,
-      permalink: code ? `https://www.instagram.com/reel/${code}/` : undefined,
-      postedAt: postedAtFromPk(pk),
-      viewCount: Number(m.play_count ?? m.view_count ?? m.ig_play_count ?? 0) || undefined,
-      likeCount: Number(m.like_count ?? 0) || undefined,
-      commentCount: Number(m.comment_count ?? 0) || undefined,
-    } as ScrapedReel;
-  }).filter((r) => r.shortcode);
+  for (let page = 0; page < maxPages; page++) {
+    const body = new URLSearchParams({ username_or_url: username, amount: "50" });
+    if (token) body.set("pagination_token", token);
+    const res = await fetch(`https://${SCRAPER_HOST}/get_ig_user_reels.php`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "x-rapidapi-host": SCRAPER_HOST,
+        "x-rapidapi-key": apiKey,
+      },
+      body: body.toString(),
+    });
+    const data = await res.json();
+    if (data.detail || data.error) {
+      if (page === 0) throw new Error(String(data.detail || data.error));
+      break; // partial pages are fine
+    }
+    const items: any[] = (data?.reels ?? data?.data?.reels ?? []) as any[];
+    if (!items.length) break;
+
+    const mapped = items.map(mapItem).filter((r) => r.shortcode);
+    out.push(...mapped);
+
+    token = data.pagination_token || data?.data?.pagination_token || "";
+    if (!token) break;
+
+    // Stop once the oldest reel on this page is past our window.
+    const oldest = mapped.reduce((min, r) => (r.postedAt && r.postedAt.getTime() < min ? r.postedAt.getTime() : min), Infinity);
+    if (oldest !== Infinity && oldest < cutoff) break;
+
+    await new Promise((r) => setTimeout(r, 300)); // gentle throttle between pages
+  }
+  return out;
 }
 
-// ── Scrape one competitor: upsert reels from the last `windowDays`, append a snapshot ──
-export async function scrapeCompetitor(competitorId: number, windowDays = 7): Promise<{ ok: boolean; reels: number; error?: string }> {
+// ── Scrape one competitor: upsert reels + append a snapshot for each ──
+// full=true  → backfill the last ~90 days (paginate deep). Use on first add.
+// full=false → just the latest 2-3 pages (new posts + recent updates). Use on cron/refresh.
+export async function scrapeCompetitor(
+  competitorId: number,
+  opts: { full?: boolean } = {}
+): Promise<{ ok: boolean; reels: number; error?: string }> {
   const competitor = await prisma.competitor.findUnique({ where: { id: competitorId } });
   if (!competitor) return { ok: false, reels: 0, error: "not found" };
 
+  const sinceDays = opts.full ? 90 : 14;
+  const maxPages = opts.full ? 12 : 3;
+
   try {
-    const scraped = await fetchReelsFromProvider(competitor.handle);
-    // The endpoint returns the latest ~20 reels (newest first). Snapshot them all —
-    // older ones naturally fall out of the list once the account posts more.
-    const recent = scraped;
+    const scraped = await fetchReelsFromProvider(competitor.handle, sinceDays, maxPages);
+    const cutoff = Date.now() - sinceDays * 86400000;
+    // Keep reels within the window (or undated ones, which are rare).
+    const recent = scraped.filter((r) => !r.postedAt || r.postedAt.getTime() >= cutoff);
 
     let count = 0;
     for (const r of recent) {

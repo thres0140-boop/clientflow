@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { scrapeCompetitor } from "@/lib/scrapeCompetitors";
 
+export const maxDuration = 120;
+
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   if (!clientId) return NextResponse.json([]);
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
       profileUrl: body.profileUrl || null,
     },
   });
-  // Backfill immediately so the new competitor isn't blank until the next cron run.
-  scrapeCompetitor(competitor.id).catch(() => {});
+  // Full backfill (last ~90 days) immediately so the new competitor has history.
+  await scrapeCompetitor(competitor.id, { full: true }).catch(() => {});
   return NextResponse.json(competitor, { status: 201 });
 }
