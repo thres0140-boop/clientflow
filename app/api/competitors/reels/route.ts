@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
       exploded,
       outlierX,
       isOutlier,
+      format: r.format || null,
       snapshotCount: snaps.length,
     };
   });

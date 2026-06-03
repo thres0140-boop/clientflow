@@ -38,6 +38,7 @@ type IGReel = {
   growthPct3d?: number | null;
   outlierX?: number | null;
   isOutlier?: boolean;
+  format?: string | null;
 };
 
 type IGProfile = {
@@ -410,6 +411,7 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [refreshing, setRefreshing] = useState(false);
   const [timeFilter, setTimeFilter] = useState<"7" | "14" | "30" | "90" | "all">("all");
   const [reelSort, setReelSort] = useState<"recent" | "best" | "trending">("recent");
+  const [formatFilter, setFormatFilter] = useState<"all" | "talking_head" | "text_overlay" | "broll">("all");
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
 
   const reload = useCallback(async () => {
@@ -483,7 +485,8 @@ function CompetitorsTab({ client }: { client: Client }) {
   const now = Date.now();
   const days = timeFilter === "all" ? Infinity : parseInt(timeFilter);
   const filteredReels = allReels.filter((r) =>
-    days === Infinity || now - new Date(r.timestamp).getTime() < days * 24 * 60 * 60 * 1000
+    (days === Infinity || now - new Date(r.timestamp).getTime() < days * 24 * 60 * 60 * 1000) &&
+    (formatFilter === "all" || r.format === formatFilter)
   );
   const sortedReels = reelSort === "best"
     ? [...filteredReels].sort((a, b) => (b.plays ?? b.like_count ?? 0) - (a.plays ?? a.like_count ?? 0))
@@ -585,6 +588,18 @@ function CompetitorsTab({ client }: { client: Client }) {
             </button>
           </div>
 
+          {/* Content-format filter (vision-classified) */}
+          <div className="flex gap-1.5 flex-wrap">
+            {([["all", "All formats"], ["talking_head", "🎙 Talking-head"], ["text_overlay", "📝 Text-overlay"], ["broll", "🎞 B-roll"]] as ["all"|"talking_head"|"text_overlay"|"broll", string][]).map(([id, label]) => (
+              <button key={id} onClick={() => setFormatFilter(id)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
+                  formatFilter === id ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
           {sortedReels.length === 0 ? (
             <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-16 flex flex-col items-center gap-4 text-center">
               <div className="text-3xl">🎬</div>
@@ -649,6 +664,11 @@ function CompetitorsTab({ client }: { client: Client }) {
                       )}
                       {reel.comments_count > 0 && (
                         <span className="flex items-center gap-0.5 bg-slate-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">💬 {fmt(reel.comments_count)}</span>
+                      )}
+                      {reel.format && reel.format !== "other" && (
+                        <span className="flex items-center gap-0.5 bg-white/85 text-slate-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                          {reel.format === "talking_head" ? "🎙" : reel.format === "text_overlay" ? "📝" : "🎞"}
+                        </span>
                       )}
                     </div>
                   </button>

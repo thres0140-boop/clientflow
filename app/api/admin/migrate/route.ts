@@ -237,6 +237,9 @@ export async function POST(req: NextRequest) {
       CREATE INDEX IF NOT EXISTS "CompetitorReelSnapshot_reelId_capturedAt_idx"
       ON "CompetitorReelSnapshot"("reelId", "capturedAt");
     `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "format" TEXT;
+    `;
     return NextResponse.json({ ok: true, message: "Migration complete." });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

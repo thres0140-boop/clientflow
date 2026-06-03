@@ -185,6 +185,7 @@ model CompetitorReel {
   postedAt      DateTime?
   firstSeenAt   DateTime  @default(now())
   lastScrapedAt DateTime  @default(now())
+  format        String?   // talking_head | text_overlay | broll | other (vision-classified)
 
   competitor Competitor               @relation(fields: [competitorId], references: [id], onDelete: Cascade)
   snapshots  CompetitorReelSnapshot[]
