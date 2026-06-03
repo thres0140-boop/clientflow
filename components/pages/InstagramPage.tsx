@@ -402,6 +402,7 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [quotaReached, setQuotaReached] = useState(false);
 
   // Reels sub-tab state
   const [allReels, setAllReels] = useState<IGReel[]>([]);
@@ -435,8 +436,10 @@ function CompetitorsTab({ client }: { client: Client }) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: client.id, force }),
       }).then((r) => r.json());
+      const quota = !!d.error && /quota/i.test(d.error);
+      setQuotaReached(quota);
       if (d.upToDate) alert("All competitor data is already up to date.");
-      else if (d.synced === 0 && d.error) alert(`Couldn't sync profile data: ${d.error}`);
+      else if (d.synced === 0 && d.error && !quota) alert(`Couldn't sync profile data: ${d.error}`);
       else if (d.synced > 0) alert(`Synced ${d.synced} competitor${d.synced !== 1 ? "s" : ""}.`);
       reload();
     } finally {
@@ -570,6 +573,16 @@ function CompetitorsTab({ client }: { client: Client }) {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {quotaReached && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <span className="text-amber-500 text-sm mt-0.5">⚠️</span>
+              <p className="text-xs text-amber-700 leading-relaxed">
+                <span className="font-semibold">Instagram data API quota reached.</span> Follower/post stats can't update
+                until the monthly quota resets or the RapidAPI plan is upgraded. Existing data stays as-is in the meantime.
+              </p>
             </div>
           )}
 
