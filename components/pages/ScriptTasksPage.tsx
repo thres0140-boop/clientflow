@@ -19,6 +19,7 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [drafts, setDrafts] = useState<ScriptDraft[]>([]);
   const [inputs, setInputs] = useState<Record<number, string>>({});
+  const [revise, setRevise] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -60,9 +61,26 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
     try {
       await fetch("/api/script-drafts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: client.id, conceptId: c.id, title: `${c.name} — ${client.name} script`, script: v, weekLabel: `Week ${WEEK_NUMBER}` }),
+        body: JSON.stringify({ clientId: client.id, conceptId: c.id, title: `${c.name} — ${client.name} script`, script: v, weekLabel: `Week ${WEEK_NUMBER}`, clientAuthored: true }),
       });
       setInputs((p) => ({ ...p, [c.id]: "" }));
+      load();
+    } finally {
+      setSubmitting(null);
+    }
+  }
+
+  // Revise a rejected draft and resubmit it — back to pending (Ideas), feedback cleared.
+  async function resubmit(d: ScriptDraft) {
+    const v = (revise[d.id] ?? "").trim();
+    if (!v) return;
+    setSubmitting(d.id);
+    try {
+      await fetch(`/api/script-drafts/${d.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script: v, status: "pending", stageId: null, rejectionFeedback: null }),
+      });
+      setRevise((p) => { const n = { ...p }; delete n[d.id]; return n; });
       load();
     } finally {
       setSubmitting(null);
@@ -96,7 +114,10 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
               const g = new Date(d.generatedAt).getTime();
               return g >= start.getTime() && g < end.getTime();
             });
-            const done = cycleDrafts.length;
+            // Rejected drafts don't count toward the quota — the client has to revise them.
+            const rejected = cycleDrafts.filter((d) => d.status === "rejected");
+            const active = cycleDrafts.filter((d) => d.status !== "rejected");
+            const done = active.length;
             const remaining = Math.max(0, quota - done);
             const dueStr = end.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
             const cat = (c as any).conceptType ? `${(c as any).conceptType} · ` : "";
@@ -109,14 +130,46 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                   </span>
                 </div>
 
+                {/* Rejected scripts — feedback sent back by the team. Client revises & resubmits. */}
+                {rejected.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {rejected.map((d) => (
+                      <div key={d.id} className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                        <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide mb-1">↩ Needs changes</p>
+                        {d.rejectionFeedback && (
+                          <p className="text-xs text-red-700 font-medium mb-1.5">Feedback: {d.rejectionFeedback}</p>
+                        )}
+                        <p className="text-xs text-slate-500 whitespace-pre-line leading-relaxed mb-2 line-clamp-3">{d.script}</p>
+                        {canSubmit ? (
+                          <div className="space-y-1.5">
+                            <textarea rows={3} value={revise[d.id] ?? d.script}
+                              onChange={(e) => setRevise((p) => ({ ...p, [d.id]: e.target.value }))}
+                              className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-red-300 resize-none" />
+                            <div className="flex justify-end">
+                              <button onClick={() => resubmit(d)} disabled={submitting === d.id || !(revise[d.id] ?? d.script).trim()}
+                                className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">
+                                {submitting === d.id ? "Resubmitting…" : "Revise & resubmit"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-red-400">Sent back to the client to revise.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Submitted scripts this cycle (visible to owner + client) */}
-                {cycleDrafts.length > 0 && (
+                {active.length > 0 && (
                   <div className="space-y-1.5 mb-3">
-                    {cycleDrafts.map((d, i) => (
+                    {active.map((d, i) => (
                       <div key={d.id} className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                         <span className="text-green-500 text-xs mt-0.5">✓</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Script {i + 1} · submitted for review</p>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
+                            Script {i + 1} · {d.stageId ? "in production" : "submitted for review"}
+                          </p>
                           <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{d.script}</p>
                         </div>
                       </div>

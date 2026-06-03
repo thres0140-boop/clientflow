@@ -35,6 +35,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.editedVideoUrl !== undefined) data.editedVideoUrl = body.editedVideoUrl || null;
   if (body.checkReviewerIds !== undefined) data.checkReviewerIds = JSON.stringify(body.checkReviewerIds);
   if (body.scheduledDate !== undefined) data.scheduledDate = body.scheduledDate || null;
+  if (body.rejectionFeedback !== undefined) data.rejectionFeedback = body.rejectionFeedback || null;
 
   // Detect acceptance: a draft entering a stage for the first time (Ideas → pipeline).
   let prevStageId: number | null | undefined = undefined;

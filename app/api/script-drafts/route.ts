@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
       dayLabel: body.dayLabel || null,
       status: "pending",
       isSavedIdea: false,
+      clientAuthored: body.clientAuthored === true,
     },
     include: {
       concept: { select: { name: true, conceptType: true } },

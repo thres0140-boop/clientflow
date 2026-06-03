@@ -174,21 +174,34 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   }
 
   async function confirmReject(draft: ScriptDraft, reasonType: string, reason: string) {
-    // Save feedback before deleting
-    await fetch("/api/concept-feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        conceptId: draft.conceptId,
-        clientId: draft.clientId,
-        title: draft.title,
-        hook: draft.hook || null,
-        scriptSnippet: draft.script ? draft.script.slice(0, 150) : null,
-        reasonType,
-        reason: reason.trim() || null,
-      }),
-    });
-    await fetch(`/api/script-drafts/${draft.id}`, { method: "DELETE" });
+    const reasonLabel = (REJECT_REASONS.find((r) => r.value === reasonType)?.label) || reasonType;
+    const feedback = reason.trim() ? `${reasonLabel}: ${reason.trim()}` : reasonLabel;
+
+    if (draft.clientAuthored) {
+      // Client wrote this — send the feedback BACK to the client to revise & resubmit,
+      // instead of feeding it to the AI example pool. Keep the draft (status "rejected").
+      await fetch(`/api/script-drafts/${draft.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "rejected", stageId: null, rejectionFeedback: feedback }),
+      });
+    } else {
+      // AI-generated — record the rejection as a learning signal, then delete.
+      await fetch("/api/concept-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conceptId: draft.conceptId,
+          clientId: draft.clientId,
+          title: draft.title,
+          hook: draft.hook || null,
+          scriptSnippet: draft.script ? draft.script.slice(0, 150) : null,
+          reasonType,
+          reason: reason.trim() || null,
+        }),
+      });
+      await fetch(`/api/script-drafts/${draft.id}`, { method: "DELETE" });
+    }
     setRejectDraftData(null);
     reload();
   }
@@ -1827,9 +1840,13 @@ function RejectModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
-          <h2 className="text-base font-bold text-slate-800">Why are you rejecting this?</h2>
+          <h2 className="text-base font-bold text-slate-800">{draft.clientAuthored ? "Send back for changes" : "Why are you rejecting this?"}</h2>
           <p className="text-xs text-slate-400 mt-0.5 truncate">"{draft.title}"</p>
-          <p className="text-[10px] text-indigo-500 mt-0.5">Claude will learn from this for future scripts on this concept.</p>
+          <p className="text-[10px] text-indigo-500 mt-0.5">
+            {draft.clientAuthored
+              ? "The client sees this feedback on their Script Tasks page and can revise & resubmit."
+              : "Claude will learn from this for future scripts on this concept."}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -1869,7 +1886,7 @@ function RejectModal({
             disabled={!selected || (selected === "custom" && !customText.trim())}
             className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl disabled:opacity-40 transition-colors"
           >
-            ✗ Reject & Delete
+            {draft.clientAuthored ? "↩ Send back to client" : "✗ Reject & Delete"}
           </button>
         </div>
       </div>

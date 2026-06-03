@@ -297,6 +297,8 @@ model ScriptDraft {
   uploadToken        String?  @unique
   checkReviewerIds   String   @default("[]")
   scheduledDate      String?
+  clientAuthored     Boolean  @default(false)
+  rejectionFeedback  String?
   generatedAt        DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

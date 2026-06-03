@@ -92,6 +92,8 @@ export type ScriptDraft = {
   editedVideoUrl?: string | null;
   checkReviewerIds?: string;
   scheduledDate?: string | null;
+  clientAuthored?: boolean;
+  rejectionFeedback?: string | null;
   generatedAt: string;
   concept?: { name: string; color?: string; conceptType?: string | null } | null;
   client?: { name: string; color: string };
