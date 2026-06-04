@@ -798,7 +798,7 @@ function ConfirmScheduleModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [igStatus, setIgStatus] = useState<string | null>(null);
-  const [caption, setCaption] = useState(draft.caption || "");
+  const [caption, setCaption] = useState("");
   const [trialReel, setTrialReel] = useState(false);
   const [genCaption, setGenCaption] = useState(false);
 
@@ -809,7 +809,7 @@ function ConfirmScheduleModal({
   const hasMedia = !!videoUrl;
   const isVideo = !!videoUrl && /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(videoUrl);
 
-  async function autoGenerateCaption() {
+  async function autoGenerateCaption(silent = false) {
     setGenCaption(true);
     try {
       const d = await fetch("/api/generate-caption", {
@@ -817,11 +817,18 @@ function ConfirmScheduleModal({
         body: JSON.stringify({ clientId, hook: draft.hook, script: draft.script, platform: "instagram" }),
       }).then((r) => r.json());
       if (d.caption) setCaption(d.caption);
-      else if (d.error) alert(d.error);
+      else if (d.error && !silent) alert(d.error);
+      else if (!d.caption && silent) setCaption(draft.caption || ""); // fall back to the stored caption
+    } catch {
+      if (silent) setCaption(draft.caption || "");
     } finally {
       setGenCaption(false);
     }
   }
+
+  // Generate a fresh caption every time the modal opens (falls back to the
+  // draft's stored caption if generation fails).
+  useEffect(() => { autoGenerateCaption(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   async function handle(postToIG: boolean) {
     setLoading(true);
@@ -892,7 +899,7 @@ function ConfirmScheduleModal({
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               rows={4}
-              placeholder="Write your Instagram caption here…"
+              placeholder={genCaption ? "✨ Generating caption…" : "Write your Instagram caption here…"}
               className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
           </div>
