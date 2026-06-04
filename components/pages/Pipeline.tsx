@@ -27,13 +27,19 @@ const CONTENT_ICONS: Record<string, string> = {
   video: "🎬", photo: "📷", carousel: "📱", reel: "🎞️", story: "⭕",
 };
 
+// Local YYYY-MM-DD — NOT toISOString(), which shifts to UTC and slips the date back
+// a day in east-of-UTC timezones (e.g. Amsterdam), misaligning the calendar.
+function ymdLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function getMonthGrid(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const startOffset = (firstDay.getDay() + 6) % 7;
   const days: (string | null)[] = Array(startOffset).fill(null);
   for (let d = 1; d <= lastDay.getDate(); d++) {
-    days.push(new Date(year, month, d).toISOString().slice(0, 10));
+    days.push(ymdLocal(new Date(year, month, d)));
   }
   while (days.length % 7 !== 0) days.push(null);
   return days;
@@ -47,7 +53,7 @@ function getWeekDays(baseDate: Date, weekOffset: number): string[] {
   return Array.from({ length: 7 }, (_, i) => {
     const dd = new Date(d);
     dd.setDate(d.getDate() + i);
-    return dd.toISOString().slice(0, 10);
+    return ymdLocal(dd);
   });
 }
 
@@ -117,7 +123,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [dateTags, setDateTags] = useState<Record<string, number>>({});
 
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = ymdLocal(today);
 
   // Month view
   const viewDate = new Date(today.getFullYear(), today.getMonth() + offset, 1);
@@ -401,7 +407,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 const draftsOnDay = date ? scheduledDrafts.filter((d) => d.scheduledDate?.startsWith(date)) : [];
                 const isToday = date === todayStr;
                 const isDragTarget = date !== null && date === dragOverDate && dragDraftId !== null;
-                const dow = date ? (new Date(date).getDay() + 6) % 7 : -1; // 0=Mon
+                const dow = date ? (new Date(date + "T00:00:00").getDay() + 6) % 7 : -1; // 0=Mon (parse local, not UTC)
                 const templateConceptId = dow >= 0 ? dayTemplate[dow] : null;
                 const templateConcept = templateConceptId ? concepts.find((c) => c.id === templateConceptId) : null;
                 return (
@@ -1173,7 +1179,7 @@ function igUpload(file: File, onProgress: (pct: number) => void): Promise<string
 
 function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: number; onClose: () => void; onPosted: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = ymdLocal(new Date());
   const nowTime = new Date().toTimeString().slice(0, 5);
 
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
