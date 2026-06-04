@@ -72,6 +72,19 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     // Concept set but not in the loaded list yet (e.g. just created) — never show blank.
     return conceptId ? "Concept" : "";
   };
+
+  // Calendar item colour by lifecycle:
+  //  red    = planned but not yet in the Schedule stage (not ready)
+  //  orange = in the Schedule stage but auto-post not confirmed
+  //  blue   = confirmed / booked to auto-post
+  //  green  = posted
+  function draftState(d: ScriptDraft): { key: "planned" | "ready" | "booked" | "posted"; color: string; label: string } {
+    const lastStageId = stages.length ? stages[stages.length - 1].id : null;
+    if (d.status === "posted") return { key: "posted", color: "#16a34a", label: "Posted" };
+    if (d.zernioBooked) return { key: "booked", color: "#2563eb", label: "Scheduled" };
+    if (lastStageId != null && d.stageId === lastStageId) return { key: "ready", color: "#f97316", label: "Ready · tap to confirm" };
+    return { key: "planned", color: "#ef4444", label: "Planned · not in Schedule yet" };
+  }
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [scheduledDrafts, setScheduledDrafts] = useState<ScriptDraft[]>([]);
@@ -283,25 +296,6 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         </div>
       </div>
 
-      {/* Planned-but-not-confirmed nudge — posts on the calendar that still need scheduling confirmed */}
-      {(() => {
-        const now = Date.now();
-        const soon = scheduledDrafts.filter((d) => {
-          if (d.zernioBooked || !d.scheduledDate) return false;
-          const t = new Date(d.scheduledDate + "T00:00:00").getTime();
-          return t >= now - 86400000 && t <= now + 3 * 86400000; // overdue today → next 3 days
-        });
-        if (soon.length === 0) return null;
-        return (
-          <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            <span className="text-amber-500">🔔</span>
-            <p className="text-xs text-amber-800">
-              <span className="font-semibold">{soon.length} planned post{soon.length !== 1 ? "s" : ""} need confirming</span> in the next few days — click the dashed item on its day to review &amp; confirm the auto-post.
-            </p>
-          </div>
-        );
-      })()}
-
       {/* ── CALENDAR (both modes share the same view) ────────── */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         {/* Calendar toolbar */}
@@ -480,25 +474,26 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             <p className="text-[9px] text-slate-400 pl-1">+{pieces.length - 3} more</p>
                           )}
                           {draftsOnDay.map((draft) => {
-                            const booked = !!draft.zernioBooked;
+                            const st = draftState(draft);
+                            const solid = st.key === "booked" || st.key === "posted";
                             return (
                             <div
                               key={`d-${draft.id}`}
                               className="w-full rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight group/draft relative"
-                              style={booked
-                                ? { backgroundColor: "#6366f1", color: "#fff" }
-                                : { backgroundColor: "transparent", border: "1px dashed #c7d2fe", color: "#6366f1" }}
+                              style={solid
+                                ? { backgroundColor: st.color, color: "#fff" }
+                                : { backgroundColor: st.color + "15", borderLeft: `2px solid ${st.color}`, color: "#1e293b" }}
                             >
-                              <button onClick={() => booked ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={booked ? "Scheduled to auto-post" : "Planned — click to confirm scheduling"}>
-                                <div className="truncate font-semibold pr-4">{booked ? "🔒 " : ""}{draft.title}</div>
+                              <button onClick={() => solid ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
+                                <div className="truncate font-semibold pr-4">{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</div>
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                  {!booked && <span className="bg-indigo-50 text-indigo-500 rounded px-1 text-[9px]">Planned · tap to confirm</span>}
-                                  {draft.stage && <span className={`rounded px-1 text-[9px] ${booked ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>📍 {draft.stage.name}</span>}
+                                  {!solid && <span className="rounded px-1 text-[9px]" style={{ backgroundColor: st.color + "22", color: st.color }}>{st.label}</span>}
+                                  {draft.stage && <span className={`rounded px-1 text-[9px] ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>📍 {draft.stage.name}</span>}
                                 </div>
                               </button>
                               <button
                                 onClick={() => unscheduleDraft(draft.id)}
-                                className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${booked ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
+                                className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${solid ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
                                 title="Remove from calendar"
                               >×</button>
                             </div>
@@ -569,23 +564,24 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         );
                       })}
                       {draftsOnDay.map((draft) => {
-                        const booked = !!draft.zernioBooked;
+                        const st = draftState(draft);
+                        const solid = st.key === "booked" || st.key === "posted";
                         return (
                         <div
                           key={`d-${draft.id}`}
                           className="w-full rounded-lg px-2 py-2 text-xs group/wdraft relative"
-                          style={booked
-                            ? { backgroundColor: "#6366f1", color: "#fff" }
-                            : { backgroundColor: "transparent", border: "1px dashed #c7d2fe" }}
+                          style={solid
+                            ? { backgroundColor: st.color, color: "#fff" }
+                            : { backgroundColor: st.color + "15", borderLeft: `3px solid ${st.color}` }}
                         >
-                          <button onClick={() => booked ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={booked ? "Scheduled to auto-post" : "Planned — click to confirm scheduling"}>
-                            <p className={`font-semibold truncate leading-snug pr-4 ${booked ? "text-white" : "text-indigo-600"}`}>{booked ? "🔒 " : ""}{draft.title}</p>
-                            {!booked && <p className="text-[10px] text-indigo-400 mt-0.5">Planned · tap to confirm</p>}
-                            {draft.stage && <p className={`truncate text-[10px] ${booked ? "text-white/70" : "text-slate-400"}`}>📍 {draft.stage.name}</p>}
+                          <button onClick={() => solid ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
+                            <p className="font-semibold truncate leading-snug pr-4" style={{ color: solid ? "#fff" : st.color }}>{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</p>
+                            {!solid && <p className="text-[10px] mt-0.5" style={{ color: st.color }}>{st.label}</p>}
+                            {draft.stage && <p className={`truncate text-[10px] ${solid ? "text-white/70" : "text-slate-400"}`}>📍 {draft.stage.name}</p>}
                           </button>
                           <button
                             onClick={() => unscheduleDraft(draft.id)}
-                            className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${booked ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
+                            className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${solid ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
                             title="Remove from calendar"
                           >×</button>
                         </div>
