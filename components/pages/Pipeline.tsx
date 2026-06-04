@@ -716,11 +716,13 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         <ConfirmScheduleModal
           draft={pendingDrop.draft}
           date={pendingDrop.date}
+          clientId={selectedClientId}
           onClose={() => setPendingDrop(null)}
           onConfirm={async (postToIG, opts) => {
             await scheduleDraftOnDate(pendingDrop.draft.id, pendingDrop.date);
             if (postToIG && selectedClientId) {
-              const mediaUrl = pendingDrop.draft.rawContentUrl || (() => {
+              // Post the finished/edited video; fall back to raw only if no edit exists.
+              const mediaUrl = pendingDrop.draft.editedVideoUrl || pendingDrop.draft.rawContentUrl || (() => {
                 try { const arr = JSON.parse(pendingDrop.draft.rawContentUrls || "[]"); return arr[0] || null; } catch { return null; }
               })();
               const res = await fetch("/api/zernio/schedule", {
@@ -732,6 +734,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                   mediaUrls: mediaUrl ? [mediaUrl] : [],
                   scheduledFor: new Date(pendingDrop.date + "T09:00:00").toISOString(),
                   contentPieceId: pendingDrop.draft.id,
+                  trialReel: opts.trialReel,
                 }),
               });
               if (!res.ok) {
@@ -782,31 +785,49 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
 
 // ── Confirm Schedule Modal ──────────────────────────────────────────────────
 
-interface IGOptions { caption: string; }
+interface IGOptions { caption: string; trialReel: boolean; }
 
 function ConfirmScheduleModal({
-  draft, date, onClose, onConfirm,
+  draft, date, clientId, onClose, onConfirm,
 }: {
   draft: ScriptDraft;
   date: string;
+  clientId: number | null;
   onClose: () => void;
   onConfirm: (postToIG: boolean, opts: IGOptions) => Promise<void>;
 }) {
   const [loading, setLoading] = useState(false);
   const [igStatus, setIgStatus] = useState<string | null>(null);
   const [caption, setCaption] = useState(draft.caption || "");
+  const [trialReel, setTrialReel] = useState(false);
+  const [genCaption, setGenCaption] = useState(false);
 
-  const hasMedia = !!(draft.rawContentUrl || (draft.rawContentUrls && draft.rawContentUrls !== "[]"));
-
-  const videoUrl = draft.rawContentUrl || (() => {
+  // Prefer the finished/edited video; fall back to raw uploads.
+  const videoUrl = draft.editedVideoUrl || draft.rawContentUrl || (() => {
     try { const arr = JSON.parse(draft.rawContentUrls || "[]"); return arr[0] || null; } catch { return null; }
   })();
+  const hasMedia = !!videoUrl;
+  const isVideo = !!videoUrl && /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(videoUrl);
+
+  async function autoGenerateCaption() {
+    setGenCaption(true);
+    try {
+      const d = await fetch("/api/generate-caption", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, hook: draft.hook, script: draft.script, platform: "instagram" }),
+      }).then((r) => r.json());
+      if (d.caption) setCaption(d.caption);
+      else if (d.error) alert(d.error);
+    } finally {
+      setGenCaption(false);
+    }
+  }
 
   async function handle(postToIG: boolean) {
     setLoading(true);
     if (postToIG) setIgStatus("Scheduling via Zernio…");
     try {
-      await onConfirm(postToIG, { caption });
+      await onConfirm(postToIG, { caption, trialReel });
       if (postToIG) setIgStatus("Posted ✓");
     } catch {
       setIgStatus("Failed to post");
@@ -841,11 +862,31 @@ function ConfirmScheduleModal({
             <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">{draft.script}</pre>
           </div>
 
-          {/* Caption — editable */}
+          {/* Finished video preview */}
+          {videoUrl && (
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Video</p>
+              {isVideo ? (
+                <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
+                  <video src={videoUrl} controls className="w-full h-full object-contain" />
+                </div>
+              ) : (
+                <img src={videoUrl} alt="" className="rounded-xl w-full object-cover max-h-64" />
+              )}
+            </div>
+          )}
+
+          {/* Caption — editable, with AI auto-generate */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Caption</p>
-              <span className="text-[10px] text-slate-400">{caption.length} chars</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400">{caption.length} chars</span>
+                <button onClick={autoGenerateCaption} disabled={genCaption}
+                  className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50">
+                  {genCaption ? "Generating…" : "✨ Auto-generate caption"}
+                </button>
+              </div>
             </div>
             <textarea
               value={caption}
@@ -856,12 +897,16 @@ function ConfirmScheduleModal({
             />
           </div>
 
-          {/* Video file indicator */}
-          {videoUrl && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
-              <span>🎬</span>
-              <span className="truncate flex-1">{videoUrl}</span>
-            </div>
+          {/* Trial reel toggle */}
+          {hasMedia && (
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" checked={trialReel} onChange={(e) => setTrialReel(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400" />
+              <span className="text-xs text-slate-600 leading-relaxed">
+                <span className="font-semibold text-slate-700">🧪 Post as trial reel</span> — shown only to non-followers first;
+                auto-shares to followers if it performs well.
+              </span>
+            </label>
           )}
 
           {/* Zernio posting indicator */}
