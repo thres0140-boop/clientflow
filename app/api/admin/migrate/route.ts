@@ -313,9 +313,21 @@ export async function GET(req: NextRequest) {
     const ds = await prisma.scriptDraft.findMany({
       where: { clientId: cid, isSavedIdea: false },
       orderBy: { generatedAt: "desc" }, take: 30,
-      select: { id: true, title: true, status: true, stageId: true, clientAuthored: true, rejectionFeedback: true, conceptId: true, generatedAt: true } as any,
+      select: { id: true, title: true, status: true, stageId: true, clientAuthored: true, rejectionFeedback: true, conceptId: true, generatedAt: true, zernioBooked: true, zernioPostId: true, scheduledDate: true, editedVideoUrl: true } as any,
     });
     return NextResponse.json(ds);
+  }
+
+  // ?markposted=draftId — manually flip a script draft to status:"posted" (greens its
+  // calendar card). For posts published before the Zernio post-id link existed.
+  const markPosted = req.nextUrl.searchParams.get("markposted");
+  if (markPosted) {
+    const d = await (prisma as any).scriptDraft.update({
+      where: { id: parseInt(markPosted) },
+      data: { status: "posted" },
+      select: { id: true, title: true, status: true },
+    });
+    return NextResponse.json({ ok: true, draft: d });
   }
 
   // ?markclient=clientId — backfill clientAuthored=true for this client's self-written drafts
