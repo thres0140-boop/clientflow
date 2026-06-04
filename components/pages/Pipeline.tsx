@@ -225,10 +225,19 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   // (so nothing is silently set to 9am). Confirming the auto-post stays a
   // separate deliberate step (click the planned chip → "Confirm scheduling").
   function handleCalendarDrop(date: string) {
-    if (dragDraftId) {
-      setPlanDrop({ draftId: dragDraftId, date });
-      setDragDraftId(null);
-      setDragOverDate(null);
+    const id = dragDraftId;
+    setDragDraftId(null);
+    setDragOverDate(null);
+    if (!id) return;
+    // If it's already on the calendar, this is a day move → keep the same time,
+    // just change the day (no time prompt). Otherwise (from the board) ask for a time.
+    const existing = stagedDrafts.find((d) => d.id === id);
+    if (existing?.scheduledDate) {
+      if (existing.scheduledDate.startsWith(date)) return; // dropped on the same day → no-op
+      const m = existing.scheduledDate.match(/T(\d{2}:\d{2})/);
+      scheduleDraftOnDate(id, m ? `${date}T${m[1]}` : date);
+    } else {
+      setPlanDrop({ draftId: id, date });
     }
   }
 
@@ -484,10 +493,16 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                           {draftsOnDay.map((draft) => {
                             const st = draftState(draft);
                             const solid = st.key === "booked" || st.key === "posted";
+                            // Only planning-stage cards can be dragged between days; booked/posted
+                            // are locked (moving them would desync the live Zernio booking).
+                            const movable = canEdit && (st.key === "planned" || st.key === "ready");
                             return (
                             <div
                               key={`d-${draft.id}`}
-                              className="w-full rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight group/draft relative"
+                              draggable={movable}
+                              onDragStart={movable ? () => handleDraftDragStart(draft.id) : undefined}
+                              onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
+                              className={`w-full rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight group/draft relative ${movable ? "cursor-grab active:cursor-grabbing" : ""}`}
                               style={solid
                                 ? { backgroundColor: st.color, color: "#fff" }
                                 : { backgroundColor: st.color + "15", borderLeft: `2px solid ${st.color}`, color: "#1e293b" }}
@@ -575,10 +590,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                       {draftsOnDay.map((draft) => {
                         const st = draftState(draft);
                         const solid = st.key === "booked" || st.key === "posted";
+                        const movable = canEdit && (st.key === "planned" || st.key === "ready");
                         return (
                         <div
                           key={`d-${draft.id}`}
-                          className="w-full rounded-lg px-2 py-2 text-xs group/wdraft relative"
+                          draggable={movable}
+                          onDragStart={movable ? () => handleDraftDragStart(draft.id) : undefined}
+                          onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
+                          className={`w-full rounded-lg px-2 py-2 text-xs group/wdraft relative ${movable ? "cursor-grab active:cursor-grabbing" : ""}`}
                           style={solid
                             ? { backgroundColor: st.color, color: "#fff" }
                             : { backgroundColor: st.color + "15", borderLeft: `3px solid ${st.color}` }}
