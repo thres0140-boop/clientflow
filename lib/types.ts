@@ -45,6 +45,7 @@ export type Client = {
   color: string;
   notes?: string | null;
   captionStyle?: string | null;
+  captionGuidelines?: string | null;
   dayTemplate?: string | null;
   language: string;
   scriptAlternatives: number;

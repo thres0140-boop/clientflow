@@ -549,6 +549,9 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "TeamMember" ADD COLUMN IF NOT EXISTS "viewOnlyPages" TEXT NOT NULL DEFAULT '';
     `;
     await (prisma as any).$executeRaw`
+      ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "captionGuidelines" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
       ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "clientAuthored" BOOLEAN NOT NULL DEFAULT false;
     `;
     await (prisma as any).$executeRaw`

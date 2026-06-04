@@ -16,7 +16,12 @@ export async function POST(req: NextRequest) {
     ? await prisma.client.findUnique({ where: { id: parseInt(clientId) } })
     : null;
 
-  const styleInstructions = clientData?.captionStyle
+  // Prefer the learned caption playbook (derived from the creator's real reel
+  // captions); fall back to the manual caption-style field, then a generic prompt.
+  const guidelines = (clientData as any)?.captionGuidelines as string | null | undefined;
+  const styleInstructions = guidelines
+    ? `Write the caption following ${clientData?.name}'s CAPTION PLAYBOOK (learned from their real reel captions). Match it closely — opening style, CTA, emoji, length, voice:\n\n${guidelines}`
+    : clientData?.captionStyle
     ? `Write captions in this specific style for ${clientData.name}:\n${clientData.captionStyle}`
     : `Write an engaging social media caption.`;
 

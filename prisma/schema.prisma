@@ -18,6 +18,7 @@ model Client {
   color              String   @default("#6366f1")
   notes              String?
   captionStyle       String?
+  captionGuidelines  String?
   dayTemplate        String?
   language           String   @default("nl")
   scriptAlternatives Int      @default(5)

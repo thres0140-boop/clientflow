@@ -123,8 +123,40 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   const [savingExample, setSavingExample] = useState<number | null>(null);
   const [savingBlueprint, setSavingBlueprint] = useState<number | null>(null);
   const [pullingExamples, setPullingExamples] = useState<number | null>(null);
+  const [capGl, setCapGl] = useState("");
+  const [genCapGl, setGenCapGl] = useState(false);
+  const [savingCapGl, setSavingCapGl] = useState(false);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
+
+  useEffect(() => { setCapGl((client as any)?.captionGuidelines ?? ""); }, [client?.id, (client as any)?.captionGuidelines]);
+
+  async function generateCaptionGuidelines() {
+    if (!client) return;
+    setGenCapGl(true);
+    try {
+      const d = await fetch(`/api/clients/${client.id}/caption-guidelines`, { method: "POST" }).then((r) => r.json());
+      if (d.error) { alert(d.error); return; }
+      if (d.guidelines) { setCapGl(d.guidelines); alert(`Learned a caption playbook from ${d.sampled} of ${client.name}'s reel captions.`); }
+    } catch {
+      alert("Couldn't read the captions. Try again.");
+    } finally {
+      setGenCapGl(false);
+    }
+  }
+
+  async function saveCaptionGuidelines() {
+    if (!client) return;
+    setSavingCapGl(true);
+    try {
+      await fetch(`/api/clients/${client.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...client, captionGuidelines: capGl }),
+      });
+    } finally {
+      setSavingCapGl(false);
+    }
+  }
 
   const reload = useCallback(async () => {
     if (!selectedClientId) return;
@@ -706,6 +738,37 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
               <p className="text-xs font-semibold text-slate-700">Gets Better Over Time</p>
               <p className="text-[11px] text-slate-400">The more you reject with reasons, the better the outputs</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Captions — learned from the client's real reel captions */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-slate-800">📝 Captions</p>
+            <p className="text-xs text-slate-400 mt-0.5">Learn {client.name}'s caption style from their own reels, then write new captions in that style</p>
+          </div>
+          <button onClick={generateCaptionGuidelines} disabled={genCapGl}
+            className="px-3 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+            {genCapGl ? "Reading reels…" : "✨ Learn from 15 reels"}
+          </button>
+        </div>
+        <div className="p-4 space-y-2">
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Caption playbook</label>
+          <textarea
+            value={capGl}
+            onChange={(e) => setCapGl(e.target.value)}
+            rows={capGl ? 14 : 4}
+            placeholder="Click “✨ Learn from 15 reels” to pull this client's recent reel captions and auto-build their caption playbook (opening style, CTA, emoji, length…). You can edit it after."
+            className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-slate-400">Used when generating reel captions for this client.</p>
+            <button onClick={saveCaptionGuidelines} disabled={savingCapGl}
+              className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-700 rounded-lg hover:bg-slate-800 disabled:opacity-50">
+              {savingCapGl ? "Saving…" : "Save"}
+            </button>
           </div>
         </div>
       </div>
