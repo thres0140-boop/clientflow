@@ -889,7 +889,7 @@ function ConfirmScheduleModal({
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Caption</p>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-slate-400">{caption.length} chars</span>
-                <button onClick={autoGenerateCaption} disabled={genCaption}
+                <button onClick={() => autoGenerateCaption()} disabled={genCaption}
                   className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50">
                   {genCaption ? "Generating…" : "✨ Auto-generate caption"}
                 </button>
