@@ -964,33 +964,34 @@ function DraftDetailPanel({
 
           {(() => {
             const stageName = stages.find((s) => s.id === draft.stageId)?.name || "";
-            // Any review stage — "Check 1", "Final Check", "Check 2", etc.
-            const isCheckStage = /check/i.test(stageName);
+            const isCheckStage = /check/i.test(stageName);   // "Check 1", "Final Check", …
             const isEditStage = stageName === "Edit";
+            // Everything after Edit (checks, schedule, done) = view the finished cut, hide raw.
+            const stageIdx = stages.findIndex((s) => s.id === draft.stageId);
+            const editIdx = stages.findIndex((s) => s.name === "Edit");
+            const afterEdit = editIdx >= 0 && stageIdx > editIdx;
             return (
               <>
-                {/* Raw content — hidden on check stages (you're reviewing the finished cut there) */}
-                {inStage && !isCheckStage && (
+                {/* Raw content — only while recording/editing (hidden once the cut is done) */}
+                {inStage && !isCheckStage && !afterEdit && (
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Raw Content</label>
                     <RawContentUpload draft={draft} onUploaded={onUploaded} />
                   </div>
                 )}
 
-                {/* Finished video — uploaded on Edit, viewed on any check stage */}
-                {inStage && (isEditStage || isCheckStage) && (
+                {/* Finished video — uploaded on Edit, viewed on every stage after Edit (checks, Schedule, …) */}
+                {inStage && (isEditStage || afterEdit) && (
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Finished Video</label>
-                    {isCheckStage ? (
-                      draft.editedVideoUrl ? (
-                        <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
-                          <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
-                      )
-                    ) : (
+                    {isEditStage ? (
                       <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
+                    ) : draft.editedVideoUrl ? (
+                      <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
+                        <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
                     )}
                   </div>
                 )}
