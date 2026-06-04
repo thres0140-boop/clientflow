@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySessionToken } from "@/lib/session";
+import { sendWhatsApp } from "@/lib/notify";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
@@ -37,6 +39,19 @@ export async function POST(req: NextRequest) {
       channel: body.channel || "client",
     },
   });
+
+  // WhatsApp the owner when a client/team member messages them (not the owner's own sends).
+  try {
+    const token = req.cookies.get("cf_session")?.value;
+    const session = token ? await verifySessionToken(token) : null;
+    if (session && session.type === "member") {
+      const sender = session.name || "Someone";
+      const client = body.clientId ? await prisma.client.findUnique({ where: { id: parseInt(body.clientId) }, select: { name: true } }) : null;
+      const preview = String(body.content || "").replace(/^__REEL__.*?__END__/, "🎬 ").slice(0, 140);
+      sendWhatsApp(`💬 New message from ${sender}${client ? ` · ${client.name}` : ""}:\n${preview}`).catch(() => {});
+    }
+  } catch { /* non-fatal */ }
+
   return NextResponse.json(message, { status: 201 });
 }
 

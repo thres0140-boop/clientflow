@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addConceptExample } from "@/lib/conceptExamples";
+import { sendWhatsApp } from "@/lib/notify";
 
 export async function GET(req: NextRequest) {
   const idParam = req.nextUrl.searchParams.get("id");
@@ -84,6 +85,13 @@ export async function POST(req: NextRequest) {
       }
       await addConceptExample(draft.conceptId, draft.script, "human_seed", { scriptDraftId: draft.id }).catch(() => {});
     } catch { /* non-fatal */ }
+  }
+
+  // WhatsApp the owner when a client submits a self-written script.
+  if (body.clientAuthored === true && draft.script) {
+    const concept = draft.concept ? `${draft.concept.conceptType ? `${draft.concept.conceptType} · ` : ""}${draft.concept.name}` : "a concept";
+    const who = draft.client?.name || "Client";
+    sendWhatsApp(`📝 ${who} submitted a script for ${concept}`).catch(() => {});
   }
 
   return NextResponse.json(draft, { status: 201 });
