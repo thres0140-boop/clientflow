@@ -3,8 +3,23 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
-  const channel = req.nextUrl.searchParams.get("channel") ?? "client";
   if (!clientId) return NextResponse.json([]);
+
+  // ?summary=1 → latest message per channel (for unread badges + WhatsApp-style sorting)
+  if (req.nextUrl.searchParams.get("summary") === "1") {
+    const all = await prisma.message.findMany({
+      where: { clientId: parseInt(clientId) },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+    const map: Record<string, { channel: string; lastAt: Date; lastAuthor: string; lastContent: string }> = {};
+    for (const m of all) {
+      if (!map[m.channel]) map[m.channel] = { channel: m.channel, lastAt: m.createdAt, lastAuthor: m.author, lastContent: (m.content || "").slice(0, 60) };
+    }
+    return NextResponse.json(Object.values(map));
+  }
+
+  const channel = req.nextUrl.searchParams.get("channel") ?? "client";
   const messages = await prisma.message.findMany({
     where: { clientId: parseInt(clientId), channel },
     orderBy: { createdAt: "asc" },

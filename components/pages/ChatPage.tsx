@@ -53,8 +53,21 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   const [reelModal, setReelModal] = useState<ReelRef | null>(null);
   const [reelModalFull, setReelModalFull] = useState<ReelRef | null>(null);
   const [activeChannel, setActiveChannel] = useState<string>(memberChannel ?? initialChannel ?? "client");
+  // Per-channel latest message (for unread badges + WhatsApp-style ordering)
+  const [summary, setSummary] = useState<Record<string, { lastAt: string; lastAuthor: string; lastContent: string }>>({});
+  const [lastRead, setLastRead] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Author strings that count as "me" (so my own latest message isn't unread).
+  const myAuthors = isOwnerSession ? ["owner", ownerName] : [clientName ?? "client"];
+  function isUnread(channel: string): boolean {
+    const s = summary[channel];
+    if (!s || channel === activeChannel) return false;
+    if (myAuthors.includes(s.lastAuthor)) return false;
+    const read = lastRead[channel];
+    return !read || new Date(s.lastAt).getTime() > new Date(read).getTime();
+  }
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
@@ -119,6 +132,38 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Load last-read marks for this client (per-channel), and refresh on client switch.
+  useEffect(() => {
+    if (!selectedClientId) return;
+    try { setLastRead(JSON.parse(localStorage.getItem(`cf_chat_read_${selectedClientId}`) || "{}")); }
+    catch { setLastRead({}); }
+  }, [selectedClientId]);
+
+  const fetchSummary = useCallback(async () => {
+    if (!selectedClientId) return;
+    const data = await fetch(`/api/messages?clientId=${selectedClientId}&summary=1`).then((r) => r.json()).catch(() => []);
+    const map: Record<string, { lastAt: string; lastAuthor: string; lastContent: string }> = {};
+    for (const s of (Array.isArray(data) ? data : [])) map[s.channel] = { lastAt: s.lastAt, lastAuthor: s.lastAuthor, lastContent: s.lastContent };
+    setSummary(map);
+  }, [selectedClientId]);
+
+  // Poll the summary (and the open conversation) so unread badges update live.
+  useEffect(() => {
+    fetchSummary();
+    const i = setInterval(() => { fetchSummary(); fetchMessages(); }, 15000);
+    return () => clearInterval(i);
+  }, [fetchSummary, fetchMessages]);
+
+  // Opening a conversation (or new messages arriving while it's open) marks it read.
+  useEffect(() => {
+    if (!activeChannel || !selectedClientId) return;
+    setLastRead((prev) => {
+      const next = { ...prev, [activeChannel]: new Date().toISOString() };
+      localStorage.setItem(`cf_chat_read_${selectedClientId}`, JSON.stringify(next));
+      return next;
+    });
+  }, [activeChannel, messages, selectedClientId]);
 
   const mentionItems: MentionItem[] = [
     ...concepts.filter((c) => !c.isIdea).map((c) => ({ type: "concept" as const, id: c.id, label: c.name, sub: "Concept" })),
@@ -420,8 +465,11 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Conversations</p>
         </div>
         <div className="flex-1 overflow-y-auto py-2">
-          {conversations.map((conv) => {
+          {[...conversations]
+            .sort((a, b) => (summary[b.channel]?.lastAt ?? "").localeCompare(summary[a.channel]?.lastAt ?? ""))
+            .map((conv) => {
             const isActive = conv.channel === activeChannel;
+            const unread = isUnread(conv.channel);
             return (
               <button
                 key={conv.channel}
@@ -434,14 +482,18 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                 >
                   {conv.initial}
                 </div>
-                <div className="min-w-0">
-                  <p className={`text-xs font-medium truncate ${isActive ? "text-indigo-700" : "text-slate-700"}`}>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs truncate ${unread ? "font-bold text-slate-900" : isActive ? "font-medium text-indigo-700" : "font-medium text-slate-700"}`}>
                     {conv.label}
                   </p>
-                  {conv.isClient && (
+                  {conv.isClient && !unread && (
                     <p className="text-[10px] text-slate-400">Client</p>
                   )}
+                  {unread && (
+                    <p className="text-[10px] text-slate-500 truncate">{summary[conv.channel]?.lastContent?.replace(/^__REEL__.*__END__/, "🎬 ") || "New message"}</p>
+                  )}
                 </div>
+                {unread && <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0" />}
               </button>
             );
           })}
