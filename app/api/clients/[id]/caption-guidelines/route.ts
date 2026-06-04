@@ -7,6 +7,13 @@ export const dynamic = "force-dynamic";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// GET — return the stored caption playbook for this client (fresh from DB).
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const client = await prisma.client.findUnique({ where: { id: parseInt(id) }, select: { captionGuidelines: true } as any });
+  return NextResponse.json({ guidelines: (client as any)?.captionGuidelines ?? "" });
+}
+
 // POST /api/clients/[id]/caption-guidelines
 // Pulls the captions from the client's ~15 most recent reels (own connected IG
 // account, via Graph API) and derives reusable caption-writing guidelines from

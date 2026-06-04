@@ -129,7 +129,8 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
-  useEffect(() => { setCapGl((client as any)?.captionGuidelines ?? ""); }, [client?.id, (client as any)?.captionGuidelines]);
+  // Clear on client switch; reload() fetches the fresh playbook from the server.
+  useEffect(() => { setCapGl(""); }, [selectedClientId]);
 
   async function generateCaptionGuidelines() {
     if (!client) return;
@@ -160,12 +161,14 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
 
   const reload = useCallback(async () => {
     if (!selectedClientId) return;
-    const [co, fb] = await Promise.all([
+    const [co, fb, cg] = await Promise.all([
       fetch(`/api/concepts?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/concept-feedback?clientId=${selectedClientId}`).then((r) => r.json()),
+      fetch(`/api/clients/${selectedClientId}/caption-guidelines`).then((r) => r.json()).catch(() => ({})),
     ]);
     setConcepts((co as Concept[]).filter((c) => !c.isIdea));
     setFeedbacks(fb);
+    if (typeof cg?.guidelines === "string") setCapGl(cg.guidelines);
   }, [selectedClientId]);
 
   useEffect(() => { reload(); }, [reload]);
