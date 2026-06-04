@@ -36,6 +36,58 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // ?conceptlist=1 — list concepts (id, name, client, attached reel count)
+  if (req.nextUrl.searchParams.get("conceptlist")) {
+    const cs = await prisma.concept.findMany({ orderBy: { id: "desc" }, take: 30 });
+    return NextResponse.json(cs.map((c: any) => {
+      let n = 0; try { n = JSON.parse(c.reelUrls || "[]").length; } catch {}
+      return { id: c.id, name: c.name, clientId: c.clientId, reels: n, videoType: c.videoType, textOverlay: c.textOverlay };
+    }));
+  }
+
+  // ?extractdbg=conceptId — diagnose why extract-examples pulls nothing for a concept
+  const extractDbg = req.nextUrl.searchParams.get("extractdbg");
+  if (extractDbg) {
+    const conceptId = parseInt(extractDbg);
+    const concept = await prisma.concept.findUnique({ where: { id: conceptId } });
+    if (!concept) return NextResponse.json({ error: "concept not found" });
+    let reelUrls: string[] = [];
+    try { reelUrls = JSON.parse((concept as any).reelUrls || "[]"); } catch {}
+    const conn = concept.clientId ? await prisma.instagramConnection.findUnique({ where: { clientId: concept.clientId } }) : null;
+    const tok = (u: string) => ((u || "").match(/\/(?:reel|reels|p|tv)\/([^/?#]+)/i)?.[1] || u || "").trim();
+    const wanted = new Set(reelUrls.map(tok));
+    const matched: Record<string, any> = {};
+    let url: string | null = conn?.accessToken
+      ? `https://graph.instagram.com/v21.0/me/media?fields=id,permalink,thumbnail_url,media_url,media_type&limit=50&access_token=${conn.accessToken}`
+      : null;
+    let pages = 0, totalMedia = 0;
+    while (url && pages < 12) {
+      pages++;
+      let data: any;
+      try { data = await (await fetch(url)).json(); } catch { break; }
+      if (!data?.data) break;
+      totalMedia += data.data.length;
+      for (const m of data.data) {
+        const t = tok(m.permalink || "");
+        if (wanted.has(t) && !matched[t]) matched[t] = m;
+      }
+      url = data.paging?.next || null;
+    }
+    return NextResponse.json({
+      conceptName: concept.name,
+      clientId: concept.clientId,
+      igConnected: !!conn?.accessToken,
+      reelUrls,
+      wantedTokens: [...wanted],
+      matchedTokens: Object.keys(matched),
+      matchedCount: Object.keys(matched).length,
+      totalClientMediaScanned: totalMedia,
+      sampleMatched: Object.values(matched)[0]
+        ? { id: (Object.values(matched)[0] as any).id, hasThumb: !!(Object.values(matched)[0] as any).thumbnail_url, mediaType: (Object.values(matched)[0] as any).media_type }
+        : null,
+    });
+  }
+
   // ?rawmedia=shortcode — call get_media_data.php and show raw response + parsed video url
   const rawmedia = req.nextUrl.searchParams.get("rawmedia");
   if (rawmedia) {
