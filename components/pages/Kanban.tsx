@@ -245,7 +245,31 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   async function proceedToNextStage(draft: ScriptDraft) {
     if (!draft.stageId) return;
     const next = getNextStage(draft.stageId);
-    await moveDraft(draft.id, next?.id ?? null);
+    // Moving forward clears any stale "sent back" note so it doesn't linger.
+    await fetch(`/api/script-drafts/${draft.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stageId: next?.id ?? null, status: next ? "accepted" : "accepted", rejectionFeedback: null }),
+    });
+    reload();
+  }
+
+  // Send a draft back to the previous stage with a reason the assignee sees.
+  async function sendBackDraft(draft: ScriptDraft, reason: string) {
+    if (!draft.stageId) return;
+    const idx = stages.findIndex((s) => s.id === draft.stageId);
+    const prev = idx > 0 ? stages[idx - 1] : null;
+    const fromName = stages[idx]?.name ?? "stage";
+    const toName = prev?.name ?? "Ideas";
+    // Record the reason as a note (visible to whoever picks it up) + a banner flag.
+    await fetch("/api/draft-notes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ draftId: draft.id, content: `↩ Sent back (${fromName} → ${toName}): ${reason}`, author: ownerName }),
+    }).catch(() => {});
+    await fetch(`/api/script-drafts/${draft.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stageId: prev?.id ?? null, status: prev ? "accepted" : "pending", rejectionFeedback: reason }),
+    });
+    reload();
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -536,6 +560,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           isClient={isClient}
           onProceed={() => { proceedToNextStage(detailDraft); setDetailDraft(null); }}
           onMoveToStage={(sid) => { moveDraft(detailDraft.id, sid); setDetailDraft(null); }}
+          onSendBack={(reason) => { sendBackDraft(detailDraft, reason); setDetailDraft(null); }}
           getNextStage={(id) => getNextStage(id)}
           onOpenChat={onOpenChat}
           onUploaded={(urls) => {
@@ -757,7 +782,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
+  draft, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, onSendBack, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[]; client?: { name: string; color: string } | null;
   isTextOverlay?: boolean;
@@ -766,6 +791,7 @@ function DraftDetailPanel({
   onScriptUpdated: (script: string, hook: string | null) => void;
   onProceed: () => void;
   onMoveToStage?: (stageId: number | null) => void;
+  onSendBack?: (reason: string) => void;
   getNextStage: (stageId: number) => WorkflowStage | null;
   onUploaded: (urls: string[]) => void;
   onEditedVideoUploaded: (url: string) => void;
@@ -786,17 +812,24 @@ function DraftDetailPanel({
   const [notes, setNotes] = useState<{ id: number; author: string; content: string; createdAt: string }[]>([]);
   const [changes, setChanges] = useState<{ id: number; field: string; before: string; after: string; author: string; createdAt: string }[]>([]);
   const [noteInput, setNoteInput] = useState("");
+  const [showSendBack, setShowSendBack] = useState(false);
+  const [sendBackReason, setSendBackReason] = useState("");
   const [prevHook, setPrevHook] = useState(draft.hook || "");
   const [prevScript, setPrevScript] = useState(draft.script);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const inStage = !!draft.stageId;
   const nextStage = draft.stageId ? getNextStage(draft.stageId) : null;
-  const authorName = activeProfileId ? "client" : ownerName;
+  // Author notes under the real person's name (member's name, or the owner).
+  const authorName = activeProfileId ? (team.find((m) => m.id === activeProfileId)?.name || "Team") : ownerName;
 
   useEffect(() => {
-    fetch(`/api/draft-notes?draftId=${draft.id}`).then(r => r.json()).then(setNotes);
-    fetch(`/api/draft-changes?draftId=${draft.id}`).then(r => r.json()).then(setChanges);
+    const loadNotes = () => fetch(`/api/draft-notes?draftId=${draft.id}`).then(r => r.json()).then(setNotes).catch(() => {});
+    loadNotes();
+    fetch(`/api/draft-changes?draftId=${draft.id}`).then(r => r.json()).then(setChanges).catch(() => {});
+    // Refresh notes periodically so a teammate's note appears without reopening.
+    const i = setInterval(loadNotes, 12000);
+    return () => clearInterval(i);
   }, [draft.id]);
 
   useEffect(() => {
@@ -842,6 +875,12 @@ function DraftDetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {draft.rejectionFeedback && inStage && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">↩ Sent back — needs changes</p>
+              <p className="text-sm text-amber-800">{draft.rejectionFeedback}</p>
+            </div>
+          )}
           {isTextOverlay ? (
             /* Text-hook + B-roll format: no spoken script — just the on-screen text. */
             <div>
@@ -1158,8 +1197,30 @@ function DraftDetailPanel({
               </select>
             </div>
           )}
+          {/* Send back to the previous stage with a reason (owner/reviewer only) */}
+          {inStage && !isClient && onSendBack && (stages.findIndex((s) => s.id === draft.stageId) > 0) && (
+            showSendBack ? (
+              <div className="space-y-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <p className="text-[11px] font-semibold text-amber-700">↩ Send back to {stages[stages.findIndex((s) => s.id === draft.stageId) - 1]?.name} — what needs fixing?</p>
+                <textarea value={sendBackReason} onChange={(e) => setSendBackReason(e.target.value)} rows={3} autoFocus
+                  placeholder="e.g. re-cut the hook, audio is low, wrong clip at 0:08…"
+                  className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => { setShowSendBack(false); setSendBackReason(""); }} className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
+                  <button onClick={() => { if (sendBackReason.trim()) { onSendBack(sendBackReason.trim()); setShowSendBack(false); setSendBackReason(""); } }}
+                    disabled={!sendBackReason.trim()}
+                    className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50">↩ Send back</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowSendBack(true)}
+                className="w-full py-2 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100">
+                ↩ Send back a stage (with a note)
+              </button>
+            )
+          )}
           {inStage ? (() => {
-            const isCheck = stages.find((s) => s.id === draft.stageId)?.name === "Check";
+            const isCheck = /check/i.test(stages.find((s) => s.id === draft.stageId)?.name || "");
             const canProceed = !isCheck || checkApproved;
             return (
               <button onClick={onProceed} disabled={!canProceed}
