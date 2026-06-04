@@ -116,6 +116,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [rejectDraftData, setRejectDraftData] = useState<ScriptDraft | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [conceptFilter, setConceptFilter] = useState<number | "all">("all");
   const [showStageManager, setShowStageManager] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -150,12 +151,13 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       })
     : stages;
 
-  const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId);
-  const savedDrafts   = drafts.filter((d) => d.status === "saved");
+  const matchesConcept = (d: ScriptDraft) => conceptFilter === "all" || d.conceptId === conceptFilter;
+  const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId && matchesConcept(d));
+  const savedDrafts   = drafts.filter((d) => d.status === "saved" && matchesConcept(d));
   const ideaColumn    = [...pendingDrafts, ...savedDrafts];
 
   function draftsForStage(stageId: number) {
-    return drafts.filter((d) => d.stageId === stageId && d.status === "accepted");
+    return drafts.filter((d) => d.stageId === stageId && d.status === "accepted" && matchesConcept(d));
   }
 
   async function moveDraft(draftId: number, targetStageId: number | null) {
@@ -301,6 +303,18 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {concepts.length > 0 && (
+            <select
+              value={conceptFilter}
+              onChange={(e) => setConceptFilter(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+              className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 max-w-[200px]"
+            >
+              <option value="all">All concepts</option>
+              {concepts.map((c) => (
+                <option key={c.id} value={c.id}>{(c as any).conceptType ? `${(c as any).conceptType} · ` : ""}{c.name}</option>
+              ))}
+            </select>
+          )}
           {!activeProfile && (
             <button onClick={() => setShowStageManager(true)}
               className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
