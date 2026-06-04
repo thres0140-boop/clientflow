@@ -136,21 +136,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     /op\s*scherm|tekstkaart|text\s*card|on[\s-]*screen|overlay|regel\s*\d/.test(struct) ||
     /tekstkaart|op\s*scherm|text\s*card|geen\s*voice|no\s*voice/.test(guide);
 
-  // Helper: extract the example text using the right primary method for this format.
+  // Helper: extract the example text using the right method for THIS reel.
+  // We classify each reel's cover (talking-head vs text-overlay) rather than
+  // trusting the concept-level flag — that flag is often unset or wrong at the
+  // time of extraction, which used to feed hallucinated transcripts of silent
+  // text reels into the examples. The concept flag only breaks ties.
   async function extractText(m: any): Promise<string> {
-    if (isTextOverlay) {
-      // On-screen text first; only transcribe if the cover had no readable text.
-      let text = await readOnScreenText(m.thumbnail_url || m.media_url);
+    const img = m.thumbnail_url || m.media_url;
+    let perReel: string | null = null;
+    try { perReel = await classifyReelFormat(img); } catch { /* ignore */ }
+    const reelIsText = perReel
+      ? (perReel === "text_overlay" || perReel === "broll")
+      : isTextOverlay; // fall back to the concept flag if classification failed
+
+    if (reelIsText) {
+      // On-screen text first; only transcribe if the cover truly had no text.
+      let text = await readOnScreenText(img);
       if (text.length < 8) {
         const t = await transcribeAudio(m.media_url);
         if (t.length >= 8) text = t;
       }
       return text;
     }
-    // Talking-head: transcribe the spoken script first; vision only as a fallback.
+    // Talking-head: transcribe the spoken script; vision only as a fallback.
     let text = await transcribeAudio(m.media_url);
     if (text.length < 8) {
-      const v = await readOnScreenText(m.thumbnail_url || m.media_url);
+      const v = await readOnScreenText(img);
       if (v.length >= 8) text = v;
     }
     return text;
