@@ -78,6 +78,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   const [concepts,   setConcepts]   = useState<any[]>([]);
   const [dmLeads,    setDmLeads]    = useState<any[]>([]);
   const [igReels,    setIgReels]    = useState<any[]>([]); // live posted reels from Instagram
+  const [schedDrafts, setSchedDrafts] = useState<any[]>([]); // scheduled script drafts (concept source by day)
 
   // Manual entries: date → ManualEntry
   const [manual, setManual] = useState<Record<string, ManualEntry>>({});
@@ -101,16 +102,18 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   // Fetch all data when client changes
   useEffect(() => {
     if (!selectedClientId) return;
-    setAllContent([]); setAllVideos([]); setManual({}); setConcepts([]);
+    setAllContent([]); setAllVideos([]); setManual({}); setConcepts([]); setSchedDrafts([]);
 
     const loadAll = () => Promise.all([
       fetch(`/api/content?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/videos?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/analytics?clientId=${selectedClientId}`).then((r) => r.json()),
       fetch(`/api/concepts?clientId=${selectedClientId}`).then((r) => r.json()),
-    ]).then(([content, videos, analytics, concepts]) => {
+      fetch(`/api/script-drafts?clientId=${selectedClientId}&scheduled=true`).then((r) => r.json()),
+    ]).then(([content, videos, analytics, concepts, drafts]) => {
       setAllContent(Array.isArray(content) ? content : []);
       setAllVideos(Array.isArray(videos) ? videos : []);
+      setSchedDrafts(Array.isArray(drafts) ? drafts : []);
       setConcepts(Array.isArray(concepts) ? concepts.filter((c: any) => !c.isIdea) : []);
       const entries: AnalyticsEntry[] = Array.isArray(analytics) ? analytics : [];
       const m: Record<string, ManualEntry> = {};
@@ -168,6 +171,13 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   }
   const DM_AUTO_KEYS: ManualKey[] = ["messagesSent", "messagesAnswered", "linksSent", "bookedCalls"];
 
+  // Full concept label is always "Type · Name" (e.g. "Value · A") — never the bare variant.
+  function conceptLabel(c?: { name?: string | null; conceptType?: string | null } | null): string | null {
+    if (!c) return null;
+    if (c.conceptType && c.name) return `${c.conceptType} · ${c.name}`;
+    return c.conceptType || c.name || null;
+  }
+
   // Map reel shortcode -> concept label, from each concept's attached reel group.
   function shortcodeOf(url: string): string | null {
     const m = (url || "").match(/\/(?:reel|reels|p|tv)\/([^/?#]+)/i);
@@ -178,7 +188,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     for (const c of concepts) {
       let urls: string[] = [];
       try { urls = JSON.parse(c.reelUrls || "[]"); } catch { urls = []; }
-      const label = c.conceptType ? `${c.conceptType} · ${c.name}` : c.name;
+      const label = conceptLabel(c) ?? c.name;
       for (const u of urls) {
         const sc = shortcodeOf(u);
         if (sc && !out[sc]) out[sc] = label;
@@ -203,12 +213,22 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     for (const c of allContent) {
       const day = c.scheduledDate?.slice(0, 10);
       if (day && map[day]) {
-        const name = c.concept?.name;
-        if (name && !map[day].concepts.includes(name)) map[day].concepts.push(name);
+        const lbl = conceptLabel(c.concept as any);
+        if (lbl && !map[day].concepts.includes(lbl)) map[day].concepts.push(lbl);
         if (!map[day].videoUrl) {
           map[day].videoUrl = c.rawContentUrl || null;
         }
       }
+    }
+    // Scheduled script drafts are the source of truth for which concept runs each day
+    // (the calendar cards). This auto-links a posted/booked reel to its concept even
+    // when it was never attached to a concept's reel group.
+    for (const d of schedDrafts) {
+      const day = (d.scheduledDate || "").slice(0, 10);
+      if (!day || !map[day]) continue;
+      const lbl = conceptLabel(d.concept);
+      if (lbl && !map[day].concepts.includes(lbl)) map[day].concepts.push(lbl);
+      if (!map[day].videoUrl && d.editedVideoUrl) map[day].videoUrl = d.editedVideoUrl;
     }
     // Real posted reels from Instagram — bucket by posted date (works without a concept link)
     for (const r of igReels) {

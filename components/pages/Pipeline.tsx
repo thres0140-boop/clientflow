@@ -541,7 +541,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                     {/* Template hint */}
                     {templateConcept && (
                       <div className="mb-2 px-2 py-1 rounded-lg text-[10px] text-slate-500 bg-slate-50 border border-dashed border-slate-200 text-center truncate">
-                        💡 {templateConcept.name}
+                        💡 {conceptLabel(templateConcept.id, templateConcept.name)}
                       </div>
                     )}
                     <div className="flex-1 space-y-1.5">
@@ -810,7 +810,7 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
-            {draft.concept && <p className="text-xs font-semibold text-indigo-500 mb-0.5">💡 {draft.concept.name}</p>}
+            {draft.concept && <p className="text-xs font-semibold text-indigo-500 mb-0.5">💡 {draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name}</p>}
             <h2 className="text-base font-bold text-slate-800">{draft.title}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {draft.stage && <span className="text-[10px] bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">📍 {draft.stage.name}</span>}
@@ -980,7 +980,7 @@ function ConfirmScheduleModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between">
           <div>
-            {draft.concept && <p className="text-xs font-semibold text-indigo-500 mb-0.5">💡 {draft.concept.name}</p>}
+            {draft.concept && <p className="text-xs font-semibold text-indigo-500 mb-0.5">💡 {draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name}</p>}
             <h2 className="text-base font-bold text-slate-800">{draft.title}</h2>
             <p className="text-xs text-slate-400 mt-0.5">Scheduling for <span className="font-semibold text-slate-600">{date}</span></p>
           </div>
@@ -1744,7 +1744,7 @@ function ContentDetailModal({
           )}
           {piece.concept && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
-              💡 {piece.concept.name}
+              💡 {(piece.concept as any).conceptType ? `${(piece.concept as any).conceptType} · ${piece.concept.name}` : piece.concept.name}
             </span>
           )}
           {piece.scheduledDate && (() => {
