@@ -59,8 +59,8 @@ function CardContent({ draft }: { draft: ScriptDraft }) {
       )}
       <p className="text-xs font-semibold text-slate-800 truncate">{draft.title}</p>
       {draft.concept && (
-        <p className="text-[10px] text-indigo-500 font-medium mt-0.5">
-          {draft.concept.conceptType ? <span className="opacity-60">{draft.concept.conceptType} · </span> : null}
+        <p className="text-sm text-indigo-500 font-semibold mt-1">
+          {draft.concept.conceptType ? <span className="opacity-70">{draft.concept.conceptType} · </span> : null}
           {draft.concept.name}
         </p>
       )}
