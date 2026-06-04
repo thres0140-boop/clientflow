@@ -90,13 +90,33 @@ async function handlePublished(body: any) {
       console.log("[zernio-webhook] no matching ContentPiece found for published post; content=", content);
     }
 
-    // Also flip the matching script draft (the calendar card) to posted → turns green.
-    if (zernioPostId) {
-      const draft = await (prisma as any).scriptDraft.findFirst({ where: { zernioPostId } });
-      if (draft) {
-        await (prisma as any).scriptDraft.update({ where: { id: draft.id }, data: { status: "posted" } });
-        sendWhatsApp(`✅ Posted to Instagram: "${draft.title}"`).catch(() => {});
+    // Also flip the matching script draft (the calendar card) to posted → green.
+    // Try the stored Zernio id first, then fall back to a booked draft matched by
+    // caption or by scheduled-time proximity (for posts booked before we stored the id).
+    let draft: any = zernioPostId ? await (prisma as any).scriptDraft.findFirst({ where: { zernioPostId } }) : null;
+    if (!draft) {
+      const booked = await (prisma as any).scriptDraft.findMany({
+        where: { zernioBooked: true, status: { not: "posted" } },
+      });
+      if (content) {
+        draft = booked.find((d: any) => {
+          const cap = (d.caption ?? "").trim();
+          return cap && (cap === content || content.startsWith(cap.split("\n")[0]) || cap.startsWith(content.split("\n")[0]));
+        }) ?? null;
       }
+      if (!draft) {
+        const postTime = post.scheduledFor ?? post.publishedAt ?? post.scheduledAt ?? post.created_at;
+        const ts = postTime ? new Date(postTime).getTime() : Date.now();
+        draft = booked.find((d: any) => {
+          if (!d.scheduledDate) return false;
+          const dt = new Date(d.scheduledDate.includes("T") ? d.scheduledDate : d.scheduledDate + "T00:00:00").getTime();
+          return Math.abs(dt - ts) <= 6 * 60 * 60 * 1000; // ±6h
+        }) ?? null;
+      }
+    }
+    if (draft) {
+      await (prisma as any).scriptDraft.update({ where: { id: draft.id }, data: { status: "posted", ...(zernioPostId && !draft.zernioPostId ? { zernioPostId } : {}) } });
+      sendWhatsApp(`✅ Posted to Instagram: "${draft.title}"`).catch(() => {});
     }
   } catch (err) {
     console.error("[zernio-webhook] handlePublished error:", err);
