@@ -679,7 +679,14 @@ export function ConceptModal({
   const [clientOwned, setClientOwned] = useState(false);
   const [clientQuota, setClientQuota] = useState("3");
   const [clientIntervalDays, setClientIntervalDays] = useState("7");
-  const [clientAnchor, setClientAnchor] = useState("");
+  // Default the first-due-date to today (current month/year pre-filled) so the
+  // owner only picks the day; editing keeps the saved value.
+  const [clientAnchor, setClientAnchor] = useState<string>(() => {
+    const saved = (initial as any)?.clientAnchor;
+    if (saved) return String(saved).slice(0, 10);
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   // Concept Types saved under the selected category
   const typeOptions = Array.from(new Set(
     existing.filter((c) => c.conceptType === form.conceptType).map((c) => c.name).filter(Boolean) as string[]
