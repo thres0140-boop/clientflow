@@ -1746,7 +1746,9 @@ function StageManagerModal({ client, stages, team, creators, ownerName, onClose,
   const allPeople: { value: PersonValue; label: string; color: string }[] = [
     { value: "owner", label: ownerName, color: "#6366f1" },
     { value: "client", label: client.name, color: client.color },
-    ...team.map((m) => ({ value: `member:${m.id}` as PersonValue, label: m.name, color: m.color })),
+    // Exclude the client's own login account — it's already represented by the
+    // "client" chip above (otherwise the client shows up twice with the same name).
+    ...team.filter((m) => !m.isClientAccount).map((m) => ({ value: `member:${m.id}` as PersonValue, label: m.name, color: m.color })),
     ...creators.map((c) => ({ value: `creator:${c.id}` as PersonValue, label: c.name, color: c.color })),
   ];
 
