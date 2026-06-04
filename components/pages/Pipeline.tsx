@@ -732,7 +732,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                   clientId: selectedClientId,
                   content: opts.caption,
                   mediaUrls: mediaUrl ? [mediaUrl] : [],
-                  scheduledFor: new Date(pendingDrop.date + "T09:00:00").toISOString(),
+                  scheduledFor: new Date(`${pendingDrop.date}T${opts.time || "09:00"}:00`).toISOString(),
                   contentPieceId: pendingDrop.draft.id,
                   trialReel: opts.trialReel,
                 }),
@@ -785,7 +785,7 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
 
 // ── Confirm Schedule Modal ──────────────────────────────────────────────────
 
-interface IGOptions { caption: string; trialReel: boolean; }
+interface IGOptions { caption: string; trialReel: boolean; time: string; }
 
 function ConfirmScheduleModal({
   draft, date, clientId, onClose, onConfirm,
@@ -801,6 +801,7 @@ function ConfirmScheduleModal({
   const [caption, setCaption] = useState("");
   const [trialReel, setTrialReel] = useState(false);
   const [genCaption, setGenCaption] = useState(false);
+  const [scheduleTime, setScheduleTime] = useState("09:00");
 
   // Prefer the finished/edited video; fall back to raw uploads.
   const videoUrl = draft.editedVideoUrl || draft.rawContentUrl || (() => {
@@ -834,7 +835,7 @@ function ConfirmScheduleModal({
     setLoading(true);
     if (postToIG) setIgStatus("Scheduling via Zernio…");
     try {
-      await onConfirm(postToIG, { caption, trialReel });
+      await onConfirm(postToIG, { caption, trialReel, time: scheduleTime });
       if (postToIG) setIgStatus("Posted ✓");
     } catch {
       setIgStatus("Failed to post");
@@ -916,11 +917,26 @@ function ConfirmScheduleModal({
             </label>
           )}
 
+          {/* Posting time */}
+          {hasMedia && (
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Date</label>
+                <div className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{date}</div>
+              </div>
+              <div className="w-32">
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Time (local)</label>
+                <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+            </div>
+          )}
+
           {/* Zernio posting indicator */}
           {hasMedia && (
             <div className="flex items-start gap-2 bg-indigo-50 rounded-xl px-4 py-3">
               <span className="text-indigo-400 mt-0.5">📡</span>
-              <p className="text-[11px] text-indigo-700">Will be published to Instagram via Zernio at 9:00 AM UTC on the scheduled date.</p>
+              <p className="text-[11px] text-indigo-700">Will be published to Instagram via Zernio at {scheduleTime} on {date}.</p>
             </div>
           )}
 
