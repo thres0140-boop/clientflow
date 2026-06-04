@@ -1768,12 +1768,16 @@ function ImportScriptModal({ client, concepts, onClose, onImported }: {
     setSaving(true);
     try {
       const concept = concepts.find((c) => c.id === conceptId);
+      const conceptLbl = concept ? ((concept as any).conceptType ? `${(concept as any).conceptType} · ${concept.name}` : concept.name) : "Script";
+      // Default title: first words of the hook/script (a real title), else concept · week.
+      const firstLine = (hook.trim() || script.trim()).split(/\n/)[0];
+      const autoTitle = firstLine ? firstLine.split(/\s+/).slice(0, 8).join(" ") : `${conceptLbl} · ${weekLabel}`;
       await fetch("/api/script-drafts", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId: client.id,
           conceptId,
-          title: title.trim() || `${concept?.name ?? "Imported"} — imported`,
+          title: title.trim() || autoTitle,
           hook: hook.trim() || null,
           script: script.trim(),
           caption: caption.trim() || null,

@@ -318,6 +318,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(ds);
   }
 
+  // ?retitle=clientId — replace any "… — imported" titles with a real title derived
+  // from the hook/script first words (no more "imported" anywhere).
+  const retitle = req.nextUrl.searchParams.get("retitle");
+  if (retitle) {
+    const cid = parseInt(retitle);
+    const ds = await prisma.scriptDraft.findMany({
+      where: { clientId: cid, title: { contains: "imported" } },
+      select: { id: true, script: true, hook: true } as any,
+    });
+    const out: any[] = [];
+    for (const d of ds as any[]) {
+      const src = String(d.hook || d.script || "").trim();
+      const newTitle = src ? src.split(/\n/)[0].split(/\s+/).slice(0, 8).join(" ") : "Script";
+      await prisma.scriptDraft.update({ where: { id: d.id }, data: { title: newTitle } });
+      out.push({ id: d.id, title: newTitle });
+    }
+    return NextResponse.json({ ok: true, updated: out.length, titles: out });
+  }
+
   // ?markposted=draftId — manually flip a script draft to status:"posted" (greens its
   // calendar card). For posts published before the Zernio post-id link existed.
   const markPosted = req.nextUrl.searchParams.get("markposted");
