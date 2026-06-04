@@ -212,6 +212,13 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     reload();
   }
 
+  // Delete a draft outright — no AI learning signal, no feedback to the client.
+  async function deleteOnly(draft: ScriptDraft) {
+    await fetch(`/api/script-drafts/${draft.id}`, { method: "DELETE" });
+    setRejectDraftData(null);
+    reload();
+  }
+
   async function saveAsIdea(draftId: number, weeksFromNow: number) {
     const resurfaceDate = new Date();
     resurfaceDate.setDate(resurfaceDate.getDate() + weeksFromNow * 7);
@@ -555,6 +562,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           draft={rejectDraftData}
           onCancel={() => { setRejectDraftData(null); setDetailDraft(rejectDraftData); }}
           onConfirm={(reasonType, reason) => confirmReject(rejectDraftData, reasonType, reason)}
+          onDeleteOnly={() => deleteOnly(rejectDraftData)}
         />
       )}
 
@@ -1965,11 +1973,12 @@ const REJECT_REASONS = [
 ];
 
 function RejectModal({
-  draft, onCancel, onConfirm,
+  draft, onCancel, onConfirm, onDeleteOnly,
 }: {
   draft: ScriptDraft;
   onCancel: () => void;
   onConfirm: (reasonType: string, reason: string) => void;
+  onDeleteOnly: () => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [customText, setCustomText] = useState("");
@@ -2032,6 +2041,14 @@ function RejectModal({
             {draft.clientAuthored ? "↩ Send back to client" : "✗ Reject & Delete"}
           </button>
         </div>
+
+        {/* Delete without teaching the AI / notifying the client — no reason needed. */}
+        <button
+          onClick={onDeleteOnly}
+          className="w-full text-center text-xs font-medium text-slate-400 hover:text-red-500 pt-1"
+        >
+          🗑 Just delete — don&apos;t teach the AI{draft.clientAuthored ? " or notify the client" : ""}
+        </button>
       </div>
     </div>
   );
