@@ -9,6 +9,7 @@ type Props = { clients: Client[]; selectedClientId: number | null };
 const ALL_PAGES = [
   { id: "pipeline",  label: "Content Scheduling", icon: "📅" },
   { id: "kanban",    label: "Script Kanban",       icon: "📋" },
+  { id: "tasks",     label: "Script Tasks",        icon: "🧑‍💻" },
   { id: "concepts",  label: "Concept Library",     icon: "💡" },
   { id: "analytics", label: "Analytics",           icon: "📊" },
   { id: "dms",       label: "DM Pipeline",         icon: "💌" },
@@ -19,7 +20,7 @@ const ALL_PAGES = [
   { id: "settings",  label: "Settings",            icon: "⚙️" },
 ];
 
-const CLIENT_PAGES = ["pipeline", "kanban", "analytics", "dms", "chat"];
+const CLIENT_PAGES = ["pipeline", "kanban", "tasks", "analytics", "dms", "chat"];
 
 const TEAM_ROLES: { label: string; pages: string[] | "all" }[] = [
   { label: "Editor",           pages: ["pipeline", "kanban", "chat"] },

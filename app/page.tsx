@@ -154,9 +154,10 @@ export default function App() {
     const base = activeProfile.pageAccess === "all"
       ? all
       : activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
-    // Always give member logins access to chat + their script tasks
+    // Always give member logins access to chat.
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
-    if (session?.type === "member" && !base.includes("tasks")) base.push("tasks");
+    // Clients always get their Script Tasks; team members only if the owner granted it.
+    if (activeProfile?.isClientAccount && !base.includes("tasks")) base.push("tasks");
     return base;
   })();
 
