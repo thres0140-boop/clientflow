@@ -9,7 +9,7 @@ const PROFILE_ID  = process.env.ZERNIO_PROFILE_ID!;
 // Body: { clientId, content, mediaUrls?, scheduledFor? }
 // schedules (or publishes immediately) an Instagram post via Zernio
 export async function POST(req: NextRequest) {
-  const { clientId, content, mediaUrls, scheduledFor, contentPieceId } = await req.json();
+  const { clientId, content, mediaUrls, scheduledFor, contentPieceId, trialReel } = await req.json();
 
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
 
@@ -22,10 +22,20 @@ export async function POST(req: NextRequest) {
 
   const profileId = (conn as any).zernioProfileId || PROFILE_ID;
 
+  // Trial reel: Instagram shows it only to non-followers first, then auto-graduates
+  // to followers if it performs well (SS_PERFORMANCE). Applies to video reels.
+  const platformSpecificData = trialReel === true
+    ? { contentType: "reels", trialParams: { graduationStrategy: "SS_PERFORMANCE" } }
+    : undefined;
+
   const body: Record<string, unknown> = {
     profileId,
     content,
-    platforms: [{ platform: "instagram", accountId: conn.zernioAccountId }],
+    platforms: [{
+      platform: "instagram",
+      accountId: conn.zernioAccountId,
+      ...(platformSpecificData ? { platformSpecificData } : {}),
+    }],
   };
 
   if (mediaUrls && mediaUrls.length > 0) {

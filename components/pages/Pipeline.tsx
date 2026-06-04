@@ -947,6 +947,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
   const [caption, setCaption] = useState("");
   const [scheduleDate, setScheduleDate] = useState(today);
   const [scheduleTime, setScheduleTime] = useState(nowTime);
+  const [trialReel, setTrialReel] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "posting" | "done" | "error">("idle");
   const [postedNow, setPostedNow] = useState(false);
@@ -1004,7 +1005,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
       const res = await fetch("/api/zernio/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor, contentPieceId: newPieceId }),
+        body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor, contentPieceId: newPieceId, trialReel }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -1111,6 +1112,16 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
                 />
               </div>
             </div>
+
+            {/* Trial reel toggle */}
+            <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" checked={trialReel} onChange={(e) => setTrialReel(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400" />
+              <span className="text-xs text-slate-600 leading-relaxed">
+                <span className="font-semibold text-slate-700">🧪 Post as trial reel</span> — shown only to non-followers first;
+                Instagram auto-shares it to your followers if it performs well. (Video reels only.)
+              </span>
+            </label>
           </div>
 
           {/* Status */}
