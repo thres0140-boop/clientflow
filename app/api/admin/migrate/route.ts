@@ -36,6 +36,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // ?team=1 — dump all team members (name, clientId, isClientAccount) + clients
+  if (req.nextUrl.searchParams.get("team")) {
+    const members = await prisma.teamMember.findMany({ orderBy: { id: "asc" } });
+    const cls = await prisma.client.findMany({ select: { id: true, name: true } });
+    return NextResponse.json({
+      clients: cls,
+      members: members.map((m: any) => ({ id: m.id, name: m.name, email: m.email, clientId: m.clientId, isClientAccount: m.isClientAccount })),
+    });
+  }
+
   // ?conceptlist=clientId — list concepts (flags) + the client's saved dayTemplate
   const conceptList = req.nextUrl.searchParams.get("conceptlist");
   if (conceptList) {
