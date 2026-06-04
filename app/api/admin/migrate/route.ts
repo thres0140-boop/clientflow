@@ -45,6 +45,49 @@ export async function GET(req: NextRequest) {
     }));
   }
 
+  // ?visiondbg=conceptId — run vision on each matched reel's cover, return the text it sees
+  const visionDbg = req.nextUrl.searchParams.get("visiondbg");
+  if (visionDbg) {
+    const Anthropic = (await import("@anthropic-ai/sdk")).default;
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const conceptId = parseInt(visionDbg);
+    const concept = await prisma.concept.findUnique({ where: { id: conceptId } });
+    if (!concept?.clientId) return NextResponse.json({ error: "no concept/client" });
+    let reelUrls: string[] = [];
+    try { reelUrls = JSON.parse((concept as any).reelUrls || "[]"); } catch {}
+    const conn = await prisma.instagramConnection.findUnique({ where: { clientId: concept.clientId } });
+    const tok = (u: string) => ((u || "").match(/\/(?:reel|reels|p|tv)\/([^/?#]+)/i)?.[1] || u || "").trim();
+    const wanted = new Set(reelUrls.map(tok));
+    const matched: Record<string, any> = {};
+    let url: string | null = `https://graph.instagram.com/v21.0/me/media?fields=id,permalink,thumbnail_url,media_url&limit=50&access_token=${conn!.accessToken}`;
+    let pages = 0;
+    while (url && pages < 12 && Object.keys(matched).length < wanted.size) {
+      pages++;
+      const data: any = await (await fetch(url)).json();
+      if (!data?.data) break;
+      for (const m of data.data) { const t = tok(m.permalink || ""); if (wanted.has(t)) matched[t] = m; }
+      url = data.paging?.next || null;
+    }
+    async function vision(imageUrl: string) {
+      try {
+        const r = await fetch(imageUrl); if (!r.ok) return `fetch ${r.status}`;
+        const buf = Buffer.from(await r.arrayBuffer());
+        const m = await anthropic.messages.create({
+          model: "claude-sonnet-4-6", max_tokens: 500,
+          messages: [{ role: "user", content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: buf.toString("base64") } },
+            { type: "text", text: "Read and output ONLY the exact on-screen text shown, word for word. If no readable text overlay, output the single word NONE." },
+          ] }],
+        });
+        return (m.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("")).trim();
+      } catch (e) { return `err ${String(e).slice(0, 80)}`; }
+    }
+    const results = await Promise.all(Object.entries(matched).map(async ([t, m]) => ({
+      token: t, hasThumb: !!m.thumbnail_url, visionText: await vision(m.thumbnail_url || m.media_url),
+    })));
+    return NextResponse.json(results);
+  }
+
   // ?extractdbg=conceptId — diagnose why extract-examples pulls nothing for a concept
   const extractDbg = req.nextUrl.searchParams.get("extractdbg");
   if (extractDbg) {
