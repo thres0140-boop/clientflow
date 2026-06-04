@@ -22,10 +22,47 @@ export async function POST(req: NextRequest) {
   } else if (event.includes("fail")) {
     await handleFailed(body);
   } else if (event.includes("schedul")) {
-    console.log("[zernio-webhook] post scheduled:", body?.post?._id ?? body?.post?.id);
+    await handleScheduled(body);
   }
 
   return NextResponse.json({ ok: true });
+}
+
+// Always "Type · Name" (e.g. "Viral · A") — never the bare variant.
+function conceptLabelOf(draft: any): string | null {
+  const c = draft?.concept;
+  if (!c) return null;
+  if (c.conceptType && c.name) return `${c.conceptType} · ${c.name}`;
+  return c.conceptType || c.name || null;
+}
+
+// post.scheduled — Zernio confirms the auto-post is booked. Ping so the user knows
+// the schedule registered (the "webhook back from Zernio to confirm").
+async function handleScheduled(body: any) {
+  try {
+    const post = body.post ?? body.data ?? body;
+    const zernioPostId = String(post._id ?? post.id ?? post.postId ?? "");
+    if (!zernioPostId) return;
+    const draft = await (prisma as any).scriptDraft.findFirst({
+      where: { zernioPostId },
+      include: { concept: { select: { name: true, conceptType: true } } },
+    });
+    if (!draft) return;
+    const cLabel = conceptLabelOf(draft);
+    const when = post.scheduledFor ?? post.scheduledAt ?? post.scheduled_at ?? null;
+    let whenStr = "";
+    if (when) {
+      try {
+        whenStr = new Intl.DateTimeFormat("en-GB", {
+          weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+          timeZone: "Europe/Amsterdam",
+        }).format(new Date(when));
+      } catch { /* ignore */ }
+    }
+    sendWhatsApp(`🗓 Zernio confirmed scheduled: "${draft.title}"${cLabel ? ` (${cLabel})` : ""}${whenStr ? `\n→ auto-posts ${whenStr}` : ""}`).catch(() => {});
+  } catch (err) {
+    console.error("[zernio-webhook] handleScheduled error:", err);
+  }
 }
 
 async function handlePublished(body: any) {
@@ -93,10 +130,12 @@ async function handlePublished(body: any) {
     // Also flip the matching script draft (the calendar card) to posted → green.
     // Try the stored Zernio id first, then fall back to a booked draft matched by
     // caption or by scheduled-time proximity (for posts booked before we stored the id).
-    let draft: any = zernioPostId ? await (prisma as any).scriptDraft.findFirst({ where: { zernioPostId } }) : null;
+    const conceptInclude = { concept: { select: { name: true, conceptType: true } } };
+    let draft: any = zernioPostId ? await (prisma as any).scriptDraft.findFirst({ where: { zernioPostId }, include: conceptInclude }) : null;
     if (!draft) {
       const booked = await (prisma as any).scriptDraft.findMany({
         where: { zernioBooked: true, status: { not: "posted" } },
+        include: conceptInclude,
       });
       if (content) {
         draft = booked.find((d: any) => {
@@ -116,7 +155,10 @@ async function handlePublished(body: any) {
     }
     if (draft) {
       await (prisma as any).scriptDraft.update({ where: { id: draft.id }, data: { status: "posted", ...(zernioPostId && !draft.zernioPostId ? { zernioPostId } : {}) } });
-      sendWhatsApp(`✅ Posted to Instagram: "${draft.title}"`).catch(() => {});
+      const cLabel = conceptLabelOf(draft);
+      const permalink = post.permalink ?? igPlatform?.permalink ?? igPlatform?.url ?? null;
+      const link = permalink || draft.editedVideoUrl || (process.env.APP_URL || "https://www.ordoagency.com");
+      sendWhatsApp(`✅ LIVE on Instagram: "${draft.title}"${cLabel ? ` (${cLabel})` : ""}\n🔗 ${link}`).catch(() => {});
     }
   } catch (err) {
     console.error("[zernio-webhook] handlePublished error:", err);

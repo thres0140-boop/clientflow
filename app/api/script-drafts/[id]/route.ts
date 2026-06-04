@@ -79,7 +79,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           prevName = ps?.name ?? "a stage";
         }
         const who = draft.client?.name ? ` · ${draft.client.name}` : "";
-        sendWhatsApp(`📋 ${actor} moved "${draft.title}"${who}\nfrom ${prevName} → ${newName}`).catch(() => {});
+        const cLabel = draft.concept
+          ? (draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name)
+          : null;
+        const conceptStr = cLabel ? ` (${cLabel})` : "";
+        const appUrl = process.env.APP_URL || "https://www.ordoagency.com";
+        // Link straight to the thing to review: the finished video if there is one,
+        // otherwise the app (Script Kanban).
+        const link = draft.editedVideoUrl || appUrl;
+        sendWhatsApp(`📋 ${actor} moved "${draft.title}"${conceptStr}${who}\nfrom ${prevName} → ${newName}\n🔗 Check it: ${link}`).catch(() => {});
       }
     } catch { /* non-fatal */ }
   }
