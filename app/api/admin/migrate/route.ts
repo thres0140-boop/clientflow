@@ -36,13 +36,16 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // ?conceptlist=1 — list concepts (id, name, client, attached reel count)
-  if (req.nextUrl.searchParams.get("conceptlist")) {
-    const cs = await prisma.concept.findMany({ orderBy: { id: "desc" }, take: 30 });
-    return NextResponse.json(cs.map((c: any) => {
-      let n = 0; try { n = JSON.parse(c.reelUrls || "[]").length; } catch {}
-      return { id: c.id, name: c.name, clientId: c.clientId, reels: n, videoType: c.videoType, textOverlay: c.textOverlay };
-    }));
+  // ?conceptlist=clientId — list concepts (flags) + the client's saved dayTemplate
+  const conceptList = req.nextUrl.searchParams.get("conceptlist");
+  if (conceptList) {
+    const where = conceptList === "1" ? {} : { clientId: parseInt(conceptList) };
+    const cs = await prisma.concept.findMany({ where, orderBy: { id: "desc" }, take: 40 });
+    const client = conceptList !== "1" ? await prisma.client.findUnique({ where: { id: parseInt(conceptList) }, select: { dayTemplate: true } as any }) : null;
+    return NextResponse.json({
+      concepts: cs.map((c: any) => ({ id: c.id, name: c.name, conceptType: c.conceptType, clientId: c.clientId, isIdea: c.isIdea, clientOwned: c.clientOwned })),
+      dayTemplate: (client as any)?.dayTemplate ?? null,
+    });
   }
 
   // ?runextract=conceptId — run the real on-screen-text extraction and WRITE the examples
