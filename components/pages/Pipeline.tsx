@@ -191,7 +191,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     await fetch(`/api/script-drafts/${draftId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduledDate: null }),
+      body: JSON.stringify({ scheduledDate: null, zernioBooked: false }),
     });
     reload();
   }
@@ -200,10 +200,12 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     setDragDraftId(draftId);
   }
 
+  // Dropping a draft onto a date is just PLANNING — set the date, no modal, no
+  // posting. Confirming the auto-post is a separate deliberate step (click the
+  // planned chip → "Confirm scheduling").
   function handleCalendarDrop(date: string) {
     if (dragDraftId) {
-      const draft = stagedDrafts.find((d) => d.id === dragDraftId);
-      if (draft) setPendingDrop({ draft, date });
+      scheduleDraftOnDate(dragDraftId, date);
       setDragDraftId(null);
       setDragOverDate(null);
     }
@@ -280,6 +282,25 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           )}
         </div>
       </div>
+
+      {/* Planned-but-not-confirmed nudge — posts on the calendar that still need scheduling confirmed */}
+      {(() => {
+        const now = Date.now();
+        const soon = scheduledDrafts.filter((d) => {
+          if (d.zernioBooked || !d.scheduledDate) return false;
+          const t = new Date(d.scheduledDate + "T00:00:00").getTime();
+          return t >= now - 86400000 && t <= now + 3 * 86400000; // overdue today → next 3 days
+        });
+        if (soon.length === 0) return null;
+        return (
+          <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <span className="text-amber-500">🔔</span>
+            <p className="text-xs text-amber-800">
+              <span className="font-semibold">{soon.length} planned post{soon.length !== 1 ? "s" : ""} need confirming</span> in the next few days — click the dashed item on its day to review &amp; confirm the auto-post.
+            </p>
+          </div>
+        );
+      })()}
 
       {/* ── CALENDAR (both modes share the same view) ────────── */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -458,26 +479,30 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                           {pieces.length > 3 && (
                             <p className="text-[9px] text-slate-400 pl-1">+{pieces.length - 3} more</p>
                           )}
-                          {draftsOnDay.map((draft) => (
+                          {draftsOnDay.map((draft) => {
+                            const booked = !!draft.zernioBooked;
+                            return (
                             <div
                               key={`d-${draft.id}`}
                               className="w-full rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight group/draft relative"
-                              style={{ backgroundColor: "#6366f115", borderLeft: "2px solid #6366f1", color: "#1e293b" }}
+                              style={booked
+                                ? { backgroundColor: "#6366f1", color: "#fff" }
+                                : { backgroundColor: "transparent", border: "1px dashed #c7d2fe", color: "#6366f1" }}
                             >
-                              <button onClick={() => setSelectedDraft(draft)} className="w-full text-left">
-                                <div className="truncate font-semibold pr-4">{draft.title}</div>
+                              <button onClick={() => booked ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={booked ? "Scheduled to auto-post" : "Planned — click to confirm scheduling"}>
+                                <div className="truncate font-semibold pr-4">{booked ? "🔒 " : ""}{draft.title}</div>
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                  {draft.concept && <span className="bg-indigo-100 text-indigo-600 rounded px-1 text-[9px]">💡 {conceptLabel(draft.conceptId, draft.concept.name)}</span>}
-                                  {draft.stage && <span className="bg-slate-100 text-slate-500 rounded px-1 text-[9px]">📍 {draft.stage.name}</span>}
+                                  {!booked && <span className="bg-indigo-50 text-indigo-500 rounded px-1 text-[9px]">Planned · tap to confirm</span>}
+                                  {draft.stage && <span className={`rounded px-1 text-[9px] ${booked ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>📍 {draft.stage.name}</span>}
                                 </div>
                               </button>
                               <button
                                 onClick={() => unscheduleDraft(draft.id)}
-                                className="absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 text-slate-400 hover:text-red-500 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center"
+                                className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${booked ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
                                 title="Remove from calendar"
                               >×</button>
                             </div>
-                          ))}
+                          );})}
                         </div>
                       </>
                     )}
@@ -543,24 +568,28 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                           </button>
                         );
                       })}
-                      {draftsOnDay.map((draft) => (
+                      {draftsOnDay.map((draft) => {
+                        const booked = !!draft.zernioBooked;
+                        return (
                         <div
                           key={`d-${draft.id}`}
                           className="w-full rounded-lg px-2 py-2 text-xs group/wdraft relative"
-                          style={{ backgroundColor: "#6366f115", borderLeft: "3px solid #6366f1" }}
+                          style={booked
+                            ? { backgroundColor: "#6366f1", color: "#fff" }
+                            : { backgroundColor: "transparent", border: "1px dashed #c7d2fe" }}
                         >
-                          <button onClick={() => setSelectedDraft(draft)} className="w-full text-left">
-                            <p className="font-semibold text-slate-800 truncate leading-snug pr-4">{draft.title}</p>
-                            {draft.concept && <p className="text-indigo-500 truncate text-[10px] mt-0.5">💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>}
-                            {draft.stage && <p className="text-slate-400 truncate text-[10px]">📍 {draft.stage.name}</p>}
+                          <button onClick={() => booked ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={booked ? "Scheduled to auto-post" : "Planned — click to confirm scheduling"}>
+                            <p className={`font-semibold truncate leading-snug pr-4 ${booked ? "text-white" : "text-indigo-600"}`}>{booked ? "🔒 " : ""}{draft.title}</p>
+                            {!booked && <p className="text-[10px] text-indigo-400 mt-0.5">Planned · tap to confirm</p>}
+                            {draft.stage && <p className={`truncate text-[10px] ${booked ? "text-white/70" : "text-slate-400"}`}>📍 {draft.stage.name}</p>}
                           </button>
                           <button
                             onClick={() => unscheduleDraft(draft.id)}
-                            className="absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 text-slate-400 hover:text-red-500 transition-all text-sm leading-none"
+                            className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${booked ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
                             title="Remove from calendar"
                           >×</button>
                         </div>
-                      ))}
+                      );})}
                     </div>
                     {canEdit && (
                       <button
@@ -741,6 +770,12 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err?.error ?? "Failed to post");
               }
+              // Confirmed → mark booked so the calendar shows it locked/solid.
+              await fetch(`/api/script-drafts/${pendingDrop.draft.id}`, {
+                method: "PUT", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ zernioBooked: true }),
+              });
+              reload();
             }
             setPendingDrop(null);
           }}

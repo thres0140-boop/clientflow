@@ -305,6 +305,7 @@ model ScriptDraft {
   uploadToken        String?  @unique
   checkReviewerIds   String   @default("[]")
   scheduledDate      String?
+  zernioBooked       Boolean  @default(false)
   clientAuthored     Boolean  @default(false)
   rejectionFeedback  String?
   generatedAt        DateTime @default(now())

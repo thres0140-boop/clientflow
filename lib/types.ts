@@ -99,6 +99,7 @@ export type ScriptDraft = {
   editedVideoUrl?: string | null;
   checkReviewerIds?: string;
   scheduledDate?: string | null;
+  zernioBooked?: boolean;
   clientAuthored?: boolean;
   rejectionFeedback?: string | null;
   generatedAt: string;
