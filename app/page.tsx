@@ -142,6 +142,14 @@ export default function App() {
     transitionTimer.current = setTimeout(() => setTransitioning(false), 500);
   }, [selectedClientId, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep the team list current when opening Messages/Kanban so chat channels
+  // always match the latest members (e.g. after a member is added/re-added).
+  useEffect(() => {
+    if (appReady && selectedClientId !== null && (page === "chat" || page === "kanban")) {
+      fetchTeam(selectedClientId);
+    }
+  }, [page, selectedClientId, appReady, fetchTeam]);
+
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";

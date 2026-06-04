@@ -277,6 +277,15 @@ export async function GET(req: NextRequest) {
     })));
   }
 
+  // ?delmsgchannel=clientId:channel — delete a stale/orphaned message thread
+  const delMsg = req.nextUrl.searchParams.get("delmsgchannel");
+  if (delMsg) {
+    const [cid, ...rest] = delMsg.split(":");
+    const channel = rest.join(":");
+    const { count } = await (prisma as any).message.deleteMany({ where: { clientId: parseInt(cid), channel } });
+    return NextResponse.json({ ok: true, deleted: count });
+  }
+
   // ?msgs=1 — dump recent messages (clientId, channel, author) to debug chat routing
   if (req.nextUrl.searchParams.get("msgs")) {
     const ms = await (prisma as any).message.findMany({ orderBy: { id: "desc" }, take: 20 });
