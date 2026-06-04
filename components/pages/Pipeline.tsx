@@ -494,6 +494,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             >
                               <button onClick={() => solid ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
                                 <div className="truncate font-semibold pr-4">{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</div>
+                                {draft.concept && <div className={`truncate text-[9px] ${solid ? "text-white/80" : "opacity-70"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</div>}
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                   {!solid && <span className="rounded px-1 text-[9px]" style={{ backgroundColor: st.color + "22", color: st.color }}>{st.label}</span>}
                                   {draft.stage && <span className={`rounded px-1 text-[9px] ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>📍 {draft.stage.name}</span>}
@@ -584,6 +585,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         >
                           <button onClick={() => solid ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
                             <p className="font-semibold truncate leading-snug pr-4" style={{ color: solid ? "#fff" : st.color }}>{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</p>
+                            {draft.concept && <p className={`truncate text-[10px] ${solid ? "text-white/80" : "text-slate-500"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>}
                             {!solid && <p className="text-[10px] mt-0.5" style={{ color: st.color }}>{st.label}</p>}
                             {draft.stage && <p className={`truncate text-[10px] ${solid ? "text-white/70" : "text-slate-400"}`}>📍 {draft.stage.name}</p>}
                           </button>
