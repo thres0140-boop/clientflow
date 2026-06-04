@@ -277,6 +277,17 @@ export async function GET(req: NextRequest) {
     })));
   }
 
+  // ?wipeclienttasks=clientId — delete all client-written script drafts for a client
+  // (resets the Script Tasks page to a clean slate). Leaves AI-generated drafts.
+  const wipeTasks = req.nextUrl.searchParams.get("wipeclienttasks");
+  if (wipeTasks) {
+    const cid = parseInt(wipeTasks);
+    const { count } = await (prisma as any).scriptDraft.deleteMany({
+      where: { clientId: cid, clientAuthored: true },
+    });
+    return NextResponse.json({ ok: true, deleted: count });
+  }
+
   // ?drafts=clientId — dump script drafts with clientAuthored/status/feedback for debugging
   const draftsDump = req.nextUrl.searchParams.get("drafts");
   if (draftsDump) {
