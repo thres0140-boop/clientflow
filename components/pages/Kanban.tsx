@@ -1072,35 +1072,59 @@ function DraftDetailPanel({
                   <div className="px-3 py-2 border-b border-slate-100">
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Talk to...</p>
                   </div>
-                  {/* Client option */}
-                  <button
-                    onClick={() => { setShowChatPicker(false); onOpenChat({ id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption, channel: "client" }); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
-                  >
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                      style={{ backgroundColor: clientData?.color ?? "#6366f1" }}
-                    >
-                      {clientData ? clientData.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() : "C"}
-                    </div>
-                    <div>
-                      <span className="text-sm text-slate-700">{clientData?.name ?? "Client"}</span>
-                      <span className="text-[10px] text-slate-400 ml-1.5">client</span>
-                    </div>
-                  </button>
-                  {/* Team members */}
-                  {team.filter((m) => !m.isClientAccount).map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => { setShowChatPicker(false); onOpenChat({ id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption, channel: `member:${m.id}` }); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
-                    >
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.color }}>
-                        {m.name[0]?.toUpperCase()}
-                      </div>
-                      <span className="text-sm text-slate-700">{m.name}{m.role ? ` · ${m.role}` : ""}</span>
-                    </button>
-                  ))}
+                  {(() => {
+                    const ctx = { id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption };
+                    // A logged-in member (editor/client) can only talk to the owner — their
+                    // own conversation thread. The owner can talk to the client + each member.
+                    if (isClient) {
+                      const viewer = team.find((m) => m.id === activeProfileId);
+                      const channel = viewer?.isClientAccount ? "client" : `member:${activeProfileId}`;
+                      return (
+                        <button
+                          onClick={() => { setShowChatPicker(false); onOpenChat({ ...ctx, channel }); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
+                        >
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: "#6366f1" }}>
+                            {ownerName[0]?.toUpperCase()}
+                          </div>
+                          <div>
+                            <span className="text-sm text-slate-700">{ownerName}</span>
+                            <span className="text-[10px] text-slate-400 ml-1.5">owner</span>
+                          </div>
+                        </button>
+                      );
+                    }
+                    return (
+                      <>
+                        {/* Client option */}
+                        <button
+                          onClick={() => { setShowChatPicker(false); onOpenChat({ ...ctx, channel: "client" }); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
+                        >
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: clientData?.color ?? "#6366f1" }}>
+                            {clientData ? clientData.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() : "C"}
+                          </div>
+                          <div>
+                            <span className="text-sm text-slate-700">{clientData?.name ?? "Client"}</span>
+                            <span className="text-[10px] text-slate-400 ml-1.5">client</span>
+                          </div>
+                        </button>
+                        {/* Team members */}
+                        {team.filter((m) => !m.isClientAccount).map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => { setShowChatPicker(false); onOpenChat({ ...ctx, channel: `member:${m.id}` }); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
+                          >
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.color }}>
+                              {m.name[0]?.toUpperCase()}
+                            </div>
+                            <span className="text-sm text-slate-700">{m.name}{m.role ? ` · ${m.role}` : ""}</span>
+                          </button>
+                        ))}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
