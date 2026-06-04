@@ -905,9 +905,14 @@ function ConfirmScheduleModal({
     }
   }
 
-  // Generate a fresh caption every time the modal opens (falls back to the
-  // draft's stored caption if generation fails).
-  useEffect(() => { autoGenerateCaption(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // Only auto-generate a caption when the item is actually postable (in the
+  // Schedule stage) — no point spending tokens on something not ready to book.
+  // Otherwise show the draft's stored caption; the ✨ button still works manually.
+  useEffect(() => {
+    if (canPost) autoGenerateCaption(true);
+    else setCaption(draft.caption || "");
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
 
   async function handle(postToIG: boolean) {
     setLoading(true);
