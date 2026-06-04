@@ -6,5 +6,9 @@ export async function GET(req: NextRequest) {
   if (!token) return NextResponse.json(null);
   const session = await verifySessionToken(token);
   if (!session) return NextResponse.json(null);
-  return NextResponse.json({ ...session, ownerName: process.env.OWNER_NAME ?? "Owner" });
+  return NextResponse.json({
+    ...session,
+    ownerName: process.env.OWNER_NAME ?? "Owner",
+    ownerEmail: process.env.OWNER_EMAIL ?? null,
+  });
 }

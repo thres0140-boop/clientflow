@@ -89,14 +89,15 @@ type Props = {
   clients: Client[]; selectedClientId: number | null; onSelectClient: (id: number | null) => void;
   unreadCount: number; notifications: Notification[]; onMarkRead: (id: number) => void; onMarkAllRead: () => void;
   allowedPages: Page[]; activeProfile: TeamMember | null; session: SessionPayload | null; onSignOut: () => void;
+  ownerEmail?: string | null;
 };
 
 const DIVIDER = { borderColor: "rgba(255,255,255,0.08)" };
 const STRIP_BG = "#0f1c34";
 const NAV_BG = "#1a2f52";
 
-export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, unreadCount, notifications, onMarkRead, onMarkAllRead, allowedPages, activeProfile, session, onSignOut }: Props) {
-  const [showNotifs, setShowNotifs] = useState(false);
+export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail }: Props) {
+  const [showAccount, setShowAccount] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
   // Client accounts only ever have one project — hide the project-switcher strip for them.
@@ -177,46 +178,58 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
           })}
         </nav>
 
-        {/* Footer: name + bell + sign out */}
+        {/* Footer: account + sign out */}
         <div className="px-3 py-2 flex-shrink-0" style={{ borderTop: `1px solid ${DIVIDER.borderColor}` }}>
           <div className="flex items-center gap-2 px-2 py-1">
-            <p className="text-xs font-semibold text-white truncate flex-1">
-              {session?.type === "member" ? (activeProfile?.name || session.name) : (session?.name || "Owner")}
-            </p>
-            {/* Bell */}
-            <div className="relative">
-              <button onClick={() => setShowNotifs((s) => !s)}
-                className="relative w-7 h-7 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all text-sm">
-                🔔
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
+            {/* Account — click for connected email / role */}
+            <div className="relative flex-1 min-w-0">
+              <button onClick={() => setShowAccount((s) => !s)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-white truncate hover:text-white/80 transition-colors w-full text-left">
+                <span className="truncate">{session?.type === "member" ? (activeProfile?.name || session.name) : (session?.name || "Owner")}</span>
+                <span className="text-white/40 text-[10px]">▾</span>
               </button>
-              {showNotifs && (
-                <div className="absolute bottom-10 right-0 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                    <span className="text-sm font-semibold text-slate-700">Notifications</span>
-                    {unreadCount > 0 && <button onClick={onMarkAllRead} className="text-xs text-indigo-600 hover:underline">Mark all read</button>}
+              {showAccount && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowAccount(false)} />
+                  <div className="absolute bottom-9 left-0 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                        style={{ backgroundColor: session?.type === "member" ? (activeProfile?.color || "#6366f1") : "#3b5bdb" }}>
+                        {session?.type === "member"
+                          ? (activeProfile?.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?")
+                          : "👑"}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{session?.type === "member" ? (activeProfile?.name || session.name) : (session?.name || "Owner")}</p>
+                        <p className="text-[11px] text-slate-400">
+                          {session?.type === "member" ? (activeProfile?.isClientAccount ? "Client" : (activeProfile?.role || "Team member")) : "Owner"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 space-y-2">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Email</p>
+                        <p className="text-sm text-slate-700 truncate">
+                          {session?.type === "member" ? (activeProfile?.email || "—") : (ownerEmail || "—")}
+                        </p>
+                      </div>
+                      {session?.type === "member" && activeProfile?.isClientAccount && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Instagram</p>
+                          <p className="text-sm text-slate-700 truncate">
+                            {(clients.find((c) => c.id === activeProfile.clientId)?.instagramConnection as any)?.username
+                              ? `@${(clients.find((c) => c.id === activeProfile.clientId)?.instagramConnection as any).username}`
+                              : "Not connected"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={onSignOut}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 border-t border-slate-100">
+                      ↩ Sign out
+                    </button>
                   </div>
-                  <div className="max-h-72 overflow-y-auto">
-                    {notifications.length === 0
-                      ? <p className="px-4 py-6 text-center text-sm text-slate-400">No notifications</p>
-                      : notifications.map((n) => (
-                        <button key={n.id} onClick={() => { onMarkRead(n.id); setShowNotifs(false); }}
-                          className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${!n.read ? "bg-indigo-50/50" : ""}`}>
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
-                            style={{ backgroundColor: n.member?.color || "#6366f1" }}>{n.member?.name?.[0]}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.createdAt).toLocaleDateString()}</p>
-                          </div>
-                          {!n.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1.5" />}
-                        </button>
-                      ))}
-                  </div>
-                </div>
+                </>
               )}
             </div>
             <button onClick={onSignOut} title="Sign out"

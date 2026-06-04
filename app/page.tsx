@@ -46,6 +46,7 @@ export default function App() {
   const [activeProfile, setActiveProfile] = useState<TeamMember | null>(null);
   const [session, setSession] = useState<SessionPayload | null>(null);
   const [ownerName, setOwnerName] = useState("Cenk");
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [appReady, setAppReady] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -106,6 +107,7 @@ export default function App() {
       const sess: SessionPayload | null = sessData;
       setSession(sess);
       if (sessData?.ownerName) setOwnerName(sessData.ownerName);
+      if (sessData?.ownerEmail !== undefined) setOwnerEmail(sessData.ownerEmail);
 
       if (sess?.type === "member" && sess.memberId !== null) {
         setActiveProfileId(sess.memberId);
@@ -224,6 +226,7 @@ export default function App() {
         activeProfile={activeProfile}
         session={session}
         onSignOut={signOut}
+        ownerEmail={ownerEmail}
         onMarkRead={async (id) => {
           await fetch("/api/notifications", {
             method: "PUT",
