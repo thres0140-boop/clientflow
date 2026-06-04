@@ -101,7 +101,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [boardColumnPicker, setBoardColumnPicker] = useState(false);
   const [boardColumns, setBoardColumns] = useState<string[]>(["Ideas"]);
 
-  const [calView, setCalView] = useState<CalendarView>("month");
+  const [calView, setCalView] = useState<CalendarView>(() => {
+    if (typeof window !== "undefined") {
+      const v = localStorage.getItem("cf_cal_view");
+      if (v === "week" || v === "month") return v;
+    }
+    return "month";
+  });
+  useEffect(() => { localStorage.setItem("cf_cal_view", calView); }, [calView]);
   const [planMode, setPlanMode] = useState<PlanningMode>("calendar");
   const [offset, setOffset] = useState(0);
   const [openDatePicker, setOpenDatePicker] = useState<string | null>(null);
