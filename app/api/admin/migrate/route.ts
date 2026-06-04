@@ -277,6 +277,15 @@ export async function GET(req: NextRequest) {
     })));
   }
 
+  // ?msgs=1 — dump recent messages (clientId, channel, author) to debug chat routing
+  if (req.nextUrl.searchParams.get("msgs")) {
+    const ms = await (prisma as any).message.findMany({ orderBy: { id: "desc" }, take: 20 });
+    return NextResponse.json(ms.map((m: any) => ({
+      id: m.id, clientId: m.clientId, channel: m.channel, author: m.author,
+      content: (m.content || "").slice(0, 40),
+    })));
+  }
+
   // ?wipeclienttasks=clientId — delete all client-written script drafts for a client
   // (resets the Script Tasks page to a clean slate). Leaves AI-generated drafts.
   const wipeTasks = req.nextUrl.searchParams.get("wipeclienttasks");
