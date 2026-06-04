@@ -306,6 +306,7 @@ model ScriptDraft {
   checkReviewerIds   String   @default("[]")
   scheduledDate      String?
   zernioBooked       Boolean  @default(false)
+  zernioPostId       String?
   clientAuthored     Boolean  @default(false)
   rejectionFeedback  String?
   generatedAt        DateTime @default(now())

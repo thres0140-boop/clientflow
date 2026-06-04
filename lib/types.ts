@@ -100,6 +100,7 @@ export type ScriptDraft = {
   checkReviewerIds?: string;
   scheduledDate?: string | null;
   zernioBooked?: boolean;
+  zernioPostId?: string | null;
   clientAuthored?: boolean;
   rejectionFeedback?: string | null;
   generatedAt: string;

@@ -38,6 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.checkReviewerIds !== undefined) data.checkReviewerIds = JSON.stringify(body.checkReviewerIds);
   if (body.scheduledDate !== undefined) data.scheduledDate = body.scheduledDate || null;
   if (body.zernioBooked !== undefined) data.zernioBooked = body.zernioBooked === true;
+  if (body.zernioPostId !== undefined) data.zernioPostId = body.zernioPostId || null;
   if (body.rejectionFeedback !== undefined) data.rejectionFeedback = body.rejectionFeedback || null;
 
   // Capture the previous stage on any stage change (for acceptance + move alerts).

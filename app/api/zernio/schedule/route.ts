@@ -9,7 +9,7 @@ const PROFILE_ID  = process.env.ZERNIO_PROFILE_ID!;
 // Body: { clientId, content, mediaUrls?, scheduledFor? }
 // schedules (or publishes immediately) an Instagram post via Zernio
 export async function POST(req: NextRequest) {
-  const { clientId, content, mediaUrls, scheduledFor, contentPieceId, trialReel } = await req.json();
+  const { clientId, content, mediaUrls, scheduledFor, contentPieceId, scriptDraftId, trialReel } = await req.json();
 
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
 
@@ -81,6 +81,14 @@ export async function POST(req: NextRequest) {
   if (zernioPostId && contentPieceId) {
     await (prisma as any).contentPiece.update({
       where: { id: parseInt(contentPieceId) },
+      data: { zernioPostId: String(zernioPostId) },
+    }).catch(() => {/* ignore */});
+  }
+  // Store it on the script draft too, so the post.published webhook can flip the
+  // calendar card to "posted" (green) when Zernio actually publishes it.
+  if (zernioPostId && scriptDraftId) {
+    await (prisma as any).scriptDraft.update({
+      where: { id: parseInt(scriptDraftId) },
       data: { zernioPostId: String(zernioPostId) },
     }).catch(() => {/* ignore */});
   }

@@ -779,7 +779,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                   content: opts.caption,
                   mediaUrls: mediaUrl ? [mediaUrl] : [],
                   scheduledFor: new Date(`${pendingDrop.date}T${opts.time || "09:00"}:00`).toISOString(),
-                  contentPieceId: pendingDrop.draft.id,
+                  scriptDraftId: pendingDrop.draft.id,
                   trialReel: opts.trialReel,
                 }),
               });

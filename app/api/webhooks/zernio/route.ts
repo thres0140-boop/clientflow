@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendWhatsApp } from "@/lib/notify";
 
 // POST /api/webhooks/zernio
 // Receives Zernio webhook events for post.published, post.failed, post.scheduled
@@ -88,6 +89,15 @@ async function handlePublished(body: any) {
     } else {
       console.log("[zernio-webhook] no matching ContentPiece found for published post; content=", content);
     }
+
+    // Also flip the matching script draft (the calendar card) to posted → turns green.
+    if (zernioPostId) {
+      const draft = await (prisma as any).scriptDraft.findFirst({ where: { zernioPostId } });
+      if (draft) {
+        await (prisma as any).scriptDraft.update({ where: { id: draft.id }, data: { status: "posted" } });
+        sendWhatsApp(`✅ Posted to Instagram: "${draft.title}"`).catch(() => {});
+      }
+    }
   } catch (err) {
     console.error("[zernio-webhook] handlePublished error:", err);
   }
@@ -107,6 +117,8 @@ async function handleFailed(body: any) {
           data: { status: "edited" }, // back to pre-scheduled so user retries
         });
       }
+      const draft = await (prisma as any).scriptDraft.findFirst({ where: { zernioPostId } });
+      if (draft) sendWhatsApp(`⚠️ Post FAILED on Instagram: "${draft.title}" — check Zernio.`).catch(() => {});
     }
   } catch (err) {
     console.error("[zernio-webhook] handleFailed error:", err);

@@ -587,6 +587,9 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "zernioBooked" BOOLEAN NOT NULL DEFAULT false;
     `;
     await (prisma as any).$executeRaw`
+      ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "zernioPostId" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
       ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "rejectionFeedback" TEXT;
     `;
     await (prisma as any).$executeRaw`
