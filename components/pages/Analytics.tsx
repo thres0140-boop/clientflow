@@ -220,15 +220,16 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
         }
       }
     }
-    // Scheduled script drafts are the source of truth for which concept runs each day
-    // (the calendar cards). This auto-links a posted/booked reel to its concept even
-    // when it was never attached to a concept's reel group.
+    // Posted script drafts link their concept to the day they went live. Only POSTED
+    // drafts count — planned/scheduled-but-not-yet-posted content must not appear in
+    // analytics (analytics reflects real performance, not the plan).
     for (const d of schedDrafts) {
+      if ((d as any).status !== "posted") continue;
       const day = (d.scheduledDate || "").slice(0, 10);
       if (!day || !map[day]) continue;
       const lbl = conceptLabel(d.concept);
       if (lbl && !map[day].concepts.includes(lbl)) map[day].concepts.push(lbl);
-      if (!map[day].videoUrl && d.editedVideoUrl) map[day].videoUrl = d.editedVideoUrl;
+      if (!map[day].videoUrl && (d as any).editedVideoUrl) map[day].videoUrl = (d as any).editedVideoUrl;
     }
     // Real posted reels from Instagram — bucket by posted date (works without a concept link)
     for (const r of igReels) {
