@@ -687,13 +687,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             draggable={canEdit}
                             onDragStart={canEdit ? () => handleDraftDragStart(draft.id) : undefined}
                             onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
-                            className={`rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 ${canEdit ? "cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50" : ""} transition-colors select-none`}
+                            onClick={() => setSelectedDraft(draft)}
+                            className={`rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 cursor-pointer ${canEdit ? "active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50" : ""} transition-colors select-none`}
                           >
                             <p className="text-xs font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
                             {draft.concept && (
                               <p className="text-[10px] text-indigo-500 truncate mt-0.5">💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>
                             )}
-                            <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}{(draft.editedVideoUrl ? " · 🎬" : "")}</p>
                           </div>
                         ))}
                       </div>
@@ -813,6 +814,44 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
           <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.script}</pre>
           <p className="text-[10px] text-slate-400 mt-1">{draft.script.split(" ").filter(Boolean).length} words</p>
         </div>
+        {draft.caption && (
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Caption</p>
+            <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.caption}</pre>
+          </div>
+        )}
+        {draft.editedVideoUrl && (
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Finished Video</p>
+            <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
+              <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+            </div>
+          </div>
+        )}
+        {(() => {
+          let raw: string[] = [];
+          try { raw = JSON.parse(draft.rawContentUrls || "[]"); } catch { /* ignore */ }
+          if (draft.rawContentUrl && !raw.includes(draft.rawContentUrl)) raw = [draft.rawContentUrl, ...raw];
+          if (raw.length === 0) return null;
+          return (
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Raw Content ({raw.length})</p>
+              <div className="space-y-2">
+                {raw.map((url, i) => (
+                  /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url)
+                    ? <video key={i} src={url} controls className="w-full rounded-lg bg-slate-900 max-h-60 object-contain" />
+                    : <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block text-xs text-indigo-600 hover:underline truncate bg-slate-50 rounded-lg px-3 py-2">📎 {url.split("/").pop()}</a>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+        {draft.scheduledDate && (
+          <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+            <span>📅</span>
+            <span>{draft.zernioBooked ? `Scheduled to auto-post on ${draft.scheduledDate}` : `Planned for ${draft.scheduledDate} (not yet confirmed)`}</span>
+          </div>
+        )}
       </div>
     </div>
   );
