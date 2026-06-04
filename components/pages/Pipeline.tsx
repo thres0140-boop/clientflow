@@ -67,7 +67,10 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     const full = conceptId ? concepts.find((c) => c.id === conceptId) : null;
     const name = full?.name ?? fallbackName ?? "";
     const cat = full?.conceptType;
-    return cat ? `${cat} · ${name}` : name;
+    if (cat) return `${cat} · ${name}`;
+    if (name) return name;
+    // Concept set but not in the loaded list yet (e.g. just created) — never show blank.
+    return conceptId ? "Concept" : "";
   };
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
@@ -310,20 +313,19 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50">
           {DAYS.map((d, i) => {
             const conceptId = dayTemplate[i] ?? null;
-            const concept = conceptId ? concepts.find((c) => c.id === conceptId) : null;
             return (
               <div key={d} className="border-r border-slate-100 last:border-r-0 px-2 py-2">
                 <div className="flex items-center justify-center gap-1.5">
                   <span className="text-xs font-semibold text-slate-400">{d}</span>
                   {planMode === "template" && canEdit && (
-                    concept ? (
+                    conceptId ? (
                       <button
                         onClick={() => saveDayTemplate({ ...dayTemplate, [i]: null })}
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium text-white hover:opacity-80 transition-opacity"
                         style={{ backgroundColor: "#6366f1" }}
                         title="Click to remove"
                       >
-                        <span className="truncate max-w-[90px]">{conceptLabel(concept.id, concept.name)}</span>
+                        <span className="truncate max-w-[90px]">{conceptLabel(conceptId)}</span>
                         <span className="opacity-70">×</span>
                       </button>
                     ) : (
