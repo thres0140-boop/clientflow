@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { addConceptExample } from "@/lib/conceptExamples";
 
 export async function GET(req: NextRequest) {
   const idParam = req.nextUrl.searchParams.get("id");
@@ -69,5 +70,21 @@ export async function POST(req: NextRequest) {
       client: { select: { name: true, color: true } },
     },
   });
+
+  // Imported scripts can seed the concept's AI Context: append to the concept's
+  // example scripts (deduped) + the provenance pool, so the generator learns
+  // this script belongs to this concept.
+  if (body.seedAsExample === true && draft.conceptId && draft.script) {
+    try {
+      const concept = await prisma.concept.findUnique({ where: { id: draft.conceptId } });
+      const existing = (concept?.scriptExamples || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+      if (!existing.some((e) => e.toLowerCase() === draft.script.trim().toLowerCase())) {
+        const updated = [...existing, draft.script.trim()].join("\n\n");
+        await prisma.concept.update({ where: { id: draft.conceptId }, data: { scriptExamples: updated } });
+      }
+      await addConceptExample(draft.conceptId, draft.script, "human_seed", { scriptDraftId: draft.id }).catch(() => {});
+    } catch { /* non-fatal */ }
+  }
+
   return NextResponse.json(draft, { status: 201 });
 }

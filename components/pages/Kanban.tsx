@@ -115,6 +115,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [detailDraft, setDetailDraft] = useState<ScriptDraft | null>(null);
   const [rejectDraftData, setRejectDraftData] = useState<ScriptDraft | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [showStageManager, setShowStageManager] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -297,6 +298,12 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             <button onClick={() => setShowStageManager(true)}
               className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
               ⚙ Assign Stages
+            </button>
+          )}
+          {!activeProfile && (
+            <button onClick={() => setShowImport(true)}
+              className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+              ⬇ Import script
             </button>
           )}
           {!activeProfile && (
@@ -558,6 +565,16 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           concepts={concepts}
           onClose={() => setShowGenerate(false)}
           onGenerated={() => { setShowGenerate(false); reload(); }}
+        />
+      )}
+
+      {/* Import modal */}
+      {showImport && (
+        <ImportScriptModal
+          client={client}
+          concepts={concepts}
+          onClose={() => setShowImport(false)}
+          onImported={() => { setShowImport(false); reload(); }}
         />
       )}
 
@@ -1619,6 +1636,115 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 }
 
 // ─── Generate scripts modal ─────────────────────────────────────────────────
+// ─── Import an existing script (from Google Docs etc.) as an Idea ────────────
+function ImportScriptModal({ client, concepts, onClose, onImported }: {
+  client: Client; concepts: Concept[]; onClose: () => void; onImported: () => void;
+}) {
+  const [conceptId, setConceptId] = useState<number | "">(concepts[0]?.id ?? "");
+  const [title, setTitle] = useState("");
+  const [hook, setHook] = useState("");
+  const [script, setScript] = useState("");
+  const [caption, setCaption] = useState("");
+  const [seedAsExample, setSeedAsExample] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const weekLabel = (() => {
+    const d = new Date();
+    const oneJan = new Date(d.getFullYear(), 0, 1);
+    const week = Math.ceil((((d.getTime() - oneJan.getTime()) / 86400000) + oneJan.getDay() + 1) / 7);
+    return `Week ${week}`;
+  })();
+
+  async function submit() {
+    if (!script.trim() || !conceptId) return;
+    setSaving(true);
+    try {
+      const concept = concepts.find((c) => c.id === conceptId);
+      await fetch("/api/script-drafts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: client.id,
+          conceptId,
+          title: title.trim() || `${concept?.name ?? "Imported"} — imported`,
+          hook: hook.trim() || null,
+          script: script.trim(),
+          caption: caption.trim() || null,
+          weekLabel,
+          seedAsExample,
+        }),
+      });
+      onImported();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-800">⬇ Import script</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Paste a script you already have — it lands in Ideas under a concept.</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+
+        <div className="px-6 py-4 space-y-3">
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Concept</label>
+            {concepts.length === 0 ? (
+              <p className="text-xs text-slate-400">No concepts yet — add one in the Concept Library first.</p>
+            ) : (
+              <select value={conceptId} onChange={(e) => setConceptId(e.target.value ? parseInt(e.target.value) : "")}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                {concepts.map((c) => (
+                  <option key={c.id} value={c.id}>{(c as any).conceptType ? `${(c as any).conceptType} · ` : ""}{c.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Title (optional)</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short title…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Hook (optional)</label>
+            <input value={hook} onChange={(e) => setHook(e.target.value)} placeholder="Opening hook line…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Script *</label>
+            <textarea value={script} onChange={(e) => setScript(e.target.value)} rows={8} placeholder="Paste the full script here…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Caption (optional)</label>
+            <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} placeholder="Caption, if you have one…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          </div>
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={seedAsExample} onChange={(e) => setSeedAsExample(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400" />
+            <span className="text-xs text-slate-600 leading-relaxed">
+              <span className="font-semibold text-slate-700">🧠 Teach the AI this belongs to the concept</span> — adds it to AI Context as an example so future generated scripts learn from it.
+            </span>
+          </label>
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button onClick={submit} disabled={saving || !script.trim() || !conceptId}
+            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+            {saving ? "Importing…" : "⬇ Import to Ideas"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GenerateModal({ client, concepts, onClose, onGenerated }: {
   client: Client; concepts: Concept[]; onClose: () => void; onGenerated: () => void;
 }) {
