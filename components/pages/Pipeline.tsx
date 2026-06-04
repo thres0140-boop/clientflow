@@ -747,6 +747,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           draft={pendingDrop.draft}
           date={pendingDrop.date}
           clientId={selectedClientId}
+          canPost={!!stages.length && pendingDrop.draft.stageId === stages[stages.length - 1]?.id}
+          lastStageName={stages[stages.length - 1]?.name ?? "Schedule"}
           onClose={() => setPendingDrop(null)}
           onConfirm={async (postToIG, opts) => {
             await scheduleDraftOnDate(pendingDrop.draft.id, pendingDrop.date);
@@ -862,11 +864,13 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
 interface IGOptions { caption: string; trialReel: boolean; time: string; }
 
 function ConfirmScheduleModal({
-  draft, date, clientId, onClose, onConfirm,
+  draft, date, clientId, canPost, lastStageName, onClose, onConfirm,
 }: {
   draft: ScriptDraft;
   date: string;
   clientId: number | null;
+  canPost: boolean;
+  lastStageName: string;
   onClose: () => void;
   onConfirm: (postToIG: boolean, opts: IGOptions) => Promise<void>;
 }) {
@@ -1007,7 +1011,7 @@ function ConfirmScheduleModal({
           )}
 
           {/* Zernio posting indicator */}
-          {hasMedia && (
+          {hasMedia && canPost && (
             <div className="flex items-start gap-2 bg-indigo-50 rounded-xl px-4 py-3">
               <span className="text-indigo-400 mt-0.5">📡</span>
               <p className="text-[11px] text-indigo-700">Will be published to Instagram via Zernio at {scheduleTime} on {date}.</p>
@@ -1031,14 +1035,19 @@ function ConfirmScheduleModal({
           </button>
           <button
             onClick={() => handle(true)}
-            disabled={loading || !hasMedia}
-            title={!hasMedia ? "Upload a video/photo in the Kanban first to enable Instagram posting" : ""}
+            disabled={loading || !hasMedia || !canPost}
+            title={!canPost ? `Move this to the "${lastStageName}" stage first` : !hasMedia ? "Upload a video/photo in the Kanban first to enable Instagram posting" : ""}
             className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
           >
             {loading ? "Posting…" : "📸 Post to Instagram"}
           </button>
         </div>
-        {!hasMedia && (
+        {!canPost && (
+          <p className="px-6 pb-4 text-[11px] text-amber-600 text-center">
+            🔒 Not ready to schedule — move this to the <span className="font-semibold">{lastStageName}</span> stage in the Kanban (it&apos;s in {draft.stage?.name ? `"${draft.stage.name}"` : "an earlier stage"}) before you can book the auto-post. You can still keep it planned here.
+          </p>
+        )}
+        {canPost && !hasMedia && (
           <p className="px-6 pb-4 text-[11px] text-slate-400 text-center">
             Upload a video or photo in the Kanban stage to enable direct Instagram posting.
           </p>
