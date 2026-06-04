@@ -884,39 +884,49 @@ function DraftDetailPanel({
             </div>
           )}
 
-          {/* Raw content — hidden on Check stage */}
-          {inStage && stages.find((s) => s.id === draft.stageId)?.name !== "Check" && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Raw Content</label>
-              <RawContentUpload draft={draft} onUploaded={onUploaded} />
-            </div>
-          )}
-
-          {/* Finished video — shown on Edit stage (upload) and Check stage (view only) */}
-          {inStage && (stages.find((s) => s.id === draft.stageId)?.name === "Edit" || stages.find((s) => s.id === draft.stageId)?.name === "Check") && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Finished Video</label>
-              {stages.find((s) => s.id === draft.stageId)?.name === "Check" ? (
-                draft.editedVideoUrl ? (
-                  <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
-                    <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+          {(() => {
+            const stageName = stages.find((s) => s.id === draft.stageId)?.name || "";
+            // Any review stage — "Check 1", "Final Check", "Check 2", etc.
+            const isCheckStage = /check/i.test(stageName);
+            const isEditStage = stageName === "Edit";
+            return (
+              <>
+                {/* Raw content — hidden on check stages (you're reviewing the finished cut there) */}
+                {inStage && !isCheckStage && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Raw Content</label>
+                    <RawContentUpload draft={draft} onUploaded={onUploaded} />
                   </div>
-                ) : (
-                  <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
-                )
-              ) : (
-                <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
-              )}
-            </div>
-          )}
+                )}
 
-          {/* Review panel — Check stage only */}
-          {inStage && stages.find((s) => s.id === draft.stageId)?.name === "Check" && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Reviews</label>
-              <ReviewPanel draft={draft} team={team} ownerName={ownerName} onReviewSubmitted={onReviewSubmitted} onApprovalChange={setCheckApproved} />
-            </div>
-          )}
+                {/* Finished video — uploaded on Edit, viewed on any check stage */}
+                {inStage && (isEditStage || isCheckStage) && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Finished Video</label>
+                    {isCheckStage ? (
+                      draft.editedVideoUrl ? (
+                        <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
+                          <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
+                      )
+                    ) : (
+                      <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
+                    )}
+                  </div>
+                )}
+
+                {/* Review panel — check stages only */}
+                {inStage && isCheckStage && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Reviews</label>
+                    <ReviewPanel draft={draft} team={team} ownerName={ownerName} onReviewSubmitted={onReviewSubmitted} onApprovalChange={setCheckApproved} />
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Chat refine — only in Ideas stage */}
           {!inStage && (
