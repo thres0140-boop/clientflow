@@ -968,7 +968,7 @@ function ConfirmScheduleModal({
     if (postToIG) setIgStatus("Scheduling via Zernio…");
     try {
       await onConfirm(postToIG, { caption, trialReel, time: scheduleTime });
-      if (postToIG) setIgStatus("Posted ✓");
+      if (postToIG) setIgStatus(new Date(`${date}T${scheduleTime || "09:00"}:00`).getTime() > Date.now() + 60_000 ? "Scheduled ✓" : "Posted ✓");
     } catch {
       setIgStatus("Failed to post");
     }
@@ -1068,7 +1068,7 @@ function ConfirmScheduleModal({
           {hasMedia && canPost && (
             <div className="flex items-start gap-2 bg-indigo-50 rounded-xl px-4 py-3">
               <span className="text-indigo-400 mt-0.5">📡</span>
-              <p className="text-[11px] text-indigo-700">Will be published to Instagram via Zernio at {scheduleTime} on {date}.</p>
+              <p className="text-[11px] text-indigo-700">Hit <span className="font-semibold">Confirm &amp; Schedule</span> to book this auto-post via Zernio for {scheduleTime} on {date}.</p>
             </div>
           )}
 
@@ -1087,14 +1087,19 @@ function ConfirmScheduleModal({
           >
             Save to Calendar
           </button>
-          <button
-            onClick={() => handle(true)}
-            disabled={loading || !hasMedia || !canPost}
-            title={!canPost ? `Move this to the "${lastStageName}" stage first` : !hasMedia ? "Upload a video/photo in the Kanban first to enable Instagram posting" : ""}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-          >
-            {loading ? "Posting…" : "📸 Post to Instagram"}
-          </button>
+          {(() => {
+            const isFuture = new Date(`${date}T${scheduleTime || "09:00"}:00`).getTime() > Date.now() + 60_000;
+            return (
+            <button
+              onClick={() => handle(true)}
+              disabled={loading || !hasMedia || !canPost}
+              title={!canPost ? `Move this to the "${lastStageName}" stage first` : !hasMedia ? "Upload a video/photo in the Kanban first to enable Instagram posting" : ""}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            >
+              {loading ? (isFuture ? "Scheduling…" : "Posting…") : (isFuture ? "🗓 Confirm & Schedule" : "📸 Post now")}
+            </button>
+            );
+          })()}
         </div>
         {!canPost && (
           <p className="px-6 pb-4 text-[11px] text-amber-600 text-center">
