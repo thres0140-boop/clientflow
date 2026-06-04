@@ -98,6 +98,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [showScheduleBoard, setShowScheduleBoard] = useState(true);
   const [pendingDrop, setPendingDrop] = useState<{ draft: ScriptDraft; date: string } | null>(null);
+  const [planDrop, setPlanDrop] = useState<{ draftId: number; date: string } | null>(null);
   const [boardColumnPicker, setBoardColumnPicker] = useState(false);
   const [boardColumns, setBoardColumns] = useState<string[]>(["Ideas"]);
 
@@ -220,12 +221,12 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     setDragDraftId(draftId);
   }
 
-  // Dropping a draft onto a date is just PLANNING — set the date, no modal, no
-  // posting. Confirming the auto-post is a separate deliberate step (click the
-  // planned chip → "Confirm scheduling").
+  // Dropping a draft onto a date is just PLANNING — but ask for a time first
+  // (so nothing is silently set to 9am). Confirming the auto-post stays a
+  // separate deliberate step (click the planned chip → "Confirm scheduling").
   function handleCalendarDrop(date: string) {
     if (dragDraftId) {
-      scheduleDraftOnDate(dragDraftId, date);
+      setPlanDrop({ draftId: dragDraftId, date });
       setDragDraftId(null);
       setDragOverDate(null);
     }
@@ -745,6 +746,16 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       {selectedDraft && (
         <ScriptDraftModal draft={selectedDraft} onClose={() => setSelectedDraft(null)} />
       )}
+      {planDrop && (
+        <PlanTimeModal
+          date={planDrop.date}
+          onClose={() => setPlanDrop(null)}
+          onPlan={(time) => {
+            scheduleDraftOnDate(planDrop.draftId, `${planDrop.date}T${time}`);
+            setPlanDrop(null);
+          }}
+        />
+      )}
       {pendingDrop && (
         <ConfirmScheduleModal
           draft={pendingDrop.draft}
@@ -851,12 +862,44 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
             </div>
           );
         })()}
-        {draft.scheduledDate && (
+        {draft.scheduledDate && (() => {
+          const dt = new Date(draft.scheduledDate.includes("T") ? draft.scheduledDate : draft.scheduledDate + "T00:00:00");
+          const hasTime = draft.scheduledDate.includes("T");
+          const when = dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + (hasTime ? ` at ${dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "");
+          return (
           <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
             <span>📅</span>
-            <span>{draft.zernioBooked ? `Scheduled to auto-post on ${draft.scheduledDate}` : `Planned for ${draft.scheduledDate} (not yet confirmed)`}</span>
+            <span>{draft.zernioBooked ? `Scheduled to auto-post · ${when}` : `Planned · ${when} (not yet confirmed)`}</span>
           </div>
-        )}
+          );})()}
+      </div>
+    </div>
+  );
+}
+
+// ── Plan-time prompt (asked when a draft is dropped onto a day) ──────────────
+function PlanTimeModal({ date, onClose, onPlan }: { date: string; onClose: () => void; onPlan: (time: string) => void }) {
+  const [time, setTime] = useState("");
+  const pretty = new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div>
+          <h2 className="text-base font-bold text-slate-800">Plan for {pretty}</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Pick the time you want this to go out.</p>
+        </div>
+        <div>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Time (local)</label>
+          <input type="time" value={time} autoFocus onChange={(e) => setTime(e.target.value)}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+        </div>
+        <div className="flex gap-2 justify-end pt-1">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button onClick={() => onPlan(time || "09:00")} disabled={!time}
+            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            Plan it
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -882,7 +925,10 @@ function ConfirmScheduleModal({
   const [caption, setCaption] = useState("");
   const [trialReel, setTrialReel] = useState(false);
   const [genCaption, setGenCaption] = useState(false);
-  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleTime, setScheduleTime] = useState(() => {
+    const m = (draft.scheduledDate || "").match(/T(\d{2}:\d{2})/);
+    return m ? m[1] : "09:00";
+  });
 
   // Prefer the finished/edited video; fall back to raw uploads.
   const videoUrl = draft.editedVideoUrl || draft.rawContentUrl || (() => {
