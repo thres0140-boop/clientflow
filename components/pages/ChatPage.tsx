@@ -41,8 +41,12 @@ type MentionItem = {
 };
 
 export default function ChatPage({ clients, selectedClientId, isOwnerSession = false, ownerName = "Cenk", clientName, reelContext, onContextUsed, team = [], initialChannel, activeProfile }: Props) {
-  // If a non-client team member (editor, etc.) is logged in, lock them to their own channel
-  const memberChannel = activeProfile && !activeProfile.isClientAccount ? `member:${activeProfile.id}` : null;
+  // Any logged-in member is locked to their OWN thread with the owner: a client
+  // to the "client" channel, an editor/teammate to their member channel. Only the
+  // owner (no activeProfile) sees every conversation.
+  const memberChannel = activeProfile
+    ? (activeProfile.isClientAccount ? "client" : `member:${activeProfile.id}`)
+    : null;
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -466,6 +470,8 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
         </div>
         <div className="flex-1 overflow-y-auto py-2">
           {[...conversations]
+            // Members only ever see their own thread; the owner sees all.
+            .filter((c) => !memberChannel || c.channel === memberChannel)
             .sort((a, b) => (summary[b.channel]?.lastAt ?? "").localeCompare(summary[a.channel]?.lastAt ?? ""))
             .map((conv) => {
             const isActive = conv.channel === activeChannel;

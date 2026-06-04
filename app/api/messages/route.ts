@@ -7,10 +7,20 @@ export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   if (!clientId) return NextResponse.json([]);
 
+  // A logged-in member may only read their OWN thread — a client the "client"
+  // channel, an editor/teammate their member channel. The owner sees everything.
+  let allowedChannel: string | null = null;
+  const token = req.cookies.get("cf_session")?.value;
+  const session = token ? await verifySessionToken(token) : null;
+  if (session?.type === "member" && session.memberId != null) {
+    const m = await prisma.teamMember.findUnique({ where: { id: session.memberId }, select: { isClientAccount: true } });
+    allowedChannel = m?.isClientAccount ? "client" : `member:${session.memberId}`;
+  }
+
   // ?summary=1 → latest message per channel (for unread badges + WhatsApp-style sorting)
   if (req.nextUrl.searchParams.get("summary") === "1") {
     const all = await prisma.message.findMany({
-      where: { clientId: parseInt(clientId) },
+      where: { clientId: parseInt(clientId), ...(allowedChannel ? { channel: allowedChannel } : {}) },
       orderBy: { createdAt: "desc" },
       take: 500,
     });
@@ -22,6 +32,8 @@ export async function GET(req: NextRequest) {
   }
 
   const channel = req.nextUrl.searchParams.get("channel") ?? "client";
+  // Block members from reading any channel that isn't theirs.
+  if (allowedChannel && channel !== allowedChannel) return NextResponse.json([]);
   const messages = await prisma.message.findMany({
     where: { clientId: parseInt(clientId), channel },
     orderBy: { createdAt: "asc" },
