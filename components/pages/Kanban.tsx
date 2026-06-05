@@ -160,6 +160,27 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     return drafts.filter((d) => d.stageId === stageId && d.status === "accepted" && matchesConcept(d));
   }
 
+  // ← / → arrow keys step through the cards in the same column while the detail
+  // panel is open (so you can review a batch without clicking back and forth).
+  // Ignored while typing in a field.
+  useEffect(() => {
+    if (!detailDraft) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      const list = detailDraft!.stageId ? draftsForStage(detailDraft!.stageId) : ideaColumn;
+      const idx = list.findIndex((d) => d.id === detailDraft!.id);
+      if (idx === -1) return;
+      const nextIdx = e.key === "ArrowRight" ? idx + 1 : idx - 1;
+      if (nextIdx < 0 || nextIdx >= list.length) return;
+      e.preventDefault();
+      setDetailDraft(list[nextIdx]);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detailDraft, drafts, conceptFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function moveDraft(draftId: number, targetStageId: number | null) {
     await fetch(`/api/script-drafts/${draftId}`, {
       method: "PUT",
@@ -539,7 +560,9 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       {/* Detail / refine panel */}
       {detailDraft && (
         <DraftDetailPanel
+          key={detailDraft.id}
           draft={detailDraft}
+          navList={(detailDraft.stageId ? draftsForStage(detailDraft.stageId) : ideaColumn).map((d) => d.id)}
           language={client.language}
           stages={stages}
           client={client}
@@ -782,9 +805,10 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, onSendBack, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
+  draft, navList, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, onSendBack, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[]; client?: { name: string; color: string } | null;
+  navList?: number[];
   isTextOverlay?: boolean;
   onClose: () => void; onAccept: () => void; onReject: () => void;
   onSaveAsIdea: (weeks: number) => void;
@@ -863,15 +887,22 @@ function DraftDetailPanel({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/30" onClick={onClose} />
-      <div className="w-[520px] bg-white shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-[680px] max-w-[92vw] bg-white shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between flex-shrink-0">
           <div>
-            <p className="text-xs font-semibold text-indigo-500 mb-0.5">{draft.concept?.name}</p>
+            <p className="text-xs font-semibold text-indigo-500 mb-0.5">{draft.concept ? ((draft.concept as any).conceptType ? `${(draft.concept as any).conceptType} · ${draft.concept.name}` : draft.concept.name) : ""}</p>
             <h3 className="text-sm font-bold text-slate-800">{draft.title}</h3>
             <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}{draft.dayLabel ? ` · ${draft.dayLabel}` : ""}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 ml-4 text-lg leading-none">×</button>
+          <div className="flex items-center gap-3 ml-4">
+            {navList && navList.length > 1 && navList.indexOf(draft.id) !== -1 && (
+              <span className="text-[10px] text-slate-400 whitespace-nowrap" title="Use ← → arrow keys to move between cards">
+                {navList.indexOf(draft.id) + 1} / {navList.length} · ◄ ►
+              </span>
+            )}
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
