@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { addConceptExample } from "@/lib/conceptExamples";
 import { verifySessionToken } from "@/lib/session";
 import { sendWhatsApp } from "@/lib/notify";
+import { canEditPage } from "@/lib/permissions";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +22,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json();
+
+  // Scheduling/calendar fields are Content-Scheduling edit actions — block view-only members.
+  const touchesScheduling = body.scheduledDate !== undefined || body.zernioBooked !== undefined || body.zernioPostId !== undefined;
+  if (touchesScheduling && !(await canEditPage(req, "pipeline"))) {
+    return NextResponse.json({ error: "You have view-only access to Content Scheduling." }, { status: 403 });
+  }
 
   const data: Record<string, unknown> = {};
 

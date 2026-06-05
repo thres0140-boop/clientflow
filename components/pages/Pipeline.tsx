@@ -609,7 +609,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             ? { backgroundColor: st.color, color: "#fff" }
                             : { backgroundColor: st.color + "15", borderLeft: `3px solid ${st.color}` }}
                         >
-                          <button onClick={() => solid ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
+                          <button onClick={() => (!canEdit || solid) ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
                             <p className="font-semibold truncate leading-snug pr-4" style={{ color: solid ? "#fff" : st.color }}>{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</p>
                             {draft.concept && <p className={`truncate text-[10px] ${solid ? "text-white/80" : "text-slate-500"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>}
                             {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <p className={`text-[10px] font-semibold ${solid ? "text-white/90" : "text-slate-600"}`}>🕐 {t}</p> : null; })()}
@@ -775,7 +775,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       {selectedDraft && (
         <ScriptDraftModal draft={selectedDraft} onClose={() => setSelectedDraft(null)} />
       )}
-      {planDrop && (
+      {planDrop && canEdit && (
         <PlanTimeModal
           date={planDrop.date}
           onClose={() => setPlanDrop(null)}
@@ -785,7 +785,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           }}
         />
       )}
-      {pendingDrop && (
+      {pendingDrop && canEdit && (
         <ConfirmScheduleModal
           draft={pendingDrop.draft}
           date={pendingDrop.date}

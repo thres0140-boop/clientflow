@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { canEditPage } from "@/lib/permissions";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
@@ -9,6 +10,11 @@ const PROFILE_ID  = process.env.ZERNIO_PROFILE_ID!;
 // Body: { clientId, content, mediaUrls?, scheduledFor? }
 // schedules (or publishes immediately) an Instagram post via Zernio
 export async function POST(req: NextRequest) {
+  // Posting/scheduling is a Content-Scheduling edit action — block view-only members.
+  if (!(await canEditPage(req, "pipeline"))) {
+    return NextResponse.json({ error: "You have view-only access to Content Scheduling." }, { status: 403 });
+  }
+
   const { clientId, content, mediaUrls, scheduledFor, contentPieceId, scriptDraftId, trialReel } = await req.json();
 
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
