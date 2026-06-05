@@ -323,30 +323,63 @@ function ProfileHeader({
   );
 }
 
+// Mon-first weekday options, mapped to JS getDay() values (0=Sun … 6=Sat).
+const WEEKDAY_FILTERS: { label: string; dow: number }[] = [
+  { label: "Mon", dow: 1 }, { label: "Tue", dow: 2 }, { label: "Wed", dow: 3 },
+  { label: "Thu", dow: 4 }, { label: "Fri", dow: 5 }, { label: "Sat", dow: 6 }, { label: "Sun", dow: 0 },
+];
+
 function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel) => void }) {
   const [sort, setSort] = useState<"recent" | "best">("recent");
+  const [dayFilter, setDayFilter] = useState<number | null>(null); // JS getDay() value, or null = all days
 
   const sorted = sort === "best"
     ? [...reels].sort((a, b) => (b.plays ?? b.like_count ?? 0) - (a.plays ?? a.like_count ?? 0))
     : reels;
+  const filtered = dayFilter === null
+    ? sorted
+    : sorted.filter((r) => r.timestamp && new Date(r.timestamp).getDay() === dayFilter);
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reels · {reels.length}</p>
-        <button
-          onClick={() => setSort(sort === "recent" ? "best" : "recent")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            sort === "best"
-              ? "bg-amber-400 text-white"
-              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-          }`}
-        >
-          🏆 {sort === "best" ? "Best Performing" : "Best Performing"}
-        </button>
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+          Reels · {filtered.length}{dayFilter !== null ? ` of ${reels.length}` : ""}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Weekday filter */}
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setDayFilter(null)}
+              className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${dayFilter === null ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+            >All</button>
+            {WEEKDAY_FILTERS.map((w) => (
+              <button
+                key={w.dow}
+                onClick={() => setDayFilter(dayFilter === w.dow ? null : w.dow)}
+                className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${dayFilter === w.dow ? "bg-indigo-500 text-white shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+              >{w.label}</button>
+            ))}
+          </div>
+          <button
+            onClick={() => setSort(sort === "recent" ? "best" : "recent")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              sort === "best"
+                ? "bg-amber-400 text-white"
+                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+            }`}
+          >
+            🏆 Best Performing
+          </button>
+        </div>
       </div>
+      {filtered.length === 0 ? (
+        <div className="py-12 text-center text-sm text-slate-400">
+          No reels posted on {WEEKDAY_FILTERS.find((w) => w.dow === dayFilter)?.label ?? "this day"}.
+        </div>
+      ) : (
       <div className="grid grid-cols-4 gap-1.5">
-        {sorted.map((reel) => (
+        {filtered.map((reel) => (
           <button key={reel.id} onClick={() => onSelect(reel)}
             className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group">
             {reel.thumbnail_url
@@ -388,6 +421,7 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
           </button>
         ))}
       </div>
+      )}
     </div>
   );
 }
