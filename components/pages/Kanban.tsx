@@ -810,28 +810,34 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
   const [weeks, setWeeks] = useState(interval);
   if (draft.isSavedIdea) return null;
   return (
-    <div className="relative">
-      <button onClick={() => setOpen((s) => !s)}
+    <>
+      <button onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         title="Save as idea for later"
         className="px-2 py-1 text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100">
         💡
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-xl p-3 z-50 w-44">
-          <p className="text-[10px] font-semibold text-slate-600 mb-2">Resurface in how many weeks?</p>
-          <div className="flex items-center gap-2 mb-2">
-            <input type="number" min={1} max={52} value={weeks}
-              onChange={(e) => setWeeks(parseInt(e.target.value) || 1)}
-              className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400" />
-            <span className="text-[10px] text-slate-500">weeks</span>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={(e) => { e.stopPropagation(); setOpen(false); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-bold text-slate-800 mb-1">💡 Save as idea</p>
+            <p className="text-xs text-slate-500 mb-4 line-clamp-1">{draft.title}</p>
+            <label className="text-xs font-semibold text-slate-600">Resurface in how many weeks?</label>
+            <div className="flex items-center gap-2 mt-2 mb-4">
+              <input type="number" min={1} max={52} value={weeks} autoFocus
+                onChange={(e) => setWeeks(parseInt(e.target.value) || 1)}
+                className="w-20 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+              <span className="text-xs text-slate-500">weeks</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setOpen(false)}
+                className="flex-1 py-2 text-xs font-medium text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200">Cancel</button>
+              <button onClick={() => { onSave(weeks); setOpen(false); }}
+                className="flex-1 py-2 text-xs font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600">Save idea</button>
+            </div>
           </div>
-          <button onClick={() => { onSave(weeks); setOpen(false); }}
-            className="w-full py-1.5 text-[10px] font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600">
-            Save idea
-          </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
