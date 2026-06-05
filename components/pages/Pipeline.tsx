@@ -513,7 +513,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                                 ? { backgroundColor: st.color, color: "#fff" }
                                 : { backgroundColor: st.color + "15", borderLeft: `2px solid ${st.color}`, color: "#1e293b" }}
                             >
-                              <button onClick={() => solid ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
+                              <button onClick={() => (!canEdit || solid) ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
                                 <div className="truncate font-semibold pr-4">{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</div>
                                 {draft.concept && <div className={`truncate text-[9px] ${solid ? "text-white/80" : "opacity-70"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</div>}
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -640,8 +640,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         </div>
 
       {/* ── Schedule Board: drag staged drafts onto the calendar ──
-          Owner-only — clients and team members (both `member` sessions) never see it. */}
-      {selectedClientId && !isClient && (
+          Owner-only, and only when they can edit — view-only members never see it. */}
+      {selectedClientId && !isClient && canEdit && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
