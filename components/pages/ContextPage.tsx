@@ -289,6 +289,20 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
     setAddingExample(null);
   }
 
+  async function deleteExample(concept: Concept, index: number) {
+    const parts = (concept.scriptExamples ?? "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+    if (index < 0 || index >= parts.length) return;
+    if (!confirm(`Delete Example ${index + 1}? This removes it from what Claude studies for this concept.`)) return;
+    parts.splice(index, 1);
+    const updated = parts.join("\n\n");
+    setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, scriptExamples: updated } : c));
+    await fetch(`/api/concepts/${concept.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptExamples: updated }),
+    });
+  }
+
   async function deleteFeedback(id: number) {
     setDeletingId(id);
     await fetch(`/api/concept-feedback/${id}`, { method: "DELETE" });
@@ -543,8 +557,15 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             <div className="p-4 space-y-2">
               {concept.scriptExamples
                 ? concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
-                    <div key={i} className="bg-white rounded-lg border border-violet-100 px-3 py-2">
-                      <p className="text-[9px] font-bold text-violet-400 uppercase mb-1">Example {i + 1}</p>
+                    <div key={i} className="group bg-white rounded-lg border border-violet-100 px-3 py-2 relative">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[9px] font-bold text-violet-400 uppercase">Example {i + 1}</p>
+                        <button
+                          onClick={() => deleteExample(concept, i)}
+                          title="Delete this example"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold text-rose-400 hover:text-rose-600"
+                        >🗑 Delete</button>
+                      </div>
                       <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
                     </div>
                   ))
