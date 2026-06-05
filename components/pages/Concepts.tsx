@@ -1020,6 +1020,18 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
   const [newReel, setNewReel] = useState("");
   const [examples, setExamples] = useState<string | null | undefined>(concept.scriptExamples);
   const [pulling, setPulling] = useState(false);
+  const [type, setType] = useState<string>((concept as any).conceptType || "");
+  const [editingType, setEditingType] = useState(false);
+
+  async function saveType(next: string) {
+    const v = next.trim();
+    setType(v);
+    setEditingType(false);
+    await fetch(`/api/concepts/${concept.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conceptType: v || null }),
+    });
+  }
 
   async function saveReels(next: string[]) {
     setReels(next);
@@ -1065,11 +1077,30 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
     <>
     <Modal title={concept.name} onClose={onClose} wide>
       <div className="space-y-5">
-        <div className="flex flex-wrap gap-2">
-          {(concept as any).conceptType && (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${categoryColor((concept as any).conceptType)}`}>
-              {(concept as any).conceptType}
-            </span>
+        <div className="flex flex-wrap gap-2 items-center">
+          {editingType ? (
+            <>
+              <input
+                list="detailTypeList"
+                autoFocus
+                defaultValue={type}
+                onBlur={(e) => saveType(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveType((e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingType(false); }}
+                placeholder="Concept type…"
+                className="px-2.5 py-0.5 rounded-full text-xs font-bold border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200 w-32"
+              />
+              <datalist id="detailTypeList">
+                {DEFAULT_CATEGORIES.map((c) => <option key={c} value={c} />)}
+              </datalist>
+            </>
+          ) : (
+            <button
+              onClick={() => setEditingType(true)}
+              title="Click to change concept type"
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80 ${type ? categoryColor(type) : "bg-slate-100 text-slate-500"}`}
+            >
+              {type || "Set type"} <span className="opacity-60 text-[10px]">✎</span>
+            </button>
           )}
           {concept.hookType && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
