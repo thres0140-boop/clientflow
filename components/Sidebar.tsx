@@ -142,14 +142,13 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
         {/* Strip footer: owner = Settings/client-management button (👑); member = avatar */}
         <div className="flex items-center justify-center py-3 flex-shrink-0" style={{ borderTop: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
           {session?.type !== "member" ? (
-            <button onClick={() => onNavigate("settings")} title="Workspace & clients"
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white transition-all"
+            <button onClick={() => onNavigate("settings")} title="Settings — workspace & clients"
+              className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-white/10"
               style={{
-                backgroundColor: "#3b5bdb",
-                boxShadow: currentPage === "settings" ? "0 0 0 2px white" : "none",
-                opacity: currentPage === "settings" ? 1 : 0.85,
+                backgroundColor: currentPage === "settings" ? "rgba(255,255,255,0.12)" : "transparent",
+                boxShadow: currentPage === "settings" ? "0 0 0 2px rgba(255,255,255,0.5)" : "none",
               }}>
-              👑
+              <IconSettings active={currentPage === "settings"} />
             </button>
           ) : (
             <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white"
