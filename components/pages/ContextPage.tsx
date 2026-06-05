@@ -342,8 +342,14 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
     byType?: Record<string, number>;
     items?: ConceptFeedback[];
   }) {
-    const [openSections, setOpenSections] = useState({ blueprint: true, examples: true, rejection: true, rules: true });
+    const [openSections, setOpenSections] = useState({ blueprint: true, examples: true, edits: true, rejection: true, rules: true });
     const toggle = (k: keyof typeof openSections) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
+    const [edits, setEdits] = useState<{ id: number; field: string; before: string; after: string; author: string }[]>([]);
+    useEffect(() => {
+      fetch(`/api/draft-changes?conceptId=${concept.id}`).then((r) => r.json())
+        .then((dd) => setEdits(Array.isArray(dd) ? dd.filter((c: any) => (c.before || "").trim() !== (c.after || "").trim()) : []))
+        .catch(() => {});
+    }, [concept.id]);
     const d = blueprintDraft[concept.id];
     const isEditingBlueprint = blueprintEditing === concept.id;
 
@@ -601,6 +607,29 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Edits Claude learns from — manual changes made to scripts in this concept */}
+        <div className="mx-5 mb-4 rounded-xl border border-sky-200 bg-sky-50/40 overflow-hidden">
+          <button onClick={() => toggle("edits")} className="w-full px-4 py-2 bg-sky-100/60 border-b border-sky-200 flex items-center justify-between hover:bg-sky-100/80 transition-colors">
+            <p className="text-[10px] font-bold text-sky-700 uppercase tracking-wide">
+              ✍️ Your Edits — {edits.length} change{edits.length !== 1 ? "s" : ""} Claude learns your preferences from
+            </p>
+            <span className={`text-sky-400 text-xs transition-transform ${openSections.edits ? "rotate-180" : ""}`}>▾</span>
+          </button>
+          {openSections.edits && (
+            <div className="p-4 space-y-2">
+              {edits.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No edits yet. When you tweak a script in the Kanban (e.g. swap a word), the change is logged here and fed into future generations.</p>
+              ) : edits.slice(0, 12).map((c) => (
+                <div key={c.id} className="bg-white rounded-lg border border-sky-100 px-3 py-2 text-xs">
+                  <p className="text-[9px] font-bold text-sky-400 uppercase mb-1">{c.field} · {c.author}</p>
+                  <p className="text-rose-500 line-through whitespace-pre-line line-clamp-2">{c.before}</p>
+                  <p className="text-emerald-600 whitespace-pre-line line-clamp-2 mt-0.5">{c.after}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>

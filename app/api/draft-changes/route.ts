@@ -3,6 +3,17 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   const draftId = parseInt(req.nextUrl.searchParams.get("draftId") ?? "");
+  const conceptId = parseInt(req.nextUrl.searchParams.get("conceptId") ?? "");
+  // By concept: the creator's edit history for this concept (shown in AI Context).
+  if (conceptId) {
+    const changes = await (prisma as any).draftChange.findMany({
+      where: { draft: { conceptId } },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: { id: true, field: true, before: true, after: true, author: true, createdAt: true },
+    });
+    return NextResponse.json(changes);
+  }
   if (!draftId) return NextResponse.json([]);
   const changes = await prisma.draftChange.findMany({
     where: { draftId },

@@ -118,6 +118,26 @@ export async function POST(req: NextRequest) {
           .map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n");
     }
 
+    // --- Human edits: what the team actually changed in past scripts for this concept.
+    // Teaches Claude the creator's real preferences (terminology swaps like
+    // "coke" → "witte poeder", tone tweaks, cuts) so it stops repeating them. ---
+    let editsSection = "";
+    try {
+      const recentChanges = await (prisma as any).draftChange.findMany({
+        where: { draft: { conceptId: concept.id } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { field: true, before: true, after: true },
+      });
+      const meaningful = (recentChanges as any[]).filter((c) => (c.before || "").trim() !== (c.after || "").trim());
+      if (meaningful.length) {
+        editsSection = `\n\nHUMAN EDITS — the creator manually changed these in past scripts. Learn the pattern and apply the same preferences (word choices, terminology, tone). For example, if they swapped a word, always use their preferred word:\n` +
+          meaningful.slice(0, 12).map((c, i) =>
+            `Edit ${i + 1} (${c.field}):\nBEFORE: ${String(c.before).slice(0, 600)}\nAFTER:  ${String(c.after).slice(0, 600)}`
+          ).join("\n\n");
+      }
+    } catch { /* non-fatal */ }
+
     // (writingRules chosen below, after the format is known)
 
     const captionStyle = clientData.captionStyle
@@ -166,6 +186,7 @@ The "script" field is the full spoken voiceover — natural, conversational, the
 CONCEPT BLUEPRINT:
 ${blueprintLines || "No blueprint set yet."}
 ${examplesSection}
+${editsSection}
 
 FORMAT:
 ${formatInstruction}
