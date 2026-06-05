@@ -1233,7 +1233,10 @@ function ConceptDetailModal({ concept, onClose, onDelete, onUpdated }: { concept
             <div className="space-y-2">
               {splitExamples(examples).map((ex, i) => (
                 <div key={i}>
-                  <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">Example {i + 1}</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Example {i + 1}</p>
+                    <span className="text-[10px] text-slate-400">{ex.trim().split(/\s+/).filter(Boolean).length} words</span>
+                  </div>
                   <pre className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-slate-700 max-h-48 overflow-y-auto">
                     {ex.trim()}
                   </pre>

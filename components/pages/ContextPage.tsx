@@ -560,11 +560,14 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                     <div key={i} className="group bg-white rounded-lg border border-violet-100 px-3 py-2 relative">
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-[9px] font-bold text-violet-400 uppercase">Example {i + 1}</p>
-                        <button
-                          onClick={() => deleteExample(concept, i)}
-                          title="Delete this example"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold text-rose-400 hover:text-rose-600"
-                        >🗑 Delete</button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-slate-400">{ex.trim().split(/\s+/).filter(Boolean).length} words</span>
+                          <button
+                            onClick={() => deleteExample(concept, i)}
+                            title="Delete this example"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold text-rose-400 hover:text-rose-600"
+                          >🗑 Delete</button>
+                        </div>
                       </div>
                       <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
                     </div>
