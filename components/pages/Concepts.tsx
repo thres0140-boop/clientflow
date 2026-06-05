@@ -295,6 +295,7 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
           concept={selected}
           onClose={() => setSelected(null)}
           onDelete={() => deleteConcept(selected.id)}
+          onUpdated={(patch) => { setSelected((s) => s ? { ...s, ...patch } as Concept : s); reload(); }}
         />
       )}
 
@@ -1013,7 +1014,7 @@ export function ConceptModal({
   );
 }
 
-function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; onClose: () => void; onDelete: () => void }) {
+function ConceptDetailModal({ concept, onClose, onDelete, onUpdated }: { concept: Concept; onClose: () => void; onDelete: () => void; onUpdated?: (patch: Partial<Concept>) => void }) {
   const [reels, setReels] = useState<string[]>(() => {
     try { return JSON.parse((concept as any).reelUrls || "[]"); } catch { return []; }
   });
@@ -1022,7 +1023,7 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
   const [examples, setExamples] = useState<string | null | undefined>(concept.scriptExamples);
   const [pulling, setPulling] = useState(false);
   const [type, setType] = useState<string>((concept as any).conceptType || "");
-  const [editingType, setEditingType] = useState(false);
+  const [savingType, setSavingType] = useState(false);
   const [name, setName] = useState<string>(concept.name);
   const [editingName, setEditingName] = useState(false);
 
@@ -1035,16 +1036,20 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: v }),
     });
+    onUpdated?.({ name: v });
   }
 
   async function saveType(next: string) {
     const v = next.trim();
+    if (v === type) return;
     setType(v);
-    setEditingType(false);
+    setSavingType(true);
     await fetch(`/api/concepts/${concept.id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conceptType: v || null }),
     });
+    setSavingType(false);
+    onUpdated?.({ conceptType: v } as Partial<Concept>);
   }
 
   async function saveReels(next: string[]) {
@@ -1111,30 +1116,21 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
             </button>
           )}
           <span className="text-slate-300">·</span>
-          {editingType ? (
-            <>
-              <input
-                list="detailTypeList"
-                autoFocus
-                defaultValue={type}
-                onBlur={(e) => saveType(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") saveType((e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingType(false); }}
-                placeholder="Concept type…"
-                className="px-2.5 py-0.5 rounded-full text-xs font-bold border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200 w-32"
-              />
-              <datalist id="detailTypeList">
-                {DEFAULT_CATEGORIES.map((c) => <option key={c} value={c} />)}
-              </datalist>
-            </>
-          ) : (
-            <button
-              onClick={() => setEditingType(true)}
-              title="Click to change concept type"
-              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80 ${type ? categoryColor(type) : "bg-slate-100 text-slate-500"}`}
+          {/* Concept type — a plain dropdown that always shows every type and saves on pick. */}
+          <div className={`inline-flex items-center rounded-full text-xs font-bold ${type ? categoryColor(type) : "bg-slate-100 text-slate-500"}`}>
+            <select
+              value={DEFAULT_CATEGORIES.includes(type) ? type : (type ? "__custom__" : "")}
+              onChange={(e) => { if (e.target.value !== "__custom__") saveType(e.target.value); }}
+              disabled={savingType}
+              title="Change concept type"
+              className="bg-transparent px-2.5 py-0.5 pr-1 rounded-full font-bold focus:outline-none cursor-pointer appearance-none"
             >
-              {type || "Set type"} <span className="opacity-60 text-[10px]">✎</span>
-            </button>
-          )}
+              {!type && <option value="">Set type…</option>}
+              {DEFAULT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {type && !DEFAULT_CATEGORIES.includes(type) && <option value="__custom__">{type}</option>}
+            </select>
+            <span className="pr-2 opacity-60 text-[9px]">{savingType ? "…" : "▾"}</span>
+          </div>
           {concept.hookType && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
               🎣 {concept.hookType}
