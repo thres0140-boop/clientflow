@@ -26,26 +26,27 @@ const WEEK_NUMBER = Math.ceil(
 );
 
 // ─── Draggable card shell ───────────────────────────────────────────────────
-function DraggableCard({ draft, onClick }: { draft: ScriptDraft; onClick: () => void }) {
+function DraggableCard({ draft, onClick, selected = false }: { draft: ScriptDraft; onClick: () => void; selected?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: String(draft.id) });
   const style = transform
     ? { transform: `translate(${transform.x}px,${transform.y}px)`, opacity: isDragging ? 0.4 : 1 }
     : {};
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+      data-draft-id={draft.id}
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="touch-none cursor-grab active:cursor-grabbing"
+      className="touch-none cursor-grab active:cursor-grabbing outline-none focus:outline-none"
     >
-      <CardContent draft={draft} />
+      <CardContent draft={draft} selected={selected} />
     </div>
   );
 }
 
 // ─── Card content ────────────────────────────────────────────────────────────
-function CardContent({ draft }: { draft: ScriptDraft }) {
+function CardContent({ draft, selected = false }: { draft: ScriptDraft; selected?: boolean }) {
   return (
     <div className={`bg-white rounded-xl border p-3 shadow-sm hover:shadow-md transition-all select-none ${
-      draft.isSavedIdea ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
+      selected ? "ring-2 ring-indigo-500 border-indigo-500" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
     }`}>
       {draft.isSavedIdea && (
         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full mb-2">
@@ -180,6 +181,13 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [detailDraft, drafts, conceptFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the open card scrolled into view inside its column as you navigate.
+  useEffect(() => {
+    if (!detailDraft) return;
+    const el = document.querySelector(`[data-draft-id="${detailDraft.id}"]`);
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [detailDraft]);
 
   async function moveDraft(draftId: number, targetStageId: number | null) {
     await fetch(`/api/script-drafts/${draftId}`, {
@@ -408,7 +416,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                 ) : (
                   ideaColumn.map((draft) => (
                     <div key={draft.id}>
-                      <DraggableCard draft={draft} onClick={() => setDetailDraft(draft)} />
+                      <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} onClick={() => setDetailDraft(draft)} />
                       <div className="flex gap-1.5 mt-1.5">
                         <button onClick={() => moveDraft(draft.id, stages[0]?.id ?? null)}
                           disabled={stages.length === 0}
@@ -490,7 +498,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
                     {stageDrafts.map((draft) => (
                       <div key={draft.id} className="space-y-1.5">
-                        <DraggableCard draft={draft} onClick={() => setDetailDraft(draft)} />
+                        <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} onClick={() => setDetailDraft(draft)} />
                         {/* Per-card actions */}
                         {stage.name === "Edit" ? (
                           <div className="space-y-1">
