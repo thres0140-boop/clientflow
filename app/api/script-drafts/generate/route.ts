@@ -87,7 +87,8 @@ export async function POST(req: NextRequest) {
   if (!clientData) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
   const concepts = await prisma.concept.findMany({
-    where: { id: { in: conceptIds.map(Number) } },
+    // Never AI-generate client-owned concepts — those are written by the client.
+    where: { id: { in: conceptIds.map(Number) }, clientOwned: { not: true } },
   });
 
   const langInstruction = clientData.language === "nl"

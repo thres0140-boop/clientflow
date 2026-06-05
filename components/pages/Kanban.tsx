@@ -1860,7 +1860,10 @@ function ImportScriptModal({ client, concepts, onClose, onImported }: {
 function GenerateModal({ client, concepts, onClose, onGenerated }: {
   client: Client; concepts: Concept[]; onClose: () => void; onGenerated: () => void;
 }) {
-  const [selectedConcepts, setSelectedConcepts] = useState<number[]>(concepts.map((c) => c.id));
+  // Client-owned concepts are written by the client themselves (assigned in Script
+  // Tasks) — the AI must not generate scripts for them, so they're excluded here.
+  const genConcepts = concepts.filter((c) => !(c as any).clientOwned);
+  const [selectedConcepts, setSelectedConcepts] = useState<number[]>(genConcepts.map((c) => c.id));
   const [weekLabel, setWeekLabel] = useState(`Week ${WEEK_NUMBER}`);
   const [dayLabel, setDayLabel] = useState("");
   const [count, setCount] = useState(client.scriptAlternatives);
@@ -1907,16 +1910,16 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-semibold text-slate-600">Concepts</label>
-              <button onClick={() => setSelectedConcepts(selectedConcepts.length === concepts.length ? [] : concepts.map((c) => c.id))}
+              <button onClick={() => setSelectedConcepts(selectedConcepts.length === genConcepts.length ? [] : genConcepts.map((c) => c.id))}
                 className="text-xs text-indigo-600 hover:underline">
-                {selectedConcepts.length === concepts.length ? "Deselect all" : "Select all"}
+                {selectedConcepts.length === genConcepts.length ? "Deselect all" : "Select all"}
               </button>
             </div>
-            {concepts.length === 0 ? (
-              <p className="text-xs text-slate-400">No concepts yet — add some in the Concept Library first.</p>
+            {genConcepts.length === 0 ? (
+              <p className="text-xs text-slate-400">No AI concepts — these are all client-written, or add some in the Concept Library first.</p>
             ) : (
               <div className="space-y-1.5">
-                {concepts.map((c) => (
+                {genConcepts.map((c) => (
                   <button key={c.id} onClick={() => toggleConcept(c.id)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${
                       selectedConcepts.includes(c.id)
