@@ -365,7 +365,7 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
             {reel.timestamp && (
               <div className="absolute top-2 right-2 z-10">
                 <span className="bg-black/55 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">
-                  {new Date(reel.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  {new Date(reel.timestamp).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
                 </span>
               </div>
             )}
@@ -700,7 +700,7 @@ function CompetitorsTab({ client }: { client: Client }) {
                     {reel.timestamp && (
                       <div className="absolute top-2 right-2 z-10">
                         <span className="bg-black/55 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">
-                          {new Date(reel.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                          {new Date(reel.timestamp).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
                         </span>
                       </div>
                     )}
@@ -1124,7 +1124,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-700">{client.name}</p>
-              <p className="text-[10px] text-slate-400">{new Date(reel.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+              <p className="text-[10px] text-slate-400">{new Date(reel.timestamp).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">✕</button>
