@@ -88,6 +88,7 @@ type Props = {
   currentPage: Page; onNavigate: (page: Page) => void;
   clients: Client[]; selectedClientId: number | null; onSelectClient: (id: number | null) => void;
   unreadCount: number; notifications: Notification[]; onMarkRead: (id: number) => void; onMarkAllRead: () => void;
+  badges?: Partial<Record<Page, number>>;
   allowedPages: Page[]; activeProfile: TeamMember | null; session: SessionPayload | null; onSignOut: () => void;
   ownerEmail?: string | null;
 };
@@ -96,7 +97,7 @@ const DIVIDER = { borderColor: "rgba(255,255,255,0.08)" };
 const STRIP_BG = "#0f1c34";
 const NAV_BG = "#1a2f52";
 
-export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail }: Props) {
+export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges }: Props) {
   const [showAccount, setShowAccount] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
@@ -179,7 +180,12 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
                       onMouseEnter={(e) => { if (currentPage !== item.id) (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.06)"; }}
                       onMouseLeave={(e) => { if (currentPage !== item.id) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}>
                       <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{PAGE_ICONS[item.id]?.(currentPage === item.id)}</span>
-                      {item.label}
+                      <span className="flex-1">{item.label}</span>
+                      {!!badges?.[item.id] && (
+                        <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {badges[item.id]! > 9 ? "9+" : badges[item.id]}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

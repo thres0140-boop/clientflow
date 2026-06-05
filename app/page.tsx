@@ -71,6 +71,32 @@ export default function App() {
     setNotifications(data);
   }, []);
 
+  // Per-nav-item badges (e.g. unread messages, reels sent back to you).
+  const [badges, setBadges] = useState<{ chat?: number; kanban?: number }>({});
+  const refreshBadges = useCallback(async (clientId: number | null) => {
+    if (!clientId) { setBadges({}); return; }
+    try {
+      // Unread chat: channels with a newer message than what's been read locally.
+      const summary = await fetch(`/api/messages?clientId=${clientId}&summary=1`).then((r) => r.json()).catch(() => []);
+      let read: Record<string, string> = {};
+      try { read = JSON.parse(localStorage.getItem(`cf_chat_read_${clientId}`) || "{}"); } catch { /* ignore */ }
+      let chat = 0;
+      for (const s of (Array.isArray(summary) ? summary : [])) {
+        if (!s?.lastAt) continue;
+        const r = read[s.channel];
+        if (!r || new Date(s.lastAt).getTime() > new Date(r).getTime()) chat++;
+      }
+      // Reels sent back to a team member (rejectionFeedback set) need their attention.
+      let kanban = 0;
+      const isMember = session?.type === "member" && !activeProfile?.isClientAccount;
+      if (isMember) {
+        const drafts = await fetch(`/api/script-drafts?clientId=${clientId}&staged=true`).then((r) => r.json()).catch(() => []);
+        kanban = (Array.isArray(drafts) ? drafts : []).filter((d: any) => d.rejectionFeedback).length;
+      }
+      setBadges({ chat: chat || undefined, kanban: kanban || undefined });
+    } catch { /* non-fatal */ }
+  }, [session, activeProfile]);
+
   const fetchTeam = useCallback(async (clientId?: number | null) => {
     const url = clientId ? `/api/team?clientId=${clientId}` : "/api/team";
     const data = await fetch(url).then((r) => r.json());
@@ -126,6 +152,13 @@ export default function App() {
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [fetchClients, fetchNotifications, fetchTeam]);
+
+  // Recompute sidebar badges on client/page change and on a short poll.
+  useEffect(() => {
+    refreshBadges(selectedClientId);
+    const t = setInterval(() => refreshBadges(selectedClientId), 20000);
+    return () => clearInterval(t);
+  }, [selectedClientId, page, refreshBadges]);
 
   // Persist selected client and refresh team when client switches
   useEffect(() => {
@@ -222,6 +255,7 @@ export default function App() {
         onSelectClient={setSelectedClientId}
         unreadCount={unreadCount}
         notifications={notifications}
+        badges={badges}
         allowedPages={allowedPages}
         activeProfile={activeProfile}
         session={session}
