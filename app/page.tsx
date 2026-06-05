@@ -46,6 +46,9 @@ export default function App() {
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
   const [activeProfile, setActiveProfile] = useState<TeamMember | null>(null);
   const [session, setSession] = useState<SessionPayload | null>(null);
+  // Projects this logged-in member belongs to (shared-email grouping) — drives the
+  // client project-switcher for multi-project clients/members.
+  const [projects, setProjects] = useState<{ memberId: number; clientId: number; clientName: string | null; isClientAccount: boolean }[]>([]);
   const [ownerName, setOwnerName] = useState("Cenk");
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [appReady, setAppReady] = useState(false);
@@ -137,6 +140,8 @@ export default function App() {
       if (sessData?.ownerName) setOwnerName(sessData.ownerName);
       if (sessData?.ownerEmail !== undefined) setOwnerEmail(sessData.ownerEmail);
 
+      setProjects(Array.isArray(sessData?.projects) ? sessData.projects : []);
+
       if (sess?.type === "member" && sess.memberId !== null) {
         setActiveProfileId(sess.memberId);
         // Fetch this member directly (unfiltered) so page access check is always correct
@@ -146,7 +151,13 @@ export default function App() {
 
       const clientList: Client[] = await fetch("/api/clients").then((r) => r.json());
       const saved = localStorage.getItem("cf_active_client");
-      const initClientId = saved ? parseInt(saved) : clientList[0]?.id ?? null;
+      // Members default to the project they logged into; honour a saved choice only if
+      // it's one of their projects.
+      const savedId = saved ? parseInt(saved) : null;
+      const memberDefault = sess?.type === "member" ? (sess as any).clientId ?? null : null;
+      const initClientId = (savedId && clientList.find((c) => c.id === savedId)) ? savedId
+        : (memberDefault && clientList.find((c) => c.id === memberDefault)) ? memberDefault
+        : clientList[0]?.id ?? null;
       await Promise.all([fetchClients(), fetchNotifications(), fetchTeam(initClientId)]);
       setAppReady(true);
     }
@@ -161,6 +172,16 @@ export default function App() {
     const t = setInterval(() => refreshBadges(selectedClientId), 20000);
     return () => clearInterval(t);
   }, [selectedClientId, page, refreshBadges]);
+
+  // When a multi-project member switches project, swap the active profile to that
+  // project's member record so its per-project page access applies.
+  useEffect(() => {
+    if (session?.type !== "member" || !selectedClientId || projects.length < 2) return;
+    const proj = projects.find((p) => p.clientId === selectedClientId);
+    if (!proj || proj.memberId === activeProfileId) return;
+    setActiveProfileId(proj.memberId);
+    fetch(`/api/team/${proj.memberId}`).then((r) => r.json()).then(setActiveProfile).catch(() => {});
+  }, [selectedClientId, projects, session, activeProfileId]);
 
   // Persist selected client and refresh team when client switches
   useEffect(() => {

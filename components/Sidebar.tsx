@@ -108,8 +108,9 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
   return (
     <aside className="fixed top-0 left-0 h-full flex z-10" style={{ width: 280 }}>
 
-      {/* ── LEFT STRIP (hidden for client accounts) ── */}
-      {!isClient && (
+      {/* ── LEFT STRIP — hidden for single-project clients, shown when there are
+          multiple projects so a multi-project client/member can switch between them. ── */}
+      {(!isClient || clients.length > 1) && (
       <div className="flex flex-col h-full flex-shrink-0" style={{ width: 56, backgroundColor: STRIP_BG }}>
 
         {/* Client avatars + add button (Discord-style: add sits under the last project) */}

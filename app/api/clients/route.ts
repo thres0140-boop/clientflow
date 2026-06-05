@@ -16,9 +16,19 @@ export async function GET(req: NextRequest) {
 
   if (session?.type === "member") {
     if (!session.memberId) return NextResponse.json([]);
-    const member = await prisma.teamMember.findUnique({ where: { id: session.memberId }, select: { clientId: true } });
+    const member = await prisma.teamMember.findUnique({ where: { id: session.memberId }, select: { clientId: true, email: true } });
     if (!member?.clientId) return NextResponse.json([]);
-    const clients = await prisma.client.findMany({ where: { id: member.clientId }, orderBy: { name: "asc" }, include });
+    // Return every project this person is on (all records sharing their email), so a
+    // multi-project client/member can switch between them. Falls back to their one project.
+    let clientIds = [member.clientId];
+    if (member.email) {
+      const siblings = await prisma.teamMember.findMany({
+        where: { email: { equals: member.email, mode: "insensitive" }, clientId: { not: null } },
+        select: { clientId: true },
+      });
+      clientIds = Array.from(new Set(siblings.map((s) => s.clientId!).concat(member.clientId)));
+    }
+    const clients = await prisma.client.findMany({ where: { id: { in: clientIds } }, orderBy: { name: "asc" }, include });
     return NextResponse.json(clients);
   }
 

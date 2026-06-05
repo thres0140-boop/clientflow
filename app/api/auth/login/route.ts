@@ -34,15 +34,21 @@ export async function POST(req: NextRequest) {
   }
 
   // Client / team member login
+  // The same email can exist on multiple projects (one record per project). Check the
+  // password against ALL of them and log into the matching record; the other projects
+  // are surfaced via /api/auth/me so the user can toggle between them.
   if (!email) return NextResponse.json({ error: "Email is required" }, { status: 400 });
-  const member = await prisma.teamMember.findFirst({
+  const members = await prisma.teamMember.findMany({
     where: { email: { equals: email, mode: "insensitive" } },
+    orderBy: { id: "asc" },
   });
-  if (!member || !member.passwordHash) {
+  let member: (typeof members)[number] | null = null;
+  for (const m of members) {
+    if (m.passwordHash && (await bcrypt.compare(password, m.passwordHash))) { member = m; break; }
+  }
+  if (!member) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
-  const valid = await bcrypt.compare(password, member.passwordHash);
-  if (!valid) return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
 
   const token = await createSessionToken({ type: "member", memberId: member.id, name: member.name, clientId: member.clientId ?? null });
   const res = NextResponse.json({ ok: true, type: "member", memberId: member.id });
