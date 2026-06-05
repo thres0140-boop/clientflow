@@ -8,6 +8,7 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember, Creator } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
+import { markSeen as markSentBackSeen } from "@/lib/sentBackSeen";
 
 type Props = {
   clients: Client[];
@@ -19,6 +20,7 @@ type Props = {
   ownerName?: string;
   isClient?: boolean;
   onOpenChat?: (context: { id?: number; title: string; hook?: string | null; script: string; caption?: string | null; channel?: string }) => void;
+  onBadgesChanged?: () => void;
 };
 
 const WEEK_NUMBER = Math.ceil(
@@ -106,7 +108,7 @@ function resolvePersonLabel(v: PersonValue, client: Client | null, team: TeamMem
 }
 
 // ─── Main Kanban ────────────────────────────────────────────────────────────
-export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, activeProfile, team, ownerName = "Owner", isClient = false, onOpenChat }: Props) {
+export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, activeProfile, team, ownerName = "Owner", isClient = false, onOpenChat, onBadgesChanged }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -161,6 +163,16 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     return drafts.filter((d) => d.stageId === stageId && d.status === "accepted" && matchesConcept(d));
   }
 
+  // Open a draft in the detail panel. If it was sent back to a member (has feedback),
+  // mark it seen so the sidebar "Script Kanban" badge ticks down.
+  function openDraft(draft: ScriptDraft) {
+    if (draft.rejectionFeedback && selectedClientId) {
+      markSentBackSeen(selectedClientId, draft.id, draft.rejectionFeedback);
+      onBadgesChanged?.();
+    }
+    setDetailDraft(draft);
+  }
+
   // ← / → arrow keys step through the cards in the same column while the detail
   // panel is open (so you can review a batch without clicking back and forth).
   // Ignored while typing in a field.
@@ -176,7 +188,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       const nextIdx = e.key === "ArrowRight" ? idx + 1 : idx - 1;
       if (nextIdx < 0 || nextIdx >= list.length) return;
       e.preventDefault();
-      setDetailDraft(list[nextIdx]);
+      openDraft(list[nextIdx]);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -416,7 +428,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                 ) : (
                   ideaColumn.map((draft) => (
                     <div key={draft.id}>
-                      <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} onClick={() => setDetailDraft(draft)} />
+                      <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} onClick={() => openDraft(draft)} />
                       <div className="flex gap-1.5 mt-1.5">
                         <button onClick={() => moveDraft(draft.id, stages[0]?.id ?? null)}
                           disabled={stages.length === 0}
@@ -498,7 +510,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
                     {stageDrafts.map((draft) => (
                       <div key={draft.id} className="space-y-1.5">
-                        <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} onClick={() => setDetailDraft(draft)} />
+                        <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} onClick={() => openDraft(draft)} />
                         {/* Per-card actions */}
                         {stage.name === "Edit" ? (
                           <div className="space-y-1">

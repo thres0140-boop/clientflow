@@ -16,6 +16,7 @@ import DmsPage from "@/components/pages/DmsPage";
 import ContextPage from "@/components/pages/ContextPage";
 import { Client, Notification, TeamMember } from "@/lib/types";
 import type { SessionPayload } from "@/lib/session";
+import { countUnseenSentBack } from "@/lib/sentBackSeen";
 
 export type Page =
   | "pipeline"
@@ -86,12 +87,13 @@ export default function App() {
         const r = read[s.channel];
         if (!r || new Date(s.lastAt).getTime() > new Date(r).getTime()) chat++;
       }
-      // Reels sent back to a team member (rejectionFeedback set) need their attention.
+      // Reels sent back to a team member (rejectionFeedback set) that they haven't
+      // opened yet — ticks down as they open each one.
       let kanban = 0;
       const isMember = session?.type === "member" && !activeProfile?.isClientAccount;
       if (isMember) {
         const drafts = await fetch(`/api/script-drafts?clientId=${clientId}&staged=true`).then((r) => r.json()).catch(() => []);
-        kanban = (Array.isArray(drafts) ? drafts : []).filter((d: any) => d.rejectionFeedback).length;
+        kanban = countUnseenSentBack(clientId, Array.isArray(drafts) ? drafts : []);
       }
       setBadges({ chat: chat || undefined, kanban: kanban || undefined });
     } catch { /* non-fatal */ }
@@ -227,7 +229,7 @@ export default function App() {
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
       case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} reelContext={chatContext} onContextUsed={() => setChatContext(null)} team={team} initialChannel={chatContext?.channel} activeProfile={activeProfile} />;
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
-      case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} />;
+      case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} />;
       case "tasks": return <ScriptTasksPage clients={clients} selectedClientId={selectedClientId} canSubmit={session?.type === "member"} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} />;
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} />;
