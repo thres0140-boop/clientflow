@@ -1022,6 +1022,19 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
   const [pulling, setPulling] = useState(false);
   const [type, setType] = useState<string>((concept as any).conceptType || "");
   const [editingType, setEditingType] = useState(false);
+  const [name, setName] = useState<string>(concept.name);
+  const [editingName, setEditingName] = useState(false);
+
+  async function saveName(next: string) {
+    const v = next.trim();
+    setEditingName(false);
+    if (!v || v === name) return;
+    setName(v);
+    await fetch(`/api/concepts/${concept.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: v }),
+    });
+  }
 
   async function saveType(next: string) {
     const v = next.trim();
@@ -1075,9 +1088,28 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
 
   return (
     <>
-    <Modal title={concept.name} onClose={onClose} wide>
+    <Modal title={name} onClose={onClose} wide>
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2 items-center">
+          {editingName ? (
+            <input
+              autoFocus
+              defaultValue={name}
+              onBlur={(e) => saveName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveName((e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingName(false); }}
+              placeholder="Concept name…"
+              className="px-2 py-0.5 rounded text-sm font-bold text-slate-800 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200 w-28"
+            />
+          ) : (
+            <button
+              onClick={() => setEditingName(true)}
+              title="Click to rename this concept"
+              className="inline-flex items-center gap-1 text-sm font-bold text-slate-700 hover:text-indigo-600"
+            >
+              {name} <span className="opacity-50 text-[10px]">✎</span>
+            </button>
+          )}
+          <span className="text-slate-300">·</span>
           {editingType ? (
             <>
               <input
