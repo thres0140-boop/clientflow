@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     const cls = await prisma.client.findMany({ select: { id: true, name: true } });
     return NextResponse.json({
       clients: cls,
-      members: members.map((m: any) => ({ id: m.id, name: m.name, email: m.email, clientId: m.clientId, isClientAccount: m.isClientAccount })),
+      members: members.map((m: any) => ({ id: m.id, name: m.name, email: m.email, clientId: m.clientId, isClientAccount: m.isClientAccount, pageAccess: m.pageAccess, viewOnlyPages: m.viewOnlyPages })),
     });
   }
 
