@@ -80,7 +80,7 @@ const NAV_GROUPS = [
   { label: "MANAGE", items: [
     { id: "team" as Page, label: "Team" },
     { id: "chat" as Page, label: "Messages" },
-    { id: "settings" as Page, label: "Settings" },
+    // Settings (client management) lives on the 👑 owner button in the left strip, not here.
   ]},
 ];
 
@@ -138,14 +138,24 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
           )}
         </div>
 
-        {/* Strip footer: profile avatar */}
+        {/* Strip footer: owner = Settings/client-management button (👑); member = avatar */}
         <div className="flex items-center justify-center py-3 flex-shrink-0" style={{ borderTop: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white"
-            style={{ backgroundColor: session?.type === "member" ? (activeProfile?.color || "#6366f1") : "#3b5bdb" }}>
-            {session?.type === "member"
-              ? (activeProfile?.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?")
-              : "👑"}
-          </div>
+          {session?.type !== "member" ? (
+            <button onClick={() => onNavigate("settings")} title="Workspace & clients"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white transition-all"
+              style={{
+                backgroundColor: "#3b5bdb",
+                boxShadow: currentPage === "settings" ? "0 0 0 2px white" : "none",
+                opacity: currentPage === "settings" ? 1 : 0.85,
+              }}>
+              👑
+            </button>
+          ) : (
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold text-white"
+              style={{ backgroundColor: activeProfile?.color || "#6366f1" }}>
+              {activeProfile?.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "?"}
+            </div>
+          )}
         </div>
       </div>
       )}
