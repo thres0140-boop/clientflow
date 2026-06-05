@@ -8,7 +8,7 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember, Creator } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
-import { markSeen as markSentBackSeen } from "@/lib/sentBackSeen";
+import { markSeen as markSentBackSeen, getSeen as getSentBackSeen } from "@/lib/sentBackSeen";
 
 type Props = {
   clients: Client[];
@@ -28,7 +28,7 @@ const WEEK_NUMBER = Math.ceil(
 );
 
 // ─── Draggable card shell ───────────────────────────────────────────────────
-function DraggableCard({ draft, onClick, selected = false }: { draft: ScriptDraft; onClick: () => void; selected?: boolean }) {
+function DraggableCard({ draft, onClick, selected = false, notify = false }: { draft: ScriptDraft; onClick: () => void; selected?: boolean; notify?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: String(draft.id) });
   const style = transform
     ? { transform: `translate(${transform.x}px,${transform.y}px)`, opacity: isDragging ? 0.4 : 1 }
@@ -39,17 +39,22 @@ function DraggableCard({ draft, onClick, selected = false }: { draft: ScriptDraf
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       className="touch-none cursor-grab active:cursor-grabbing outline-none focus:outline-none"
     >
-      <CardContent draft={draft} selected={selected} />
+      <CardContent draft={draft} selected={selected} notify={notify} />
     </div>
   );
 }
 
 // ─── Card content ────────────────────────────────────────────────────────────
-function CardContent({ draft, selected = false }: { draft: ScriptDraft; selected?: boolean }) {
+function CardContent({ draft, selected = false, notify = false }: { draft: ScriptDraft; selected?: boolean; notify?: boolean }) {
   return (
-    <div className={`bg-white rounded-xl border p-3 shadow-sm hover:shadow-md transition-all select-none ${
-      selected ? "ring-2 ring-indigo-500 border-indigo-500" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
+    <div className={`relative bg-white rounded-xl border p-3 shadow-sm hover:shadow-md transition-all select-none ${
+      notify ? "ring-2 ring-red-400 border-red-400" : selected ? "ring-2 ring-indigo-500 border-indigo-500" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
     }`}>
+      {notify && (
+        <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow ring-2 ring-white" title="Sent back — needs changes">
+          ↩ 1
+        </span>
+      )}
       {draft.isSavedIdea && (
         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full mb-2">
           ↩ Returning idea
@@ -163,8 +168,15 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     return drafts.filter((d) => d.stageId === stageId && d.status === "accepted" && matchesConcept(d));
   }
 
+  // A sent-back draft this member hasn't opened yet → show a notification on its card.
+  const isMemberEditor = !!activeProfile && !activeProfile.isClientAccount;
+  const seenSentBack = (isMemberEditor && selectedClientId) ? getSentBackSeen(selectedClientId) : {};
+  function isUnseenSentBack(draft: ScriptDraft): boolean {
+    return isMemberEditor && !!draft.rejectionFeedback && seenSentBack[draft.id] !== draft.rejectionFeedback;
+  }
+
   // Open a draft in the detail panel. If it was sent back to a member (has feedback),
-  // mark it seen so the sidebar "Script Kanban" badge ticks down.
+  // mark it seen so the sidebar "Script Kanban" badge + the card notification clear.
   function openDraft(draft: ScriptDraft) {
     if (draft.rejectionFeedback && selectedClientId) {
       markSentBackSeen(selectedClientId, draft.id, draft.rejectionFeedback);
@@ -428,7 +440,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                 ) : (
                   ideaColumn.map((draft) => (
                     <div key={draft.id}>
-                      <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} onClick={() => openDraft(draft)} />
+                      <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} onClick={() => openDraft(draft)} />
                       <div className="flex gap-1.5 mt-1.5">
                         <button onClick={() => moveDraft(draft.id, stages[0]?.id ?? null)}
                           disabled={stages.length === 0}
@@ -510,7 +522,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
                     {stageDrafts.map((draft) => (
                       <div key={draft.id} className="space-y-1.5">
-                        <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} onClick={() => openDraft(draft)} />
+                        <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} onClick={() => openDraft(draft)} />
                         {/* Per-card actions */}
                         {stage.name === "Edit" ? (
                           <div className="space-y-1">
