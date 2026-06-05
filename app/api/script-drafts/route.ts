@@ -52,6 +52,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  // Importing existing/transferred content can land directly in a workflow stage
+  // (status "accepted") and carry its already-edited video, instead of Ideas.
+  const importStageId = body.stageId ? parseInt(body.stageId) : null;
   const draft = await prisma.scriptDraft.create({
     data: {
       clientId: parseInt(body.clientId),
@@ -62,7 +65,9 @@ export async function POST(req: NextRequest) {
       caption: body.caption || null,
       weekLabel: body.weekLabel,
       dayLabel: body.dayLabel || null,
-      status: "pending",
+      editedVideoUrl: body.editedVideoUrl || null,
+      stageId: importStageId,
+      status: importStageId ? "accepted" : "pending",
       isSavedIdea: false,
       clientAuthored: body.clientAuthored === true,
     },

@@ -675,6 +675,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
         <ImportScriptModal
           client={client}
           concepts={concepts}
+          stages={stages}
           onClose={() => setShowImport(false)}
           onImported={() => { setShowImport(false); reload(); }}
         />
@@ -1814,8 +1815,8 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 
 // ─── Generate scripts modal ─────────────────────────────────────────────────
 // ─── Import an existing script (from Google Docs etc.) as an Idea ────────────
-function ImportScriptModal({ client, concepts, onClose, onImported }: {
-  client: Client; concepts: Concept[]; onClose: () => void; onImported: () => void;
+function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
+  client: Client; concepts: Concept[]; stages: WorkflowStage[]; onClose: () => void; onImported: () => void;
 }) {
   const [conceptId, setConceptId] = useState<number | "">(concepts[0]?.id ?? "");
   const [title, setTitle] = useState("");
@@ -1824,6 +1825,19 @@ function ImportScriptModal({ client, concepts, onClose, onImported }: {
   const [caption, setCaption] = useState("");
   const [seedAsExample, setSeedAsExample] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [stageId, setStageId] = useState<number | "">("");      // "" = Ideas
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function uploadVideo(file: File) {
+    setUploadPct(0);
+    try {
+      const url = await cloudinaryUpload(file, (pct) => setUploadPct(pct));
+      setVideoUrl(url);
+    } catch { alert("Upload failed. Try again."); }
+    finally { setUploadPct(null); }
+  }
 
   const weekLabel = (() => {
     const d = new Date();
@@ -1852,6 +1866,8 @@ function ImportScriptModal({ client, concepts, onClose, onImported }: {
           caption: caption.trim() || null,
           weekLabel,
           seedAsExample,
+          editedVideoUrl: videoUrl,
+          stageId: stageId || null,
         }),
       });
       onImported();
@@ -1865,8 +1881,8 @@ function ImportScriptModal({ client, concepts, onClose, onImported }: {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-800">⬇ Import script</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Paste a script you already have — it lands in Ideas under a concept.</p>
+            <h2 className="text-base font-bold text-slate-800">⬇ Import content</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Transfer existing content — script + finished video — into a concept. The AI learns from the script.</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
@@ -1905,6 +1921,34 @@ function ImportScriptModal({ client, concepts, onClose, onImported }: {
             <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} placeholder="Caption, if you have one…"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
+          {/* Finished video — for transferred content that's already produced. */}
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Finished video (optional)</label>
+            <input ref={fileRef} type="file" accept="video/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVideo(f); }} />
+            {videoUrl ? (
+              <div className="flex items-center justify-between border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-2">
+                <span className="text-xs text-emerald-700 font-medium truncate">✓ Video uploaded</span>
+                <button onClick={() => { setVideoUrl(null); if (fileRef.current) fileRef.current.value = ""; }}
+                  className="text-[11px] text-slate-400 hover:text-red-500 flex-shrink-0 ml-2">Remove</button>
+              </div>
+            ) : (
+              <button onClick={() => fileRef.current?.click()} disabled={uploadPct !== null}
+                className="w-full border border-dashed border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:bg-slate-50 disabled:opacity-60">
+                {uploadPct !== null ? `Uploading ${uploadPct}%…` : "⬆ Upload the finished video"}
+              </button>
+            )}
+          </div>
+          {/* Where it lands — Ideas (still needs production) or straight into a stage. */}
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Place in</label>
+            <select value={stageId} onChange={(e) => setStageId(e.target.value ? parseInt(e.target.value) : "")}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              <option value="">💡 Ideas (needs review)</option>
+              {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">Transferring already-finished content? Drop it straight into a later stage (e.g. Schedule).</p>
+          </div>
           <label className="flex items-start gap-2.5 cursor-pointer select-none">
             <input type="checkbox" checked={seedAsExample} onChange={(e) => setSeedAsExample(e.target.checked)}
               className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400" />
@@ -1916,9 +1960,9 @@ function ImportScriptModal({ client, concepts, onClose, onImported }: {
 
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button onClick={submit} disabled={saving || !script.trim() || !conceptId}
+          <button onClick={submit} disabled={saving || uploadPct !== null || !script.trim() || !conceptId}
             className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-            {saving ? "Importing…" : "⬇ Import to Ideas"}
+            {saving ? "Importing…" : uploadPct !== null ? "Uploading video…" : "⬇ Import"}
           </button>
         </div>
       </div>
