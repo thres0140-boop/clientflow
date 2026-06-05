@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Client, Concept } from "@/lib/types";
+import { splitExamples, joinExamples } from "@/lib/exampleScripts";
 
 type ConceptFeedback = {
   id: number;
@@ -276,8 +277,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
     const text = (newExampleText[concept.id] ?? "").trim();
     if (!text) return;
     setSavingExample(concept.id);
-    const existing = concept.scriptExamples?.trim() ?? "";
-    const updated = existing ? `${existing}\n\n${text}` : text;
+    const updated = joinExamples([...splitExamples(concept.scriptExamples), text]);
     await fetch(`/api/concepts/${concept.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -290,11 +290,11 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   }
 
   async function deleteExample(concept: Concept, index: number) {
-    const parts = (concept.scriptExamples ?? "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+    const parts = splitExamples(concept.scriptExamples);
     if (index < 0 || index >= parts.length) return;
     if (!confirm(`Delete Example ${index + 1}? This removes it from what Claude studies for this concept.`)) return;
     parts.splice(index, 1);
-    const updated = parts.join("\n\n");
+    const updated = joinExamples(parts);
     setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, scriptExamples: updated } : c));
     await fetch(`/api/concepts/${concept.id}`, {
       method: "PUT",
@@ -556,7 +556,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
           {openSections.examples && (
             <div className="p-4 space-y-2">
               {concept.scriptExamples
-                ? concept.scriptExamples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
+                ? splitExamples(concept.scriptExamples).map((ex, i) => (
                     <div key={i} className="group bg-white rounded-lg border border-violet-100 px-3 py-2 relative">
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-[9px] font-bold text-violet-400 uppercase">Example {i + 1}</p>
@@ -577,7 +577,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                 <div className="space-y-2 pt-1">
                   <div>
                     <p className="text-[9px] font-bold text-violet-400 uppercase tracking-wide mb-1">
-                      Example {(concept.scriptExamples?.split(/\n{2,}/).filter(Boolean).length ?? 0) + 1}
+                      Example {splitExamples(concept.scriptExamples).length + 1}
                     </p>
                     <textarea
                       autoFocus

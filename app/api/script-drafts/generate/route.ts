@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
-import { buildExamplesBlock } from "@/lib/conceptExamples";
+import { buildExamplesBlock, splitExamples } from "@/lib/conceptExamples";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     let examplesSection = await buildExamplesBlock(concept);
     if (!examplesSection && concept.scriptExamples) {
       examplesSection = `\n\nEXAMPLE SCRIPTS — study these, this is the exact voice and style to match:\n` +
-        concept.scriptExamples.split(/\n{2,}/).filter(Boolean)
+        splitExamples(concept.scriptExamples)
           .map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n");
     }
 

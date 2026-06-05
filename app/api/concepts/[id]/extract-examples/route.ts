@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
-import { addConceptExample } from "@/lib/conceptExamples";
+import { addConceptExample, splitExamples, joinExamples } from "@/lib/conceptExamples";
 import { classifyReelFormat } from "@/lib/classifyCompetitorReels";
 
 // Transcribing several videos can take a while — give the function room.
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // Existing examples — used to dedupe (cleared in replace mode for a fresh rebuild).
-  const existing = replace ? [] : (concept.scriptExamples || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+  const existing = replace ? [] : splitExamples(concept.scriptExamples);
   const seen = new Set(existing.map((e) => e.toLowerCase()));
   const added: string[] = [];
   const skipped: string[] = [];
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (added.length) {
-    const updated = [...existing, ...added].join("\n\n");
+    const updated = joinExamples([...existing, ...added]);
     await prisma.concept.update({ where: { id: conceptId }, data: { scriptExamples: updated } });
   }
 

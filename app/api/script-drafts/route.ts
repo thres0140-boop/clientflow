@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { addConceptExample } from "@/lib/conceptExamples";
+import { addConceptExample, splitExamples, joinExamples } from "@/lib/conceptExamples";
 import { sendWhatsApp } from "@/lib/notify";
 
 export async function GET(req: NextRequest) {
@@ -78,9 +78,9 @@ export async function POST(req: NextRequest) {
   if (body.seedAsExample === true && draft.conceptId && draft.script) {
     try {
       const concept = await prisma.concept.findUnique({ where: { id: draft.conceptId } });
-      const existing = (concept?.scriptExamples || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+      const existing = splitExamples(concept?.scriptExamples);
       if (!existing.some((e) => e.toLowerCase() === draft.script.trim().toLowerCase())) {
-        const updated = [...existing, draft.script.trim()].join("\n\n");
+        const updated = joinExamples([...existing, draft.script.trim()]);
         await prisma.concept.update({ where: { id: draft.conceptId }, data: { scriptExamples: updated } });
       }
       await addConceptExample(draft.conceptId, draft.script, "human_seed", { scriptDraftId: draft.id }).catch(() => {});

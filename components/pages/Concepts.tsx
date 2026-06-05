@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Client, Concept, HOOK_TYPE_SUGGESTIONS, VIDEO_TYPE_SUGGESTIONS } from "@/lib/types";
 import Modal from "@/components/ui/Modal";
+import { splitExamples } from "@/lib/exampleScripts";
 
 type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void };
 type Tab = "ideas" | "concepts";
@@ -1234,7 +1235,7 @@ function ConceptDetailModal({ concept, onClose, onDelete }: { concept: Concept; 
           <div>
             <p className="text-xs font-semibold text-slate-500 mb-2">SCRIPT EXAMPLES</p>
             <div className="space-y-2">
-              {examples.split(/\n{2,}/).filter(Boolean).map((ex, i) => (
+              {splitExamples(examples).map((ex, i) => (
                 <div key={i}>
                   <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">Example {i + 1}</p>
                   <pre className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-slate-700 max-h-48 overflow-y-auto">

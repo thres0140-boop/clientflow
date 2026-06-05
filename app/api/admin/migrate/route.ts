@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchProfileInfo, freshReelMediaUrl } from "@/lib/scrapeCompetitors";
+import { joinExamples } from "@/lib/conceptExamples";
 
 // GET — debug: show all instagram connections + lead counts
 export async function GET(req: NextRequest) {
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest) {
       if (!t || t.length < 8 || seen.has(t.toLowerCase())) continue;
       seen.add(t.toLowerCase()); added.push(t);
     }
-    if (added.length) await prisma.concept.update({ where: { id: conceptId }, data: { scriptExamples: added.join("\n\n") } });
+    if (added.length) await prisma.concept.update({ where: { id: conceptId }, data: { scriptExamples: joinExamples(added) } });
     return NextResponse.json({ ok: true, added: added.length, examples: added });
   }
 

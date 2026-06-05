@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { splitExamples, joinExamples } from "@/lib/exampleScripts";
+
+// Re-export so existing server imports from this module keep working.
+export { splitExamples, joinExamples, EXAMPLE_SEP } from "@/lib/exampleScripts";
 
 // first-line, normalized — used to dedup examples by their hook
 export function hookKeyOf(text: string): string {
@@ -93,7 +97,7 @@ export async function buildExamplesBlock(concept: { id: number; scriptExamples?:
   const proven: string[] = [];
 
   // 1) trusted, human-curated / reel-pulled examples (the canonical "what wins")
-  for (const ex of (concept.scriptExamples || "").split(/\n{2,}/).map((s) => s.trim()).filter(Boolean)) {
+  for (const ex of splitExamples(concept.scriptExamples)) {
     const k = hookKeyOf(ex);
     if (seen.has(k)) continue;
     seen.add(k);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
+import { splitExamples } from "@/lib/conceptExamples";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -40,9 +41,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     concept.guidelines && `Guidelines: ${concept.guidelines}`,
   ].filter(Boolean).join("\n");
 
-  const examplesSection = concept.scriptExamples
-    ? concept.scriptExamples.split(/\n{2,}/).filter(Boolean)
-        .map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n")
+  const exList = splitExamples(concept.scriptExamples);
+  const examplesSection = exList.length
+    ? exList.map((ex, i) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n")
     : "No example scripts provided yet.";
 
   const rejectionLines = feedbacks.map((f, i) => {
