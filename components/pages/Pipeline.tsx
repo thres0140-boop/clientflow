@@ -84,11 +84,13 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
   //  orange = in the Schedule stage but auto-post not confirmed
   //  blue   = confirmed / booked to auto-post
   //  green  = posted
-  function draftState(d: ScriptDraft): { key: "planned" | "ready" | "booked" | "posted"; color: string; label: string } {
+  function draftState(d: ScriptDraft): { key: "planned" | "edited" | "ready" | "booked" | "posted"; color: string; label: string } {
     const lastStageId = stages.length ? stages[stages.length - 1].id : null;
     if (d.status === "posted") return { key: "posted", color: "#16a34a", label: "Posted" };
     if (d.zernioBooked) return { key: "booked", color: "#2563eb", label: "Scheduled" };
     if (lastStageId != null && d.stageId === lastStageId) return { key: "ready", color: "#f97316", label: "Ready · tap to confirm" };
+    // Has a finished cut but isn't in the Schedule stage / not confirmed yet → yellow.
+    if (d.editedVideoUrl) return { key: "edited", color: "#eab308", label: "Edited · not confirmed" };
     return { key: "planned", color: "#ef4444", label: "Planned · not in Schedule yet" };
   }
   const [stages, setStages] = useState<WorkflowStage[]>([]);
@@ -511,7 +513,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             const solid = st.key === "booked" || st.key === "posted";
                             // Only planning-stage cards can be dragged between days; booked/posted
                             // are locked (moving them would desync the live Zernio booking).
-                            const movable = canEdit && (st.key === "planned" || st.key === "ready");
+                            const movable = canEdit && (st.key === "planned" || st.key === "edited" || st.key === "ready");
                             return (
                             <div
                               key={`d-${draft.id}`}
@@ -607,7 +609,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                       {draftsOnDay.map((draft) => {
                         const st = draftState(draft);
                         const solid = st.key === "booked" || st.key === "posted";
-                        const movable = canEdit && (st.key === "planned" || st.key === "ready");
+                        const movable = canEdit && (st.key === "planned" || st.key === "edited" || st.key === "ready");
                         return (
                         <div
                           key={`d-${draft.id}`}
