@@ -338,6 +338,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, updated: out.length, titles: out });
   }
 
+  // ?zposts=clientId — fetch this client's Zernio posts (probe times/shape).
+  const zposts = req.nextUrl.searchParams.get("zposts");
+  if (zposts) {
+    const conn = await prisma.instagramConnection.findUnique({ where: { clientId: parseInt(zposts) } });
+    const profileId = (conn as any)?.zernioProfileId || process.env.ZERNIO_PROFILE_ID;
+    const tries = [
+      `https://zernio.com/api/v1/posts?profileId=${profileId}&limit=50`,
+      `https://zernio.com/api/v1/posts?limit=50`,
+    ];
+    for (const url of tries) {
+      try {
+        const r = await fetch(url, { headers: { Authorization: `Bearer ${process.env.ZERNIO_API_KEY}`, Accept: "application/json" } });
+        const data = await r.json();
+        if (r.ok) {
+          const arr = Array.isArray(data) ? data : (data?.posts ?? data?.data ?? []);
+          return NextResponse.json({ url, count: arr.length, sample: arr.slice(0, 12).map((p: any) => ({
+            id: p._id ?? p.id, content: String(p.content ?? "").slice(0, 40),
+            scheduledFor: p.scheduledFor ?? p.scheduledAt ?? p.scheduled_at, status: p.status, timezone: p.timezone,
+          })) });
+        }
+      } catch { /* try next */ }
+    }
+    return NextResponse.json({ error: "zernio fetch failed" }, { status: 502 });
+  }
+
   // ?settime=draftId-HH:MM — set a draft's scheduled TIME (keeps its date). For booked
   // cards that lost their time before we started storing it.
   const setTime = req.nextUrl.searchParams.get("settime");
