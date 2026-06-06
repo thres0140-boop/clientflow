@@ -410,6 +410,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, updated: out.length, changes: out, datesFound: Object.keys(byDate).length });
   }
 
+  // ?cloudtest=1 — server-side unsigned Cloudinary upload to see the REAL error
+  // (browser CORS masks it). Uploads a tiny 1x1 png.
+  if (req.nextUrl.searchParams.get("cloudtest")) {
+    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    const pngB64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const form = new FormData();
+    form.append("file", `data:image/png;base64,${pngB64}`);
+    form.append("upload_preset", preset || "");
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/image/upload`, { method: "POST", body: form });
+    const body = await r.text();
+    return NextResponse.json({ cloud, preset, status: r.status, ok: r.ok, body: body.slice(0, 800) });
+  }
+
   // ?settime=draftId-HH:MM — set a draft's scheduled TIME (keeps its date). For booked
   // cards that lost their time before we started storing it.
   const setTime = req.nextUrl.searchParams.get("settime");
