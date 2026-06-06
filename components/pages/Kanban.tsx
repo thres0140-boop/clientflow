@@ -1829,6 +1829,13 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // B-roll + on-screen text format (no spoken script). Defaults to the concept's
+  // flag but you can toggle it per import.
+  const [textOverlay, setTextOverlay] = useState<boolean>(() => (concepts[0] as any)?.textOverlay === true);
+  useEffect(() => {
+    const c = concepts.find((x) => x.id === conceptId);
+    setTextOverlay((c as any)?.textOverlay === true);
+  }, [conceptId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function uploadVideo(file: File) {
     setUploadPct(0);
@@ -1848,8 +1855,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
 
     // B-roll + on-screen-text concepts (the Viral text-hook format) have no spoken
     // script — just the video + the on-screen text hook. So we don't force a script.
-    const selConcept = concepts.find((c) => c.id === conceptId);
-    const isTextOverlay = (selConcept as any)?.textOverlay === true;
+    const isTextOverlay = textOverlay;
     // For those, the "script" stored is the on-screen text (script field) or the hook.
     const canSubmit = !!conceptId && (isTextOverlay ? (!!videoUrl || !!script.trim() || !!hook.trim()) : !!script.trim());
 
@@ -1879,6 +1885,14 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
           stageId: stageId || null,
         }),
       });
+      // Persist the format choice onto the concept so the generator also knows it's a
+      // B-roll/text-hook concept (not just this one import).
+      if (concept && (concept as any).textOverlay !== textOverlay) {
+        fetch(`/api/concepts/${conceptId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ textOverlay }),
+        }).catch(() => {});
+      }
       onImported();
     } finally {
       setSaving(false);
@@ -1915,6 +1929,14 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
               </select>
             )}
           </div>
+          {/* Mark the format — B-roll/text-hook (no spoken script) vs talking-head. */}
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={textOverlay} onChange={(e) => setTextOverlay(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-400" />
+            <span className="text-xs text-slate-600 leading-relaxed">
+              <span className="font-semibold text-slate-700">🎬 B-roll + on-screen text (no spoken script)</span> — the Viral text-hook format. Tick this and you only need the video; the script becomes optional. (Also saved to the concept.)
+            </span>
+          </label>
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Title (optional)</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short title…"
