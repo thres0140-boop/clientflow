@@ -13,8 +13,22 @@ export async function GET(req: NextRequest) {
   const token = req.cookies.get("cf_session")?.value;
   const session = token ? await verifySessionToken(token) : null;
   if (session?.type === "member" && session.memberId != null) {
-    const m = await prisma.teamMember.findUnique({ where: { id: session.memberId }, select: { isClientAccount: true } });
-    allowedChannel = m?.isClientAccount ? "client" : `member:${session.memberId}`;
+    // A member can have a different record id per project (shared-email grouping), so
+    // resolve their channel from the record FOR THIS client, not the login record —
+    // otherwise their chat is empty on every project except the one they logged into.
+    const me = await prisma.teamMember.findUnique({ where: { id: session.memberId }, select: { email: true, isClientAccount: true } });
+    let projMember: { id: number; isClientAccount: boolean } | null = null;
+    if (me?.email) {
+      projMember = await prisma.teamMember.findFirst({
+        where: { clientId: parseInt(clientId), email: { equals: me.email, mode: "insensitive" } },
+        select: { id: true, isClientAccount: true },
+      });
+    }
+    if (projMember) {
+      allowedChannel = projMember.isClientAccount ? "client" : `member:${projMember.id}`;
+    } else {
+      allowedChannel = me?.isClientAccount ? "client" : `member:${session.memberId}`;
+    }
   }
 
   // ?summary=1 → latest message per channel (for unread badges + WhatsApp-style sorting)
