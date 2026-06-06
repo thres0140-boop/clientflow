@@ -1846,14 +1846,23 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
     return `Week ${week}`;
   })();
 
+    // B-roll + on-screen-text concepts (the Viral text-hook format) have no spoken
+    // script — just the video + the on-screen text hook. So we don't force a script.
+    const selConcept = concepts.find((c) => c.id === conceptId);
+    const isTextOverlay = (selConcept as any)?.textOverlay === true;
+    // For those, the "script" stored is the on-screen text (script field) or the hook.
+    const canSubmit = !!conceptId && (isTextOverlay ? (!!videoUrl || !!script.trim() || !!hook.trim()) : !!script.trim());
+
   async function submit() {
-    if (!script.trim() || !conceptId) return;
+    if (!canSubmit) return;
     setSaving(true);
     try {
       const concept = concepts.find((c) => c.id === conceptId);
       const conceptLbl = concept ? ((concept as any).conceptType ? `${(concept as any).conceptType} · ${concept.name}` : concept.name) : "Script";
+      // For text-overlay imports the script may be empty — store the on-screen text or hook.
+      const scriptToSave = script.trim() || (isTextOverlay ? hook.trim() : "");
       // Default title: first words of the hook/script (a real title), else concept · week.
-      const firstLine = (hook.trim() || script.trim()).split(/\n/)[0];
+      const firstLine = (hook.trim() || scriptToSave).split(/\n/)[0];
       const autoTitle = firstLine ? firstLine.split(/\s+/).slice(0, 8).join(" ") : `${conceptLbl} · ${weekLabel}`;
       await fetch("/api/script-drafts", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -1862,7 +1871,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
           conceptId,
           title: title.trim() || autoTitle,
           hook: hook.trim() || null,
-          script: script.trim(),
+          script: scriptToSave,
           caption: caption.trim() || null,
           weekLabel,
           seedAsExample,
@@ -1888,6 +1897,11 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
         </div>
 
         <div className="px-6 py-4 space-y-3">
+          {isTextOverlay && (
+            <div className="rounded-lg bg-violet-50 border border-violet-200 px-3 py-2 text-[11px] text-violet-700">
+              🎬 This is a <b>B-roll + on-screen text</b> concept — no spoken script. Just drop the video (and the on-screen text hook if you have it); the script is optional.
+            </div>
+          )}
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Concept</label>
             {concepts.length === 0 ? (
@@ -1907,13 +1921,13 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Hook (optional)</label>
-            <input value={hook} onChange={(e) => setHook(e.target.value)} placeholder="Opening hook line…"
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">{isTextOverlay ? "Text hook (on-screen) — optional" : "Hook (optional)"}</label>
+            <input value={hook} onChange={(e) => setHook(e.target.value)} placeholder={isTextOverlay ? "The on-screen text hook…" : "Opening hook line…"}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Script *</label>
-            <textarea value={script} onChange={(e) => setScript(e.target.value)} rows={8} placeholder="Paste the full script here…"
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">{isTextOverlay ? "On-screen text (optional)" : "Script *"}</label>
+            <textarea value={script} onChange={(e) => setScript(e.target.value)} rows={isTextOverlay ? 4 : 8} placeholder={isTextOverlay ? "On-screen text, if any (optional)…" : "Paste the full script here…"}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
           <div>
@@ -1960,7 +1974,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
 
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button onClick={submit} disabled={saving || uploadPct !== null || !script.trim() || !conceptId}
+          <button onClick={submit} disabled={saving || uploadPct !== null || !canSubmit}
             className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
             {saving ? "Importing…" : uploadPct !== null ? "Uploading video…" : "⬇ Import"}
           </button>
