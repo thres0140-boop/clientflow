@@ -48,11 +48,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.zernioPostId !== undefined) data.zernioPostId = body.zernioPostId || null;
   if (body.rejectionFeedback !== undefined) data.rejectionFeedback = body.rejectionFeedback || null;
 
-  // Capture the previous stage on any stage change (for acceptance + move alerts).
+  // Capture the previous stage + whether it was sent-back (for acceptance + move alerts).
   let prevStageId: number | null | undefined = undefined;
+  let wasSentBack = false;
   if (body.stageId !== undefined) {
-    const prev = await prisma.scriptDraft.findUnique({ where: { id: parseInt(id) }, select: { stageId: true } });
+    const prev = await prisma.scriptDraft.findUnique({ where: { id: parseInt(id) }, select: { stageId: true, rejectionFeedback: true } });
     prevStageId = prev?.stageId ?? null;
+    wasSentBack = !!prev?.rejectionFeedback;
   }
 
   const draft = await prisma.scriptDraft.update({
@@ -94,7 +96,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         // Link straight to the thing to review: the finished video if there is one,
         // otherwise the app (Script Kanban).
         const link = draft.editedVideoUrl || appUrl;
-        sendWhatsApp(`📋 ${actor} moved "${draft.title}"${conceptStr}${who}\nfrom ${prevName} → ${newName}\n🔗 Check it: ${link}`).catch(() => {});
+        // If this card had been sent back with feedback and is now moving forward,
+        // it's a fix → make that explicit instead of a generic "moved".
+        const movingForward = (prevStageId ?? -1) < (draft.stageId ?? -1);
+        const header = (wasSentBack && movingForward)
+          ? `✅ ${actor} fixed & resubmitted "${draft.title}"${conceptStr}${who}\n(you'd sent it back) — now in ${newName}`
+          : `📋 ${actor} moved "${draft.title}"${conceptStr}${who}\nfrom ${prevName} → ${newName}`;
+        sendWhatsApp(`${header}\n🔗 Check it: ${link}`).catch(() => {});
       }
     } catch { /* non-fatal */ }
   }

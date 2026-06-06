@@ -11,6 +11,7 @@ export type SessionPayload = {
   memberId: number | null;
   name: string;
   clientId?: number | null; // member's assigned client — used to scope data access
+  clientIds?: number[];      // all projects this member can access (shared-email grouping)
 };
 
 export async function createSessionToken(payload: SessionPayload): Promise<string> {

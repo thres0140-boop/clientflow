@@ -31,7 +31,12 @@ export async function middleware(req: NextRequest) {
       (payload as any).clientId != null
     ) {
       const reqClient = req.nextUrl.searchParams.get("clientId");
-      if (reqClient && reqClient !== String((payload as any).clientId)) {
+      // A member may access ANY project they're on (shared-email grouping). Old tokens
+      // without clientIds fall back to the single clientId.
+      const allowed: number[] = Array.isArray((payload as any).clientIds) && (payload as any).clientIds.length
+        ? (payload as any).clientIds
+        : [(payload as any).clientId];
+      if (reqClient && !allowed.includes(parseInt(reqClient))) {
         return NextResponse.json({ error: "forbidden" }, { status: 403 });
       }
     }
