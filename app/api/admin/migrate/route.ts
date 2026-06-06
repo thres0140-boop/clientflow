@@ -419,9 +419,10 @@ export async function GET(req: NextRequest) {
     const form = new FormData();
     form.append("file", `data:image/png;base64,${pngB64}`);
     form.append("upload_preset", preset || "");
-    const r = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/image/upload`, { method: "POST", body: form });
+    const endpoint = req.nextUrl.searchParams.get("cloudtest") === "video" ? "video" : "image";
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/${endpoint}/upload`, { method: "POST", body: form });
     const body = await r.text();
-    return NextResponse.json({ cloud, preset, status: r.status, ok: r.ok, body: body.slice(0, 800) });
+    return NextResponse.json({ cloud, preset, endpoint, status: r.status, ok: r.ok, body: body.slice(0, 1200) });
   }
 
   // ?settime=draftId-HH:MM — set a draft's scheduled TIME (keeps its date). For booked
