@@ -172,9 +172,17 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     else setPlanMode("calendar");
     const savedTags = localStorage.getItem(`cf_date_tags_${selectedClientId}`);
     setDateTags(savedTags ? JSON.parse(savedTags) : {});
-    const savedCols = localStorage.getItem(`cf_board_cols_${selectedClientId}`);
-    setBoardColumns(savedCols ? JSON.parse(savedCols) : ["Ideas"]);
+    // boardColumns default is handled in its own effect (needs stages loaded first).
   }, [selectedClientId]);
+
+  // Schedule Board columns: restore the saved choice, else default to showing ALL
+  // columns (Ideas + every stage). Runs once stages are loaded for the client.
+  useEffect(() => {
+    if (!selectedClientId) return;
+    const saved = localStorage.getItem(`cf_board_cols_${selectedClientId}`);
+    if (saved) { try { setBoardColumns(JSON.parse(saved)); return; } catch { /* fall through */ } }
+    if (stages.length) setBoardColumns(["Ideas", ...stages.map((s) => s.name)]);
+  }, [selectedClientId, stages]);
 
   useEffect(() => {
     if (activeClient) setDayTemplate(parseDayTemplate(activeClient.dayTemplate));
