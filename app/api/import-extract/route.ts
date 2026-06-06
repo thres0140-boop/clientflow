@@ -21,24 +21,37 @@ function cloudinaryFrame(url: string): string | null {
   return url.replace("/video/upload/", "/video/upload/so_0/").replace(/\.(mp4|mov|webm|m4v)(\?.*)?$/i, ".jpg");
 }
 
+// Cloudinary can deliver just the audio track of a video by swapping the extension
+// to .mp3 — far smaller than the video, so it stays under Whisper's 24 MB limit.
+function cloudinaryAudio(url: string): string | null {
+  if (!/res\.cloudinary\.com\/.+\/video\/upload\//.test(url)) return null;
+  return url.replace(/\.(mp4|mov|webm|m4v|avi)(\?.*)?$/i, ".mp3");
+}
+
 async function transcribe(videoUrl: string): Promise<string> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return "";
-  try {
-    const vr = await fetch(videoUrl);
-    if (!vr.ok) return "";
-    const buf = await vr.arrayBuffer();
-    if (buf.byteLength / (1024 * 1024) > 24) return ""; // Whisper hard limit
-    const fd = new FormData();
-    fd.append("file", new File([buf], "video.mp4", { type: "video/mp4" }));
-    fd.append("model", "whisper-1");
-    const wr = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST", headers: { Authorization: `Bearer ${key}` }, body: fd,
-    });
-    if (!wr.ok) return "";
-    const t = ((await wr.json()).text || "").trim();
-    return isHallucination(t) ? "" : t;
-  } catch { return ""; }
+  // Prefer the audio-only version (small); fall back to the raw video.
+  const candidates = [cloudinaryAudio(videoUrl), videoUrl].filter(Boolean) as string[];
+  for (const src of candidates) {
+    try {
+      const vr = await fetch(src);
+      if (!vr.ok) continue;
+      const buf = await vr.arrayBuffer();
+      if (buf.byteLength / (1024 * 1024) > 24) continue; // Whisper hard limit — try next
+      const isAudio = src.endsWith(".mp3");
+      const fd = new FormData();
+      fd.append("file", new File([buf], isAudio ? "audio.mp3" : "video.mp4", { type: isAudio ? "audio/mpeg" : "video/mp4" }));
+      fd.append("model", "whisper-1");
+      const wr = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST", headers: { Authorization: `Bearer ${key}` }, body: fd,
+      });
+      if (!wr.ok) continue;
+      const t = ((await wr.json()).text || "").trim();
+      if (t && !isHallucination(t)) return t;
+    } catch { /* try next candidate */ }
+  }
+  return "";
 }
 
 async function readOnScreen(videoUrl: string): Promise<string> {
