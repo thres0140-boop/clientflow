@@ -627,6 +627,23 @@ export async function POST(req: NextRequest) {
       ADD COLUMN IF NOT EXISTS "postDays" TEXT;
     `;
     await (prisma as any).$executeRaw`
+      ALTER TABLE "ScriptDraft"
+      ADD COLUMN IF NOT EXISTS "sourceDriveId" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
+      CREATE TABLE IF NOT EXISTS "GoogleAuth" (
+        "id" SERIAL PRIMARY KEY,
+        "scope" TEXT NOT NULL DEFAULT 'workspace',
+        "refreshToken" TEXT NOT NULL,
+        "email" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await (prisma as any).$executeRaw`
+      CREATE UNIQUE INDEX IF NOT EXISTS "GoogleAuth_scope_key" ON "GoogleAuth"("scope");
+    `;
+    await (prisma as any).$executeRaw`
       ALTER TABLE "Concept"
       ADD COLUMN IF NOT EXISTS "textOverlay" BOOLEAN NOT NULL DEFAULT false;
     `;

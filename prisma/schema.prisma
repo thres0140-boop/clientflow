@@ -10,6 +10,16 @@ datasource db {
   directUrl = env("STORAGE2_POSTGRES_URL_NON_POOLING")
 }
 
+// Workspace-level Google Drive connection (owner authorises once via OAuth).
+model GoogleAuth {
+  id           Int      @id @default(autoincrement())
+  scope        String   @unique @default("workspace")
+  refreshToken String
+  email        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Client {
   id                 Int      @id @default(autoincrement())
   name               String
@@ -298,6 +308,7 @@ model ScriptDraft {
   weekLabel   String
   dayLabel    String?
   status      String   @default("pending")
+  sourceDriveId   String?  // Google Drive piece-folder id this was imported from (dedup)
   isSavedIdea     Boolean  @default(false)
   resurfaceAt     String?
   rawContentUrl      String?
