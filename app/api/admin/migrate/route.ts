@@ -338,6 +338,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, updated: out.length, titles: out });
   }
 
+  // ?settime=draftId-HH:MM — set a draft's scheduled TIME (keeps its date). For booked
+  // cards that lost their time before we started storing it.
+  const setTime = req.nextUrl.searchParams.get("settime");
+  if (setTime) {
+    const [idStr, time] = setTime.split("-");
+    const d = await prisma.scriptDraft.findUnique({ where: { id: parseInt(idStr) }, select: { scheduledDate: true } as any });
+    const datePart = ((d as any)?.scheduledDate || "").slice(0, 10);
+    if (!datePart || !/^\d{2}:\d{2}$/.test(time || "")) return NextResponse.json({ error: "need ?settime=draftId-HH:MM and an existing date" }, { status: 400 });
+    const updated = await (prisma as any).scriptDraft.update({
+      where: { id: parseInt(idStr) },
+      data: { scheduledDate: `${datePart}T${time}` },
+      select: { id: true, title: true, scheduledDate: true },
+    });
+    return NextResponse.json({ ok: true, draft: updated });
+  }
+
   // ?markposted=draftId — manually flip a script draft to status:"posted" (greens its
   // calendar card). For posts published before the Zernio post-id link existed.
   const markPosted = req.nextUrl.searchParams.get("markposted");
