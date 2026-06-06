@@ -706,24 +706,62 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 }
 
 // ─── Cloudinary upload helper ────────────────────────────────────────────────
+// Single-request uploads are capped (~100MB) and big videos fail with a CORS-looking
+// error. So we chunk anything large via Cloudinary's chunked-upload protocol.
+const UPLOAD_CHUNK = 20 * 1024 * 1024; // 20MB
+
 function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
-    const resourceType = file.type.startsWith("video") ? "video" : "image";
-    const form = new FormData();
-    form.append("file", file);
-    form.append("upload_preset", preset);
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`);
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).secure_url);
-      else reject(new Error(JSON.parse(xhr.responseText).error?.message ?? "Upload failed"));
-    };
-    xhr.onerror = () => reject(new Error("Network error"));
-    xhr.send(form);
-  });
+  const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+  const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+  const resourceType = file.type.startsWith("video") ? "video" : "image";
+  const url = `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`;
+
+  // Small files → single request (with granular progress).
+  if (file.size <= UPLOAD_CHUNK) {
+    return new Promise((resolve, reject) => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("upload_preset", preset);
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", url);
+      xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).secure_url);
+        else { try { reject(new Error(JSON.parse(xhr.responseText).error?.message ?? "Upload failed")); } catch { reject(new Error("Upload failed")); } }
+      };
+      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.send(form);
+    });
+  }
+
+  // Large files → chunked upload (each chunk shares an X-Unique-Upload-Id).
+  return (async () => {
+    const uniqueId = `${Math.round(performance.now())}-${file.size}-${file.name.replace(/\W+/g, "")}`;
+    let start = 0;
+    while (start < file.size) {
+      const end = Math.min(start + UPLOAD_CHUNK, file.size);
+      const form = new FormData();
+      form.append("file", file.slice(start, end));
+      form.append("upload_preset", preset);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "X-Unique-Upload-Id": uniqueId, "Content-Range": `bytes ${start}-${end - 1}/${file.size}` },
+        body: form,
+      });
+      if (!res.ok) {
+        let msg = "Upload failed";
+        try { msg = (await res.json()).error?.message ?? msg; } catch { /* ignore */ }
+        throw new Error(msg);
+      }
+      onProgress(Math.round((end / file.size) * 100));
+      if (end >= file.size) {
+        const data = await res.json();
+        return data.secure_url as string;
+      }
+      start = end;
+    }
+    throw new Error("Upload failed");
+  })();
 }
 
 // ─── File upload button ─────────────────────────────────────────────────────
