@@ -363,6 +363,53 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "zernio fetch failed" }, { status: 502 });
   }
 
+  // ?zbackfill=clientId — recover lost scheduled TIMES from Zernio. Matches each booked
+  // draft to its Zernio post by date and writes the real local (Europe/Amsterdam) time.
+  const zbackfill = req.nextUrl.searchParams.get("zbackfill");
+  if (zbackfill) {
+    const cid = parseInt(zbackfill);
+    const conn = await prisma.instagramConnection.findUnique({ where: { clientId: cid } });
+    const profileId = (conn as any)?.zernioProfileId || process.env.ZERNIO_PROFILE_ID;
+    let posts: any[] = [];
+    try {
+      const r = await fetch(`https://zernio.com/api/v1/posts?profileId=${profileId}&limit=100`, {
+        headers: { Authorization: `Bearer ${process.env.ZERNIO_API_KEY}`, Accept: "application/json" },
+      });
+      const data = await r.json();
+      posts = Array.isArray(data) ? data : (data?.posts ?? data?.data ?? []);
+    } catch { return NextResponse.json({ error: "zernio fetch failed" }, { status: 502 }); }
+
+    // Local Amsterdam date + time of a Zernio scheduledFor (stored UTC).
+    const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) => {
+      try { return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", ...opts }).format(new Date(iso)); } catch { return ""; }
+    };
+    // Build date -> "HH:MM" map from Zernio posts (scheduled or published).
+    const byDate: Record<string, string> = {};
+    for (const p of posts) {
+      const iso = p.scheduledFor ?? p.scheduledAt ?? p.scheduled_at;
+      if (!iso) continue;
+      const date = fmt(iso, { year: "numeric", month: "2-digit", day: "2-digit" }); // YYYY-MM-DD
+      const time = fmt(iso, { hour: "2-digit", minute: "2-digit", hour12: false });   // HH:MM
+      if (date && time) byDate[date] = time;
+    }
+
+    const drafts = await prisma.scriptDraft.findMany({
+      where: { clientId: cid, scheduledDate: { not: null } },
+      select: { id: true, title: true, scheduledDate: true } as any,
+    });
+    const out: any[] = [];
+    for (const d of drafts as any[]) {
+      const date = (d.scheduledDate || "").slice(0, 10);
+      const time = byDate[date];
+      if (!time) continue;
+      const newSched = `${date}T${time}`;
+      if (d.scheduledDate === newSched) continue;
+      await (prisma as any).scriptDraft.update({ where: { id: d.id }, data: { scheduledDate: newSched } });
+      out.push({ id: d.id, title: d.title, was: d.scheduledDate, now: newSched });
+    }
+    return NextResponse.json({ ok: true, updated: out.length, changes: out, datesFound: Object.keys(byDate).length });
+  }
+
   // ?settime=draftId-HH:MM — set a draft's scheduled TIME (keeps its date). For booked
   // cards that lost their time before we started storing it.
   const setTime = req.nextUrl.searchParams.get("settime");
