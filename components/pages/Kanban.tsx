@@ -741,7 +741,7 @@ function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promis
     while (start < file.size) {
       const end = Math.min(start + UPLOAD_CHUNK, file.size);
       const form = new FormData();
-      form.append("file", file.slice(start, end));
+      form.append("file", file.slice(start, end), file.name || "video.mp4"); // filename required
       form.append("upload_preset", preset);
       const res = await fetch(url, {
         method: "POST",
@@ -749,7 +749,7 @@ function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promis
         body: form,
       });
       if (!res.ok) {
-        let msg = "Upload failed";
+        let msg = `Upload failed (${res.status})`;
         try { msg = (await res.json()).error?.message ?? msg; } catch { /* ignore */ }
         throw new Error(msg);
       }
@@ -1929,7 +1929,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
       setExampleUrl(url);
       autoExtract(url); // read the example's script/on-screen text as a starting template
     }
-    catch { alert("Upload failed. Try again."); }
+    catch (e) { alert("Upload failed: " + (e instanceof Error ? e.message : String(e))); }
     finally { setExamplePct(null); }
   }
   // B-roll + on-screen text format (no spoken script). Defaults to the concept's
@@ -1967,7 +1967,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
       const url = await cloudinaryUpload(file, (pct) => setUploadPct(pct));
       setVideoUrl(url);
       autoExtract(url); // fire-and-forget: fills script/hook in the background
-    } catch { alert("Upload failed. Try again."); }
+    } catch (e) { alert("Upload failed: " + (e instanceof Error ? e.message : String(e))); }
     finally { setUploadPct(null); }
   }
 
