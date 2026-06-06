@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
       concept.videoType  && `Video Type: ${concept.videoType}`,
       concept.angle      && `Angle: ${concept.angle}`,
       concept.structure  && `Structure: ${concept.structure}`,
+      (concept as any).postDays && `Posting days: this concept is posted on ${(concept as any).postDays}. If the script naturally references the day of the week (or moments tied to it), use these day(s) — don't invent a different day.`,
       concept.guidelines && `Guidelines:\n${concept.guidelines}`,
     ].filter(Boolean).join("\n");
 

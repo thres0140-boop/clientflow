@@ -176,6 +176,7 @@ export type Concept = {
   exampleUrl?: string | null;
   conceptType?: string | null;
   reelUrls?: string | null;
+  postDays?: string | null;
   textOverlay?: boolean;
   clientOwned?: boolean;
   clientQuota?: number | null;

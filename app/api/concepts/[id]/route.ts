@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       guidelines: maybe(body.guidelines),
       exampleUrl: maybe(body.exampleUrl),
       ...(body.reelUrls !== undefined ? { reelUrls: typeof body.reelUrls === "string" ? body.reelUrls : JSON.stringify(body.reelUrls) } : {}),
+      ...(body.postDays !== undefined ? { postDays: body.postDays || null } : {}),
       ...(body.textOverlay !== undefined ? { textOverlay: body.textOverlay === true } : {}),
       ...(body.clientOwned !== undefined ? { clientOwned: body.clientOwned === true } : {}),
       ...(body.clientQuota !== undefined ? { clientQuota: body.clientQuota === "" || body.clientQuota == null ? null : parseInt(body.clientQuota) } : {}),

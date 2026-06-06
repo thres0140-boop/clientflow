@@ -624,6 +624,10 @@ export async function POST(req: NextRequest) {
     `;
     await (prisma as any).$executeRaw`
       ALTER TABLE "Concept"
+      ADD COLUMN IF NOT EXISTS "postDays" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "Concept"
       ADD COLUMN IF NOT EXISTS "textOverlay" BOOLEAN NOT NULL DEFAULT false;
     `;
     await (prisma as any).$executeRaw`

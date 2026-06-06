@@ -344,6 +344,19 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   }) {
     const [openSections, setOpenSections] = useState({ blueprint: true, examples: true, edits: true, rejection: true, rules: true });
     const toggle = (k: keyof typeof openSections) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
+    const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const [postDays, setPostDays] = useState<string[]>(
+      ((concept as any).postDays || "").split(",").map((s: string) => s.trim()).filter(Boolean)
+    );
+    async function togglePostDay(day: string) {
+      const has = postDays.includes(day);
+      const ordered = DOW.filter((x) => (has ? postDays.includes(x) && x !== day : postDays.includes(x) || x === day));
+      setPostDays(ordered);
+      await fetch(`/api/concepts/${concept.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postDays: ordered.join(",") }),
+      });
+    }
     const [edits, setEdits] = useState<{ id: number; field: string; before: string; after: string; author: string }[]>([]);
     useEffect(() => {
       fetch(`/api/draft-changes?conceptId=${concept.id}`).then((r) => r.json())
@@ -366,6 +379,27 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 font-semibold">3 Rejection Training</span>
             <span>→</span>
             <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-semibold">Claude Output</span>
+          </div>
+        </div>
+
+        {/* Posting days — fed to the generator so day-referencing scripts use the right day(s) */}
+        <div className="mx-5 mb-3 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">📆 Posting days</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Which day(s) this concept posts on — Claude uses these when a script mentions the day.</p>
+            </div>
+            <div className="flex items-center gap-1">
+              {DOW.map((day) => {
+                const on = postDays.includes(day);
+                return (
+                  <button key={day} onClick={() => togglePostDay(day)}
+                    className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${on ? "bg-indigo-600 text-white" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-100"}`}>
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
