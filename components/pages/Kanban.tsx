@@ -751,6 +751,11 @@ function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promis
       if (!res.ok) {
         let msg = `Upload failed (${res.status})`;
         try { msg = (await res.json()).error?.message ?? msg; } catch { /* ignore */ }
+        const m = msg.match(/Got (\d+)\. Maximum is (\d+)/);
+        if (m) {
+          const mb = (n: string) => Math.round(parseInt(n) / 1048576);
+          msg = `This video is ${mb(m[1])} MB — the limit is ${mb(m[2])} MB. Compress/trim it under ${mb(m[2])} MB, or upgrade the Cloudinary plan for larger videos.`;
+        }
         throw new Error(msg);
       }
       onProgress(Math.round((end / file.size) * 100));
