@@ -105,12 +105,23 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
   // Team members keep it (so they can toggle between projects they're assigned to).
   const isClient = session?.type === "member" && !!activeProfile?.isClientAccount;
 
+  // Collapsible client-switcher strip (persisted).
+  const collapsible = !isClient || clients.length > 1;
+  const [stripCollapsed, setStripCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("cf_strip_collapsed") === "1"; } catch { return false; }
+  });
+  const toggleStrip = () => setStripCollapsed((v) => {
+    const n = !v;
+    try { localStorage.setItem("cf_strip_collapsed", n ? "1" : "0"); } catch { /* ignore */ }
+    return n;
+  });
+  const showStrip = collapsible && !stripCollapsed;
+
   return (
     <aside className="fixed top-0 left-0 h-full flex z-10" style={{ width: 280 }}>
 
-      {/* ── LEFT STRIP — hidden for single-project clients, shown when there are
-          multiple projects so a multi-project client/member can switch between them. ── */}
-      {(!isClient || clients.length > 1) && (
+      {/* ── LEFT STRIP — client/project switcher (collapsible) ── */}
+      {showStrip && (
       <div className="flex flex-col h-full flex-shrink-0" style={{ width: 56, backgroundColor: STRIP_BG }}>
 
         {/* Client avatars + add button (Discord-style: add sits under the last project) */}
@@ -140,6 +151,13 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
           )}
         </div>
 
+        {/* Collapse the strip */}
+        <button onClick={toggleStrip} title="Hide client switcher"
+          className="flex items-center justify-center py-1.5 flex-shrink-0 text-white/30 hover:text-white hover:bg-white/5 transition-all text-sm"
+          style={{ borderTop: `1px solid ${DIVIDER.borderColor}` }}>
+          ‹
+        </button>
+
         {/* Strip footer: owner = Settings/client-management button (👑); member = avatar */}
         <div className="flex items-center justify-center py-3 flex-shrink-0" style={{ borderTop: `1px solid ${DIVIDER.borderColor}`, height: 48 }}>
           {session?.type !== "member" ? (
@@ -163,6 +181,15 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
 
       {/* ── RIGHT NAV ── */}
       <div className="flex flex-col flex-1 h-full" style={{ backgroundColor: NAV_BG }}>
+
+        {/* Expand the strip when it's collapsed */}
+        {collapsible && stripCollapsed && (
+          <button onClick={toggleStrip} title="Show client switcher"
+            className="flex items-center gap-1.5 px-3 pt-3 pb-1 text-[11px] font-medium transition-colors"
+            style={{ color: "rgba(147,197,253,0.55)" }}>
+            <span className="text-sm">›</span> Clients
+          </button>
+        )}
 
         {/* Nav items */}
         <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
