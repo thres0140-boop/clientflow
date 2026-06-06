@@ -794,7 +794,9 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           lastStageName={stages[stages.length - 1]?.name ?? "Schedule"}
           onClose={() => setPendingDrop(null)}
           onConfirm={async (postToIG, opts) => {
-            await scheduleDraftOnDate(pendingDrop.draft.id, pendingDrop.date);
+            // Keep the chosen time on the draft's scheduledDate so the calendar card
+            // shows 🕐 HH:MM (booked cards used to lose the time here).
+            await scheduleDraftOnDate(pendingDrop.draft.id, opts.time ? `${pendingDrop.date}T${opts.time}` : pendingDrop.date);
             if (postToIG && selectedClientId) {
               // Post the finished/edited video; fall back to raw only if no edit exists.
               const mediaUrl = pendingDrop.draft.editedVideoUrl || pendingDrop.draft.rawContentUrl || (() => {
