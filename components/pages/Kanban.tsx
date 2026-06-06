@@ -1828,6 +1828,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
   const [stageId, setStageId] = useState<number | "">("");      // "" = Ideas
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [extracting, setExtracting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   // B-roll + on-screen text format (no spoken script). Defaults to the concept's
   // flag but you can toggle it per import.
@@ -1837,11 +1838,33 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
     setTextOverlay((c as any)?.textOverlay === true);
   }, [conceptId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // After upload, auto-read the video: transcribe (talking-head) or read the on-screen
+  // text (B-roll). Pre-fills the relevant field; the user can edit before importing.
+  async function autoExtract(url: string) {
+    setExtracting(true);
+    try {
+      const mode = textOverlay ? "onscreen" : "transcribe";
+      const d = await fetch("/api/import-extract", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: url, mode }),
+      }).then((r) => r.json()).catch(() => ({ text: "" }));
+      const text = (d?.text || "").trim();
+      if (!text) return;
+      if (textOverlay) {
+        setHook((h) => h.trim() ? h : text.split("\n")[0]);
+        setScript((s) => s.trim() ? s : text);
+      } else {
+        setScript((s) => s.trim() ? s : text);
+      }
+    } finally { setExtracting(false); }
+  }
+
   async function uploadVideo(file: File) {
     setUploadPct(0);
     try {
       const url = await cloudinaryUpload(file, (pct) => setUploadPct(pct));
       setVideoUrl(url);
+      autoExtract(url); // fire-and-forget: fills script/hook in the background
     } catch { alert("Upload failed. Try again."); }
     finally { setUploadPct(null); }
   }
@@ -1948,7 +1971,10 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">{isTextOverlay ? "On-screen text (optional)" : "Script *"}</label>
+            <label className="flex items-center gap-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              {isTextOverlay ? "On-screen text (optional)" : "Script *"}
+              {extracting && <span className="text-violet-500 normal-case font-medium tracking-normal">✨ reading video…</span>}
+            </label>
             <textarea value={script} onChange={(e) => setScript(e.target.value)} rows={isTextOverlay ? 4 : 8} placeholder={isTextOverlay ? "On-screen text, if any (optional)…" : "Paste the full script here…"}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
@@ -1964,7 +1990,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
               onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVideo(f); }} />
             {videoUrl ? (
               <div className="flex items-center justify-between border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-2">
-                <span className="text-xs text-emerald-700 font-medium truncate">✓ Video uploaded</span>
+                <span className="text-xs text-emerald-700 font-medium truncate">✓ Video uploaded{extracting ? " · ✨ reading…" : ""}</span>
                 <button onClick={() => { setVideoUrl(null); if (fileRef.current) fileRef.current.value = ""; }}
                   className="text-[11px] text-slate-400 hover:text-red-500 flex-shrink-0 ml-2">Remove</button>
               </div>
