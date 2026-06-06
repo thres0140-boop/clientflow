@@ -1886,7 +1886,11 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
   const exampleRef = useRef<HTMLInputElement>(null);
   async function uploadExample(file: File) {
     setExamplePct(0);
-    try { setExampleUrl(await cloudinaryUpload(file, (pct) => setExamplePct(pct))); }
+    try {
+      const url = await cloudinaryUpload(file, (pct) => setExamplePct(pct));
+      setExampleUrl(url);
+      autoExtract(url); // read the example's script/on-screen text as a starting template
+    }
     catch { alert("Upload failed. Try again."); }
     finally { setExamplePct(null); }
   }
