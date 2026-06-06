@@ -97,6 +97,7 @@ export type ScriptDraft = {
   rawContentUrl?: string | null;
   rawContentUrls?: string;
   editedVideoUrl?: string | null;
+  exampleVideoUrl?: string | null;
   checkReviewerIds?: string;
   scheduledDate?: string | null;
   zernioBooked?: boolean;

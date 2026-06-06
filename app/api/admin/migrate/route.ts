@@ -717,6 +717,9 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "rejectionFeedback" TEXT;
     `;
     await (prisma as any).$executeRaw`
+      ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "exampleVideoUrl" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
       ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "mediaUrlAt" TIMESTAMP(3);
     `;
     await (prisma as any).$executeRaw`

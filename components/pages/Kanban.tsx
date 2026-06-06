@@ -636,6 +636,14 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             setDetailDraft((d) => d ? { ...d, editedVideoUrl: url } : null);
             setDrafts((ds) => ds.map((d) => d.id === detailDraft.id ? { ...d, editedVideoUrl: url } : d));
           }}
+          onExampleUploaded={(url) => {
+            fetch(`/api/script-drafts/${detailDraft.id}`, {
+              method: "PUT", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ exampleVideoUrl: url }),
+            });
+            setDetailDraft((d) => d ? { ...d, exampleVideoUrl: url } : null);
+            setDrafts((ds) => ds.map((d) => d.id === detailDraft.id ? { ...d, exampleVideoUrl: url } : d));
+          }}
           onReviewSubmitted={() => reload()}
           team={team}
           isTextOverlay={(() => {
@@ -805,6 +813,42 @@ function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; on
   );
 }
 
+// ─── Example/reference video the recorder copies ──────────────────────────────
+function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string | null) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProgress(0);
+    try { onUploaded(await cloudinaryUpload(file, (pct) => setProgress(pct))); }
+    catch { /* ignore */ }
+    finally { setProgress(null); if (inputRef.current) inputRef.current.value = ""; }
+  }
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">🎬 Example to copy</label>
+      {draft.exampleVideoUrl ? (
+        <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video mb-1.5">
+          <video src={draft.exampleVideoUrl} controls className="w-full h-full object-contain" />
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400 italic mb-1.5">No example yet — add a reference recording for whoever films this.</p>
+      )}
+      <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
+      <div className="flex items-center gap-2">
+        <button onClick={() => inputRef.current?.click()} disabled={progress !== null}
+          className="text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg">
+          {progress !== null ? `Uploading ${progress}%…` : draft.exampleVideoUrl ? "Replace example" : "⬆ Upload example"}
+        </button>
+        {draft.exampleVideoUrl && (
+          <button onClick={() => onUploaded(null)} className="text-[11px] text-slate-400 hover:text-red-500">Remove</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Save-as-Idea button ────────────────────────────────────────────────────
 function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; interval: number; onSave: (weeks: number) => void }) {
   const [open, setOpen] = useState(false);
@@ -844,7 +888,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, navList, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, onSendBack, getNextStage, onUploaded, onEditedVideoUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
+  draft, navList, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, onSendBack, getNextStage, onUploaded, onEditedVideoUploaded, onExampleUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[]; client?: { name: string; color: string } | null;
   navList?: number[];
@@ -858,6 +902,7 @@ function DraftDetailPanel({
   getNextStage: (stageId: number) => WorkflowStage | null;
   onUploaded: (urls: string[]) => void;
   onEditedVideoUploaded: (url: string) => void;
+  onExampleUploaded: (url: string | null) => void;
   onReviewSubmitted: () => void;
   activeProfileId: number | null;
   ownerName?: string;
@@ -1042,6 +1087,11 @@ function DraftDetailPanel({
             const afterEdit = editIdx >= 0 && stageIdx > editIdx;
             return (
               <>
+                {/* Example to copy — reference recording, shown during record/edit or whenever one exists */}
+                {inStage && ((!isCheckStage && !afterEdit) || !!draft.exampleVideoUrl) && (
+                  <ExampleVideoSection draft={draft} onUploaded={onExampleUploaded} />
+                )}
+
                 {/* Raw content — only while recording/editing (hidden once the cut is done) */}
                 {inStage && !isCheckStage && !afterEdit && (
                   <div>
@@ -1830,6 +1880,16 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [extracting, setExtracting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Example/reference recording for the person filming to copy.
+  const [exampleUrl, setExampleUrl] = useState<string | null>(null);
+  const [examplePct, setExamplePct] = useState<number | null>(null);
+  const exampleRef = useRef<HTMLInputElement>(null);
+  async function uploadExample(file: File) {
+    setExamplePct(0);
+    try { setExampleUrl(await cloudinaryUpload(file, (pct) => setExamplePct(pct))); }
+    catch { alert("Upload failed. Try again."); }
+    finally { setExamplePct(null); }
+  }
   // B-roll + on-screen text format (no spoken script). Defaults to the concept's
   // flag but you can toggle it per import.
   const [textOverlay, setTextOverlay] = useState<boolean>(() => (concepts[0] as any)?.textOverlay === true);
@@ -1905,6 +1965,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
           weekLabel,
           seedAsExample,
           editedVideoUrl: videoUrl,
+          exampleVideoUrl: exampleUrl,
           stageId: stageId || null,
         }),
       });
@@ -1998,6 +2059,24 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
               <button onClick={() => fileRef.current?.click()} disabled={uploadPct !== null}
                 className="w-full border border-dashed border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:bg-slate-50 disabled:opacity-60">
                 {uploadPct !== null ? `Uploading ${uploadPct}%…` : "⬆ Upload the finished video"}
+              </button>
+            )}
+          </div>
+          {/* Example / reference video — what the person filming should copy. */}
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Example video — for the recorder to copy (optional)</label>
+            <input ref={exampleRef} type="file" accept="video/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadExample(f); }} />
+            {exampleUrl ? (
+              <div className="flex items-center justify-between border border-amber-200 bg-amber-50 rounded-lg px-3 py-2">
+                <span className="text-xs text-amber-700 font-medium truncate">🎬 Example uploaded</span>
+                <button onClick={() => { setExampleUrl(null); if (exampleRef.current) exampleRef.current.value = ""; }}
+                  className="text-[11px] text-slate-400 hover:text-red-500 flex-shrink-0 ml-2">Remove</button>
+              </div>
+            ) : (
+              <button onClick={() => exampleRef.current?.click()} disabled={examplePct !== null}
+                className="w-full border border-dashed border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:bg-slate-50 disabled:opacity-60">
+                {examplePct !== null ? `Uploading ${examplePct}%…` : "⬆ Upload an example to copy"}
               </button>
             )}
           </div>

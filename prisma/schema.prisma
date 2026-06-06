@@ -310,6 +310,7 @@ model ScriptDraft {
   zernioPostId       String?
   clientAuthored     Boolean  @default(false)
   rejectionFeedback  String?
+  exampleVideoUrl    String?  // reference recording for the person filming to copy
   generatedAt        DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

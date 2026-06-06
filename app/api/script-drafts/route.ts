@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
       weekLabel: body.weekLabel,
       dayLabel: body.dayLabel || null,
       editedVideoUrl: body.editedVideoUrl || null,
+      exampleVideoUrl: body.exampleVideoUrl || null,
       stageId: importStageId,
       status: importStageId ? "accepted" : "pending",
       isSavedIdea: false,
