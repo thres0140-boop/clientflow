@@ -153,11 +153,13 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       fetch(selectedClientId ? `/api/team?clientId=${selectedClientId}` : "/api/team").then((r) => r.json()),
       selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&all=true`).then((r) => r.json()) : Promise.resolve([]),
     ]);
-    setContent(c);
-    setConcepts(co.filter((c: Concept) => !c.isIdea));
-    setStages(s);
-    setTeam(t);
-    const allStaged: ScriptDraft[] = allDrafts || [];
+    // Guard against non-array responses (e.g. a transient 403 returns {error}) so a
+    // failed fetch never white-screens the page.
+    setContent(Array.isArray(c) ? c : []);
+    setConcepts(Array.isArray(co) ? co.filter((c: Concept) => !c.isIdea) : []);
+    setStages(Array.isArray(s) ? s : []);
+    setTeam(Array.isArray(t) ? t : []);
+    const allStaged: ScriptDraft[] = Array.isArray(allDrafts) ? allDrafts : [];
     setStagedDrafts(allStaged);
     setScheduledDrafts(allStaged.filter((d: ScriptDraft) => d.scheduledDate));
   }, [selectedClientId]);
