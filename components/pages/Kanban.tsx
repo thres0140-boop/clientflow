@@ -713,22 +713,40 @@ const UPLOAD_CHUNK = 20 * 1024 * 1024; // 20MB
 // Videos bigger than Cloudinary's ~100MB cap go to Vercel Blob (no size limit).
 const CLOUDINARY_MAX = 95 * 1024 * 1024;
 async function blobUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
-  try {
-    const { upload } = await import("@vercel/blob/client");
-    const result = await upload(`videos/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`, file, {
-      access: "public",
-      handleUploadUrl: "/api/blob/upload",
-      multipart: true, // large files must use multipart (single PUT 400s past ~the request limit)
-      onUploadProgress: (p: { loaded?: number; total?: number; percentage?: number }) => {
-        const pct = p.percentage ?? (p.total ? (p.loaded ?? 0) / p.total * 100 : 0);
-        onProgress(Math.round(pct));
-      },
-    });
-    return result.url;
-  } catch (e) {
-    console.error("[blobUpload] failed:", e);
-    throw new Error("Big-video upload failed: " + (e instanceof Error ? e.message : String(e)));
+  // Server-proxied multipart upload: the browser sends ~4MB chunks to our API (under
+  // Vercel's request limit), and the server pushes each part to Vercel Blob with the
+  // server token. Avoids the client-upload endpoint that 400s for large files.
+  const pathname = `videos/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
+  const start = await fetch("/api/blob/mpu/start", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pathname, contentType: file.type || "video/mp4" }),
+  }).then((r) => r.json());
+  if (!start?.key) throw new Error("Upload start failed: " + (start?.error || "unknown"));
+
+  const CHUNK = 4 * 1024 * 1024; // 4MB — under Vercel's request body limit
+  const parts: { etag: string; partNumber: number }[] = [];
+  let uploaded = 0;
+  let partNumber = 1;
+  for (let pos = 0; pos < file.size; pos += CHUNK, partNumber++) {
+    const chunk = file.slice(pos, Math.min(pos + CHUNK, file.size));
+    const qs = new URLSearchParams({ pathname, key: start.key, uploadId: start.uploadId, partNumber: String(partNumber) });
+    const res = await fetch(`/api/blob/mpu/part?${qs.toString()}`, { method: "POST", body: chunk });
+    if (!res.ok) {
+      let msg = `part ${partNumber} failed (${res.status})`;
+      try { msg = (await res.json()).error || msg; } catch { /* ignore */ }
+      throw new Error("Upload failed: " + msg);
+    }
+    parts.push(await res.json());
+    uploaded += chunk.size;
+    onProgress(Math.round((uploaded / file.size) * 100));
   }
+
+  const done = await fetch("/api/blob/mpu/complete", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pathname, key: start.key, uploadId: start.uploadId, parts }),
+  }).then((r) => r.json());
+  if (!done?.url) throw new Error("Upload finalize failed: " + (done?.error || "unknown"));
+  return done.url as string;
 }
 
 function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
