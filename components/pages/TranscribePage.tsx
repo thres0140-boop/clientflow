@@ -26,7 +26,10 @@ function uploadToCloudinary(file: File, onProgress: (pct: number) => void): Prom
         reject(new Error(msg));
       }
     };
-    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.onerror = () => reject(new Error(
+      `Upload failed (network). This is almost always because the video is too big — ` +
+      `it's ${Math.round(file.size / 1048576)} MB and the limit is 100 MB. Compress or trim it and try again.`
+    ));
     xhr.send(fd);
   });
 }
@@ -48,6 +51,13 @@ export default function TranscribePage() {
     setTranscript("");
     setCopied(false);
     setFileName(file.name);
+    // Cloudinary (free) rejects video over 100 MB — catch it before the upload so the user
+    // gets a clear message instead of a confusing mid-upload network error.
+    if (file.size > 100 * 1024 * 1024) {
+      setError(`This video is ${Math.round(file.size / 1048576)} MB — over the 100 MB limit for transcription. Compress or trim it first (audio-only or 720p export usually does it).`);
+      setStatus("error");
+      return;
+    }
     setStatus("uploading");
     setPct(0);
     try {
