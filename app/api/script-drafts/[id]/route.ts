@@ -100,7 +100,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         // If this card had been sent back with feedback and is now moving forward,
         // it's a fix → make that explicit instead of a generic "moved".
         const movingForward = (prevStageId ?? -1) < (draft.stageId ?? -1);
-        const header = (wasSentBack && movingForward)
+        const sendingBack = typeof data.rejectionFeedback === "string" && data.rejectionFeedback.trim().length > 0;
+        const header = sendingBack
+          ? `↩ ${actor} sent back "${draft.title}"${conceptStr}${who}\nFeedback: ${String(data.rejectionFeedback).slice(0, 300)}`
+          : (wasSentBack && movingForward)
           ? `✅ ${actor} fixed & resubmitted "${draft.title}"${conceptStr}${who}\n(you'd sent it back) — now in ${newName}`
           : `📋 ${actor} moved "${draft.title}"${conceptStr}${who}\nfrom ${prevName} → ${newName}`;
         sendWhatsApp(`${header}\n🔗 Check it: ${link}`).catch(() => {});

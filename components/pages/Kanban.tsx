@@ -1033,9 +1033,9 @@ function DraftDetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {draft.rejectionFeedback && inStage && (
+          {draft.rejectionFeedback && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">↩ Sent back — needs changes</p>
+              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">↩ {inStage ? "Sent back — needs changes" : "Feedback from whoever sent this back"}</p>
               <p className="text-sm text-amber-800">{draft.rejectionFeedback}</p>
             </div>
           )}
@@ -1361,13 +1361,16 @@ function DraftDetailPanel({
               </select>
             </div>
           )}
-          {/* Send back to the previous stage with a reason (owner/reviewer only) */}
-          {inStage && !isClient && onSendBack && (stages.findIndex((s) => s.id === draft.stageId) > 0) && (
-            showSendBack ? (
+          {/* Send back with a reason. Owner/editor → previous stage. A creator at the
+              first stage → back to the owner (Ideas) with feedback. */}
+          {inStage && onSendBack && (() => {
+            const idx = stages.findIndex((s) => s.id === draft.stageId);
+            const prevName = idx > 0 ? stages[idx - 1]?.name : (isClient ? ownerName : "Ideas");
+            return showSendBack ? (
               <div className="space-y-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                <p className="text-[11px] font-semibold text-amber-700">↩ Send back to {stages[stages.findIndex((s) => s.id === draft.stageId) - 1]?.name} — what needs fixing?</p>
+                <p className="text-[11px] font-semibold text-amber-700">↩ {isClient && idx === 0 ? `Send back to ${ownerName}` : `Send back to ${prevName}`} — why? (your feedback)</p>
                 <textarea value={sendBackReason} onChange={(e) => setSendBackReason(e.target.value)} rows={3} autoFocus
-                  placeholder="e.g. re-cut the hook, audio is low, wrong clip at 0:08…"
+                  placeholder={isClient ? "e.g. I don't want to record this — hook feels off, doesn't fit me…" : "e.g. re-cut the hook, audio is low, wrong clip at 0:08…"}
                   className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
                 <div className="flex justify-end gap-2">
                   <button onClick={() => { setShowSendBack(false); setSendBackReason(""); }} className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
@@ -1379,10 +1382,10 @@ function DraftDetailPanel({
             ) : (
               <button onClick={() => setShowSendBack(true)}
                 className="w-full py-2 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100">
-                ↩ Send back a stage (with a note)
+                {isClient ? `↩ Send back to ${ownerName} (with feedback)` : "↩ Send back a stage (with a note)"}
               </button>
-            )
-          )}
+            );
+          })()}
           {inStage ? (() => {
             const isCheck = /check/i.test(stages.find((s) => s.id === draft.stageId)?.name || "");
             const canProceed = !isCheck || checkApproved;
@@ -2388,8 +2391,10 @@ function RejectModal({
   onConfirm: (reasonType: string, reason: string) => void;
   onDeleteOnly: () => void;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
-  const [customText, setCustomText] = useState("");
+  // Pre-fill with the creator's feedback if this was sent back, so the owner can
+  // reject it into AI training with one click (editable).
+  const [selected, setSelected] = useState<string | null>(draft.rejectionFeedback ? "custom" : null);
+  const [customText, setCustomText] = useState(draft.rejectionFeedback || "");
 
   function handleConfirm() {
     if (!selected) return;
