@@ -1,85 +1,121 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { FFmpeg } from "@ffmpeg/ffmpeg";
 
-// Upload a video to Cloudinary (unsigned) with progress, return the secure URL.
-function uploadToCloudinary(file: File, onProgress: (pct: number) => void): Promise<string> {
-  const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-  const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
-  const url = `https://api.cloudinary.com/v1_1/${cloud}/video/upload`;
-  return new Promise((resolve, reject) => {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("upload_preset", preset);
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url);
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try { resolve(JSON.parse(xhr.responseText).secure_url); }
-        catch { reject(new Error("Unexpected upload response")); }
-      } else {
-        let msg = `Upload failed (${xhr.status})`;
-        try { const e = JSON.parse(xhr.responseText); if (e?.error?.message) msg = e.error.message; } catch { /* ignore */ }
-        const m = msg.match(/Got (\d+)\. Maximum is (\d+)/);
-        if (m) msg = `This video is ${Math.round(+m[1] / 1048576)} MB — the upload limit is ${Math.round(+m[2] / 1048576)} MB. Trim or compress it first, then try again.`;
-        reject(new Error(msg));
-      }
-    };
-    xhr.onerror = () => reject(new Error(
-      `Upload failed (network). This is almost always because the video is too big — ` +
-      `it's ${Math.round(file.size / 1048576)} MB and the limit is 100 MB. Compress or trim it and try again.`
-    ));
-    xhr.send(fd);
-  });
-}
+const FFMPEG_VER = "0.12.15";
+const CORE_VER = "0.12.10";
 
 type Mode = "transcribe" | "onscreen";
+type Status = "idle" | "loading" | "extracting" | "working" | "done" | "error";
 
 export default function TranscribePage() {
   const [mode, setMode] = useState<Mode>("transcribe");
-  const [status, setStatus] = useState<"idle" | "uploading" | "reading" | "done" | "error">("idle");
+  const [status, setStatus] = useState<Status>("idle");
   const [pct, setPct] = useState(0);
+  const [note, setNote] = useState("");
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
   const [fileName, setFileName] = useState("");
   const [copied, setCopied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
+
+  // Load ffmpeg.wasm once. Single-threaded core (no cross-origin isolation needed).
+  async function getFfmpeg(): Promise<FFmpeg> {
+    if (ffmpegRef.current) return ffmpegRef.current;
+    setStatus("loading");
+    setNote("Loading the audio engine (first time only)…");
+    const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+    const { toBlobURL } = await import("@ffmpeg/util");
+    const ff = new FFmpeg();
+    ff.on("progress", ({ progress }: { progress: number }) => {
+      const p = Math.max(0, Math.min(100, Math.round(progress * 100)));
+      if (!isNaN(p)) setPct(p);
+    });
+    const core = `https://unpkg.com/@ffmpeg/core@${CORE_VER}/dist/umd`;
+    await ff.load({
+      classWorkerURL: await toBlobURL(`https://unpkg.com/@ffmpeg/ffmpeg@${FFMPEG_VER}/dist/umd/814.ffmpeg.js`, "text/javascript"),
+      coreURL: await toBlobURL(`${core}/ffmpeg-core.js`, "text/javascript"),
+      wasmURL: await toBlobURL(`${core}/ffmpeg-core.wasm`, "application/wasm"),
+    });
+    ffmpegRef.current = ff;
+    return ff;
+  }
 
   async function run(file: File) {
     setError("");
     setTranscript("");
     setCopied(false);
     setFileName(file.name);
-    // Cloudinary (free) rejects video over 100 MB — catch it before the upload so the user
-    // gets a clear message instead of a confusing mid-upload network error.
-    if (file.size > 100 * 1024 * 1024) {
-      setError(`This video is ${Math.round(file.size / 1048576)} MB — over the 100 MB limit for transcription. Compress or trim it first (audio-only or 720p export usually does it).`);
-      setStatus("error");
-      return;
-    }
-    setStatus("uploading");
     setPct(0);
     try {
-      const videoUrl = await uploadToCloudinary(file, setPct);
-      setStatus("reading");
-      const d = await fetch("/api/import-extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoUrl, mode }),
-      }).then((r) => r.json());
-      const text = (d?.text || "").trim();
+      const ff = await getFfmpeg();
+      const { fetchFile } = await import("@ffmpeg/util");
+      const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
+      const inName = `input.${ext}`;
+      await ff.writeFile(inName, await fetchFile(file));
+
+      if (mode === "onscreen") {
+        setStatus("extracting");
+        setNote("Grabbing a frame…");
+        await ff.exec(["-i", inName, "-frames:v", "1", "-vf", "scale='min(900,iw)':-2", "frame.jpg"]);
+        const img = await ff.readFile("frame.jpg");
+        const blob = new Blob([img as BlobPart], { type: "image/jpeg" });
+        setStatus("working");
+        setNote("Reading on-screen text…");
+        const fd = new FormData();
+        fd.append("file", blob, "frame.jpg");
+        const d = await fetch("/api/vision-ocr", { method: "POST", body: fd }).then((r) => r.json());
+        await ff.deleteFile(inName).catch(() => {});
+        await ff.deleteFile("frame.jpg").catch(() => {});
+        const text = (d?.text || "").trim();
+        if (!text) { setError(d?.error || "No on-screen text found in the first frame."); setStatus("error"); return; }
+        setTranscript(text);
+        setStatus("done");
+        return;
+      }
+
+      // transcribe: extract low-bitrate mono audio, split into ~10-min segments so each
+      // chunk stays well under the server's request limit, transcribe each, join.
+      setStatus("extracting");
+      setNote("Extracting audio…");
+      await ff.exec([
+        "-i", inName, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "32k",
+        "-f", "segment", "-segment_time", "600", "seg%03d.mp3",
+      ]);
+      const entries = await ff.listDir("/");
+      const segs = entries
+        .filter((e: { name: string; isDir: boolean }) => !e.isDir && /^seg\d+\.mp3$/.test(e.name))
+        .map((e: { name: string }) => e.name)
+        .sort();
+      if (segs.length === 0) { setError("Couldn't extract audio from this file."); setStatus("error"); return; }
+
+      setStatus("working");
+      const parts: string[] = [];
+      for (let i = 0; i < segs.length; i++) {
+        setNote(segs.length > 1 ? `Transcribing part ${i + 1} of ${segs.length}…` : "Transcribing…");
+        setPct(Math.round((i / segs.length) * 100));
+        const data = await ff.readFile(segs[i]);
+        const blob = new Blob([data as BlobPart], { type: "audio/mpeg" });
+        const fd = new FormData();
+        fd.append("file", blob, "audio.mp3");
+        const d = await fetch("/api/transcribe-audio", { method: "POST", body: fd }).then((r) => r.json());
+        if (d?.error) { setError(d.error); setStatus("error"); return; }
+        if (d?.text) parts.push(d.text);
+        await ff.deleteFile(segs[i]).catch(() => {});
+      }
+      await ff.deleteFile(inName).catch(() => {});
+      const text = parts.join(" ").trim();
       if (!text) {
-        setError(mode === "transcribe"
-          ? "No speech found in this video. If it's a text-on-screen reel, switch to “On-screen text” mode."
-          : "No on-screen text found in the first frame.");
+        setError("No speech found. If it's a text-on-screen reel, switch to “On-screen text” mode.");
         setStatus("error");
         return;
       }
       setTranscript(text);
       setStatus("done");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError("Failed: " + (e instanceof Error ? e.message : String(e)));
       setStatus("error");
     }
   }
@@ -98,17 +134,16 @@ export default function TranscribePage() {
     } catch { /* ignore */ }
   }
 
-  const busy = status === "uploading" || status === "reading";
+  const busy = status === "loading" || status === "extracting" || status === "working";
   const wordCount = transcript.split(/\s+/).filter(Boolean).length;
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold text-slate-900">Transcribe</h1>
       <p className="text-sm text-slate-400 mt-0.5 mb-6">
-        Drop any video and get its transcript instantly — no other apps needed.
+        Drop any video — any size — and get its transcript instantly. The audio is pulled out in your browser, so there's no upload limit.
       </p>
 
-      {/* Mode toggle */}
       <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 mb-4">
         {([["transcribe", "🎙 Spoken transcript"], ["onscreen", "🔤 On-screen text"]] as [Mode, string][]).map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} disabled={busy}
@@ -120,7 +155,6 @@ export default function TranscribePage() {
         ))}
       </div>
 
-      {/* Dropzone */}
       <input ref={fileRef} type="file" accept="video/*" hidden onChange={onPick} />
       <button
         onClick={() => fileRef.current?.click()}
@@ -130,9 +164,7 @@ export default function TranscribePage() {
         {busy ? (
           <>
             <div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-semibold text-slate-700">
-              {status === "uploading" ? `Uploading… ${pct}%` : "Reading the video…"}
-            </span>
+            <span className="text-sm font-semibold text-slate-700">{note || "Working…"}{pct > 0 && status !== "loading" ? ` ${pct}%` : ""}</span>
             <span className="text-xs text-slate-400 truncate max-w-[80%]">{fileName}</span>
           </>
         ) : (
@@ -153,11 +185,8 @@ export default function TranscribePage() {
       {status === "done" && (
         <div className="mt-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Transcript · {wordCount} words
-            </span>
-            <button onClick={copy}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Transcript · {wordCount} words</span>
+            <button onClick={copy} className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
               {copied ? "✓ Copied" : "📋 Copy"}
             </button>
           </div>
@@ -167,8 +196,7 @@ export default function TranscribePage() {
             rows={14}
             className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
-          <button onClick={() => fileRef.current?.click()}
-            className="mt-3 text-xs font-semibold text-indigo-600 hover:underline">
+          <button onClick={() => fileRef.current?.click()} className="mt-3 text-xs font-semibold text-indigo-600 hover:underline">
             ⬆ Transcribe another video
           </button>
         </div>
