@@ -17,9 +17,9 @@ export async function POST(req: NextRequest) {
         const token = req.cookies.get("cf_session")?.value;
         const session = token ? await verifySessionToken(token) : null;
         if (!session) throw new Error("Not authorized");
-        // Don't restrict content types (wildcards aren't supported and can reject valid
-        // videos); auth + the size ceiling are the guards.
-        return { maximumSizeInBytes: 2 * 1024 * 1024 * 1024 }; // 2 GB
+        // Minimal token — extra options (size ceiling / content types) were causing the
+        // client multipart create to 400. Auth is the guard.
+        return { addRandomSuffix: true };
       },
       onUploadCompleted: async () => { /* URL is returned to the client directly */ },
     });
