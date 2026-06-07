@@ -14,6 +14,7 @@ import InstagramPage from "@/components/pages/InstagramPage";
 import BoardPage from "@/components/pages/BoardPage";
 import DmsPage from "@/components/pages/DmsPage";
 import ContextPage from "@/components/pages/ContextPage";
+import TranscribePage from "@/components/pages/TranscribePage";
 import { Client, Notification, TeamMember } from "@/lib/types";
 import type { SessionPayload } from "@/lib/session";
 import { countUnseenSentBack } from "@/lib/sentBackSeen";
@@ -30,7 +31,8 @@ export type Page =
   | "team"
   | "chat"
   | "settings"
-  | "context";
+  | "context"
+  | "transcribe";
 
 export default function App() {
   const [page, setPage] = useState<Page>(() => {
@@ -215,7 +217,7 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context"];
+    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
@@ -256,6 +258,7 @@ export default function App() {
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} />;
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} />;
       case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
+      case "transcribe": return <TranscribePage />;
     }
   }
 

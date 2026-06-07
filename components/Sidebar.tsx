@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Client, Notification, TeamMember } from "@/lib/types";
 import type { SessionPayload } from "@/lib/session";
 
-type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context";
+type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe";
 
 function IconCalendar({ active }: { active: boolean }) {
   const c = active ? "white" : "rgba(147,197,253,0.6)";
@@ -55,6 +55,11 @@ function IconTasks({ active }: { active: boolean }) {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke={c} strokeWidth="1.3"/><path d="M4.8 6l1 1 1.8-1.8M4.8 10l1 1 1.8-1.8M9.5 6.2h2.2M9.5 10.2h2.2" stroke={c} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
 
+function IconTranscribe({ active }: { active: boolean }) {
+  const c = active ? "white" : "rgba(147,197,253,0.6)";
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="6" y="1.5" width="4" height="7.5" rx="2" stroke={c} strokeWidth="1.3"/><path d="M3.5 7.5a4.5 4.5 0 009 0" stroke={c} strokeWidth="1.3" strokeLinecap="round"/><path d="M8 12v2.5M5.5 14.5h5" stroke={c} strokeWidth="1.3" strokeLinecap="round"/></svg>;
+}
+
 const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   pipeline: (a) => <IconCalendar active={a} />, kanban: (a) => <IconKanban active={a} />,
   concepts: (a) => <IconConcepts active={a} />, context: (a) => <IconBrain active={a} />,
@@ -62,6 +67,7 @@ const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   instagram: (a) => <IconInstagram active={a} />, board: (a) => <IconBoard active={a} />,
   team: (a) => <IconTeam active={a} />, chat: (a) => <IconChat active={a} />,
   tasks: (a) => <IconTasks active={a} />,
+  transcribe: (a) => <IconTranscribe active={a} />,
   settings: (a) => <IconSettings active={a} />,
 };
 
@@ -76,6 +82,7 @@ const NAV_GROUPS = [
     { id: "dms" as Page, label: "DM Pipeline" },
     { id: "instagram" as Page, label: "Instagram" },
     { id: "board" as Page, label: "Strategy Board" },
+    { id: "transcribe" as Page, label: "Transcribe" },
   ]},
   { label: "MANAGE", items: [
     { id: "team" as Page, label: "Team" },

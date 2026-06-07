@@ -15,6 +15,7 @@ const ALL_PAGES = [
   { id: "dms",       label: "DM Pipeline",         icon: "💌" },
   { id: "instagram", label: "Instagram",           icon: "📸" },
   { id: "board",     label: "Strategy Board",      icon: "🗂️" },
+  { id: "transcribe",label: "Transcribe",          icon: "🎙️" },
   { id: "team",      label: "Team",                icon: "🤝" },
   { id: "chat",      label: "Messages",            icon: "💬" },
   { id: "settings",  label: "Settings",            icon: "⚙️" },
