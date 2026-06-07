@@ -713,28 +713,38 @@ const UPLOAD_CHUNK = 20 * 1024 * 1024; // 20MB
 // Videos bigger than Cloudinary's ~100MB cap go to Vercel Blob (no size limit).
 const CLOUDINARY_MAX = 95 * 1024 * 1024;
 async function blobUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
-  // Client-direct multipart upload straight to Vercel Blob. The browser streams 5MB+ parts
-  // directly to Blob storage (no Vercel 4.5MB request limit, no server proxying). Our
-  // /api/blob/upload only mints a short-lived, auth-gated upload token. Server-proxied
-  // multipart can't work: parts must be >=5MB but serverless requests are capped at 4.5MB.
+  // Large videos (>95MB) go to Cloudflare R2 via a presigned PUT URL. The browser uploads
+  // the file DIRECTLY to R2 — no Vercel request-size limit, no Blob client-SDK 400s.
+  let presign: { uploadUrl?: string; publicUrl?: string; error?: string };
   try {
-    const { upload } = await import("@vercel/blob/client");
-    const pathname = `videos/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
-    const result = await upload(pathname, file, {
-      access: "public",
-      handleUploadUrl: "/api/blob/upload",
-      multipart: true,
-      contentType: file.type || "video/mp4",
-      onUploadProgress: (p: { loaded?: number; total?: number; percentage?: number }) => {
-        const pct = p.percentage ?? (p.total ? ((p.loaded ?? 0) / p.total) * 100 : 0);
-        onProgress(Math.round(pct));
-      },
-    });
-    return result.url;
+    presign = await fetch("/api/r2/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, contentType: file.type || "video/mp4" }),
+    }).then((r) => r.json());
   } catch (e) {
-    console.error("[blobUpload] failed:", e);
-    throw new Error("Big-video upload failed: " + (e instanceof Error ? e.message : String(e)));
+    throw new Error("Big-video upload failed (could not start): " + (e instanceof Error ? e.message : String(e)));
   }
+  if (!presign?.uploadUrl || !presign?.publicUrl) {
+    throw new Error("Big-video upload failed: " + (presign?.error || "storage not configured"));
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", presign.uploadUrl!);
+    xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) onProgress(Math.round((ev.loaded / ev.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`R2 upload failed (${xhr.status}): ${xhr.responseText?.slice(0, 200) || ""}`));
+    };
+    xhr.onerror = () => reject(new Error("R2 upload failed: network/CORS error"));
+    xhr.send(file);
+  });
+
+  return presign.publicUrl;
 }
 
 function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
