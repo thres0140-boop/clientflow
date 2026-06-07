@@ -3,9 +3,6 @@
 import { useRef, useState } from "react";
 import type { FFmpeg } from "@ffmpeg/ffmpeg";
 
-const FFMPEG_VER = "0.12.15";
-const CORE_VER = "0.12.10";
-
 type Mode = "transcribe" | "onscreen";
 type Status = "idle" | "loading" | "extracting" | "working" | "done" | "error";
 
@@ -52,17 +49,18 @@ export default function TranscribePage() {
       const p = Math.max(0, Math.min(100, Math.round(progress * 100)));
       if (!isNaN(p)) setPct(p);
     });
-    // ffmpeg creates a MODULE worker. The ESM worker imports sibling files (./const.js etc.),
-    // which can't resolve from a blob URL — so we self-host the worker on our own domain
-    // (public/ffmpeg) and pass an absolute same-origin URL. Core/wasm are single files with no
-    // sibling imports, so they're fine to load from the CDN as blobs.
-    const core = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VER}/dist/esm`;
-    const wasmURL = await fetchBlobURL(`${core}/ffmpeg-core.wasm`, "application/wasm", setPct); // the big one
+    // Everything is self-hosted on our own domain (public/ffmpeg) — no CDN, no cross-origin,
+    // no blob-imported modules. The worker + core are real same-origin files so their ESM
+    // imports resolve; only the wasm is fetched as a blob (just bytes) so we can show progress.
+    const base = `${window.location.origin}/ffmpeg`;
+    const wasmURL = await fetchBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm", setPct); // the big one
     setNote("Starting the engine…");
     setPct(0);
-    const coreURL = await fetchBlobURL(`${core}/ffmpeg-core.js`, "text/javascript");
-    const classWorkerURL = `${window.location.origin}/ffmpeg/worker.js`;
-    await ff.load({ classWorkerURL, coreURL, wasmURL });
+    await ff.load({
+      classWorkerURL: `${base}/worker.js`,
+      coreURL: `${base}/ffmpeg-core.js`,
+      wasmURL,
+    });
     ffmpegRef.current = ff;
     return ff;
   }
