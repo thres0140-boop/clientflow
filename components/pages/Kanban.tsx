@@ -713,14 +713,22 @@ const UPLOAD_CHUNK = 20 * 1024 * 1024; // 20MB
 // Videos bigger than Cloudinary's ~100MB cap go to Vercel Blob (no size limit).
 const CLOUDINARY_MAX = 95 * 1024 * 1024;
 async function blobUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
-  const { upload } = await import("@vercel/blob/client");
-  const result = await upload(`videos/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`, file, {
-    access: "public",
-    handleUploadUrl: "/api/blob/upload",
-    multipart: true, // required for large files — uploads in parallel parts, resumable
-    onUploadProgress: (p: { percentage: number }) => onProgress(Math.round(p.percentage)),
-  });
-  return result.url;
+  try {
+    const { upload } = await import("@vercel/blob/client");
+    const result = await upload(`videos/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`, file, {
+      access: "public",
+      handleUploadUrl: "/api/blob/upload",
+      multipart: true, // required for large files — uploads in parallel parts, resumable
+      onUploadProgress: (p: { loaded?: number; total?: number; percentage?: number }) => {
+        const pct = p.percentage ?? (p.total ? (p.loaded ?? 0) / p.total * 100 : 0);
+        onProgress(Math.round(pct));
+      },
+    });
+    return result.url;
+  } catch (e) {
+    console.error("[blobUpload] failed:", e);
+    throw new Error("Big-video upload failed: " + (e instanceof Error ? e.message : String(e)));
+  }
 }
 
 function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promise<string> {

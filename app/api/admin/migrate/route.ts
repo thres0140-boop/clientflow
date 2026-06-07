@@ -415,6 +415,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN });
   }
 
+  // ?blobtest=1 — actually write a tiny file to Blob to confirm the token works.
+  if (req.nextUrl.searchParams.get("blobtest")) {
+    try {
+      const { put } = await import("@vercel/blob");
+      const r = await put(`diag/test.txt`, "ok", { access: "public", allowOverwrite: true });
+      return NextResponse.json({ ok: true, url: r.url });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+    }
+  }
+
   // ?cloudtest=1 — server-side unsigned Cloudinary upload to see the REAL error
   // (browser CORS masks it). Uploads a tiny 1x1 png.
   if (req.nextUrl.searchParams.get("cloudtest")) {
