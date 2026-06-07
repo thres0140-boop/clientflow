@@ -27,8 +27,32 @@ const WEEK_NUMBER = Math.ceil(
   (Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000)
 );
 
+// ─── Posting-day helpers ──────────────────────────────────────────────────────
+const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const JS_DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]; // new Date().getDay() index
+const dayOrder = (d: string) => { const i = DOW.indexOf(d); return i === -1 ? 99 : i; };
+
+// The posting day(s) for a draft. Priority: an exact scheduled date → that weekday;
+// otherwise the concept's planned posting days; otherwise the free-text dayLabel.
+function deriveDays(draft: ScriptDraft, conceptPostDays?: string | null): string[] {
+  if (draft.scheduledDate) {
+    const dt = new Date(draft.scheduledDate);
+    if (!isNaN(dt.getTime())) return [JS_DAY[dt.getDay()]];
+  }
+  if (conceptPostDays) {
+    const arr = conceptPostDays.split(",").map((s) => s.trim()).filter((x) => DOW.includes(x));
+    if (arr.length) return arr.sort((a, b) => dayOrder(a) - dayOrder(b));
+  }
+  if (draft.dayLabel) {
+    const cap = draft.dayLabel.trim().slice(0, 1).toUpperCase() + draft.dayLabel.trim().slice(1, 3).toLowerCase();
+    if (DOW.includes(cap)) return [cap];
+  }
+  return [];
+}
+const primaryDayOrder = (days: string[]) => (days.length ? Math.min(...days.map(dayOrder)) : 99);
+
 // ─── Draggable card shell ───────────────────────────────────────────────────
-function DraggableCard({ draft, onClick, selected = false, notify = false }: { draft: ScriptDraft; onClick: () => void; selected?: boolean; notify?: boolean }) {
+function DraggableCard({ draft, onClick, selected = false, notify = false, days }: { draft: ScriptDraft; onClick: () => void; selected?: boolean; notify?: boolean; days?: string[] }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: String(draft.id) });
   const style = transform
     ? { transform: `translate(${transform.x}px,${transform.y}px)`, opacity: isDragging ? 0.4 : 1 }
@@ -39,13 +63,13 @@ function DraggableCard({ draft, onClick, selected = false, notify = false }: { d
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       className="touch-none cursor-grab active:cursor-grabbing outline-none focus:outline-none"
     >
-      <CardContent draft={draft} selected={selected} notify={notify} />
+      <CardContent draft={draft} selected={selected} notify={notify} days={days} />
     </div>
   );
 }
 
 // ─── Card content ────────────────────────────────────────────────────────────
-function CardContent({ draft, selected = false, notify = false }: { draft: ScriptDraft; selected?: boolean; notify?: boolean }) {
+function CardContent({ draft, selected = false, notify = false, days }: { draft: ScriptDraft; selected?: boolean; notify?: boolean; days?: string[] }) {
   return (
     <div className={`relative bg-white rounded-xl border p-3 shadow-sm hover:shadow-md transition-all select-none ${
       notify ? "ring-2 ring-red-400 border-red-400" : selected ? "ring-2 ring-indigo-500 border-indigo-500" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
@@ -72,7 +96,16 @@ function CardContent({ draft, selected = false, notify = false }: { draft: Scrip
           {draft.concept.name}
         </p>
       )}
-      <p className="text-[10px] text-slate-400 mt-1 truncate">{draft.weekLabel}{draft.dayLabel ? ` · ${draft.dayLabel}` : ""}</p>
+      <p className="text-[10px] text-slate-400 mt-1 truncate flex items-center gap-1">
+        <span>{draft.weekLabel}</span>
+        {days && days.length > 0 ? (
+          days.map((d) => (
+            <span key={d} className="inline-block px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-500 font-semibold text-[9px]">{d}</span>
+          ))
+        ) : draft.dayLabel ? (
+          <span>· {draft.dayLabel}</span>
+        ) : null}
+      </p>
       {draft.hook && (
         <p className="text-[11px] text-slate-600 mt-1.5 line-clamp-2 italic">"{draft.hook}"</p>
       )}
@@ -125,6 +158,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [showGenerate, setShowGenerate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [conceptFilter, setConceptFilter] = useState<number | "all">("all");
+  const [dayFilter, setDayFilter] = useState<string>("all");
   const [showStageManager, setShowStageManager] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -159,14 +193,27 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       })
     : stages;
 
+  // Posting day(s) per draft, derived from the concept's planned post days (or schedule).
+  const conceptPostDays = new Map<number, string | null | undefined>();
+  concepts.forEach((c) => conceptPostDays.set(c.id, c.postDays));
+  const daysOf = (d: ScriptDraft) => deriveDays(d, conceptPostDays.get(d.conceptId));
+
   const matchesConcept = (d: ScriptDraft) => conceptFilter === "all" || d.conceptId === conceptFilter;
-  const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId && matchesConcept(d));
-  const savedDrafts   = drafts.filter((d) => d.status === "saved" && matchesConcept(d));
-  const ideaColumn    = [...pendingDrafts, ...savedDrafts];
+  const matchesDay = (d: ScriptDraft) => dayFilter === "all" || daysOf(d).includes(dayFilter);
+  const matches = (d: ScriptDraft) => matchesConcept(d) && matchesDay(d);
+  // Order cards by their posting day (Mon → Sun); undated cards sink to the bottom.
+  const byDay = (a: ScriptDraft, b: ScriptDraft) => primaryDayOrder(daysOf(a)) - primaryDayOrder(daysOf(b));
+
+  const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId && matches(d));
+  const savedDrafts   = drafts.filter((d) => d.status === "saved" && matches(d));
+  const ideaColumn    = [...pendingDrafts, ...savedDrafts].sort(byDay);
 
   function draftsForStage(stageId: number) {
-    return drafts.filter((d) => d.stageId === stageId && d.status === "accepted" && matchesConcept(d));
+    return drafts.filter((d) => d.stageId === stageId && d.status === "accepted" && matches(d)).sort(byDay);
   }
+
+  // Weekdays that actually appear among this client's drafts (for the day filter dropdown).
+  const availableDays = DOW.filter((day) => drafts.some((d) => daysOf(d).includes(day)));
 
   // A sent-back draft this member hasn't opened yet → show a notification on its card.
   const isMemberEditor = !!activeProfile && !activeProfile.isClientAccount;
@@ -204,7 +251,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [detailDraft, drafts, conceptFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [detailDraft, drafts, conceptFilter, dayFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the open card scrolled into view inside its column as you navigate.
   useEffect(() => {
@@ -392,6 +439,18 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
               ))}
             </select>
           )}
+          {availableDays.length > 0 && (
+            <select
+              value={dayFilter}
+              onChange={(e) => setDayFilter(e.target.value)}
+              className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="all">All days</option>
+              {availableDays.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          )}
           {!activeProfile && (
             <button onClick={() => setShowStageManager(true)}
               className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
@@ -440,7 +499,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                 ) : (
                   ideaColumn.map((draft) => (
                     <div key={draft.id}>
-                      <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} onClick={() => openDraft(draft)} />
+                      <DraggableCard draft={draft} days={daysOf(draft)} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} onClick={() => openDraft(draft)} />
                       <div className="flex gap-1.5 mt-1.5">
                         <button onClick={() => moveDraft(draft.id, stages[0]?.id ?? null)}
                           disabled={stages.length === 0}
@@ -522,7 +581,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
                     {stageDrafts.map((draft) => (
                       <div key={draft.id} className="space-y-1.5">
-                        <DraggableCard draft={draft} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} onClick={() => openDraft(draft)} />
+                        <DraggableCard draft={draft} days={daysOf(draft)} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} onClick={() => openDraft(draft)} />
                         {/* Per-card actions */}
                         {stage.name === "Edit" ? (
                           <div className="space-y-1">
