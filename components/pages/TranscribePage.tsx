@@ -23,7 +23,7 @@ async function fetchBlobURL(url: string, type: string, onProgress?: (pct: number
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    if (value) { chunks.push(value); received += value.length; onProgress(Math.round((received / total) * 100)); }
+    if (value) { chunks.push(value); received += value.length; onProgress(Math.min(100, Math.round((received / total) * 100))); }
   }
   return URL.createObjectURL(new Blob(chunks as BlobPart[], { type }));
 }
@@ -52,13 +52,16 @@ export default function TranscribePage() {
       const p = Math.max(0, Math.min(100, Math.round(progress * 100)));
       if (!isNaN(p)) setPct(p);
     });
-    // ffmpeg creates a MODULE worker, so we must use the ESM worker (uses dynamic import())
-    // and the ESM core — not the UMD ones (which use importScripts, invalid in a module worker).
+    // ffmpeg creates a MODULE worker. The ESM worker imports sibling files (./const.js etc.),
+    // which can't resolve from a blob URL — so we self-host the worker on our own domain
+    // (public/ffmpeg) and pass an absolute same-origin URL. Core/wasm are single files with no
+    // sibling imports, so they're fine to load from the CDN as blobs.
     const core = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VER}/dist/esm`;
     const wasmURL = await fetchBlobURL(`${core}/ffmpeg-core.wasm`, "application/wasm", setPct); // the big one
     setNote("Starting the engine…");
+    setPct(0);
     const coreURL = await fetchBlobURL(`${core}/ffmpeg-core.js`, "text/javascript");
-    const classWorkerURL = await fetchBlobURL(`https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@${FFMPEG_VER}/dist/esm/worker.js`, "text/javascript");
+    const classWorkerURL = `${window.location.origin}/ffmpeg/worker.js`;
     await ff.load({ classWorkerURL, coreURL, wasmURL });
     ffmpegRef.current = ff;
     return ff;
