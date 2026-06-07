@@ -109,19 +109,25 @@ function CardContent({ draft, selected = false, notify = false, days }: { draft:
         </p>
       )}
       <p className="text-[10px] text-slate-400 mt-1 truncate flex items-center gap-1 flex-wrap">
-        <span>{draft.weekLabel}</span>
         {fmtSchedule(draft.scheduledDate) ? (
+          // Scheduled → show the real posting date (weekday + day of month), not "Week 23".
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold text-[9px]">
             📅 {fmtSchedule(draft.scheduledDate)}
           </span>
-        ) : days && days.length > 0 ? (
-          days.map((d) => (
-            <span key={d} className="inline-block px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-500 font-semibold text-[9px]">{d}</span>
-          ))
-        ) : draft.dayLabel ? (
-          <span>· {draft.dayLabel}</span>
         ) : (
-          <span className="text-amber-500">· no date</span>
+          // Not scheduled yet → keep the week label + planned weekday (if any).
+          <>
+            <span>{draft.weekLabel}</span>
+            {days && days.length > 0 ? (
+              days.map((d) => (
+                <span key={d} className="inline-block px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-500 font-semibold text-[9px]">{d}</span>
+              ))
+            ) : draft.dayLabel ? (
+              <span>· {draft.dayLabel}</span>
+            ) : (
+              <span className="text-amber-500">· no date</span>
+            )}
+          </>
         )}
       </p>
       {draft.hook && (
