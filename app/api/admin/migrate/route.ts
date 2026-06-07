@@ -410,6 +410,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, updated: out.length, changes: out, datesFound: Object.keys(byDate).length });
   }
 
+  // ?blobcheck=1 — is the Vercel Blob token configured?
+  if (req.nextUrl.searchParams.get("blobcheck")) {
+    return NextResponse.json({ hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN });
+  }
+
   // ?cloudtest=1 — server-side unsigned Cloudinary upload to see the REAL error
   // (browser CORS masks it). Uploads a tiny 1x1 png.
   if (req.nextUrl.searchParams.get("cloudtest")) {
