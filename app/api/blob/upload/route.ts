@@ -17,10 +17,9 @@ export async function POST(req: NextRequest) {
         const token = req.cookies.get("cf_session")?.value;
         const session = token ? await verifySessionToken(token) : null;
         if (!session) throw new Error("Not authorized");
-        return {
-          allowedContentTypes: ["video/mp4", "video/quicktime", "video/webm", "video/x-m4v", "video/*"],
-          maximumSizeInBytes: 2 * 1024 * 1024 * 1024, // 2 GB
-        };
+        // Don't restrict content types (wildcards aren't supported and can reject valid
+        // videos); auth + the size ceiling are the guards.
+        return { maximumSizeInBytes: 2 * 1024 * 1024 * 1024 }; // 2 GB
       },
       onUploadCompleted: async () => { /* URL is returned to the client directly */ },
     });
