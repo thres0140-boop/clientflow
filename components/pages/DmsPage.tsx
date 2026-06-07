@@ -670,7 +670,7 @@ function KanbanCol({ statusVal, meta, col, activeDragId, onEdit, onDelete }: {
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: statusVal });
   return (
-    <div className="flex flex-col gap-2 flex-1 min-h-0">
+    <div className="flex flex-col gap-2 flex-1 min-w-0 min-h-0">
       <div className={`flex items-center justify-between px-3 py-2 rounded-lg border flex-shrink-0 ${meta.bg} ${meta.border}`}>
         <span className={`text-xs font-semibold ${meta.text} truncate`}>{meta.label}</span>
         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 ${meta.text} ml-1 flex-shrink-0`}>{col.length}</span>
