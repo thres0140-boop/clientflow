@@ -710,7 +710,23 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 // error. So we chunk anything large via Cloudinary's chunked-upload protocol.
 const UPLOAD_CHUNK = 20 * 1024 * 1024; // 20MB
 
+// Videos bigger than Cloudinary's ~100MB cap go to Vercel Blob (no size limit).
+const CLOUDINARY_MAX = 95 * 1024 * 1024;
+async function blobUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
+  const { upload } = await import("@vercel/blob/client");
+  const result = await upload(`videos/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`, file, {
+    access: "public",
+    handleUploadUrl: "/api/blob/upload",
+    onUploadProgress: (p: { percentage: number }) => onProgress(Math.round(p.percentage)),
+  });
+  return result.url;
+}
+
 function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
+  // Large videos exceed Cloudinary's limit → Vercel Blob instead.
+  if (file.type.startsWith("video") && file.size > CLOUDINARY_MAX) {
+    return blobUpload(file, onProgress);
+  }
   const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
   const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
   const resourceType = file.type.startsWith("video") ? "video" : "image";
