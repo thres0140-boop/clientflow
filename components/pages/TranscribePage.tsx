@@ -9,6 +9,25 @@ const CORE_VER = "0.12.10";
 type Mode = "transcribe" | "onscreen";
 type Status = "idle" | "loading" | "extracting" | "working" | "done" | "error";
 
+// Fetch a URL into a same-origin blob URL, reporting download progress when possible.
+async function fetchBlobURL(url: string, type: string, onProgress?: (pct: number) => void): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`engine download failed (${res.status})`);
+  const total = Number(res.headers.get("content-length") || 0);
+  if (!res.body || !total || !onProgress) {
+    return URL.createObjectURL(new Blob([await res.arrayBuffer()], { type }));
+  }
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) { chunks.push(value); received += value.length; onProgress(Math.round((received / total) * 100)); }
+  }
+  return URL.createObjectURL(new Blob(chunks as BlobPart[], { type }));
+}
+
 export default function TranscribePage() {
   const [mode, setMode] = useState<Mode>("transcribe");
   const [status, setStatus] = useState<Status>("idle");
@@ -25,9 +44,9 @@ export default function TranscribePage() {
   async function getFfmpeg(): Promise<FFmpeg> {
     if (ffmpegRef.current) return ffmpegRef.current;
     setStatus("loading");
-    setNote("Loading the audio engine (first time only)…");
+    setPct(0);
+    setNote("Downloading the audio engine (one-time, ~32 MB)…");
     const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-    const { toBlobURL } = await import("@ffmpeg/util");
     const ff = new FFmpeg();
     ff.on("progress", ({ progress }: { progress: number }) => {
       const p = Math.max(0, Math.min(100, Math.round(progress * 100)));
@@ -35,12 +54,12 @@ export default function TranscribePage() {
     });
     // ffmpeg creates a MODULE worker, so we must use the ESM worker (uses dynamic import())
     // and the ESM core — not the UMD ones (which use importScripts, invalid in a module worker).
-    const core = `https://unpkg.com/@ffmpeg/core@${CORE_VER}/dist/esm`;
-    await ff.load({
-      classWorkerURL: await toBlobURL(`https://unpkg.com/@ffmpeg/ffmpeg@${FFMPEG_VER}/dist/esm/worker.js`, "text/javascript"),
-      coreURL: await toBlobURL(`${core}/ffmpeg-core.js`, "text/javascript"),
-      wasmURL: await toBlobURL(`${core}/ffmpeg-core.wasm`, "application/wasm"),
-    });
+    const core = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VER}/dist/esm`;
+    const wasmURL = await fetchBlobURL(`${core}/ffmpeg-core.wasm`, "application/wasm", setPct); // the big one
+    setNote("Starting the engine…");
+    const coreURL = await fetchBlobURL(`${core}/ffmpeg-core.js`, "text/javascript");
+    const classWorkerURL = await fetchBlobURL(`https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@${FFMPEG_VER}/dist/esm/worker.js`, "text/javascript");
+    await ff.load({ classWorkerURL, coreURL, wasmURL });
     ffmpegRef.current = ff;
     return ff;
   }
@@ -166,7 +185,7 @@ export default function TranscribePage() {
         {busy ? (
           <>
             <div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-semibold text-slate-700">{note || "Working…"}{pct > 0 && status !== "loading" ? ` ${pct}%` : ""}</span>
+            <span className="text-sm font-semibold text-slate-700">{note || "Working…"}{pct > 0 ? ` ${pct}%` : ""}</span>
             <span className="text-xs text-slate-400 truncate max-w-[80%]">{fileName}</span>
           </>
         ) : (
