@@ -718,7 +718,6 @@ async function blobUpload(file: File, onProgress: (pct: number) => void): Promis
     const result = await upload(`videos/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`, file, {
       access: "public",
       handleUploadUrl: "/api/blob/upload",
-      multipart: true, // required for large files — uploads in parallel parts, resumable
       onUploadProgress: (p: { loaded?: number; total?: number; percentage?: number }) => {
         const pct = p.percentage ?? (p.total ? (p.loaded ?? 0) / p.total * 100 : 0);
         onProgress(Math.round(pct));
