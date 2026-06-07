@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
       TWILIO_AUTH_TOKEN: mask(process.env.TWILIO_AUTH_TOKEN),
       TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM || "MISSING",
       OWNER_WHATSAPP_TO: process.env.OWNER_WHATSAPP_TO || "MISSING",
+      TWILIO_WHATSAPP_CONTENT_SID: process.env.TWILIO_WHATSAPP_CONTENT_SID || "MISSING (plain Body / sandbox mode)",
     });
   }
 
@@ -31,15 +32,22 @@ export async function GET(req: NextRequest) {
     }
     if (!from.startsWith("whatsapp:")) from = `whatsapp:${from}`;
     if (!to.startsWith("whatsapp:")) to = `whatsapp:${to}`;
+    const contentSid = process.env.TWILIO_WHATSAPP_CONTENT_SID;
     try {
-      const params = new URLSearchParams({ From: from, To: to, Body: "✅ ORDO test message — if you see this, WhatsApp alerts work." });
+      const params = new URLSearchParams({ From: from, To: to });
+      if (contentSid) {
+        params.set("ContentSid", contentSid);
+        params.set("ContentVariables", JSON.stringify({ "1": "✅ ORDO test — WhatsApp alerts work." }));
+      } else {
+        params.set("Body", "✅ ORDO test message — if you see this, WhatsApp alerts work.");
+      }
       const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
         method: "POST",
         headers: { Authorization: "Basic " + Buffer.from(`${sid}:${tok}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
         body: params.toString(),
       });
       const j = await r.json().catch(() => ({}));
-      return NextResponse.json({ httpStatus: r.status, sid: j.sid || null, status: j.status || null, error_code: j.code || j.error_code || null, error_message: j.message || j.error_message || null, from, to });
+      return NextResponse.json({ mode: contentSid ? "template" : "body", httpStatus: r.status, sid: j.sid || null, status: j.status || null, error_code: j.code || j.error_code || null, error_message: j.message || j.error_message || null, from, to });
     } catch (e) {
       return NextResponse.json({ ok: false, error: String(e) });
     }
