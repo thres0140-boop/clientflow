@@ -1905,18 +1905,22 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const urls: string[] = JSON.parse(draft.rawContentUrls || "[]");
 
-  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+  async function uploadFiles(files: File[]) {
+    const media = files.filter((f) => f.type.startsWith("video") || f.type.startsWith("image"));
+    if (!media.length) {
+      if (files.length) setError("Only video or image files can be uploaded here.");
+      return;
+    }
     setProgress(0);
     setError("");
     try {
       const newUrls: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const url = await cloudinaryUpload(files[i], (pct) => {
-          const overall = ((i / files.length) + pct / 100 / files.length) * 100;
+      for (let i = 0; i < media.length; i++) {
+        const url = await cloudinaryUpload(media[i], (pct) => {
+          const overall = ((i / media.length) + pct / 100 / media.length) * 100;
           setProgress(Math.round(overall));
         });
         newUrls.push(url);
@@ -1924,11 +1928,22 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
       onUploaded([...urls, ...newUrls]);
       setExpanded(true);
     } catch (err) {
-      setError(String(err));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
     }
+  }
+
+  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    await uploadFiles(Array.from(e.target.files || []));
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length) uploadFiles(files);
   }
 
   function removeFile(idx: number) {
@@ -1947,7 +1962,12 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
   }
 
   return (
-    <div className="space-y-2">
+    <div
+      className={`space-y-2 rounded-xl transition-colors ${dragOver ? "ring-2 ring-indigo-400 ring-offset-2 bg-indigo-50/40" : ""}`}
+      onDragOver={(e) => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
+      onDragLeave={(e) => { e.preventDefault(); if (e.currentTarget === e.target) setDragOver(false); }}
+      onDrop={onDrop}
+    >
       {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
       {/* Collapsible header */}
@@ -2007,8 +2027,10 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
         <div className="flex gap-2">
           <button
             onClick={() => inputRef.current?.click()}
-            className="flex-1 py-2 text-sm font-medium border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
-            ⬆ Add files
+            className={`flex-1 py-2 text-sm font-medium border-2 border-dashed rounded-lg transition-colors ${
+              dragOver ? "border-indigo-500 text-indigo-600 bg-indigo-50" : "border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
+            }`}>
+            {dragOver ? "⬇ Drop to upload" : "⬆ Add files · or drag & drop"}
           </button>
           <button
             onClick={() => setShowQR(true)}
