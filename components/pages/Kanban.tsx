@@ -51,6 +51,15 @@ function deriveDays(draft: ScriptDraft, conceptPostDays?: string | null): string
 }
 const primaryDayOrder = (days: string[]) => (days.length ? Math.min(...days.map(dayOrder)) : 99);
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "Thu · 12 Jun" from a scheduled-date ISO string.
+function fmtSchedule(iso?: string | null): string | null {
+  if (!iso) return null;
+  const dt = new Date(iso);
+  if (isNaN(dt.getTime())) return null;
+  return `${JS_DAY[dt.getDay()]} · ${dt.getDate()} ${MONTHS[dt.getMonth()]}`;
+}
+
 // ─── Draggable card shell ───────────────────────────────────────────────────
 function DraggableCard({ draft, onClick, selected = false, notify = false, days }: { draft: ScriptDraft; onClick: () => void; selected?: boolean; notify?: boolean; days?: string[] }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: String(draft.id) });
@@ -96,15 +105,21 @@ function CardContent({ draft, selected = false, notify = false, days }: { draft:
           {draft.concept.name}
         </p>
       )}
-      <p className="text-[10px] text-slate-400 mt-1 truncate flex items-center gap-1">
+      <p className="text-[10px] text-slate-400 mt-1 truncate flex items-center gap-1 flex-wrap">
         <span>{draft.weekLabel}</span>
-        {days && days.length > 0 ? (
+        {fmtSchedule(draft.scheduledDate) ? (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold text-[9px]">
+            📅 {fmtSchedule(draft.scheduledDate)}
+          </span>
+        ) : days && days.length > 0 ? (
           days.map((d) => (
             <span key={d} className="inline-block px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-500 font-semibold text-[9px]">{d}</span>
           ))
         ) : draft.dayLabel ? (
           <span>· {draft.dayLabel}</span>
-        ) : null}
+        ) : (
+          <span className="text-amber-500">· no date</span>
+        )}
       </p>
       {draft.hook && (
         <p className="text-[11px] text-slate-600 mt-1.5 line-clamp-2 italic">"{draft.hook}"</p>
@@ -201,8 +216,15 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const matchesConcept = (d: ScriptDraft) => conceptFilter === "all" || d.conceptId === conceptFilter;
   const matchesDay = (d: ScriptDraft) => dayFilter === "all" || daysOf(d).includes(dayFilter);
   const matches = (d: ScriptDraft) => matchesConcept(d) && matchesDay(d);
-  // Order cards by their posting day (Mon → Sun); undated cards sink to the bottom.
-  const byDay = (a: ScriptDraft, b: ScriptDraft) => primaryDayOrder(daysOf(a)) - primaryDayOrder(daysOf(b));
+  // Order cards chronologically by their scheduled date; drafts with only a planned
+  // weekday come next (grouped Mon → Sun); unscheduled/undated cards sink to the bottom.
+  const sortKey = (d: ScriptDraft) => {
+    if (d.scheduledDate) { const t = new Date(d.scheduledDate).getTime(); if (!isNaN(t)) return t; }
+    const days = daysOf(d);
+    if (days.length) return 8.64e15 + primaryDayOrder(days);
+    return 8.65e15;
+  };
+  const byDay = (a: ScriptDraft, b: ScriptDraft) => sortKey(a) - sortKey(b);
 
   const pendingDrafts = drafts.filter((d) => d.status === "pending" && !d.stageId && matches(d));
   const savedDrafts   = drafts.filter((d) => d.status === "saved" && matches(d));
