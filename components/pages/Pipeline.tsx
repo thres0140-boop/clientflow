@@ -89,8 +89,15 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     if (d.status === "posted") return { key: "posted", color: "#16a34a", label: "Posted" };
     if (d.zernioBooked) return { key: "booked", color: "#2563eb", label: "Scheduled" };
     if (lastStageId != null && d.stageId === lastStageId) return { key: "ready", color: "#f97316", label: "Ready · tap to confirm" };
-    // Has a finished cut but isn't in the Schedule stage / not confirmed yet → yellow.
-    if (d.editedVideoUrl) return { key: "edited", color: "#eab308", label: "Edited · not confirmed" };
+    // Has a finished cut AND is past the Edit stage → "edited, not confirmed" (yellow).
+    // If it was moved back to Edit (or earlier), it's being re-worked, so don't call it
+    // edited even though an old cut is still attached.
+    if (d.editedVideoUrl) {
+      const editStage = stages.find((s) => s.name.toLowerCase() === "edit");
+      const dStage = stages.find((s) => s.id === d.stageId);
+      const pastEdit = !editStage || !dStage || dStage.order > editStage.order;
+      if (pastEdit) return { key: "edited", color: "#eab308", label: "Edited · not confirmed" };
+    }
     return { key: "planned", color: "#ef4444", label: "Planned · not in Schedule yet" };
   }
   const [stages, setStages] = useState<WorkflowStage[]>([]);
