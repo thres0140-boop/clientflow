@@ -33,9 +33,11 @@ export default function TranscribePage() {
       const p = Math.max(0, Math.min(100, Math.round(progress * 100)));
       if (!isNaN(p)) setPct(p);
     });
-    const core = `https://unpkg.com/@ffmpeg/core@${CORE_VER}/dist/umd`;
+    // ffmpeg creates a MODULE worker, so we must use the ESM worker (uses dynamic import())
+    // and the ESM core — not the UMD ones (which use importScripts, invalid in a module worker).
+    const core = `https://unpkg.com/@ffmpeg/core@${CORE_VER}/dist/esm`;
     await ff.load({
-      classWorkerURL: await toBlobURL(`https://unpkg.com/@ffmpeg/ffmpeg@${FFMPEG_VER}/dist/umd/814.ffmpeg.js`, "text/javascript"),
+      classWorkerURL: await toBlobURL(`https://unpkg.com/@ffmpeg/ffmpeg@${FFMPEG_VER}/dist/esm/worker.js`, "text/javascript"),
       coreURL: await toBlobURL(`${core}/ffmpeg-core.js`, "text/javascript"),
       wasmURL: await toBlobURL(`${core}/ffmpeg-core.wasm`, "application/wasm"),
     });
