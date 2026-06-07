@@ -31,12 +31,15 @@ const WEEK_NUMBER = Math.ceil(
 const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const JS_DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]; // new Date().getDay() index
 const dayOrder = (d: string) => { const i = DOW.indexOf(d); return i === -1 ? 99 : i; };
+// Parse a scheduled-date string in LOCAL time. A bare "2026-06-12" parses as UTC midnight
+// (off-by-one-day in timezones behind UTC), so force local by adding a time component.
+const parseSched = (iso: string) => new Date(iso.includes("T") ? iso : iso + "T00:00:00");
 
 // The posting day(s) for a draft. Priority: an exact scheduled date → that weekday;
 // otherwise the concept's planned posting days; otherwise the free-text dayLabel.
 function deriveDays(draft: ScriptDraft, conceptPostDays?: string | null): string[] {
   if (draft.scheduledDate) {
-    const dt = new Date(draft.scheduledDate);
+    const dt = parseSched(draft.scheduledDate);
     if (!isNaN(dt.getTime())) return [JS_DAY[dt.getDay()]];
   }
   if (conceptPostDays) {
@@ -55,7 +58,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 // "Thu · 12 Jun" from a scheduled-date ISO string.
 function fmtSchedule(iso?: string | null): string | null {
   if (!iso) return null;
-  const dt = new Date(iso);
+  const dt = parseSched(iso);
   if (isNaN(dt.getTime())) return null;
   return `${JS_DAY[dt.getDay()]} · ${dt.getDate()} ${MONTHS[dt.getMonth()]}`;
 }
@@ -219,7 +222,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   // Order cards chronologically by their scheduled date; drafts with only a planned
   // weekday come next (grouped Mon → Sun); unscheduled/undated cards sink to the bottom.
   const sortKey = (d: ScriptDraft) => {
-    if (d.scheduledDate) { const t = new Date(d.scheduledDate).getTime(); if (!isNaN(t)) return t; }
+    if (d.scheduledDate) { const t = parseSched(d.scheduledDate).getTime(); if (!isNaN(t)) return t; }
     const days = daysOf(d);
     if (days.length) return 8.64e15 + primaryDayOrder(days);
     return 8.65e15;
