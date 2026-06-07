@@ -8,6 +8,43 @@ export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("token");
   if (secret !== "zernio-migrate-2024") return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  // ?wacheck — show which Twilio/WhatsApp env vars are present (masked) + their shape.
+  if (req.nextUrl.searchParams.get("wacheck")) {
+    const mask = (v?: string) => (v ? `set (len ${v.length}, ends …${v.slice(-4)})` : "MISSING");
+    return NextResponse.json({
+      TWILIO_ACCOUNT_SID: mask(process.env.TWILIO_ACCOUNT_SID),
+      TWILIO_AUTH_TOKEN: mask(process.env.TWILIO_AUTH_TOKEN),
+      TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM || "MISSING",
+      OWNER_WHATSAPP_TO: process.env.OWNER_WHATSAPP_TO || "MISSING",
+    });
+  }
+
+  // ?watest — actually send a test WhatsApp and return Twilio's raw response (status,
+  // error_code, message) so we can see exactly why delivery fails.
+  if (req.nextUrl.searchParams.get("watest")) {
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const tok = process.env.TWILIO_AUTH_TOKEN;
+    let from = process.env.TWILIO_WHATSAPP_FROM;
+    let to = process.env.OWNER_WHATSAPP_TO;
+    if (!sid || !tok || !from || !to) {
+      return NextResponse.json({ ok: false, reason: "missing env", have: { sid: !!sid, tok: !!tok, from: from || null, to: to || null } });
+    }
+    if (!from.startsWith("whatsapp:")) from = `whatsapp:${from}`;
+    if (!to.startsWith("whatsapp:")) to = `whatsapp:${to}`;
+    try {
+      const params = new URLSearchParams({ From: from, To: to, Body: "✅ ORDO test message — if you see this, WhatsApp alerts work." });
+      const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: "POST",
+        headers: { Authorization: "Basic " + Buffer.from(`${sid}:${tok}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString(),
+      });
+      const j = await r.json().catch(() => ({}));
+      return NextResponse.json({ httpStatus: r.status, sid: j.sid || null, status: j.status || null, error_code: j.code || j.error_code || null, error_message: j.message || j.error_message || null, from, to });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: String(e) });
+    }
+  }
+
   // ?purge=clientId — wipe all DmLeads for that client so stale cross-contaminated leads are removed
   const purge = req.nextUrl.searchParams.get("purge");
   if (purge) {
