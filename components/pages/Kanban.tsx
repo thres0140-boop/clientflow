@@ -1261,8 +1261,10 @@ function DraftDetailPanel({
             const afterEdit = editIdx >= 0 && stageIdx > editIdx;
             return (
               <>
-                {/* Example to copy — reference recording, shown during record/edit or whenever one exists */}
-                {inStage && ((!isCheckStage && !afterEdit) || !!draft.exampleVideoUrl) && (
+                {/* Example to copy — reference recording. Shown whenever one is attached
+                    (including Ideas, e.g. a competitor reel sent here), and during
+                    record/edit so an example can be uploaded. */}
+                {(!!draft.exampleVideoUrl || (inStage && !isCheckStage && !afterEdit)) && (
                   <ExampleVideoSection draft={draft} onUploaded={onExampleUploaded} />
                 )}
 

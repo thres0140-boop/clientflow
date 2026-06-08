@@ -312,6 +312,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ?draftex=clientId — recent drafts with their exampleVideoUrl (debug the reel→kanban handoff)
+  const draftex = req.nextUrl.searchParams.get("draftex");
+  if (draftex) {
+    const drafts = await prisma.scriptDraft.findMany({
+      where: { clientId: parseInt(draftex) }, orderBy: { generatedAt: "desc" }, take: 8,
+      select: { id: true, title: true, status: true, exampleVideoUrl: true } as any,
+    });
+    return NextResponse.json(drafts.map((d: any) => ({ id: d.id, title: d.title, status: d.status, exampleVideoUrl: d.exampleVideoUrl })));
+  }
+
   // ?colcheck=TableName — list a table's columns (verify a migration actually applied)
   const colcheck = req.nextUrl.searchParams.get("colcheck");
   if (colcheck) {
