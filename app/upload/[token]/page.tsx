@@ -12,6 +12,8 @@ interface DraftInfo {
   clientColor: string;
   conceptName: string | null;
   rawContentUrls: string;
+  stageName?: string | null;
+  nextStageName?: string | null;
 }
 
 export default function MobileUploadPage({ params }: { params: Promise<{ token: string }> }) {
@@ -22,6 +24,18 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
   const [progress, setProgress] = useState(0);
   const [uploaded, setUploaded] = useState<string[]>([]);
   const [done, setDone] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
+  const [advancedTo, setAdvancedTo] = useState<string | null>(null);
+
+  async function advanceStage() {
+    setAdvancing(true);
+    try {
+      const d = await fetch(`/api/upload-tokens/${token}`, { method: "POST" }).then((r) => r.json());
+      if (d.nextStage) setAdvancedTo(d.nextStage);
+      else if (d.done) setAdvancedTo("__done__");
+    } catch { /* ignore */ }
+    finally { setAdvancing(false); }
+  }
 
 
   useEffect(() => {
@@ -148,11 +162,25 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
 
         {/* Upload area */}
         {done ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-sm space-y-3">
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-sm space-y-4">
             <div className="text-5xl">✅</div>
             <h2 className="text-base font-bold text-slate-800">Uploaded!</h2>
-            <p className="text-sm text-slate-500">Your video has been sent to the team. You can close this page.</p>
-            <label className="text-xs text-indigo-500 underline cursor-pointer">
+            <p className="text-sm text-slate-500">Your video has been sent to the team.</p>
+
+            {/* Push it straight to the next stage from the phone */}
+            {advancedTo ? (
+              <div className="w-full py-3 rounded-2xl text-sm font-bold bg-green-50 border border-green-100 text-green-700">
+                ✓ {advancedTo === "__done__" ? "Marked done" : `Sent to ${advancedTo}`} — you can close this page.
+              </div>
+            ) : draft.nextStageName ? (
+              <button onClick={advanceStage} disabled={advancing}
+                className="block w-full py-4 rounded-2xl text-white text-base font-bold shadow-lg disabled:opacity-60"
+                style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
+                {advancing ? "Sending…" : `➡️ Done — send to ${draft.nextStageName}`}
+              </button>
+            ) : null}
+
+            <label className="block text-xs text-indigo-500 underline cursor-pointer">
               <input type="file" accept="video/*,image/*" multiple className="hidden"
                 onChange={(e) => { setDone(false); handleFile(e); }} />
               Upload another file
