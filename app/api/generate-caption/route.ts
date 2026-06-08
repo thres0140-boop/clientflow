@@ -33,14 +33,14 @@ export async function POST(req: NextRequest) {
 
   const message = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 300,
+    max_tokens: 1024, // a full playbook caption (200-350 words) + CTA needs room — 300 truncated it
     messages: [
       {
         role: "user",
-        content: `Platform: ${platform || "instagram"}\nHook: ${hook || "N/A"}\nScript:\n${script || "N/A"}\n\nWrite the caption now.`,
+        content: `Platform: ${platform || "instagram"}\nHook: ${hook || "N/A"}\nScript:\n${script || "N/A"}\n\nWrite the caption now. Write the COMPLETE caption and ALWAYS finish with the playbook's CTA (the 📩 DM line) — never stop before the CTA.`,
       },
     ],
-    system: `You are a social media caption writer. ${styleInstructions} ${langInstruction}\n\nOutput ONLY the caption text — no labels, no explanation.`,
+    system: `You are a social media caption writer. ${styleInstructions} ${langInstruction}\n\nCRITICAL: output the FULL caption and it MUST end with the CTA structure from the playbook (the 📩 DM "keyword" line). Never omit or truncate the CTA. Output ONLY the caption text — no labels, no explanation.`,
   });
 
   const caption = message.content[0].type === "text" ? message.content[0].text.trim() : "";

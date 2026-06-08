@@ -237,7 +237,7 @@ Steps: (1) read the example scripts and lock onto their single shared message + 
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 6000,
+      max_tokens: 12000, // captions follow the long playbook now — give room so the last draft's caption+CTA isn't truncated
       system: systemPrompt,
       messages,
     });
