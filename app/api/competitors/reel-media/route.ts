@@ -15,7 +15,16 @@ const CACHE_MS = 60 * 60_000; // 1 hour
 export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   const force = req.nextUrl.searchParams.get("refresh") === "1";
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  // Candidate-preview path: reels aren't stored in the DB, so resolve live by
+  // handle+shortcode (one scrape request, no caching).
+  if (!id) {
+    const handle = req.nextUrl.searchParams.get("handle") || "";
+    const shortcode = req.nextUrl.searchParams.get("shortcode") || "";
+    if (!shortcode) return NextResponse.json({ error: "id or shortcode required" }, { status: 400 });
+    const url = await freshReelMediaUrl(handle, shortcode).catch(() => null);
+    return NextResponse.json({ url: url || null, permalink: `https://instagram.com/reel/${shortcode}`, cached: false });
+  }
 
   const reel = await (prisma as any).competitorReel.findUnique({
     where: { id: parseInt(id) },

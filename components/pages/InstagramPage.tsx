@@ -999,11 +999,28 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{ profile: { followerCount?: number; postCount?: number; bio?: string } | null; reels: { shortcode: string; thumbnailUrl?: string; mediaUrl?: string | null; permalink?: string; views: number | null; caption: string }[] } | null>(null);
   const [playing, setPlaying] = useState<{ shortcode: string; mediaUrl?: string | null; permalink?: string } | null>(null);
+  const [playerUrl, setPlayerUrl] = useState<string | null>(null);
+  const [playerLoading, setPlayerLoading] = useState(false);
   useEffect(() => {
     setLoading(true);
     fetch(`/api/competitors/preview?handle=${encodeURIComponent(candidate.handle)}`)
       .then((r) => r.json()).then(setData).catch(() => setData(null)).finally(() => setLoading(false));
   }, [candidate.handle]);
+
+  // When a reel is opened, resolve a fresh playable video url (the reels list only
+  // carries thumbnails, so we fetch the video file on demand).
+  useEffect(() => {
+    if (!playing) { setPlayerUrl(null); setPlayerLoading(false); return; }
+    if (playing.mediaUrl) { setPlayerUrl(playing.mediaUrl); setPlayerLoading(false); return; }
+    let cancelled = false;
+    setPlayerUrl(null); setPlayerLoading(true);
+    fetch(`/api/competitors/reel-media?handle=${encodeURIComponent(candidate.handle)}&shortcode=${encodeURIComponent(playing.shortcode)}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setPlayerUrl(d?.url || null); })
+      .catch(() => { if (!cancelled) setPlayerUrl(null); })
+      .finally(() => { if (!cancelled) setPlayerLoading(false); });
+    return () => { cancelled = true; };
+  }, [playing, candidate.handle]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
@@ -1025,7 +1042,7 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
             <div className="grid grid-cols-3 gap-1.5">
               {data.reels.map((r) => (
                 <button key={r.shortcode} type="button"
-                  onClick={() => { if (r.mediaUrl) setPlaying(r); else window.open(r.permalink || `https://instagram.com/reel/${r.shortcode}`, "_blank", "noopener,noreferrer"); }}
+                  onClick={() => setPlaying(r)}
                   className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group">
                   {r.thumbnailUrl
                     // eslint-disable-next-line @next/next/no-img-element
@@ -1049,16 +1066,25 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
       {playing && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={(e) => { e.stopPropagation(); setPlaying(null); }}>
           <div className="relative" onClick={(e) => e.stopPropagation()}>
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video
-              src={`/api/vid?u=${encodeURIComponent(playing.mediaUrl || "")}`}
-              poster={undefined}
-              controls autoPlay playsInline
-              className="max-h-[88vh] w-auto max-w-[94vw] rounded-xl bg-black aspect-[9/16] object-contain"
-            />
+            {playerLoading ? (
+              <div className="h-[70vh] aspect-[9/16] rounded-xl bg-black flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : playerUrl ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video
+                src={`/api/vid?u=${encodeURIComponent(playerUrl)}`}
+                controls autoPlay playsInline
+                className="max-h-[88vh] w-auto max-w-[94vw] rounded-xl bg-black aspect-[9/16] object-contain"
+              />
+            ) : (
+              <div className="h-[60vh] aspect-[9/16] rounded-xl bg-black flex flex-col items-center justify-center gap-3 px-6 text-center">
+                <p className="text-white/70 text-sm">Couldn&apos;t load this reel inline.</p>
+                <a href={playing.permalink || `https://instagram.com/reel/${playing.shortcode}`} target="_blank" rel="noopener noreferrer"
+                  className="bg-white/90 text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-white">Open on Instagram ↗</a>
+              </div>
+            )}
             <button onClick={() => setPlaying(null)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 shadow-lg flex items-center justify-center text-lg hover:bg-slate-100">×</button>
-            <a href={playing.permalink || `https://instagram.com/reel/${playing.shortcode}`} target="_blank" rel="noopener noreferrer"
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/90 text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-white">Open on Instagram ↗</a>
           </div>
         </div>
       )}
