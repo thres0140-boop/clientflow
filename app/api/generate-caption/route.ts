@@ -37,10 +37,10 @@ export async function POST(req: NextRequest) {
     messages: [
       {
         role: "user",
-        content: `Platform: ${platform || "instagram"}\nHook: ${hook || "N/A"}\nScript:\n${script || "N/A"}\n\nWrite the caption now. Write the COMPLETE caption and ALWAYS finish with the playbook's CTA (the 📩 DM line) — never stop before the CTA.`,
+        content: `Platform: ${platform || "instagram"}\nThe video ALREADY contains this hook + script/on-screen text:\nHook: ${hook || "N/A"}\nScript:\n${script || "N/A"}\n\nNow write the CAPTION. It must come at the SAME theme from a COMPLETELY DIFFERENT ANGLE than the video — do NOT restate or reword the script. The viewer already saw/heard that. Add a new layer (a personal story, a confrontation, the people around them, the cost, a reframe). Write the COMPLETE caption and ALWAYS finish with the playbook's CTA (the 📩 DM line) — never stop before the CTA.`,
       },
     ],
-    system: `You are a social media caption writer. ${styleInstructions} ${langInstruction}\n\nCRITICAL: output the FULL caption and it MUST end with the CTA structure from the playbook (the 📩 DM "keyword" line). Never omit or truncate the CTA. Output ONLY the caption text — no labels, no explanation.`,
+    system: `You are a social media caption writer. ${styleInstructions} ${langInstruction}\n\nCRITICAL RULES:\n1. The caption must NOT repeat or rewrite the video's script/on-screen text — the viewer already saw it. Take a different angle on the same theme.\n2. Output the FULL caption and it MUST end with the CTA structure from the playbook (the 📩 DM "keyword" line). Never omit or truncate the CTA.\nOutput ONLY the caption text — no labels, no explanation.`,
   });
 
   const caption = message.content[0].type === "text" ? message.content[0].text.trim() : "";
