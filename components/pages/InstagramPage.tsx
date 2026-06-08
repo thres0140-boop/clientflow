@@ -703,7 +703,7 @@ function CompetitorsTab({ client }: { client: Client }) {
           ) : (
             <div className="grid grid-cols-4 grid-flow-row-dense gap-1.5">
               {sortedReels.map((reel) => (
-                <div key={reel.id} className={`relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group ${playingReelId === reel.id ? "col-span-2 row-span-2" : ""}`}>
+                <div key={reel.id} className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group">
                   {playingReelId === reel.id ? (
                     <InlineReelPlayer reel={reel} onClose={() => setPlayingReelId(null)} onDetails={() => { setPlayingReelId(null); setSelectedReel(reel); }} />
                   ) : (
