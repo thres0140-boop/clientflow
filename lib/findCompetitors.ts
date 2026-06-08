@@ -72,12 +72,20 @@ export async function fetchFollowingPage(handle: string, token?: string): Promis
   try {
     const body = new URLSearchParams({ username_or_url: username, data: "following", amount: "50" });
     if (token) body.set("pagination_token", token);
-    const res = await fetch(`https://${SCRAPER_HOST}/get_ig_user_followers_v2.php`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
-      body: body.toString(),
-    });
-    const data = await res.json();
+    // These scrapers throw a transient "Please try again later" frequently — retry a few times.
+    let data: any = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const res = await fetch(`https://${SCRAPER_HOST}/get_ig_user_followers_v2.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
+        body: body.toString(),
+      });
+      data = await res.json();
+      const errStr = String(data?.error || data?.detail || data?.message || "");
+      const transient = /try again|later|temporar|timeout|rate/i.test(errStr);
+      if (!errStr || !transient) break;       // success or a real (non-transient) error
+      await new Promise((r) => setTimeout(r, 1200 + attempt * 800)); // backoff, then retry
+    }
     if (data?.detail || data?.error || data?.message) return { users: [], next: null, ok: false, error: String(data.detail || data.error || data.message).slice(0, 150) };
     // Response shape isn't documented — dig through the common containers.
     const rawList: unknown[] = data?.users ?? data?.data?.users ?? data?.followers ?? data?.following ?? data?.data?.items ?? data?.items ?? [];
