@@ -1070,16 +1070,24 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
   }
 
   async function transcribe() {
-    if (!reel.media_url) {
-      setTranscript("No video URL available for this reel.");
-      return;
-    }
     setTranscribing(true);
     try {
+      // Competitor reels don't carry a usable stored media_url (IG CDN links expire),
+      // so resolve a fresh playable URL the same way the player does.
+      let videoUrl: string | null = reel.media_url || null;
+      if (reel.handle && reel.id) {
+        const d = await fetch(`/api/competitors/reel-media?id=${reel.id}`).then((r) => r.json()).catch(() => ({}));
+        if (d.url) videoUrl = d.url;
+      }
+      if (!videoUrl) {
+        setTranscript("No video URL available for this reel.");
+        setTranscribing(false);
+        return;
+      }
       const res = await fetch("/api/instagram/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaUrl: reel.media_url }),
+        body: JSON.stringify({ mediaUrl: videoUrl }),
       });
       const data = await res.json();
       const text = data.error ? `Error: ${data.error}` : (data.transcript || "No speech detected.");
