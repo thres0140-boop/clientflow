@@ -944,6 +944,53 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
   const [linkedTo, setLinkedTo] = useState<string | null>(null);
   const reelLink = reel.permalink || reel.instagramUrl || (reel.id ? `https://instagram.com/reel/${reel.id}` : "");
 
+  // ── Translate transcript + send competitor reel to Script Kanban as an idea ──
+  const [translating, setTranslating] = useState(false);
+  const [showKanbanPicker, setShowKanbanPicker] = useState(false);
+  const [kanbanConcepts, setKanbanConcepts] = useState<any[]>([]);
+  const [kanbanBusy, setKanbanBusy] = useState<number | null>(null);
+  const [sentToKanban, setSentToKanban] = useState<string | null>(null);
+
+  async function translateToDutch() {
+    if (!transcript || !transcript.trim()) { alert("Transcribe first, then translate."); return; }
+    setTranslating(true);
+    try {
+      const d = await fetch("/api/translate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: transcript, target: "Dutch" }),
+      }).then((r) => r.json());
+      if (d.text) {
+        setTranscript(d.text);
+        setCleared(false);
+        try { localStorage.setItem(storageKey, d.text); localStorage.removeItem(clearedKey); } catch { /* ignore */ }
+      } else alert("Translation failed: " + (d.error || "unknown"));
+    } catch { alert("Translation failed."); }
+    finally { setTranslating(false); }
+  }
+
+  async function openKanbanPicker() {
+    if (!transcript || !transcript.trim()) { alert("Transcribe (and translate) first, then send to Kanban."); return; }
+    setShowKanbanPicker(true);
+    try {
+      const cs = await fetch(`/api/concepts?clientId=${client.id}`).then((r) => r.json());
+      setKanbanConcepts((Array.isArray(cs) ? cs : []).filter((c: any) => !c.isIdea));
+    } catch { setKanbanConcepts([]); }
+  }
+
+  async function sendToKanban(c: any) {
+    setKanbanBusy(c.id);
+    try {
+      const d = await fetch("/api/competitors/to-kanban", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reelId: reel.id, clientId: client.id, conceptId: c.id, script: transcript }),
+      }).then((r) => r.json());
+      if (d.ok) {
+        setSentToKanban(c.conceptType ? `${c.conceptType} · ${c.name}` : c.name);
+        setShowKanbanPicker(false);
+      } else alert("Failed to send to Kanban: " + (d.error || "unknown"));
+    } finally { setKanbanBusy(null); }
+  }
+
   async function openLinkPicker() {
     setShowLinkPicker(true);
     try {
@@ -1274,6 +1321,9 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Transcript</p>
                 {transcript
                   ? <div className="flex items-center gap-3">
+                      <button onClick={translateToDutch} disabled={translating || transcribing} className="text-xs font-medium text-orange-600 hover:text-orange-800 disabled:opacity-50">
+                        {translating ? "Translating…" : "🇳🇱 To Dutch"}
+                      </button>
                       <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50">
                         {transcribing ? "Transcribing…" : "↻ Redo"}
                       </button>
@@ -1301,7 +1351,22 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
             </div>
           </div>
         </div>
-        <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 flex gap-2.5">
+        <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 space-y-2.5">
+          {/* Competitor reel → send straight into Script Kanban as an idea, with the
+              IG video attached as the example to copy. */}
+          {reel.handle && (
+            sentToKanban ? (
+              <div className="w-full py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">
+                ✓ Added to Kanban ideas · {sentToKanban}
+              </div>
+            ) : (
+              <button onClick={openKanbanPicker}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">
+                ➡️ Send to Script Kanban (idea)
+              </button>
+            )
+          )}
+          <div className="flex gap-2.5">
           {attachConcept ? (
             <button onClick={addToConceptGroup} disabled={attachState !== "idle"}
               className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${attachState === "added" ? "bg-green-100 text-green-700" : "bg-indigo-600 text-white hover:bg-indigo-700"} disabled:opacity-70`}>
@@ -1333,6 +1398,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
               Open ↗
             </a>
           )}
+          </div>
         </div>
       </div>
     </div>
@@ -1355,6 +1421,34 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
                   <span className="font-medium">{c.name}</span>
                 </span>
                 <span className="text-[10px] text-slate-400">{linkBusy === c.id ? "Linking…" : (() => { try { return `📎 ${JSON.parse(c.reelUrls || "[]").length}`; } catch { return ""; } })()}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {showKanbanPicker && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={() => setShowKanbanPicker(false)}>
+        <div className="w-[420px] max-h-[70vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-slate-800">➡️ Send to Kanban — pick a concept</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Creates an idea with this script + the IG video as the example.</p>
+            </div>
+            <button onClick={() => setShowKanbanPicker(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {kanbanConcepts.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-8">No concepts yet for this client. Add one in the Concept Library first.</p>
+            ) : kanbanConcepts.map((c: any) => (
+              <button key={c.id} onClick={() => sendToKanban(c)} disabled={kanbanBusy === c.id}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-left hover:bg-indigo-50 disabled:opacity-60">
+                <span className="text-sm text-slate-700">
+                  {c.conceptType && <span className="text-slate-400">{c.conceptType} · </span>}
+                  <span className="font-medium">{c.name}</span>
+                </span>
+                <span className="text-[10px] text-slate-400">{kanbanBusy === c.id ? "Sending…" : "→ Ideas"}</span>
               </button>
             ))}
           </div>
