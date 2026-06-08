@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { scrapeCompetitor, scrapeCompetitorProfile } from "@/lib/scrapeCompetitors";
-
-export const maxDuration = 120;
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
@@ -27,11 +24,9 @@ export async function POST(req: NextRequest) {
       profileUrl: body.profileUrl || null,
     },
   });
-  // Fast path so the row + stats appear immediately: pull basic profile data
-  // (one request) and a light incremental reel scrape. The daily cron does the
-  // deep backfill — we never block the Add button on a 12-page crawl.
-  await scrapeCompetitorProfile(competitor.id).catch(() => {});
-  await scrapeCompetitor(competitor.id, { full: false }).catch(() => {});
-  const fresh = await prisma.competitor.findUnique({ where: { id: competitor.id } });
-  return NextResponse.json(fresh ?? competitor, { status: 201 });
+  // Return immediately — never block the Add button on a scrape + thumbnail caching
+  // crawl (that made the button appear to hang). The actual data pull happens
+  // on-demand via the "Refresh now" button (or the per-competitor scrape kicked
+  // right after add). Profile + reels are populated by /api/competitors/[id]/scrape.
+  return NextResponse.json(competitor, { status: 201 });
 }

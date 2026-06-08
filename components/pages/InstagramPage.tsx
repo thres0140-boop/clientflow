@@ -832,12 +832,24 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
   });
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
+  const [saving, setSaving] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const method = competitor ? "PUT" : "POST";
-    const url = competitor ? `/api/competitors/${competitor.id}` : "/api/competitors";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, clientId }) });
-    onSaved();
+    if (saving) return;
+    setSaving(true);
+    try {
+      const method = competitor ? "PUT" : "POST";
+      const url = competitor ? `/api/competitors/${competitor.id}` : "/api/competitors";
+      const saved = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, clientId }) }).then((r) => r.json());
+      // New competitor → kick a background pull of its data (don't await; the row
+      // appears instantly and reels fill in shortly after).
+      if (!competitor && saved?.id) {
+        fetch(`/api/competitors/${saved.id}/scrape`, { method: "POST" }).catch(() => {});
+      }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -877,8 +889,8 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
         </div>
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-            {competitor ? "Save Changes" : "Add Competitor"}
+          <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+            {saving ? "Saving…" : competitor ? "Save Changes" : "Add Competitor"}
           </button>
         </div>
       </form>
