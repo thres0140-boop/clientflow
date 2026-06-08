@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { scrapeCompetitor } from "@/lib/scrapeCompetitors";
+import { scrapeCompetitor, scrapeCompetitorProfile } from "@/lib/scrapeCompetitors";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
 
   let reels = 0;
   for (const c of toScrape) {
+    await scrapeCompetitorProfile(c.id).catch(() => {}); // refresh follower/post stats
     const r = await scrapeCompetitor(c.id);
     reels += r.reels;
     await new Promise((res) => setTimeout(res, 300));

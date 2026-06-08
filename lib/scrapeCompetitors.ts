@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cacheImageToR2, isR2Url } from "@/lib/r2";
 
 // ── Scraper provider (RapidAPI instagram-scraper-api2) ──────────────────────
 // All scraping goes through this one function. To swap providers (e.g. Apify),
@@ -231,13 +232,18 @@ export async function scrapeCompetitor(
   try {
     const recent = await fetchReelsFromProvider(competitor.handle, maxPages);
 
+    // Reels whose thumbnail still points at an (expiring) Instagram CDN URL — we'll
+    // download + rehost these to R2 below so the archive doesn't rot into broken images.
+    const toCache: { reelId: number; shortcode: string; igUrl: string }[] = [];
+
     let count = 0;
     for (const r of recent) {
       const reel = await (prisma as any).competitorReel.upsert({
         where: { competitorId_shortcode: { competitorId, shortcode: r.shortcode } },
         update: {
           caption: r.caption || undefined,
-          thumbnailUrl: r.thumbnailUrl || undefined,
+          // NOTE: don't overwrite thumbnailUrl here — once cached to R2 it must stay the
+          // durable R2 URL. Fresh IG thumbnails are handled by the caching pass below.
           mediaUrl: r.mediaUrl || undefined,
           mediaUrlAt: r.mediaUrl ? new Date() : undefined,
           permalink: r.permalink || undefined,
@@ -263,7 +269,25 @@ export async function scrapeCompetitor(
           commentCount: r.commentCount ?? null,
         },
       });
+      // Queue thumbnail caching if we don't already have a durable (R2) one.
+      const igUrl = r.thumbnailUrl || reel.thumbnailUrl;
+      if (igUrl && !isR2Url(reel.thumbnailUrl)) {
+        toCache.push({ reelId: reel.id, shortcode: r.shortcode, igUrl });
+      }
       count++;
+    }
+
+    // Rehost thumbnails to R2 (small concurrency; cap per run so a big backfill can't
+    // time out — any leftovers get picked up on the next refresh while still fresh).
+    const CONCURRENCY = 6;
+    const queue = toCache.slice(0, 120);
+    for (let i = 0; i < queue.length; i += CONCURRENCY) {
+      await Promise.all(queue.slice(i, i + CONCURRENCY).map(async (t) => {
+        const url = await cacheImageToR2(t.igUrl, `comp-thumbs/${competitorId}/${t.shortcode}.jpg`);
+        if (url) {
+          await (prisma as any).competitorReel.update({ where: { id: t.reelId }, data: { thumbnailUrl: url } }).catch(() => {});
+        }
+      }));
     }
 
     await prisma.competitor.update({
