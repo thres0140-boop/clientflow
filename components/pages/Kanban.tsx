@@ -1952,14 +1952,33 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
     onUploaded(urls.filter((_, i) => i !== idx));
   }
 
-  async function downloadAll() {
-    for (const url of urls) {
+  async function downloadOne(url: string, index: number) {
+    // The <a download> attribute is ignored for cross-origin URLs (Cloudinary/R2), so
+    // Chrome just opens the file in a tab. Fetch it as a blob and download that instead —
+    // works the same in every browser. Falls back to opening if the fetch is blocked.
+    let name = (url.split("?")[0].split("/").pop() || `file-${index + 1}`);
+    if (!/\.[a-z0-9]{2,4}$/i.test(name)) name += ".mp4";
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = url.split("/").pop() || "file";
-      a.target = "_blank";
+      a.href = objUrl;
+      a.download = name;
+      document.body.appendChild(a);
       a.click();
-      await new Promise((r) => setTimeout(r, 300));
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+    } catch {
+      window.open(url, "_blank"); // last resort
+    }
+  }
+
+  async function downloadAll() {
+    for (let i = 0; i < urls.length; i++) {
+      await downloadOne(urls[i], i);
+      await new Promise((r) => setTimeout(r, 400));
     }
   }
 
@@ -2001,6 +2020,10 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
                       className="absolute bottom-1 left-1 text-[8px] bg-black/60 text-white px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                       ↗
                     </a>
+                    <button onClick={() => downloadOne(url, i)} title="Download"
+                      className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-indigo-600">
+                      ⬇
+                    </button>
                   </div>
                 ))}
               </div>
