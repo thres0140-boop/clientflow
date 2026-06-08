@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   let toSave = matches;
   const enriched: Record<string, { gender: string; language: string }> = {};
   if (filtering && matches.length) {
-    const capped = matches.slice(0, 14);
+    const capped = matches.slice(0, 6); // bio fetches are slow — keep each step well under the timeout
     // Make sure each match has a bio (the list sometimes omits it) — fetch profile if missing.
     for (const m of capped) {
       if (!m.user.bio) {

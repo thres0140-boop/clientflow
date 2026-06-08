@@ -805,18 +805,26 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
       if (start.error) { setStatus("Error: " + start.error); setCrawling(false); return; }
       let queue: string[] = start.queue, seen: string[] = start.seen;
       setStatus(`Crawling @${seed.trim()}'s niche network…`);
-      for (let i = 0; i < 80 && !stopRef.current; i++) {
-        const step = await fetch("/api/competitors/find", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, goal, gender, language }),
-        }).then((r) => r.json());
+      let lastFound = 0;
+      for (let i = 0; i < 120 && !stopRef.current; i++) {
+        let step: { error?: string; queue?: string[]; seen?: string[]; found?: number; source?: string; done?: boolean };
+        try {
+          const res = await fetch("/api/competitors/find", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, goal, gender, language }),
+          });
+          if (!res.ok) { setStatus(`Hiccup (server ${res.status}) — retrying…`); await new Promise((r) => setTimeout(r, 1500)); continue; }
+          step = await res.json();
+        } catch {
+          setStatus("Network hiccup — retrying…"); await new Promise((r) => setTimeout(r, 1500)); continue;
+        }
         if (step.error) { setStatus("Error: " + step.error); break; }
-        queue = step.queue; seen = step.seen; setFound(step.found);
-        setStatus(`Scanning @${step.source ?? "…"} · found ${step.found}/${goal}`);
+        queue = step.queue || []; seen = step.seen || []; lastFound = step.found || 0; setFound(lastFound);
+        setStatus(`Scanning @${step.source ?? "…"} · found ${lastFound}/${goal}`);
         await loadCandidates();
-        if (step.done) { setStatus(`Done — found ${step.found} candidates. Review them below.`); break; }
+        if (step.done) { setStatus(`✓ Done — found ${lastFound} candidates. Review them below.`); break; }
       }
-      if (stopRef.current) setStatus(`Stopped — ${found} candidates so far.`);
+      if (stopRef.current) setStatus(`Stopped — ${lastFound} candidates so far.`);
     } finally {
       setCrawling(false);
       loadCandidates();
