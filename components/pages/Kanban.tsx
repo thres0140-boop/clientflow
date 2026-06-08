@@ -946,6 +946,33 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
   );
 }
 
+// ─── Copyable link + QR for the finished video (open it on your phone) ────────
+function VideoShareLink({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-2">
+        <input readOnly value={url} onFocus={(e) => e.currentTarget.select()}
+          className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-500 truncate" />
+        <button
+          onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ } }}
+          className="px-2.5 py-1.5 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 whitespace-nowrap">
+          {copied ? "✓ Copied" : "🔗 Copy link"}
+        </button>
+        <button onClick={() => setShowQR((s) => !s)}
+          className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱 QR</button>
+      </div>
+      {showQR && (
+        <div className="mt-2 flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3">
+          <QRCodeSVG value={url} size={150} />
+          <p className="text-[10px] text-slate-400">Scan to open the video on your phone</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Edited video upload button ─────────────────────────────────────────────
 function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1312,6 +1339,7 @@ function DraftDetailPanel({
                     ) : (
                       <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
                     )}
+                    {draft.editedVideoUrl && <VideoShareLink url={draft.editedVideoUrl} />}
                   </div>
                 )}
 
