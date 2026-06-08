@@ -671,6 +671,10 @@ export async function POST(req: NextRequest) {
 
   try {
     await (prisma as any).$executeRaw`
+      ALTER TABLE "DraftNote"
+      ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
       ALTER TABLE "InstagramConnection"
       ADD COLUMN IF NOT EXISTS "zernioAccountId" TEXT;
     `;

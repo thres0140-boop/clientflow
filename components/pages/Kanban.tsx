@@ -1091,7 +1091,10 @@ function DraftDetailPanel({
   const [refining, setRefining] = useState(false);
   const [saveWeeks, setSaveWeeks] = useState(2);
   const [checkApproved, setCheckApproved] = useState(false);
-  const [notes, setNotes] = useState<{ id: number; author: string; content: string; createdAt: string }[]>([]);
+  const [notes, setNotes] = useState<{ id: number; author: string; content: string; createdAt: string; imageUrl?: string | null }[]>([]);
+  const [noteImg, setNoteImg] = useState<string | null>(null);
+  const [noteImgUploading, setNoteImgUploading] = useState(false);
+  const noteImgRef = useRef<HTMLInputElement>(null);
   const [changes, setChanges] = useState<{ id: number; field: string; before: string; after: string; author: string; createdAt: string }[]>([]);
   const [noteInput, setNoteInput] = useState("");
   const [showSendBack, setShowSendBack] = useState(false);
@@ -1104,6 +1107,26 @@ function DraftDetailPanel({
   const nextStage = draft.stageId ? getNextStage(draft.stageId) : null;
   // Author notes under the real person's name (member's name, or the owner).
   const authorName = activeProfileId ? (team.find((m) => m.id === activeProfileId)?.name || "Team") : ownerName;
+
+  async function addNote() {
+    const content = noteInput.trim();
+    if (!content && !noteImg) return;
+    const n = await fetch("/api/draft-notes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ draftId: draft.id, content, author: authorName, imageUrl: noteImg }),
+    }).then((r) => r.json());
+    setNotes((prev) => [...prev, n]);
+    setNoteInput("");
+    setNoteImg(null);
+  }
+
+  async function uploadNoteImage(file?: File | null) {
+    if (!file || !file.type.startsWith("image")) return;
+    setNoteImgUploading(true);
+    try { const url = await cloudinaryUpload(file, () => {}); setNoteImg(url); }
+    catch (e) { alert("Image upload failed: " + (e instanceof Error ? e.message : String(e))); }
+    finally { setNoteImgUploading(false); }
+  }
 
   useEffect(() => {
     const loadNotes = () => fetch(`/api/draft-notes?draftId=${draft.id}`).then(r => r.json()).then(setNotes).catch(() => {});
@@ -1346,27 +1369,47 @@ function DraftDetailPanel({
               {notes.length === 0 && <p className="text-xs text-slate-400">No notes yet.</p>}
               {notes.map((n) => (
                 <div key={n.id} className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  <p className="text-xs text-slate-700">{n.content}</p>
+                  {n.content && <p className="text-xs text-slate-700 whitespace-pre-wrap">{n.content}</p>}
+                  {n.imageUrl && (
+                    <a href={n.imageUrl} target="_blank" rel="noopener noreferrer" className={n.content ? "block mt-1.5" : "block"}>
+                      <img src={n.imageUrl} alt="note attachment" className="rounded-lg max-h-48 border border-amber-200" />
+                    </a>
+                  )}
                   <p className="text-[10px] text-slate-400 mt-1">{n.author} · {new Date(n.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
               ))}
             </div>
+
+            {/* Pending screenshot preview */}
+            {(noteImg || noteImgUploading) && (
+              <div className="mb-2 flex items-center gap-2">
+                {noteImgUploading ? (
+                  <span className="text-xs text-slate-400">Uploading image…</span>
+                ) : (
+                  <div className="relative inline-block">
+                    <img src={noteImg!} alt="" className="h-16 rounded-lg border border-slate-200" />
+                    <button onClick={() => setNoteImg(null)}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black/60 text-white text-[9px] flex items-center justify-center">✕</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <input ref={noteImgRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { uploadNoteImage(e.target.files?.[0]); if (e.target) e.target.value = ""; }} />
             <div className="flex gap-2">
               <input value={noteInput} onChange={(e) => setNoteInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault();
-                  if (!noteInput.trim()) return;
-                  fetch("/api/draft-notes", { method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ draftId: draft.id, content: noteInput.trim(), author: authorName }) })
-                    .then(r => r.json()).then(n => { setNotes(prev => [...prev, n]); setNoteInput(""); });
-                }}}
-                placeholder="Add a note…"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNote(); } }}
+                onPaste={(e) => {
+                  const img = Array.from(e.clipboardData.items).find((it) => it.type.startsWith("image"));
+                  if (img) { const f = img.getAsFile(); if (f) { e.preventDefault(); uploadNoteImage(f); } }
+                }}
+                placeholder="Add a note… (paste a screenshot too)"
                 className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-              <button onClick={() => {
-                if (!noteInput.trim()) return;
-                fetch("/api/draft-notes", { method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ draftId: draft.id, content: noteInput.trim(), author: authorName }) })
-                  .then(r => r.json()).then(n => { setNotes(prev => [...prev, n]); setNoteInput(""); });
-              }} className="px-3 py-2 text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600">Add</button>
+              <button onClick={() => noteImgRef.current?.click()} title="Attach screenshot"
+                className="px-3 py-2 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">📎</button>
+              <button onClick={addNote} disabled={noteImgUploading}
+                className="px-3 py-2 text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50">Add</button>
             </div>
           </div>
 
