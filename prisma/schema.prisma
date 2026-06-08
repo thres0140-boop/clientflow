@@ -181,6 +181,23 @@ model Competitor {
   reels  CompetitorReel[]
 }
 
+// Discovered profiles from the Competitor Finder crawl, pending owner review.
+// Accept → promoted into a Competitor row; reject → kept so we don't resurface it.
+model CompetitorCandidate {
+  id            Int      @id @default(autoincrement())
+  clientId      Int
+  handle        String
+  name          String?
+  followerCount Int?
+  profilePicUrl String?
+  matched       String?  // why it matched (the keyword)
+  status        String   @default("pending") // pending | accepted | rejected
+  createdAt     DateTime @default(now())
+
+  @@unique([clientId, handle])
+  @@index([clientId, status])
+}
+
 // Provenance-aware example pool the script generator studies. `scriptExamples`
 // on Concept stays the human-curated / reel-pulled set (trusted); this table adds
 // accepted-but-unproven drafts (recent context) and performance-promoted winners.

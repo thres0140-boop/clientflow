@@ -93,7 +93,7 @@ export async function freshReelMediaUrl(handle: string, shortcode: string): Prom
 
 // Fetch reels (newest first), following pagination tokens up to `maxPages`
 // (a cost cap). We don't date-filter — we store whatever the account has.
-async function fetchReelsFromProvider(handle: string, maxPages: number): Promise<ScrapedReel[]> {
+export async function fetchReelsFromProvider(handle: string, maxPages: number): Promise<ScrapedReel[]> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) throw new Error("RAPIDAPI_KEY not set");
 

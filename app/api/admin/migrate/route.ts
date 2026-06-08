@@ -670,6 +670,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Competitor Finder candidates table
+    await (prisma as any).$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "CompetitorCandidate" (
+        "id" SERIAL PRIMARY KEY,
+        "clientId" INTEGER NOT NULL,
+        "handle" TEXT NOT NULL,
+        "name" TEXT,
+        "followerCount" INTEGER,
+        "profilePicUrl" TEXT,
+        "matched" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'pending',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await (prisma as any).$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "CompetitorCandidate_clientId_handle_key" ON "CompetitorCandidate"("clientId","handle");`);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CompetitorCandidate_clientId_status_idx" ON "CompetitorCandidate"("clientId","status");`);
+
     await (prisma as any).$executeRaw`
       ALTER TABLE "DraftNote"
       ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;

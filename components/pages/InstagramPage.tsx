@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Client, Competitor } from "@/lib/types";
 import Modal from "@/components/ui/Modal";
 import { ConceptModal } from "./Concepts";
@@ -426,7 +426,7 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
   );
 }
 
-type CompSubTab = "list" | "reels";
+type CompSubTab = "list" | "reels" | "find";
 
 function CompetitorsTab({ client }: { client: Client }) {
   const [subTab, setSubTab] = useState<CompSubTab>("list");
@@ -559,7 +559,7 @@ function CompetitorsTab({ client }: { client: Client }) {
   return (
     <div className="space-y-4">
       <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
-        {([["list", "📋 List"], ["reels", "🎬 Reels"]] as [CompSubTab, string][]).map(([id, label]) => (
+        {([["list", "📋 List"], ["reels", "🎬 Reels"], ["find", "🔎 Find"]] as [CompSubTab, string][]).map(([id, label]) => (
           <button key={id} onClick={() => setSubTab(id)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               subTab === id ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-700"
@@ -764,9 +764,207 @@ function CompetitorsTab({ client }: { client: Client }) {
         </div>
       )}
 
+      {subTab === "find" && <FinderTab client={client} onAccepted={reload} />}
+
       {showAdd && <CompetitorModal clientId={client.id} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); reload(); }} />}
       {editing && <CompetitorModal clientId={client.id} competitor={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
       {selectedReel && <ReelDetailPanel reel={selectedReel} client={client} onClose={() => setSelectedReel(null)} />}
+    </div>
+  );
+}
+
+// ─── Competitor Finder: crawl an account's network for niche peers, review, accept ──
+type Candidate = { id: number; handle: string; name: string | null; profilePicUrl: string | null; matched: string | null };
+
+function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => void }) {
+  const [seed, setSeed] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [goal, setGoal] = useState(100);
+  const [crawling, setCrawling] = useState(false);
+  const [status, setStatus] = useState("");
+  const [found, setFound] = useState(0);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [preview, setPreview] = useState<Candidate | null>(null);
+  const stopRef = useRef(false);
+
+  const loadCandidates = useCallback(async () => {
+    const d = await fetch(`/api/competitors/candidates?clientId=${client.id}`).then((r) => r.json());
+    setCandidates(Array.isArray(d) ? d : []);
+  }, [client.id]);
+  useEffect(() => { loadCandidates(); }, [loadCandidates]);
+
+  async function startCrawl() {
+    if (!seed.trim() || crawling) return;
+    setCrawling(true); stopRef.current = false; setStatus("Expanding niche keywords…"); setFound(0);
+    try {
+      const start = await fetch("/api/competitors/find", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "start", clientId: client.id, seed: seed.trim(), keyword: keyword.trim() || seed.trim(), goal }),
+      }).then((r) => r.json());
+      if (start.error) { setStatus("Error: " + start.error); setCrawling(false); return; }
+      let queue: string[] = start.queue, seen: string[] = start.seen;
+      const keywords: string[] = start.keywords;
+      setStatus(`Crawling… (matching: ${keywords.slice(0, 6).join(", ")}…)`);
+      for (let i = 0; i < 80 && !stopRef.current; i++) {
+        const step = await fetch("/api/competitors/find", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, keywords, goal }),
+        }).then((r) => r.json());
+        if (step.error) { setStatus("Error: " + step.error); break; }
+        queue = step.queue; seen = step.seen; setFound(step.found);
+        setStatus(`Scanning @${step.source ?? "…"} · found ${step.found}/${goal}`);
+        await loadCandidates();
+        if (step.done) { setStatus(`Done — found ${step.found} candidates. Review them below.`); break; }
+      }
+      if (stopRef.current) setStatus(`Stopped — ${found} candidates so far.`);
+    } finally {
+      setCrawling(false);
+      loadCandidates();
+    }
+  }
+
+  async function act(c: Candidate, action: "accept" | "reject") {
+    const d = await fetch(`/api/competitors/candidates/${c.id}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    }).then((r) => r.json());
+    setCandidates((prev) => prev.filter((x) => x.id !== c.id));
+    setPreview(null);
+    if (action === "accept") {
+      if (d.competitorId) fetch(`/api/competitors/${d.competitorId}/scrape`, { method: "POST" }).catch(() => {});
+      onAccepted();
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-700">Find competitors</p>
+          <p className="text-xs text-slate-400 mt-0.5">Crawl an account's network for niche peers. Review and accept them into your tracked list.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Seed account</label>
+            <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+              <span className="px-2.5 py-2 bg-slate-50 text-slate-400 text-sm">@</span>
+              <input value={seed} onChange={(e) => setSeed(e.target.value.replace("@", ""))} placeholder="someone in your niche"
+                className="flex-1 px-2 py-2 text-sm focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Niche keyword</label>
+            <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="e.g. social media"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Goal</label>
+            <input type="number" value={goal} onChange={(e) => setGoal(Math.max(1, Math.min(500, parseInt(e.target.value) || 100)))}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {!crawling ? (
+            <button onClick={startCrawl} disabled={!seed.trim()}
+              className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+              🔎 Start finding
+            </button>
+          ) : (
+            <button onClick={() => { stopRef.current = true; }}
+              className="px-4 py-2 text-sm font-semibold bg-red-50 text-red-600 rounded-lg hover:bg-red-100">
+              ■ Stop
+            </button>
+          )}
+          {status && <span className="text-xs text-slate-500">{status}</span>}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-slate-700">Candidates to review · {candidates.length}</p>
+        {candidates.length > 0 && (
+          <button onClick={async () => { if (confirm("Clear all candidates?")) { await fetch(`/api/competitors/candidates?clientId=${client.id}`, { method: "DELETE" }); loadCandidates(); } }}
+            className="text-xs text-slate-400 hover:text-red-500">Clear all</button>
+        )}
+      </div>
+
+      {candidates.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center text-sm text-slate-400">
+          No candidates yet. Run a search above.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {candidates.map((c) => (
+            <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {c.profilePicUrl
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={c.profilePicUrl} alt="" className="w-9 h-9 rounded-full object-cover bg-slate-100 flex-shrink-0" />
+                  : <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400 flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</div>}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">@{c.handle}</p>
+                  {c.matched && <p className="text-[10px] text-slate-400 truncate">matched "{c.matched}"</p>}
+                </div>
+              </div>
+              <div className="flex gap-1.5">
+                <button onClick={() => setPreview(c)} className="flex-1 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">👁 View</button>
+                <button onClick={() => act(c, "accept")} className="px-2.5 py-1.5 text-[11px] font-semibold bg-green-50 text-green-600 rounded-lg hover:bg-green-100">✓</button>
+                <button onClick={() => act(c, "reject")} className="px-2.5 py-1.5 text-[11px] font-semibold bg-red-50 text-red-500 rounded-lg hover:bg-red-100">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {preview && <CandidatePreview candidate={preview} onClose={() => setPreview(null)} onAccept={() => act(preview, "accept")} onReject={() => act(preview, "reject")} />}
+    </div>
+  );
+}
+
+function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidate: Candidate; onClose: () => void; onAccept: () => void; onReject: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<{ profile: { followerCount?: number; postCount?: number; bio?: string } | null; reels: { shortcode: string; thumbnailUrl?: string; permalink?: string; views: number | null; caption: string }[] } | null>(null);
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/competitors/preview?handle=${encodeURIComponent(candidate.handle)}`)
+      .then((r) => r.json()).then(setData).catch(() => setData(null)).finally(() => setLoading(false));
+  }, [candidate.handle]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+          <div className="flex items-center gap-2">
+            <a href={`https://instagram.com/${candidate.handle}`} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-800 hover:text-indigo-600">@{candidate.handle}</a>
+            {data?.profile?.followerCount != null && <span className="text-xs text-slate-400">{fmt(data.profile.followerCount)} followers</span>}
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
+        </div>
+        <div className="p-5">
+          {data?.profile?.bio && <p className="text-xs text-slate-500 mb-3 whitespace-pre-wrap">{data.profile.bio}</p>}
+          {loading ? (
+            <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /></div>
+          ) : !data?.reels?.length ? (
+            <p className="text-sm text-slate-400 text-center py-8">No reels found (private or no recent reels).</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {data.reels.map((r) => (
+                <a key={r.shortcode} href={r.permalink || `https://instagram.com/reel/${r.shortcode}`} target="_blank" rel="noopener noreferrer"
+                  className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group">
+                  {r.thumbnailUrl
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={r.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">▶</div>}
+                  {r.views != null && <span className="absolute bottom-1 left-1 bg-indigo-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">▶ {fmt(r.views)}</span>}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-100 flex gap-2 sticky bottom-0 bg-white">
+          <button onClick={onReject} className="flex-1 py-2.5 text-sm font-semibold bg-red-50 text-red-600 rounded-xl hover:bg-red-100">✕ Reject</button>
+          <button onClick={onAccept} className="flex-1 py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700">✓ Accept as competitor</button>
+        </div>
+      </div>
     </div>
   );
 }
