@@ -141,7 +141,13 @@ export async function POST(req: NextRequest) {
 
     // (writingRules chosen below, after the format is known)
 
-    const captionStyle = clientData.captionStyle
+    // Prefer the learned CAPTION PLAYBOOK (same source the dedicated caption button uses)
+    // so generated captions match the real opening style, CTA, emoji and length — not just
+    // the old freeform captionStyle field.
+    const captionPlaybook = (clientData as any).captionGuidelines as string | null | undefined;
+    const captionStyle = captionPlaybook
+      ? `\n\nCAPTION PLAYBOOK — every "caption" you output MUST follow this exactly: the opening style, the rhythm/line-breaks, the length, the emoji rules, and ALWAYS end with the playbook's CTA structure. Do not write a long essay; match the playbook's length.\n${captionPlaybook}`
+      : clientData.captionStyle
       ? `\n\nCAPTION STYLE:\n${clientData.captionStyle}`
       : "";
 
