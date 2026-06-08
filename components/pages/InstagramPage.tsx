@@ -774,7 +774,13 @@ function CompetitorsTab({ client }: { client: Client }) {
 }
 
 // ─── Competitor Finder: crawl an account's network for niche peers, review, accept ──
-type Candidate = { id: number; handle: string; name: string | null; profilePicUrl: string | null; matched: string | null; gender?: string | null; language?: string | null };
+type Candidate = { id: number; handle: string; name: string | null; profilePicUrl: string | null; matched: string | null; gender?: string | null; language?: string | null; bio?: string | null; followerCount?: number | null };
+
+function fmtFollowers(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`;
+  return String(n);
+}
 
 function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => void }) {
   const [seed, setSeed] = useState("");
@@ -797,8 +803,9 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
   }, [client.id]);
   useEffect(() => { loadCandidates(); }, [loadCandidates]);
 
-  // Lazy enrichment drip: only runs when a gender/language filter is active. Infers those
-  // fields for un-enriched candidates in small batches (off the crawl path → no timeouts).
+  // Enrichment drip: pulls bio, follower count, a fresh profile pic, and infers
+  // gender/language for un-enriched candidates in small batches (off the crawl path → no
+  // timeouts). Always runs after a crawl so cards show bio + pic regardless of filters.
   const filterActive = gender !== "any" || language !== "any";
   const runEnrichment = useCallback(async () => {
     if (enrichRef.current) return;
@@ -816,8 +823,8 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
     } finally { enrichRef.current = false; setEnriching(false); }
   }, [client.id, loadCandidates]);
   useEffect(() => {
-    if (filterActive && !enrichRef.current && candidates.some((c) => !c.gender)) runEnrichment();
-  }, [filterActive, candidates, runEnrichment]);
+    if (!enrichRef.current && candidates.some((c) => !c.gender)) runEnrichment();
+  }, [candidates, runEnrichment]);
 
   const shown = candidates.filter((c) =>
     (gender === "any" || c.gender === gender) && (language === "any" || c.language === language)
@@ -959,18 +966,21 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
               <div className="flex items-center gap-2 min-w-0">
                 {c.profilePicUrl
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={c.profilePicUrl} alt="" className="w-9 h-9 rounded-full object-cover bg-slate-100 flex-shrink-0" />
+                  ? <img src={`/api/img?u=${encodeURIComponent(c.profilePicUrl)}`} alt="" className="w-9 h-9 rounded-full object-cover bg-slate-100 flex-shrink-0" />
                   : <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400 flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</div>}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-800 truncate">@{c.handle}</p>
                   <p className="text-[10px] text-slate-400 truncate">
-                    {c.matched && `matched "${c.matched}"`}
+                    {typeof c.followerCount === "number" ? `${fmtFollowers(c.followerCount)} followers` : (c.matched ? `matched "${c.matched}"` : "")}
                     {(c.gender && c.gender !== "unknown") ? ` · ${c.gender === "male" ? "♂" : "♀"}` : ""}
                     {(c.language && c.language !== "unknown") ? ` · ${c.language.toUpperCase()}` : ""}
                   </p>
                 </div>
               </div>
-              <div className="flex gap-1.5">
+              {c.bio
+                ? <p className="text-[11px] leading-snug text-slate-500 line-clamp-3 whitespace-pre-line">{c.bio}</p>
+                : <p className="text-[11px] text-slate-300 italic">{enriching ? "loading bio…" : "no bio"}</p>}
+              <div className="flex gap-1.5 mt-auto">
                 <button onClick={() => setPreview(c)} className="flex-1 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">👁 View</button>
                 <button onClick={() => act(c, "accept")} className="px-2.5 py-1.5 text-[11px] font-semibold bg-green-50 text-green-600 rounded-lg hover:bg-green-100">✓</button>
                 <button onClick={() => act(c, "reject")} className="px-2.5 py-1.5 text-[11px] font-semibold bg-red-50 text-red-500 rounded-lg hover:bg-red-100">✕</button>

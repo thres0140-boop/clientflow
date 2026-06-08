@@ -748,6 +748,7 @@ export async function POST(req: NextRequest) {
     await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CompetitorCandidate_clientId_status_idx" ON "CompetitorCandidate"("clientId","status");`);
     await (prisma as any).$executeRawUnsafe(`ALTER TABLE "CompetitorCandidate" ADD COLUMN IF NOT EXISTS "gender" TEXT;`);
     await (prisma as any).$executeRawUnsafe(`ALTER TABLE "CompetitorCandidate" ADD COLUMN IF NOT EXISTS "language" TEXT;`);
+    await (prisma as any).$executeRawUnsafe(`ALTER TABLE "CompetitorCandidate" ADD COLUMN IF NOT EXISTS "bio" TEXT;`);
 
     await (prisma as any).$executeRaw`
       ALTER TABLE "DraftNote"

@@ -32,17 +32,16 @@ export async function POST(req: NextRequest) {
   const keywords: string[] = Array.isArray(body.keywords) ? body.keywords : [];
   const seenSet = new Set(seen);
 
-  // Next un-crawled source.
-  let source: string | undefined;
-  while (queue.length) {
+  // Next un-crawled sources (process 2 per step → reaches the goal in fewer round-trips).
+  const sources: string[] = [];
+  while (queue.length && sources.length < 2) {
     const h = queue.shift()!;
-    if (!seenSet.has(h)) { source = h; break; }
+    if (!seenSet.has(h)) { sources.push(h); seenSet.add(h); }
   }
-  if (!source) {
+  if (!sources.length) {
     const found = await prisma.competitorCandidate.count({ where: { clientId } });
     return NextResponse.json({ ok: true, done: true, queue: [], seen, found, candidatesAdded: 0, requestsUsed: 0 });
   }
-  seenSet.add(source);
 
   // Existing competitors + candidates → don't resurface.
   const [comps, cands] = await Promise.all([
@@ -53,22 +52,24 @@ export async function POST(req: NextRequest) {
 
   let requestsUsed = 0;
   let candidatesAdded = 0;
-  // One request returns ~40 algorithmically-similar (niche peer) accounts.
   const matches: { user: FoundUser; kw: string }[] = [];
-  const r = await fetchSimilarAccounts(source);
-  requestsUsed++;
-  if (r.ok) {
+  // Fetch the two sources' similar accounts in parallel.
+  const results = await Promise.all(sources.map((s) => fetchSimilarAccounts(s).then((r) => ({ s, r }))));
+  requestsUsed += sources.length;
+  for (const { s, r } of results) {
+    if (!r.ok) continue;
     for (const u of r.users) {
       const uname = u.username.toLowerCase();
       if (u.isPrivate) continue;                  // can't scrape private reels later
       // If a niche keyword was given, only keep/recurse accounts that match it (keeps the
       // snowball on-niche instead of drifting). No keyword → every similar account counts.
-      const kwHit = keywords.length ? matchedKeyword(u, keywords) : `similar to @${source}`;
+      const kwHit = keywords.length ? matchedKeyword(u, keywords) : `similar to @${s}`;
       if (!kwHit) continue;
       if (!seenSet.has(uname) && !queue.includes(uname) && queue.length < 400) queue.push(u.username);
       if (!known.has(uname)) { known.add(uname); matches.push({ user: u, kw: kwHit }); }
     }
   }
+  const source = sources[sources.length - 1];
 
   // Crawl is fast & never enriches inline — gender/language are inferred lazily afterward
   // (see /api/competitors/candidates/enrich). This keeps the step well under the timeout.
