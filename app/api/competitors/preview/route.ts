@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
         shortcode: r.shortcode,
         caption: r.caption,
         thumbnailUrl: r.thumbnailUrl,
+        mediaUrl: r.mediaUrl ?? null,
         permalink: r.permalink,
         views: r.viewCount ?? null,
         likes: r.likeCount ?? null,

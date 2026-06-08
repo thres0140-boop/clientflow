@@ -997,7 +997,8 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
 
 function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidate: Candidate; onClose: () => void; onAccept: () => void; onReject: () => void }) {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<{ profile: { followerCount?: number; postCount?: number; bio?: string } | null; reels: { shortcode: string; thumbnailUrl?: string; permalink?: string; views: number | null; caption: string }[] } | null>(null);
+  const [data, setData] = useState<{ profile: { followerCount?: number; postCount?: number; bio?: string } | null; reels: { shortcode: string; thumbnailUrl?: string; mediaUrl?: string | null; permalink?: string; views: number | null; caption: string }[] } | null>(null);
+  const [playing, setPlaying] = useState<{ shortcode: string; mediaUrl?: string | null; permalink?: string } | null>(null);
   useEffect(() => {
     setLoading(true);
     fetch(`/api/competitors/preview?handle=${encodeURIComponent(candidate.handle)}`)
@@ -1023,14 +1024,18 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
           ) : (
             <div className="grid grid-cols-3 gap-1.5">
               {data.reels.map((r) => (
-                <a key={r.shortcode} href={r.permalink || `https://instagram.com/reel/${r.shortcode}`} target="_blank" rel="noopener noreferrer"
+                <button key={r.shortcode} type="button"
+                  onClick={() => { if (r.mediaUrl) setPlaying(r); else window.open(r.permalink || `https://instagram.com/reel/${r.shortcode}`, "_blank", "noopener,noreferrer"); }}
                   className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group">
                   {r.thumbnailUrl
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={r.thumbnailUrl} alt="" className="w-full h-full object-cover" />
                     : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">▶</div>}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                    <span className="w-9 h-9 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-sm shadow">▶</span>
+                  </div>
                   {r.views != null && <span className="absolute bottom-1 left-1 bg-indigo-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">▶ {fmt(r.views)}</span>}
-                </a>
+                </button>
               ))}
             </div>
           )}
@@ -1040,6 +1045,23 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
           <button onClick={onAccept} className="flex-1 py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700">✓ Accept as competitor</button>
         </div>
       </div>
+
+      {playing && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={(e) => { e.stopPropagation(); setPlaying(null); }}>
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              src={`/api/vid?u=${encodeURIComponent(playing.mediaUrl || "")}`}
+              poster={undefined}
+              controls autoPlay playsInline
+              className="max-h-[88vh] w-auto max-w-[94vw] rounded-xl bg-black aspect-[9/16] object-contain"
+            />
+            <button onClick={() => setPlaying(null)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 shadow-lg flex items-center justify-center text-lg hover:bg-slate-100">×</button>
+            <a href={playing.permalink || `https://instagram.com/reel/${playing.shortcode}`} target="_blank" rel="noopener noreferrer"
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/90 text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-full shadow hover:bg-white">Open on Instagram ↗</a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
