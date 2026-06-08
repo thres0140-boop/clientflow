@@ -894,34 +894,6 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Gender</label>
-            <select value={gender} onChange={(e) => setGender(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
-              <option value="any">Any</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Language</label>
-            <select value={language} onChange={(e) => setLanguage(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
-              <option value="any">Any</option>
-              <option value="nl">Dutch</option>
-              <option value="en">English</option>
-              <option value="de">German</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-            </select>
-          </div>
-        </div>
-        {filterActive && (
-          <p className="text-[10px] text-slate-400">
-            Gender/language are AI‑inferred per candidate in the background{enriching ? " — inferring now…" : ""}. Candidates appear as they're classified.
-          </p>
-        )}
         <div className="flex items-center gap-3">
           {!crawling ? (
             <button onClick={startCrawl} disabled={!seed.trim()}
@@ -938,10 +910,29 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-sm font-semibold text-slate-700">
           Candidates to review · {shown.length}{filterActive && candidates.length !== shown.length ? ` (of ${candidates.length})` : ""}
         </p>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-[11px] text-slate-400">Filter:</span>
+          <select value={gender} onChange={(e) => setGender(e.target.value)}
+            className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="any">Any gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+          <select value={language} onChange={(e) => setLanguage(e.target.value)}
+            className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="any">Any language</option>
+            <option value="nl">Dutch</option>
+            <option value="en">English</option>
+            <option value="de">German</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+          </select>
+          {enriching && <span className="text-[11px] text-indigo-500">classifying…</span>}
+        </div>
         {candidates.length > 0 && (
           <button onClick={async () => { if (confirm("Clear all candidates?")) { await fetch(`/api/competitors/candidates?clientId=${client.id}`, { method: "DELETE" }); loadCandidates(); } }}
             className="text-xs text-slate-400 hover:text-red-500">Clear all</button>
