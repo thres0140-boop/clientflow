@@ -53,6 +53,24 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ?rapidcheck — is the competitor scraper (RapidAPI) configured + working?
+  if (req.nextUrl.searchParams.get("rapidcheck")) {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) return NextResponse.json({ RAPIDAPI_KEY: "MISSING", working: false, note: "Competitors page can't scrape without this key." });
+    try {
+      const host = "instagram-scraper-stable-api.p.rapidapi.com";
+      const r = await fetch(`https://${host}/get_ig_user_reels.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": host, "x-rapidapi-key": key },
+        body: new URLSearchParams({ username_or_url: "chrisbumstead", amount: "1" }).toString(),
+      });
+      const text = (await r.text()).slice(0, 200);
+      return NextResponse.json({ RAPIDAPI_KEY: `set (len ${key.length})`, testHttpStatus: r.status, working: r.status === 200, sample: text });
+    } catch (e) {
+      return NextResponse.json({ RAPIDAPI_KEY: "set", working: false, error: String(e) });
+    }
+  }
+
   // ?purge=clientId — wipe all DmLeads for that client so stale cross-contaminated leads are removed
   const purge = req.nextUrl.searchParams.get("purge");
   if (purge) {
