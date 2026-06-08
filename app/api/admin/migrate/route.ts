@@ -312,6 +312,32 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ?simprobe=handle — inspect the "similar accounts" endpoint response shape
+  const simprobe = req.nextUrl.searchParams.get("simprobe");
+  if (simprobe) {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) return NextResponse.json({ error: "no key" });
+    const host = "instagram-scraper-stable-api.p.rapidapi.com";
+    try {
+      const r = await fetch(`https://${host}/get_ig_similar_accounts.php?username_or_url=${encodeURIComponent(simprobe.replace(/^@/, ""))}`, {
+        method: "GET",
+        headers: { "x-rapidapi-host": host, "x-rapidapi-key": key },
+      });
+      const j = await r.json();
+      const topKeys = j && typeof j === "object" ? Object.keys(j) : [];
+      let arrPath: string | null = null; let sample: unknown = null;
+      const scan = (o: any, prefix: string) => {
+        if (arrPath || !o || typeof o !== "object") return;
+        for (const k of Object.keys(o)) {
+          if (Array.isArray(o[k]) && o[k].length) { arrPath = prefix + k; sample = o[k][0]; return; }
+        }
+        for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === "object" && !Array.isArray(o[k])) scan(o[k], prefix + k + "."); if (arrPath) return; }
+      };
+      scan(j, "");
+      return NextResponse.json({ httpStatus: r.status, topKeys, arrPath, sampleKeys: sample && typeof sample === "object" ? Object.keys(sample) : sample, sample, raw: arrPath ? undefined : j });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+
   // ?findprobe=handle — inspect the raw following-list scraper response shape (debug the finder)
   const findprobe = req.nextUrl.searchParams.get("findprobe");
   if (findprobe) {
