@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -8,11 +8,17 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "ORDO",
   description: "Agency Management by ORDO",
+  applicationName: "ORDO",
+  appleWebApp: { capable: true, title: "ORDO", statusBarStyle: "black-translucent" },
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",
-    apple: "/favicon.png",
+    apple: "/icons/180", // square icon for iOS home screen
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#4f46e5",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

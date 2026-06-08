@@ -247,6 +247,15 @@ export default function App() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // When installed as an app (PWA), show the unread count as a badge on the dock/home icon.
+  useEffect(() => {
+    const nav = navigator as unknown as { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+    if (!nav.setAppBadge) return;
+    const total = unreadCount + (badges.chat || 0);
+    if (total > 0) nav.setAppBadge(total).catch(() => {});
+    else nav.clearAppBadge?.().catch(() => {});
+  }, [unreadCount, badges.chat]);
+
   function renderPage() {
     // Redirect to first allowed page if current page isn't allowed
     if (!allowedPages.includes(page)) {
