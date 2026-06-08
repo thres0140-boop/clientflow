@@ -318,9 +318,11 @@ export async function GET(req: NextRequest) {
     const key = process.env.RAPIDAPI_KEY;
     if (!key) return NextResponse.json({ error: "no key" });
     const host = "instagram-scraper-stable-api.p.rapidapi.com";
+    const dataParam = req.nextUrl.searchParams.get("data") || "following";
+    const ep = req.nextUrl.searchParams.get("ep") || "get_ig_user_followers_v2.php";
     try {
-      const body = new URLSearchParams({ username_or_url: findprobe.replace(/^@/, ""), data: "following", amount: "10" });
-      const r = await fetch(`https://${host}/get_ig_user_followers_v2.php`, {
+      const body = new URLSearchParams({ username_or_url: findprobe.replace(/^@/, ""), data: dataParam, amount: "10" });
+      const r = await fetch(`https://${host}/${ep}`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": host, "x-rapidapi-key": key },
         body: body.toString(),
