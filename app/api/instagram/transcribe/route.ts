@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = new FormData();
-    formData.append("file", new File([fileBuf], fileName, { type: fileType }));
+    formData.append("file", new File([new Uint8Array(fileBuf)], fileName, { type: fileType }));
     formData.append("model", "whisper-1");
     // No language specified = auto-detect (handles Dutch, English, etc.)
 
