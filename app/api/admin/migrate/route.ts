@@ -394,6 +394,17 @@ export async function GET(req: NextRequest) {
     } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
 
+  // ?candcount=1 — count CompetitorCandidate rows grouped by clientId + status
+  if (req.nextUrl.searchParams.get("candcount")) {
+    try {
+      const rows = await (prisma as any).$queryRawUnsafe(
+        `SELECT "clientId", status, COUNT(*)::int AS n FROM "CompetitorCandidate" GROUP BY "clientId", status ORDER BY "clientId";`
+      );
+      const clients = await (prisma as any).$queryRawUnsafe(`SELECT id, name FROM "Client" ORDER BY id;`);
+      return NextResponse.json({ candidates: rows, clients });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+
   // ?reeldump=clientId — sample competitor reels to see if a video mediaUrl was stored
   const reeldump = req.nextUrl.searchParams.get("reeldump");
   if (reeldump) {
