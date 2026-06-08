@@ -124,6 +124,29 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
   });
   const showStrip = collapsible && !stripCollapsed;
 
+  // Custom project order (drag to reorder), persisted per browser.
+  const [order, setOrder] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem("cf_client_order") || "[]"); } catch { return []; }
+  });
+  const [dragId, setDragId] = useState<number | null>(null);
+  const orderedClients = [...clients].sort((a, b) => {
+    const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
+    if (ia === -1 && ib === -1) return 0;
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+  function reorderTo(targetId: number) {
+    if (dragId == null || dragId === targetId) { setDragId(null); return; }
+    const ids = orderedClients.map((c) => c.id);
+    const from = ids.indexOf(dragId), to = ids.indexOf(targetId);
+    if (from === -1 || to === -1) { setDragId(null); return; }
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    setOrder(ids);
+    try { localStorage.setItem("cf_client_order", JSON.stringify(ids)); } catch { /* ignore */ }
+    setDragId(null);
+  }
+
   return (
     <aside className="fixed top-0 left-0 h-full flex z-10" style={{ width: 280 }}>
 
@@ -133,14 +156,19 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
 
         {/* Client avatars + add button (Discord-style: add sits under the last project) */}
         <div className="flex flex-col items-center gap-2.5 py-3 flex-1 overflow-y-auto">
-          {clients.map((c) => {
+          {orderedClients.map((c) => {
             const pic = (c.instagramConnection as any)?.profilePictureUrl;
             return (
-              <button key={c.id} onClick={() => onSelectClient(c.id)} title={c.name}
-                className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-[10px] font-bold text-white transition-all flex-shrink-0"
+              <button key={c.id} onClick={() => onSelectClient(c.id)} title={`${c.name} — drag to reorder`}
+                draggable
+                onDragStart={() => setDragId(c.id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => reorderTo(c.id)}
+                onDragEnd={() => setDragId(null)}
+                className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-[10px] font-bold text-white transition-all flex-shrink-0 cursor-grab active:cursor-grabbing"
                 style={{
                   backgroundColor: c.color,
-                  opacity: c.id === selectedClientId ? 1 : 0.45,
+                  opacity: dragId === c.id ? 0.3 : c.id === selectedClientId ? 1 : 0.45,
                   boxShadow: c.id === selectedClientId ? "0 0 0 2px white" : "none",
                 }}>
                 {pic
