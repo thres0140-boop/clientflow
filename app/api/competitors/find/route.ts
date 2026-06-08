@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { expandKeywords, fetchFollowingPage, matchedKeyword, classifyProfiles, type FoundUser } from "@/lib/findCompetitors";
+import { fetchSimilarAccounts, classifyProfiles, type FoundUser } from "@/lib/findCompetitors";
 import { fetchProfileInfo } from "@/lib/scrapeCompetitors";
 
 export const runtime = "nodejs";
@@ -20,14 +20,12 @@ export async function POST(req: NextRequest) {
   if (body.mode === "start") {
     const seed = String(body.seed || "").replace(/^@/, "").trim();
     if (!seed) return NextResponse.json({ error: "seed handle required" }, { status: 400 });
-    const keywords = await expandKeywords(String(body.keyword || ""));
-    return NextResponse.json({ ok: true, keywords, queue: [seed], seen: [] });
+    return NextResponse.json({ ok: true, queue: [seed], seen: [] });
   }
 
   // mode === "step"
   const queue: string[] = Array.isArray(body.queue) ? body.queue : [];
   const seen: string[] = Array.isArray(body.seen) ? body.seen : [];
-  const keywords: string[] = Array.isArray(body.keywords) ? body.keywords : [];
   const goal = Math.min(500, Math.max(1, parseInt(String(body.goal)) || 100));
   const wantGender = (body.gender || "any").toString().toLowerCase();     // any | male | female
   const wantLanguage = (body.language || "any").toString().toLowerCase(); // any | nl | en | ...
@@ -55,24 +53,18 @@ export async function POST(req: NextRequest) {
 
   let requestsUsed = 0;
   let candidatesAdded = 0;
-  let token: string | undefined;
-  const MAX_PAGES = 3; // ~150 connections per source, keeps each step fast + cheap
+  // One request returns ~40 algorithmically-similar (niche peer) accounts.
   const matches: { user: FoundUser; kw: string }[] = [];
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const r = await fetchFollowingPage(source, token);
-    requestsUsed++;
-    if (!r.ok) break;
+  const r = await fetchSimilarAccounts(source);
+  requestsUsed++;
+  if (r.ok) {
     for (const u of r.users) {
       const uname = u.username.toLowerCase();
       if (u.isPrivate) continue;                  // can't scrape private reels later
-      const kw = matchedKeyword(u, keywords);
-      if (!kw) continue;
-      // Always enqueue niche matches to crawl deeper (even if they get filtered out as candidates).
+      // Every similar account is a niche peer → enqueue it to crawl deeper.
       if (!seenSet.has(uname) && !queue.includes(uname) && queue.length < 400) queue.push(u.username);
-      if (!known.has(uname)) { known.add(uname); matches.push({ user: u, kw }); }
+      if (!known.has(uname)) { known.add(uname); matches.push({ user: u, kw: `similar to @${source}` }); }
     }
-    if (!r.next) break;
-    token = r.next;
   }
 
   // Enrich + filter matches by gender/language when requested (bounded per step to keep it fast).

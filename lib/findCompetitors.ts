@@ -106,6 +106,42 @@ export async function fetchFollowingPage(handle: string, token?: string): Promis
   }
 }
 
+// Instagram's "similar accounts" for a profile — algorithmically curated niche peers.
+// This is the Finder's primary discovery: a single request returns ~40 relevant accounts.
+export async function fetchSimilarAccounts(handle: string): Promise<{ users: FoundUser[]; ok: boolean; error?: string }> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) return { users: [], ok: false, error: "RAPIDAPI_KEY not set" };
+  const username = handle.replace(/^@/, "").trim();
+  try {
+    let data: any = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const res = await fetch(`https://${SCRAPER_HOST}/get_ig_similar_accounts.php?username_or_url=${encodeURIComponent(username)}`, {
+        method: "GET",
+        headers: { "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
+      });
+      data = await res.json();
+      const errStr = !Array.isArray(data) ? String(data?.error || data?.detail || data?.message || "") : "";
+      if (!errStr || !/try again|later|temporar|timeout|rate/i.test(errStr)) break;
+      await new Promise((r) => setTimeout(r, 1200 + attempt * 800));
+    }
+    if (!Array.isArray(data)) {
+      const list = data?.users ?? data?.data ?? data?.accounts ?? null;
+      if (!Array.isArray(list)) return { users: [], ok: false, error: String(data?.error || data?.detail || data?.message || "no data").slice(0, 150) };
+      data = list;
+    }
+    const users: FoundUser[] = (data as Record<string, unknown>[]).map((n) => ({
+      username: String(n.username ?? ""),
+      fullName: String(n.full_name ?? n.fullName ?? ""),
+      profilePicUrl: (n.profile_pic_url ?? n.profilePicUrl) as string | undefined,
+      isPrivate: Boolean(n.is_private ?? false),
+      bio: (n.biography ?? n.bio) as string | undefined,
+    })).filter((u) => u.username);
+    return { users, ok: true };
+  } catch (e) {
+    return { users: [], ok: false, error: String(e).slice(0, 150) };
+  }
+}
+
 // Does a user's username/name contain any of the niche keywords?
 export function matchedKeyword(u: FoundUser, keywords: string[]): string | null {
   const hay = `${u.username} ${u.fullName}`.toLowerCase();
