@@ -340,7 +340,7 @@ export async function GET(req: NextRequest) {
         }
         if (arrPath) break;
       }
-      return NextResponse.json({ httpStatus: r.status, topKeys, arrPath, sampleItemKeys: sample && typeof sample === "object" ? Object.keys(sample) : sample, sample });
+      return NextResponse.json({ httpStatus: r.status, topKeys, arrPath, sampleItemKeys: sample && typeof sample === "object" ? Object.keys(sample) : sample, sample, raw: j });
     } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
 
