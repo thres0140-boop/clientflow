@@ -312,6 +312,38 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ?findprobe=handle — inspect the raw following-list scraper response shape (debug the finder)
+  const findprobe = req.nextUrl.searchParams.get("findprobe");
+  if (findprobe) {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) return NextResponse.json({ error: "no key" });
+    const host = "instagram-scraper-stable-api.p.rapidapi.com";
+    try {
+      const body = new URLSearchParams({ username_or_url: findprobe.replace(/^@/, ""), data: "following", amount: "10" });
+      const r = await fetch(`https://${host}/get_ig_user_followers_v2.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "x-rapidapi-host": host, "x-rapidapi-key": key },
+        body: body.toString(),
+      });
+      const j = await r.json();
+      const topKeys = j && typeof j === "object" ? Object.keys(j) : [];
+      // find the first array in the response + a sample item
+      let arrPath: string | null = null;
+      let sample: unknown = null;
+      for (const k of topKeys) {
+        if (Array.isArray((j as any)[k])) { arrPath = k; sample = (j as any)[k][0]; break; }
+        const inner = (j as any)[k];
+        if (inner && typeof inner === "object") {
+          for (const k2 of Object.keys(inner)) {
+            if (Array.isArray(inner[k2])) { arrPath = `${k}.${k2}`; sample = inner[k2][0]; break; }
+          }
+        }
+        if (arrPath) break;
+      }
+      return NextResponse.json({ httpStatus: r.status, topKeys, arrPath, sampleItemKeys: sample && typeof sample === "object" ? Object.keys(sample) : sample, sample });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+
   // ?draftex=clientId — recent drafts with their exampleVideoUrl (debug the reel→kanban handoff)
   const draftex = req.nextUrl.searchParams.get("draftex");
   if (draftex) {
