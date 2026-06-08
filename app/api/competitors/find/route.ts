@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fetchSimilarAccounts, classifyProfiles, type FoundUser } from "@/lib/findCompetitors";
-import { fetchProfileInfo } from "@/lib/scrapeCompetitors";
+import { fetchSimilarAccounts, type FoundUser } from "@/lib/findCompetitors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -27,9 +26,6 @@ export async function POST(req: NextRequest) {
   const queue: string[] = Array.isArray(body.queue) ? body.queue : [];
   const seen: string[] = Array.isArray(body.seen) ? body.seen : [];
   const goal = Math.min(500, Math.max(1, parseInt(String(body.goal)) || 100));
-  const wantGender = (body.gender || "any").toString().toLowerCase();     // any | male | female
-  const wantLanguage = (body.language || "any").toString().toLowerCase(); // any | nl | en | ...
-  const filtering = wantGender !== "any" || wantLanguage !== "any";
   const seenSet = new Set(seen);
 
   // Next un-crawled source.
@@ -67,36 +63,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Enrich + filter matches by gender/language when requested (bounded per step to keep it fast).
-  let toSave = matches;
-  const enriched: Record<string, { gender: string; language: string }> = {};
-  if (filtering && matches.length) {
-    const capped = matches.slice(0, 6); // bio fetches are slow — keep each step well under the timeout
-    // Make sure each match has a bio (the list sometimes omits it) — fetch profile if missing.
-    for (const m of capped) {
-      if (!m.user.bio) {
-        try { const p = await fetchProfileInfo(m.user.username); m.user.bio = p.bio || ""; requestsUsed++; } catch { /* ignore */ }
-      }
-    }
-    const cls = await classifyProfiles(capped.map((m) => ({ handle: m.user.username, name: m.user.fullName, bio: m.user.bio || "" })));
-    Object.assign(enriched, cls);
-    toSave = capped.filter((m) => {
-      const c = cls[m.user.username.toLowerCase()];
-      if (!c) return false;
-      if (wantGender !== "any" && c.gender !== wantGender) return false;
-      if (wantLanguage !== "any" && c.language !== wantLanguage) return false;
-      return true;
-    });
-  }
-
-  for (const m of toSave) {
-    const c = enriched[m.user.username.toLowerCase()];
+  // Crawl is fast & never enriches inline — gender/language are inferred lazily afterward
+  // (see /api/competitors/candidates/enrich). This keeps the step well under the timeout.
+  for (const m of matches) {
     try {
       await prisma.competitorCandidate.create({
         data: {
           clientId, handle: m.user.username, name: m.user.fullName || null,
           profilePicUrl: m.user.profilePicUrl || null, matched: m.kw, status: "pending",
-          gender: c?.gender || null, language: c?.language || null,
         },
       });
       candidatesAdded++;

@@ -786,13 +786,41 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
   const [found, setFound] = useState(0);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [preview, setPreview] = useState<Candidate | null>(null);
+  const [enriching, setEnriching] = useState(false);
   const stopRef = useRef(false);
+  const enrichRef = useRef(false);
 
   const loadCandidates = useCallback(async () => {
     const d = await fetch(`/api/competitors/candidates?clientId=${client.id}`).then((r) => r.json());
     setCandidates(Array.isArray(d) ? d : []);
   }, [client.id]);
   useEffect(() => { loadCandidates(); }, [loadCandidates]);
+
+  // Lazy enrichment drip: only runs when a gender/language filter is active. Infers those
+  // fields for un-enriched candidates in small batches (off the crawl path → no timeouts).
+  const filterActive = gender !== "any" || language !== "any";
+  const runEnrichment = useCallback(async () => {
+    if (enrichRef.current) return;
+    enrichRef.current = true;
+    setEnriching(true);
+    try {
+      for (let i = 0; i < 60; i++) {
+        const d = await fetch("/api/competitors/candidates/enrich", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: client.id }),
+        }).then((r) => r.json()).catch(() => null);
+        await loadCandidates();
+        if (!d || d.error || d.enriched === 0 || d.remaining === 0) break;
+      }
+    } finally { enrichRef.current = false; setEnriching(false); }
+  }, [client.id, loadCandidates]);
+  useEffect(() => {
+    if (filterActive && !enrichRef.current && candidates.some((c) => !c.gender)) runEnrichment();
+  }, [filterActive, candidates, runEnrichment]);
+
+  const shown = candidates.filter((c) =>
+    (gender === "any" || c.gender === gender) && (language === "any" || c.language === language)
+  );
 
   async function startCrawl() {
     if (!seed.trim() || crawling) return;
@@ -811,7 +839,7 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
         try {
           const res = await fetch("/api/competitors/find", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, goal, gender, language }),
+            body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, goal }),
           });
           if (!res.ok) { setStatus(`Hiccup (server ${res.status}) — retrying…`); await new Promise((r) => setTimeout(r, 1500)); continue; }
           step = await res.json();
@@ -889,8 +917,10 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
             </select>
           </div>
         </div>
-        {(gender !== "any" || language !== "any") && (
-          <p className="text-[10px] text-slate-400">Gender/language are AI‑inferred from each profile's name + bio — adds a little time and API usage per candidate.</p>
+        {filterActive && (
+          <p className="text-[10px] text-slate-400">
+            Gender/language are AI‑inferred per candidate in the background{enriching ? " — inferring now…" : ""}. Candidates appear as they're classified.
+          </p>
         )}
         <div className="flex items-center gap-3">
           {!crawling ? (
@@ -909,20 +939,24 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-700">Candidates to review · {candidates.length}</p>
+        <p className="text-sm font-semibold text-slate-700">
+          Candidates to review · {shown.length}{filterActive && candidates.length !== shown.length ? ` (of ${candidates.length})` : ""}
+        </p>
         {candidates.length > 0 && (
           <button onClick={async () => { if (confirm("Clear all candidates?")) { await fetch(`/api/competitors/candidates?clientId=${client.id}`, { method: "DELETE" }); loadCandidates(); } }}
             className="text-xs text-slate-400 hover:text-red-500">Clear all</button>
         )}
       </div>
 
-      {candidates.length === 0 ? (
+      {shown.length === 0 ? (
         <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center text-sm text-slate-400">
-          No candidates yet. Run a search above.
+          {candidates.length === 0
+            ? "No candidates yet. Run a search above."
+            : enriching ? "Classifying candidates for your filter…" : "No candidates match the current gender/language filter."}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {candidates.map((c) => (
+          {shown.map((c) => (
             <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 {c.profilePicUrl
