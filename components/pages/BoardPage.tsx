@@ -30,10 +30,10 @@ export default function BoardPage({ clients, selectedClientId, sidebarCollapsed 
     );
   }
 
-  return <BoardCanvas key={client.id} client={client} />;
+  return <BoardCanvas key={client.id} client={client} leftOffset={leftOffset} />;
 }
 
-function BoardCanvas({ client }: { client: Client }) {
+function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: number }) {
   const apiRef = useRef<{ getSceneElements: AnyFn; getAppState: AnyFn } | null>(null);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "">("");
