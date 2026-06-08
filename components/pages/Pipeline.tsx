@@ -1074,7 +1074,16 @@ function ConfirmScheduleModal({
               <div className="flex items-center gap-3">
                 <span className="text-[10px] text-slate-400">{caption.length} chars</span>
                 <button
-                  onClick={async () => { try { await navigator.clipboard.writeText(caption); setCaptionCopied(true); setTimeout(() => setCaptionCopied(false), 1500); } catch { /* ignore */ } }}
+                  onClick={async () => {
+                    try {
+                      // Instagram (and many chat apps) collapse blank lines. Put an invisible
+                      // braille-blank char on otherwise-empty lines so the paragraph spacing survives.
+                      const igSafe = caption.split("\n").map((l) => (l.trim() === "" ? "⠀" : l)).join("\n");
+                      await navigator.clipboard.writeText(igSafe);
+                      setCaptionCopied(true);
+                      setTimeout(() => setCaptionCopied(false), 1500);
+                    } catch { /* ignore */ }
+                  }}
                   disabled={!caption}
                   className="text-[10px] font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40">
                   {captionCopied ? "✓ Copied" : "📋 Copy"}
