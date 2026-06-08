@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchProfileInfo, fetchReelsFromProvider } from "@/lib/scrapeCompetitors";
+import { fetchReelsFromProvider } from "@/lib/scrapeCompetitors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -10,13 +10,12 @@ export async function GET(req: NextRequest) {
   const handle = req.nextUrl.searchParams.get("handle");
   if (!handle) return NextResponse.json({ error: "handle required" }, { status: 400 });
   try {
-    const [profile, reels] = await Promise.all([
-      fetchProfileInfo(handle).catch(() => null),
-      fetchReelsFromProvider(handle, 1).catch(() => []),
-    ]);
+    // Only fetch reels — the profile (bio, followers) is already known from the
+    // candidate card, so skipping that request makes the modal open faster.
+    const reels = await fetchReelsFromProvider(handle, 1).catch(() => []);
     const sorted = [...reels].sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0)).slice(0, 12);
     return NextResponse.json({
-      profile,
+      profile: null,
       reels: sorted.map((r) => ({
         shortcode: r.shortcode,
         caption: r.caption,

@@ -782,6 +782,11 @@ function fmtFollowers(n: number): string {
   return String(n);
 }
 
+// In-memory cache of candidate previews (profile + reels) keyed by handle, so
+// reopening a candidate is instant instead of re-hitting the scraper each time.
+type PreviewData = { profile: { followerCount?: number; postCount?: number; bio?: string } | null; reels: { shortcode: string; thumbnailUrl?: string; mediaUrl?: string | null; permalink?: string; views: number | null; caption: string }[] };
+const previewCache = new Map<string, PreviewData>();
+
 function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => void }) {
   const [seed, setSeed] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -996,15 +1001,22 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
 }
 
 function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidate: Candidate; onClose: () => void; onAccept: () => void; onReject: () => void }) {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<{ profile: { followerCount?: number; postCount?: number; bio?: string } | null; reels: { shortcode: string; thumbnailUrl?: string; mediaUrl?: string | null; permalink?: string; views: number | null; caption: string }[] } | null>(null);
+  const cached = previewCache.get(candidate.handle.toLowerCase());
+  const [loading, setLoading] = useState(!cached);
+  const [data, setData] = useState<PreviewData | null>(cached || null);
   const [playing, setPlaying] = useState<{ shortcode: string; mediaUrl?: string | null; permalink?: string } | null>(null);
   const [playerUrl, setPlayerUrl] = useState<string | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
   useEffect(() => {
+    const key = candidate.handle.toLowerCase();
+    const hit = previewCache.get(key);
+    if (hit) { setData(hit); setLoading(false); return; }
     setLoading(true);
     fetch(`/api/competitors/preview?handle=${encodeURIComponent(candidate.handle)}`)
-      .then((r) => r.json()).then(setData).catch(() => setData(null)).finally(() => setLoading(false));
+      .then((r) => r.json())
+      .then((d) => { if (d && !d.error) previewCache.set(key, d); setData(d); })
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
   }, [candidate.handle]);
 
   // When a reel is opened, resolve a fresh playable video url (the reels list only
@@ -1028,12 +1040,12 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center gap-2">
             <a href={`https://instagram.com/${candidate.handle}`} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-800 hover:text-indigo-600">@{candidate.handle}</a>
-            {data?.profile?.followerCount != null && <span className="text-xs text-slate-400">{fmt(data.profile.followerCount)} followers</span>}
+            {(data?.profile?.followerCount ?? candidate.followerCount) != null && <span className="text-xs text-slate-400">{fmt((data?.profile?.followerCount ?? candidate.followerCount) as number)} followers</span>}
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
         </div>
         <div className="p-5">
-          {data?.profile?.bio && <p className="text-xs text-slate-500 mb-3 whitespace-pre-wrap">{data.profile.bio}</p>}
+          {(data?.profile?.bio || candidate.bio) && <p className="text-xs text-slate-500 mb-3 whitespace-pre-wrap">{data?.profile?.bio || candidate.bio}</p>}
           {loading ? (
             <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /></div>
           ) : !data?.reels?.length ? (
