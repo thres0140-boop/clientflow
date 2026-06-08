@@ -778,6 +778,7 @@ type Candidate = { id: number; handle: string; name: string | null; profilePicUr
 
 function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => void }) {
   const [seed, setSeed] = useState("");
+  const [keyword, setKeyword] = useState("");
   const [goal, setGoal] = useState(100);
   const [gender, setGender] = useState("any");
   const [language, setLanguage] = useState("any");
@@ -828,10 +829,11 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
     try {
       const start = await fetch("/api/competitors/find", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "start", clientId: client.id, seed: seed.trim(), goal }),
+        body: JSON.stringify({ mode: "start", clientId: client.id, seed: seed.trim(), keyword: keyword.trim(), goal }),
       }).then((r) => r.json());
       if (start.error) { setStatus("Error: " + start.error); setCrawling(false); return; }
       let queue: string[] = start.queue, seen: string[] = start.seen;
+      const keywords: string[] = start.keywords || [];
       setStatus(`Crawling @${seed.trim()}'s niche network…`);
       let lastFound = 0;
       for (let i = 0; i < 120 && !stopRef.current; i++) {
@@ -839,7 +841,7 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
         try {
           const res = await fetch("/api/competitors/find", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, goal }),
+            body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, goal, keywords }),
           });
           if (!res.ok) { setStatus(`Hiccup (server ${res.status}) — retrying…`); await new Promise((r) => setTimeout(r, 1500)); continue; }
           step = await res.json();
@@ -879,7 +881,7 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
           <p className="text-sm font-semibold text-slate-700">Find competitors</p>
           <p className="text-xs text-slate-400 mt-0.5">Give one account in your niche — we pull Instagram's "similar accounts" for it (and theirs, and so on) to surface peers. Review and accept them into your tracked list.</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Seed account</label>
             <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
@@ -887,6 +889,11 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
               <input value={seed} onChange={(e) => setSeed(e.target.value.replace("@", ""))} placeholder="someone in your niche"
                 className="flex-1 px-2 py-2 text-sm focus:outline-none" />
             </div>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Niche keyword <span className="text-slate-300 normal-case">(optional, keeps it on‑niche)</span></label>
+            <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="e.g. social media"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Goal</label>

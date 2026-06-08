@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fetchSimilarAccounts, type FoundUser } from "@/lib/findCompetitors";
+import { fetchSimilarAccounts, expandKeywords, matchedKeyword, type FoundUser } from "@/lib/findCompetitors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,13 +19,17 @@ export async function POST(req: NextRequest) {
   if (body.mode === "start") {
     const seed = String(body.seed || "").replace(/^@/, "").trim();
     if (!seed) return NextResponse.json({ error: "seed handle required" }, { status: 400 });
-    return NextResponse.json({ ok: true, queue: [seed], seen: [] });
+    // Optional niche keyword → AI-expanded vocabulary used to keep the crawl on-niche.
+    const kw = String(body.keyword || "").trim();
+    const keywords = kw ? await expandKeywords(kw) : [];
+    return NextResponse.json({ ok: true, queue: [seed], seen: [], keywords });
   }
 
   // mode === "step"
   const queue: string[] = Array.isArray(body.queue) ? body.queue : [];
   const seen: string[] = Array.isArray(body.seen) ? body.seen : [];
   const goal = Math.min(500, Math.max(1, parseInt(String(body.goal)) || 100));
+  const keywords: string[] = Array.isArray(body.keywords) ? body.keywords : [];
   const seenSet = new Set(seen);
 
   // Next un-crawled source.
@@ -57,9 +61,12 @@ export async function POST(req: NextRequest) {
     for (const u of r.users) {
       const uname = u.username.toLowerCase();
       if (u.isPrivate) continue;                  // can't scrape private reels later
-      // Every similar account is a niche peer → enqueue it to crawl deeper.
+      // If a niche keyword was given, only keep/recurse accounts that match it (keeps the
+      // snowball on-niche instead of drifting). No keyword → every similar account counts.
+      const kwHit = keywords.length ? matchedKeyword(u, keywords) : `similar to @${source}`;
+      if (!kwHit) continue;
       if (!seenSet.has(uname) && !queue.includes(uname) && queue.length < 400) queue.push(u.username);
-      if (!known.has(uname)) { known.add(uname); matches.push({ user: u, kw: `similar to @${source}` }); }
+      if (!known.has(uname)) { known.add(uname); matches.push({ user: u, kw: kwHit }); }
     }
   }
 
