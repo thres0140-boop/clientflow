@@ -449,6 +449,7 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [reelSort, setReelSort] = useState<"recent" | "best" | "trending">("recent");
   const [formatFilter, setFormatFilter] = useState<"all" | "talking_head" | "text_overlay" | "broll">("all");
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
+  const [playingReelId, setPlayingReelId] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
     const data = await fetch(`/api/competitors?clientId=${client.id}`).then((r) => r.json());
@@ -700,16 +701,26 @@ function CompetitorsTab({ client }: { client: Client }) {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-4 grid-flow-row-dense gap-1.5">
               {sortedReels.map((reel) => (
-                <div key={reel.id} className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group">
-                  <button className="absolute inset-0 w-full h-full" onClick={() => setSelectedReel(reel)}>
+                <div key={reel.id} className={`relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group ${playingReelId === reel.id ? "col-span-2 row-span-2" : ""}`}>
+                  {playingReelId === reel.id ? (
+                    <InlineReelPlayer reel={reel} onClose={() => setPlayingReelId(null)} onDetails={() => { setPlayingReelId(null); setSelectedReel(reel); }} />
+                  ) : (
+                  <>
                     {reel.thumbnail_url
                       ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
                           <span className="text-3xl opacity-30">▶</span>
                         </div>
                     }
+                    {/* center play + details controls */}
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/25">
+                      <button onClick={() => setPlayingReelId(reel.id)} title="Play reel"
+                        className="w-12 h-12 rounded-full bg-white/95 text-slate-900 flex items-center justify-center text-lg shadow-lg hover:scale-105 transition-transform">▶</button>
+                      <button onClick={() => setSelectedReel(reel)}
+                        className="text-[11px] font-semibold text-white bg-black/55 hover:bg-black/75 px-3 py-1 rounded-full backdrop-blur-sm">Details</button>
+                    </div>
                     {/* handle (+ exploded badge under it) top-left */}
                     <div className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
                       {reel.handle && (
@@ -756,7 +767,8 @@ function CompetitorsTab({ client }: { client: Client }) {
                         </span>
                       )}
                     </div>
-                  </button>
+                  </>
+                  )}
                 </div>
               ))}
             </div>
@@ -996,6 +1008,48 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
       )}
 
       {preview && <CandidatePreview candidate={preview} onClose={() => setPreview(null)} onAccept={() => act(preview, "accept")} onReject={() => act(preview, "reject")} />}
+    </div>
+  );
+}
+
+// Plays a stored competitor reel inline, right inside its grid tile. Mirrors the
+// detail panel's playback: fetch a fresh CDN url, play it directly, and refresh once
+// if the cached url turned out stale.
+function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose: () => void; onDetails: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [triedRefresh, setTriedRefresh] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/competitors/reel-media?id=${reel.id}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setUrl(d?.url || null); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [reel.id]);
+  function refresh() {
+    if (triedRefresh) return;
+    setTriedRefresh(true); setUrl(null); setLoading(true);
+    fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`)
+      .then((r) => r.json()).then((d) => setUrl(d?.url || null)).catch(() => {}).finally(() => setLoading(false));
+  }
+  return (
+    <div className="absolute inset-0 z-30 bg-black flex items-center justify-center">
+      {loading ? (
+        <div className="w-7 h-7 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+      ) : url ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video key={url} src={url} poster={reel.thumbnail_url} controls autoPlay playsInline onError={refresh} className="w-full h-full object-contain" />
+      ) : (
+        <div className="flex flex-col items-center gap-2 px-4 text-center">
+          <p className="text-white/60 text-xs">Couldn&apos;t load this reel.</p>
+          <a href={reel.permalink || reel.instagramUrl || `https://instagram.com/reel/${reel.id}`} target="_blank" rel="noopener noreferrer" className="bg-white/90 text-slate-800 text-[11px] font-semibold px-3 py-1 rounded-full">Open on Instagram ↗</a>
+        </div>
+      )}
+      <button onClick={onClose} title="Close" className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-sm hover:bg-black/80">✕</button>
+      <button onClick={onDetails} className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 text-[11px] font-semibold text-white bg-black/60 hover:bg-black/80 px-3 py-1 rounded-full backdrop-blur-sm">Details</button>
     </div>
   );
 }
