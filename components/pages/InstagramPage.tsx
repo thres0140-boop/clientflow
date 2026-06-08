@@ -1024,7 +1024,7 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
           <div className="flex items-center gap-2">
             <a href={`https://instagram.com/${candidate.handle}`} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-800 hover:text-indigo-600">@{candidate.handle}</a>
@@ -1040,20 +1040,39 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
             <p className="text-sm text-slate-400 text-center py-8">No reels found (private or no recent reels).</p>
           ) : (
             <div className="grid grid-cols-3 gap-1.5">
-              {data.reels.map((r) => (
-                <button key={r.shortcode} type="button"
-                  onClick={() => setPlaying(r)}
-                  className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group">
-                  {r.thumbnailUrl
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={r.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">▶</div>}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-                    <span className="w-9 h-9 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-sm shadow">▶</span>
+              {data.reels.map((r) => {
+                const isPlaying = playing?.shortcode === r.shortcode;
+                return (
+                  <div key={r.shortcode} className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group">
+                    {isPlaying ? (
+                      playerLoading ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-6 h-6 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : playerUrl ? (
+                        // eslint-disable-next-line jsx-a11y/media-has-caption
+                        <video src={`/api/vid?u=${encodeURIComponent(playerUrl)}`} controls autoPlay playsInline className="w-full h-full object-contain bg-black" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-2 text-center">
+                          <p className="text-white/60 text-[10px]">Couldn&apos;t load</p>
+                          <a href={r.permalink || `https://instagram.com/reel/${r.shortcode}`} target="_blank" rel="noopener noreferrer" className="bg-white/90 text-slate-800 text-[10px] font-semibold px-2 py-1 rounded-full">Open on IG ↗</a>
+                        </div>
+                      )
+                    ) : (
+                      <button type="button" onClick={() => setPlaying(r)} className="w-full h-full block">
+                        {r.thumbnailUrl
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={r.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">▶</div>}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                          <span className="w-9 h-9 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-sm shadow">▶</span>
+                        </div>
+                        {r.views != null && <span className="absolute bottom-1 left-1 bg-indigo-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">▶ {fmt(r.views)}</span>}
+                      </button>
+                    )}
                   </div>
-                  {r.views != null && <span className="absolute bottom-1 left-1 bg-indigo-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">▶ {fmt(r.views)}</span>}
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1062,32 +1081,6 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
           <button onClick={onAccept} className="flex-1 py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700">✓ Accept as competitor</button>
         </div>
       </div>
-
-      {playing && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={(e) => { e.stopPropagation(); setPlaying(null); }}>
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            {playerLoading ? (
-              <div className="h-[70vh] aspect-[9/16] rounded-xl bg-black flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : playerUrl ? (
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video
-                src={`/api/vid?u=${encodeURIComponent(playerUrl)}`}
-                controls autoPlay playsInline
-                className="max-h-[88vh] w-auto max-w-[94vw] rounded-xl bg-black aspect-[9/16] object-contain"
-              />
-            ) : (
-              <div className="h-[60vh] aspect-[9/16] rounded-xl bg-black flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <p className="text-white/70 text-sm">Couldn&apos;t load this reel inline.</p>
-                <a href={playing.permalink || `https://instagram.com/reel/${playing.shortcode}`} target="_blank" rel="noopener noreferrer"
-                  className="bg-white/90 text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-white">Open on Instagram ↗</a>
-              </div>
-            )}
-            <button onClick={() => setPlaying(null)} className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 shadow-lg flex items-center justify-center text-lg hover:bg-slate-100">×</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
