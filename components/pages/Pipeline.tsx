@@ -973,6 +973,7 @@ function ConfirmScheduleModal({
   const [loading, setLoading] = useState(false);
   const [igStatus, setIgStatus] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const [captionCopied, setCaptionCopied] = useState(false);
   const [trialReel, setTrialReel] = useState(false);
   const [genCaption, setGenCaption] = useState(false);
   const [scheduleTime, setScheduleTime] = useState(() => {
@@ -1070,8 +1071,14 @@ function ConfirmScheduleModal({
           <div>
             <div className="flex items-center justify-between mb-1">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Caption</p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <span className="text-[10px] text-slate-400">{caption.length} chars</span>
+                <button
+                  onClick={async () => { try { await navigator.clipboard.writeText(caption); setCaptionCopied(true); setTimeout(() => setCaptionCopied(false), 1500); } catch { /* ignore */ } }}
+                  disabled={!caption}
+                  className="text-[10px] font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40">
+                  {captionCopied ? "✓ Copied" : "📋 Copy"}
+                </button>
                 <button onClick={() => autoGenerateCaption()} disabled={genCaption}
                   className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50">
                   {genCaption ? "Generating…" : "✨ Auto-generate caption"}
