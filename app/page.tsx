@@ -235,6 +235,16 @@ export default function App() {
     : [];
   const pageReadOnly = viewOnlyPages.includes(page);
 
+  // Arc-style collapsible sidebar (persisted). When collapsed, content goes full-width
+  // and the sidebar peeks out as an overlay when you hover the left edge.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  useEffect(() => { try { setSidebarCollapsed(localStorage.getItem("cf_sidebar_collapsed") === "1"); } catch { /* ignore */ } }, []);
+  const toggleSidebar = () => setSidebarCollapsed((v) => {
+    const n = !v;
+    try { localStorage.setItem("cf_sidebar_collapsed", n ? "1" : "0"); } catch { /* ignore */ }
+    return n;
+  });
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   function renderPage() {
@@ -287,6 +297,8 @@ export default function App() {
         session={session}
         onSignOut={signOut}
         ownerEmail={ownerEmail}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebar}
         onMarkRead={async (id) => {
           await fetch("/api/notifications", {
             method: "PUT",
@@ -306,7 +318,7 @@ export default function App() {
       />
       {page === "board"
         ? <>{transitioning ? null : renderPage()}</>
-        : <main className="flex-1 p-8 min-w-0 flex flex-col h-screen overflow-y-auto" style={{ marginLeft: 280 }}>
+        : <main className="flex-1 p-8 min-w-0 flex flex-col h-screen overflow-y-auto transition-[margin] duration-200" style={{ marginLeft: sidebarCollapsed ? 0 : 280 }}>
             {transitioning
               ? <div className="flex items-center justify-center" style={{height: "calc(100vh - 4rem)"}}><div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
               : renderPage()

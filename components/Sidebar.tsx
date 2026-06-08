@@ -98,14 +98,16 @@ type Props = {
   badges?: Partial<Record<Page, number>>;
   allowedPages: Page[]; activeProfile: TeamMember | null; session: SessionPayload | null; onSignOut: () => void;
   ownerEmail?: string | null;
+  collapsed?: boolean; onToggleCollapsed?: () => void;
 };
 
 const DIVIDER = { borderColor: "rgba(255,255,255,0.08)" };
 const STRIP_BG = "#0f1c34";
 const NAV_BG = "#1a2f52";
 
-export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges }: Props) {
+export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed }: Props) {
   const [showAccount, setShowAccount] = useState(false);
+  const [peeking, setPeeking] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
   // Client accounts only ever have one project — hide the project-switcher strip for them.
@@ -123,6 +125,9 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
     return n;
   });
   const showStrip = collapsible && !stripCollapsed;
+  // Arc-style: when fully collapsed, the sidebar hides and peeks out when you hover the
+  // far-left edge. "visible" = shown (either pinned open, or peeking while collapsed).
+  const visible = !collapsed || peeking;
 
   // Custom project order (drag to reorder), persisted per browser.
   const [order, setOrder] = useState<number[]>(() => {
@@ -148,7 +153,32 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
   }
 
   return (
-    <aside className="fixed top-0 left-0 h-full flex z-10" style={{ width: 280 }}>
+    <>
+    {/* Left-edge hover zone — when collapsed, hovering here peeks the sidebar out */}
+    {collapsed && (
+      <div className="fixed top-0 left-0 h-full z-40" style={{ width: 12 }}
+        onMouseEnter={() => setPeeking(true)} title="Show sidebar" />
+    )}
+
+    <aside
+      className="fixed top-0 left-0 h-full flex z-50"
+      style={{
+        width: 280,
+        transform: visible ? "translateX(0)" : "translateX(-100%)",
+        transition: "transform 200ms ease",
+        boxShadow: collapsed && peeking ? "8px 0 40px rgba(0,0,0,0.35)" : "none",
+      }}
+      onMouseLeave={() => { if (collapsed) setPeeking(false); }}
+    >
+      {/* Pin open (when peeking) / hide (when open) toggle */}
+      {onToggleCollapsed && (
+        <button
+          onClick={() => { onToggleCollapsed(); setPeeking(false); }}
+          title={collapsed ? "Pin sidebar open" : "Hide sidebar"}
+          className="absolute top-2 right-2 z-10 w-6 h-6 rounded-md flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all text-xs">
+          {collapsed ? "📌" : "«"}
+        </button>
+      )}
 
       {/* ── LEFT STRIP — client/project switcher (collapsible) ── */}
       {showStrip && (
@@ -318,5 +348,6 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
         </div>
       </div>
     </aside>
+    </>
   );
 }
