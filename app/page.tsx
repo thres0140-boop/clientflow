@@ -266,7 +266,7 @@ export default function App() {
       case "tasks": return <ScriptTasksPage clients={clients} selectedClientId={selectedClientId} canSubmit={session?.type === "member"} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} />;
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} />;
-      case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} />;
+      case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed} />;
       case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
       case "transcribe": return <TranscribePage />;
     }

@@ -15,14 +15,16 @@ const Excalidraw = dynamic(
 type Props = {
   clients: Client[];
   selectedClientId: number | null;
+  sidebarCollapsed?: boolean;
 };
 
-export default function BoardPage({ clients, selectedClientId }: Props) {
+export default function BoardPage({ clients, selectedClientId, sidebarCollapsed = false }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
+  const leftOffset = sidebarCollapsed ? 0 : 280; // match the (collapsible) sidebar width
 
   if (!client) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm" style={{ left: 280 }}>
+      <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm transition-[left] duration-200" style={{ left: leftOffset }}>
         Select a client to open their board
       </div>
     );
@@ -86,7 +88,7 @@ function BoardCanvas({ client }: { client: Client }) {
       </div>
 
       {/* Full canvas — fills everything right of the sidebar */}
-      <div className="absolute inset-0 left-[280px]">
+      <div className="absolute inset-0 top-0 bottom-0 right-0 transition-[left] duration-200" style={{ left: leftOffset }}>
         <Excalidraw
           excalidrawAPI={(api) => { apiRef.current = api; }}
           initialData={getInitialData}
