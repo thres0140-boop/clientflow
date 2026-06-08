@@ -191,6 +191,8 @@ model CompetitorCandidate {
   followerCount Int?
   profilePicUrl String?
   matched       String?  // why it matched (the keyword)
+  gender        String?  // male | female | unknown (AI-inferred)
+  language      String?  // ISO code, e.g. nl | en (AI-inferred from bio)
   status        String   @default("pending") // pending | accepted | rejected
   createdAt     DateTime @default(now())
 

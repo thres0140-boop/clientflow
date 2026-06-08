@@ -774,12 +774,14 @@ function CompetitorsTab({ client }: { client: Client }) {
 }
 
 // ─── Competitor Finder: crawl an account's network for niche peers, review, accept ──
-type Candidate = { id: number; handle: string; name: string | null; profilePicUrl: string | null; matched: string | null };
+type Candidate = { id: number; handle: string; name: string | null; profilePicUrl: string | null; matched: string | null; gender?: string | null; language?: string | null };
 
 function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => void }) {
   const [seed, setSeed] = useState("");
   const [keyword, setKeyword] = useState("");
   const [goal, setGoal] = useState(100);
+  const [gender, setGender] = useState("any");
+  const [language, setLanguage] = useState("any");
   const [crawling, setCrawling] = useState(false);
   const [status, setStatus] = useState("");
   const [found, setFound] = useState(0);
@@ -808,7 +810,7 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
       for (let i = 0; i < 80 && !stopRef.current; i++) {
         const step = await fetch("/api/competitors/find", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, keywords, goal }),
+          body: JSON.stringify({ mode: "step", clientId: client.id, queue, seen, keywords, goal, gender, language }),
         }).then((r) => r.json());
         if (step.error) { setStatus("Error: " + step.error); break; }
         queue = step.queue; seen = step.seen; setFound(step.found);
@@ -863,6 +865,32 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
         </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Gender</label>
+            <select value={gender} onChange={(e) => setGender(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              <option value="any">Any</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Language</label>
+            <select value={language} onChange={(e) => setLanguage(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              <option value="any">Any</option>
+              <option value="nl">Dutch</option>
+              <option value="en">English</option>
+              <option value="de">German</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+            </select>
+          </div>
+        </div>
+        {(gender !== "any" || language !== "any") && (
+          <p className="text-[10px] text-slate-400">Gender/language are AI‑inferred from each profile's name + bio — adds a little time and API usage per candidate.</p>
+        )}
         <div className="flex items-center gap-3">
           {!crawling ? (
             <button onClick={startCrawl} disabled={!seed.trim()}
@@ -902,7 +930,11 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
                   : <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400 flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</div>}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-800 truncate">@{c.handle}</p>
-                  {c.matched && <p className="text-[10px] text-slate-400 truncate">matched "{c.matched}"</p>}
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {c.matched && `matched "${c.matched}"`}
+                    {(c.gender && c.gender !== "unknown") ? ` · ${c.gender === "male" ? "♂" : "♀"}` : ""}
+                    {(c.language && c.language !== "unknown") ? ` · ${c.language.toUpperCase()}` : ""}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-1.5">

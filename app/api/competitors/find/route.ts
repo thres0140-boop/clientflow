@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { expandKeywords, fetchFollowingPage, matchedKeyword } from "@/lib/findCompetitors";
+import { expandKeywords, fetchFollowingPage, matchedKeyword, classifyProfiles, type FoundUser } from "@/lib/findCompetitors";
+import { fetchProfileInfo } from "@/lib/scrapeCompetitors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -28,6 +29,9 @@ export async function POST(req: NextRequest) {
   const seen: string[] = Array.isArray(body.seen) ? body.seen : [];
   const keywords: string[] = Array.isArray(body.keywords) ? body.keywords : [];
   const goal = Math.min(500, Math.max(1, parseInt(String(body.goal)) || 100));
+  const wantGender = (body.gender || "any").toString().toLowerCase();     // any | male | female
+  const wantLanguage = (body.language || "any").toString().toLowerCase(); // any | nl | en | ...
+  const filtering = wantGender !== "any" || wantLanguage !== "any";
   const seenSet = new Set(seen);
 
   // Next un-crawled source.
@@ -53,6 +57,7 @@ export async function POST(req: NextRequest) {
   let candidatesAdded = 0;
   let token: string | undefined;
   const MAX_PAGES = 3; // ~150 connections per source, keeps each step fast + cheap
+  const matches: { user: FoundUser; kw: string }[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const r = await fetchFollowingPage(source, token);
     requestsUsed++;
@@ -62,20 +67,48 @@ export async function POST(req: NextRequest) {
       if (u.isPrivate) continue;                  // can't scrape private reels later
       const kw = matchedKeyword(u, keywords);
       if (!kw) continue;
-      if (!known.has(uname)) {
-        known.add(uname);
-        try {
-          await prisma.competitorCandidate.create({
-            data: { clientId, handle: u.username, name: u.fullName || null, profilePicUrl: u.profilePicUrl || null, matched: kw, status: "pending" },
-          });
-          candidatesAdded++;
-        } catch { /* unique race — ignore */ }
-      }
-      // Enqueue this match to crawl deeper (bounded).
+      // Always enqueue niche matches to crawl deeper (even if they get filtered out as candidates).
       if (!seenSet.has(uname) && !queue.includes(uname) && queue.length < 400) queue.push(u.username);
+      if (!known.has(uname)) { known.add(uname); matches.push({ user: u, kw }); }
     }
     if (!r.next) break;
     token = r.next;
+  }
+
+  // Enrich + filter matches by gender/language when requested (bounded per step to keep it fast).
+  let toSave = matches;
+  const enriched: Record<string, { gender: string; language: string }> = {};
+  if (filtering && matches.length) {
+    const capped = matches.slice(0, 14);
+    // Make sure each match has a bio (the list sometimes omits it) — fetch profile if missing.
+    for (const m of capped) {
+      if (!m.user.bio) {
+        try { const p = await fetchProfileInfo(m.user.username); m.user.bio = p.bio || ""; requestsUsed++; } catch { /* ignore */ }
+      }
+    }
+    const cls = await classifyProfiles(capped.map((m) => ({ handle: m.user.username, name: m.user.fullName, bio: m.user.bio || "" })));
+    Object.assign(enriched, cls);
+    toSave = capped.filter((m) => {
+      const c = cls[m.user.username.toLowerCase()];
+      if (!c) return false;
+      if (wantGender !== "any" && c.gender !== wantGender) return false;
+      if (wantLanguage !== "any" && c.language !== wantLanguage) return false;
+      return true;
+    });
+  }
+
+  for (const m of toSave) {
+    const c = enriched[m.user.username.toLowerCase()];
+    try {
+      await prisma.competitorCandidate.create({
+        data: {
+          clientId, handle: m.user.username, name: m.user.fullName || null,
+          profilePicUrl: m.user.profilePicUrl || null, matched: m.kw, status: "pending",
+          gender: c?.gender || null, language: c?.language || null,
+        },
+      });
+      candidatesAdded++;
+    } catch { /* unique race — ignore */ }
   }
 
   const found = await prisma.competitorCandidate.count({ where: { clientId } });
