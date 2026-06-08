@@ -7,7 +7,7 @@ function getSecret() {
   );
 }
 
-const PUBLIC = ["/login", "/owner", "/invite", "/api/auth", "/api/unipile/webhook", "/api/unipile/callback", "/api/unipile/sync-followers", "/api/upload", "/upload", "/api/upload-tokens", "/api/upload-raw", "/api/blob/upload", "/api/zernio/callback", "/api/admin/migrate", "/api/cron/", "/api/webhooks/"];
+const PUBLIC = ["/login", "/owner", "/invite", "/api/auth", "/api/unipile/webhook", "/api/unipile/callback", "/api/unipile/sync-followers", "/api/upload", "/upload", "/api/upload-tokens", "/api/upload-raw", "/api/blob/upload", "/api/zernio/callback", "/api/admin/migrate", "/api/cron/", "/api/webhooks/", "/manifest.webmanifest", "/icons/", "/favicon.png", "/logo.png"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
