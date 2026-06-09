@@ -502,7 +502,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             return (
                               <button
                                 key={piece.id}
-                                onClick={isClient ? undefined : () => setSelected(piece)}
+                                onClick={(isClient && onOpenInKanban) ? undefined : () => setSelected(piece)}
                                 className="w-full text-left rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight hover:opacity-90 transition-opacity truncate"
                                 style={isPosted ? {
                                   backgroundColor: "#dcfce7",
@@ -599,7 +599,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         return (
                           <button
                             key={piece.id}
-                            onClick={isClient ? undefined : () => setSelected(piece)}
+                            onClick={(isClient && onOpenInKanban) ? undefined : () => setSelected(piece)}
                             className="w-full text-left rounded-lg px-2 py-2 text-xs hover:opacity-90 transition-opacity"
                             style={isPosted ? {
                               backgroundColor: "#dcfce7",

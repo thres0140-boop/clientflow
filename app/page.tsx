@@ -266,7 +266,7 @@ export default function App() {
     }
     const props = { clients, selectedClientId, refreshClients: fetchClients };
     switch (page) {
-      case "pipeline": return <Pipeline {...props} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} onOpenInKanban={(id) => { setKanbanHighlightId(id); setPage("kanban"); }} />;
+      case "pipeline": return <Pipeline {...props} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} onOpenInKanban={(session?.type === "member" && activeProfile?.isClientAccount) ? (id) => { setKanbanHighlightId(id); setPage("kanban"); } : undefined} />;
       case "concepts": return <Concepts {...props} onAttachReels={(c) => { setAttachConcept(c); setPage("instagram"); }} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
