@@ -902,6 +902,9 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
           </div>
         )}
         {(() => {
+          // Once scheduled, the raw clips are noise — only the finished video + caption + info matter.
+          const isScheduled = /schedul/i.test(draft.stage?.name || "");
+          if (isScheduled) return null;
           let raw: string[] = [];
           try { raw = JSON.parse(draft.rawContentUrls || "[]"); } catch { /* ignore */ }
           if (draft.rawContentUrl && !raw.includes(draft.rawContentUrl)) raw = [draft.rawContentUrl, ...raw];
