@@ -475,6 +475,43 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
             </div>
           ) : (
             <div className="overflow-y-auto p-5 space-y-5">
+              {(() => {
+                const f = reelModalFull as any;
+                let raws: string[] = [];
+                try { raws = JSON.parse(f.rawContentUrls || "[]"); } catch { raws = []; }
+                if (f.rawContentUrl && !raws.includes(f.rawContentUrl)) raws = [f.rawContentUrl, ...raws];
+                raws = raws.filter(Boolean);
+                return (
+                  <>
+                    {f.editedVideoUrl && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Finished Video</p>
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <video src={f.editedVideoUrl} controls playsInline className="w-full max-h-[55vh] rounded-xl bg-black object-contain" />
+                        <a href={f.editedVideoUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-[11px] text-indigo-500 hover:text-indigo-700 mt-1.5">Open / download ↗</a>
+                      </div>
+                    )}
+                    {f.exampleVideoUrl && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Example Video</p>
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <video src={f.exampleVideoUrl} controls playsInline className="w-full max-h-[45vh] rounded-xl bg-black object-contain" />
+                      </div>
+                    )}
+                    {raws.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Raw Content {raws.length > 1 ? `(${raws.length})` : ""}</p>
+                        <div className="space-y-2">
+                          {raws.map((u, i) => (
+                            // eslint-disable-next-line jsx-a11y/media-has-caption
+                            <video key={i} src={u} controls playsInline className="w-full max-h-[45vh] rounded-xl bg-black object-contain" />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               {reelModalFull.hook && (
                 <div>
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Text Hook</p>
