@@ -387,7 +387,16 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
 
   function getNextStage(currentStageId: number): WorkflowStage | null {
     const idx = stages.findIndex((s) => s.id === currentStageId);
-    return idx >= 0 && idx < stages.length - 1 ? stages[idx + 1] : null;
+    if (idx < 0) return null;
+    // Skip over any *check* stage that has nobody assigned (Assign Stages) — e.g. an empty
+    // Final Check shouldn't block the flow, it just goes straight through to Schedule.
+    for (let i = idx + 1; i < stages.length; i++) {
+      const s = stages[i];
+      const isCheck = /check/i.test(s.name);
+      if (isCheck && getStageAssignees(s).length === 0) continue;
+      return s;
+    }
+    return null;
   }
 
   async function proceedToNextStage(draft: ScriptDraft) {
@@ -648,22 +657,17 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                               → Check 1
                             </button>
                           </div>
-                        ) : stage.name === "Check 1" ? (
-                          <CheckCardActions draft={draft} onProceed={() => proceedToNextStage(draft)} />
-                        ) : stage.name === "Final Check" ? (
+                        ) : /check/i.test(stage.name) ? (
                           <div className="flex gap-1.5">
                             <button
-                              onClick={() => {
-                                const check1 = stages.find((s) => s.name === "Check 1");
-                                if (check1) moveDraft(draft.id, check1.id);
-                              }}
+                              onClick={() => { const i = stages.findIndex((s) => s.id === draft.stageId); const prev = i > 0 ? stages[i - 1] : null; if (prev) moveDraft(draft.id, prev.id); }}
                               className="flex-1 py-1 text-[10px] font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100">
                               ↩ Send back
                             </button>
                             <button
                               onClick={() => proceedToNextStage(draft)}
                               className="flex-1 py-1 text-[10px] font-semibold text-green-600 bg-green-50 rounded-lg hover:bg-green-100">
-                              ✓ Approve
+                              {nextStage ? `→ ${nextStage.name}` : "✓ Done"}
                             </button>
                           </div>
                         ) : (
@@ -1360,13 +1364,6 @@ function DraftDetailPanel({
                   </div>
                 )}
 
-                {/* Review panel — check stages only */}
-                {inStage && isCheckStage && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Reviews</label>
-                    <ReviewPanel draft={draft} team={team} ownerName={ownerName} onReviewSubmitted={onReviewSubmitted} onApprovalChange={setCheckApproved} />
-                  </div>
-                )}
               </>
             );
           })()}
@@ -1607,19 +1604,14 @@ function DraftDetailPanel({
               </button>
             );
           })()}
-          {inStage ? (() => {
-            const isCheck = /check/i.test(stages.find((s) => s.id === draft.stageId)?.name || "");
-            const canProceed = !isCheck || checkApproved;
-            return (
-              <button onClick={onProceed} disabled={!canProceed}
-                title={!canProceed ? "Waiting for all reviewers to approve" : ""}
-                className={`w-full py-2.5 text-sm font-semibold text-white rounded-xl transition-colors ${
-                  canProceed ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-300 cursor-not-allowed"
-                }`}>
+          {inStage ? (
+              // Whoever is assigned to this stage (via Assign Stages) just reviews and either
+              // sends it back or pushes it through — no separate approval collection gates it.
+              <button onClick={onProceed}
+                className="w-full py-2.5 text-sm font-semibold text-white rounded-xl transition-colors bg-indigo-600 hover:bg-indigo-700">
                 {nextStage ? `→ Proceed to ${nextStage.name}` : "✓ Mark as Done"}
               </button>
-            );
-          })() : (
+          ) : (
             <div className="flex gap-2">
               <button onClick={onAccept}
                 className="flex-1 py-2 text-sm font-semibold text-white bg-green-500 rounded-xl hover:bg-green-600">
