@@ -830,7 +830,7 @@ async function blobUpload(file: File, onProgress: (pct: number) => void): Promis
       if (xhr.status >= 200 && xhr.status < 300) resolve();
       else reject(new Error(`R2 upload failed (${xhr.status}): ${xhr.responseText?.slice(0, 200) || ""}`));
     };
-    xhr.onerror = () => reject(new Error("R2 upload failed: network/CORS error"));
+    xhr.onerror = () => reject(new Error("Upload blocked (storage CORS not allowed for this domain). Try again in a minute, or contact support."));
     xhr.send(file);
   });
 
