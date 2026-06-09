@@ -175,9 +175,14 @@ function resolvePersonLabel(v: PersonValue, client: Client | null, team: TeamMem
 export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, activeProfile, team, ownerName = "Owner", isClient = false, onOpenChat, onBadgesChanged, highlightDraftId, onHighlightConsumed }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [flashId, setFlashId] = useState<number | null>(null);
+  const [stages, setStages] = useState<WorkflowStage[]>([]);
+  const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [drafts, setDrafts] = useState<ScriptDraft[]>([]);
+  const [creators, setCreators] = useState<Creator[]>([]);
 
   // A client tapped a card on the calendar → scroll to it here and flash it for a moment
-  // so they can see where that piece actually lives.
+  // so they can see where that piece actually lives. (Declared after `drafts` so the dep
+  // array doesn't reference it before initialization.)
   useEffect(() => {
     if (!highlightDraftId || !drafts.some((d) => d.id === highlightDraftId)) return;
     const id = highlightDraftId;
@@ -189,10 +194,6 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     const clear = setTimeout(() => { setFlashId(null); onHighlightConsumed?.(); }, 2600);
     return () => { clearTimeout(t); clearTimeout(clear); };
   }, [highlightDraftId, drafts, onHighlightConsumed]);
-  const [stages, setStages] = useState<WorkflowStage[]>([]);
-  const [concepts, setConcepts] = useState<Concept[]>([]);
-  const [drafts, setDrafts] = useState<ScriptDraft[]>([]);
-  const [creators, setCreators] = useState<Creator[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<number | null>(null);
   const [detailDraft, setDetailDraft] = useState<ScriptDraft | null>(null);
   const [rejectDraftData, setRejectDraftData] = useState<ScriptDraft | null>(null);
