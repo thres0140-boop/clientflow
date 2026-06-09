@@ -56,6 +56,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   const [activeReel, setActiveReel] = useState<ReelContext | null>(null);
   const [reelModal, setReelModal] = useState<ReelRef | null>(null);
   const [reelModalFull, setReelModalFull] = useState<ReelRef | null>(null);
+  const [rawExpanded, setRawExpanded] = useState(false);
   const [activeChannel, setActiveChannel] = useState<string>(memberChannel ?? initialChannel ?? "client");
   // Per-channel latest message (for unread badges + WhatsApp-style ordering)
   const [summary, setSummary] = useState<Record<string, { lastAt: string; lastAuthor: string; lastContent: string }>>({});
@@ -110,6 +111,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   }, [reelContext]);
 
   useEffect(() => {
+    setRawExpanded(false);
     if (!reelModal) { setReelModalFull(null); return; }
     if (reelModal.id) {
       fetch(`/api/script-drafts?id=${reelModal.id}`)
@@ -500,13 +502,20 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                     )}
                     {raws.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Raw Content {raws.length > 1 ? `(${raws.length})` : ""}</p>
-                        <div className="space-y-2">
-                          {raws.map((u, i) => (
-                            // eslint-disable-next-line jsx-a11y/media-has-caption
-                            <video key={i} src={u} controls playsInline className="w-full max-h-[45vh] rounded-xl bg-black object-contain" />
-                          ))}
-                        </div>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Raw Content</p>
+                        <button onClick={() => setRawExpanded((v) => !v)}
+                          className="w-full flex items-center justify-between gap-2 border border-slate-200 rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 transition-colors">
+                          <span>📎 {raws.length} file{raws.length > 1 ? "s" : ""} uploaded</span>
+                          <span className="text-indigo-500 text-xs font-semibold">{rawExpanded ? "▲ Collapse" : "▼ Expand"}</span>
+                        </button>
+                        {rawExpanded && (
+                          <div className="space-y-2 mt-2">
+                            {raws.map((u, i) => (
+                              // eslint-disable-next-line jsx-a11y/media-has-caption
+                              <video key={i} src={u} controls playsInline preload="metadata" className="w-full max-h-[45vh] rounded-xl bg-black object-contain" />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </>
