@@ -21,6 +21,8 @@ type Props = {
   isClient?: boolean;
   onOpenChat?: (context: { id?: number; title: string; hook?: string | null; script: string; caption?: string | null; channel?: string }) => void;
   onBadgesChanged?: () => void;
+  highlightDraftId?: number | null; // a draft to scroll to + flash (e.g. when a client taps it on the calendar)
+  onHighlightConsumed?: () => void;
 };
 
 const WEEK_NUMBER = Math.ceil(
@@ -64,7 +66,7 @@ function fmtSchedule(iso?: string | null): string | null {
 }
 
 // ─── Draggable card shell ───────────────────────────────────────────────────
-function DraggableCard({ draft, onClick, selected = false, notify = false, days }: { draft: ScriptDraft; onClick: () => void; selected?: boolean; notify?: boolean; days?: string[] }) {
+function DraggableCard({ draft, onClick, selected = false, notify = false, days, highlight = false }: { draft: ScriptDraft; onClick: () => void; selected?: boolean; notify?: boolean; days?: string[]; highlight?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: String(draft.id) });
   const style = transform
     ? { transform: `translate(${transform.x}px,${transform.y}px)`, opacity: isDragging ? 0.4 : 1 }
@@ -75,16 +77,16 @@ function DraggableCard({ draft, onClick, selected = false, notify = false, days 
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       className="touch-none cursor-grab active:cursor-grabbing outline-none focus:outline-none"
     >
-      <CardContent draft={draft} selected={selected} notify={notify} days={days} />
+      <CardContent draft={draft} selected={selected} notify={notify} days={days} highlight={highlight} />
     </div>
   );
 }
 
 // ─── Card content ────────────────────────────────────────────────────────────
-function CardContent({ draft, selected = false, notify = false, days }: { draft: ScriptDraft; selected?: boolean; notify?: boolean; days?: string[] }) {
+function CardContent({ draft, selected = false, notify = false, days, highlight = false }: { draft: ScriptDraft; selected?: boolean; notify?: boolean; days?: string[]; highlight?: boolean }) {
   return (
     <div className={`relative bg-white rounded-xl border p-3 shadow-sm hover:shadow-md transition-all select-none ${
-      notify ? "ring-2 ring-red-400 border-red-400" : selected ? "ring-2 ring-indigo-500 border-indigo-500" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
+      highlight ? "ring-4 ring-indigo-400 border-indigo-400 animate-pulse shadow-lg" : notify ? "ring-2 ring-red-400 border-red-400" : selected ? "ring-2 ring-indigo-500 border-indigo-500" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
     }`}>
       {notify && (
         <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow ring-2 ring-white" title="Sent back — needs changes">
@@ -170,8 +172,23 @@ function resolvePersonLabel(v: PersonValue, client: Client | null, team: TeamMem
 }
 
 // ─── Main Kanban ────────────────────────────────────────────────────────────
-export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, activeProfile, team, ownerName = "Owner", isClient = false, onOpenChat, onBadgesChanged }: Props) {
+export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, activeProfile, team, ownerName = "Owner", isClient = false, onOpenChat, onBadgesChanged, highlightDraftId, onHighlightConsumed }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
+  const [flashId, setFlashId] = useState<number | null>(null);
+
+  // A client tapped a card on the calendar → scroll to it here and flash it for a moment
+  // so they can see where that piece actually lives.
+  useEffect(() => {
+    if (!highlightDraftId || !drafts.some((d) => d.id === highlightDraftId)) return;
+    const id = highlightDraftId;
+    const t = setTimeout(() => {
+      const el = document.querySelector(`[data-draft-id="${id}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlashId(id);
+    }, 120);
+    const clear = setTimeout(() => { setFlashId(null); onHighlightConsumed?.(); }, 2600);
+    return () => { clearTimeout(t); clearTimeout(clear); };
+  }, [highlightDraftId, drafts, onHighlightConsumed]);
   const [stages, setStages] = useState<WorkflowStage[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [drafts, setDrafts] = useState<ScriptDraft[]>([]);
@@ -530,7 +547,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                 ) : (
                   ideaColumn.map((draft) => (
                     <div key={draft.id}>
-                      <DraggableCard draft={draft} days={daysOf(draft)} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} onClick={() => openDraft(draft)} />
+                      <DraggableCard draft={draft} days={daysOf(draft)} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} highlight={flashId === draft.id} onClick={() => openDraft(draft)} />
                       <div className="flex gap-1.5 mt-1.5">
                         <button onClick={() => moveDraft(draft.id, stages[0]?.id ?? null)}
                           disabled={stages.length === 0}
@@ -612,7 +629,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
                     {stageDrafts.map((draft) => (
                       <div key={draft.id} className="space-y-1.5">
-                        <DraggableCard draft={draft} days={daysOf(draft)} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} onClick={() => openDraft(draft)} />
+                        <DraggableCard draft={draft} days={daysOf(draft)} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} highlight={flashId === draft.id} onClick={() => openDraft(draft)} />
                         {/* Per-card actions */}
                         {stage.name === "Edit" ? (
                           <div className="space-y-1">

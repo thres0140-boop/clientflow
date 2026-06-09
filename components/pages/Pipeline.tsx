@@ -16,6 +16,7 @@ type Props = {
   refreshNotifications: () => void;
   isClient?: boolean;
   readOnly?: boolean; // view-only: can see the page but not add/schedule/edit
+  onOpenInKanban?: (draftId: number) => void; // clients: jump to the board instead of opening edit modals
 };
 
 type CalendarView = "month" | "week";
@@ -62,7 +63,13 @@ function parseDayTemplate(raw: string | null | undefined): Record<number, number
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-export default function Pipeline({ clients, selectedClientId, refreshNotifications, isClient, readOnly = false }: Props) {
+export default function Pipeline({ clients, selectedClientId, refreshNotifications, isClient, readOnly = false, onOpenInKanban }: Props) {
+  // Clients shouldn't open the editing modals from the calendar (it confuses them into
+  // thinking they work from here). A click just takes them to the board, highlighted.
+  const openDraft = (draft: ScriptDraft) => {
+    if (isClient && onOpenInKanban) { onOpenInKanban(draft.id); return; }
+    setSelectedDraft(draft);
+  };
   // Editing is allowed unless the page is view-only for this member.
   const canEdit = !readOnly;
   const [content, setContent] = useState<ContentPiece[]>([]);
@@ -495,7 +502,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             return (
                               <button
                                 key={piece.id}
-                                onClick={() => setSelected(piece)}
+                                onClick={isClient ? undefined : () => setSelected(piece)}
                                 className="w-full text-left rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight hover:opacity-90 transition-opacity truncate"
                                 style={isPosted ? {
                                   backgroundColor: "#dcfce7",
@@ -532,7 +539,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                                 ? { backgroundColor: st.color, color: "#fff" }
                                 : { backgroundColor: st.color + "15", borderLeft: `2px solid ${st.color}`, color: "#1e293b" }}
                             >
-                              <button onClick={() => (!canEdit || solid) ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
+                              <button onClick={() => (!canEdit || solid) ? openDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
                                 <div className="truncate font-semibold pr-4">{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</div>
                                 {draft.concept && <div className={`truncate text-[9px] ${solid ? "text-white/80" : "opacity-70"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</div>}
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -592,7 +599,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         return (
                           <button
                             key={piece.id}
-                            onClick={() => setSelected(piece)}
+                            onClick={isClient ? undefined : () => setSelected(piece)}
                             className="w-full text-left rounded-lg px-2 py-2 text-xs hover:opacity-90 transition-opacity"
                             style={isPosted ? {
                               backgroundColor: "#dcfce7",
@@ -628,7 +635,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             ? { backgroundColor: st.color, color: "#fff" }
                             : { backgroundColor: st.color + "15", borderLeft: `3px solid ${st.color}` }}
                         >
-                          <button onClick={() => (!canEdit || solid) ? setSelectedDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
+                          <button onClick={() => (!canEdit || solid) ? openDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
                             <p className="font-semibold truncate leading-snug pr-4" style={{ color: solid ? "#fff" : st.color }}>{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</p>
                             {draft.concept && <p className={`truncate text-[10px] ${solid ? "text-white/80" : "text-slate-500"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>}
                             {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <p className={`text-[10px] font-semibold ${solid ? "text-white/90" : "text-slate-600"}`}>🕐 {t}</p> : null; })()}
