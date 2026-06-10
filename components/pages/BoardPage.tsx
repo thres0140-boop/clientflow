@@ -85,9 +85,9 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
     const els = mod.convertToExcalidrawElements([
       { type: "embeddable", x, y, width: w, height: h, link: playUrl, locked: false } as never,
     ]);
+    // Append only — the element is already placed at the centre of the current view, so we
+    // must NOT scroll/zoom the canvas (scrollToContent was jumping it to a blank area).
     api.updateScene({ elements: [...api.getSceneElements(), ...els] });
-    // Bring the new video into view WITHOUT fitToContent (fitToContent corrupted zoom to NaN).
-    try { api.scrollToContent(els, { fitToContent: false, animate: true }); } catch { /* ignore */ }
   }, []);
 
   const getInitialData = useCallback(async () => {
