@@ -9,7 +9,7 @@ type AnyFn = (...args: any[]) => any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ExcalApi = any;
 
-type VideoItem = { key: string; label: string; sub?: string; thumb?: string | null; embedUrl: string };
+type VideoItem = { key: string; label: string; sub?: string; thumb?: string | null; src?: string; reelId?: string };
 
 const Excalidraw = dynamic(
   () => import("@excalidraw/excalidraw").then((mod) => mod.Excalidraw),
@@ -49,10 +49,27 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
     const api = apiRef.current;
     if (!api) return;
     setPickerOpen(false);
+
+    // Resolve a PUBLIC playable URL here, in the authenticated app — never inside the
+    // sandboxed embed iframe (which can't send cookies, so authed lookups fail there).
+    let playUrl: string;
+    if (item.reelId) {
+      let resolved: string | null = null;
+      try {
+        const d = await fetch(`/api/competitors/reel-media?id=${encodeURIComponent(item.reelId)}`).then((r) => r.json());
+        resolved = d?.url || null;
+      } catch { /* ignore */ }
+      if (!resolved) { alert("Couldn't load this reel's video (Instagram link may have expired). Try again."); return; }
+      // Stream through the public /api/vid proxy so the sandboxed iframe can play it.
+      playUrl = `${window.location.origin}/play?src=${encodeURIComponent(resolved)}&proxy=1`;
+    } else if (item.src) {
+      playUrl = `${window.location.origin}/play?src=${encodeURIComponent(item.src)}`;
+    } else {
+      return;
+    }
+
     const mod = await import("@excalidraw/excalidraw");
     const w = 270, h = 480;
-    // Absolute URL — Excalidraw can drop the query string off a relative embed link.
-    const link = item.embedUrl.startsWith("http") ? item.embedUrl : `${window.location.origin}${item.embedUrl}`;
     // Place at the centre of the current viewport (scene coords).
     let x = 100, y = 100;
     try {
@@ -66,9 +83,11 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
       }
     } catch { /* use fallback */ }
     const els = mod.convertToExcalidrawElements([
-      { type: "embeddable", x, y, width: w, height: h, link } as never,
+      { type: "embeddable", x, y, width: w, height: h, link: playUrl, locked: false } as never,
     ]);
     api.updateScene({ elements: [...api.getSceneElements(), ...els] });
+    // Bring the new video into view WITHOUT fitToContent (fitToContent corrupted zoom to NaN).
+    try { api.scrollToContent(els, { fitToContent: false, animate: true }); } catch { /* ignore */ }
   }, []);
 
   const getInitialData = useCallback(async () => {
@@ -174,7 +193,7 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
           label: d.title || "Untitled",
           sub: d.concept?.name || d.weekLabel || "",
           thumb: null,
-          embedUrl: `/play?src=${encodeURIComponent(d.editedVideoUrl)}`,
+          src: d.editedVideoUrl as string,
         }));
       const reels = Array.isArray(reelsResp?.reels) ? reelsResp.reels : [];
       const compItems: VideoItem[] = reels.map((r: any) => ({
@@ -182,7 +201,7 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
         label: r.handle ? `@${r.handle}` : "Reel",
         sub: r.caption ? String(r.caption).slice(0, 60) : "",
         thumb: r.thumbnail_url || null,
-        embedUrl: `/play?reel=${encodeURIComponent(r.id)}`,
+        reelId: String(r.id),
       }));
       setMine(mineItems);
       setComp(compItems);
@@ -223,7 +242,7 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
                   <div className="aspect-[9/16] bg-slate-900 flex items-center justify-center">
                     {it.thumb
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={it.thumb} alt="" className="w-full h-full object-cover" />
+                      ? <img src={it.thumb.includes("/api/img") || it.thumb.includes("r2.dev") ? it.thumb : `/api/img?u=${encodeURIComponent(it.thumb)}`} alt="" className="w-full h-full object-cover" />
                       : <span className="text-2xl opacity-40">🎬</span>}
                   </div>
                   <div className="p-2">
