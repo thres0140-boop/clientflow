@@ -90,9 +90,15 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
     const els = mod.convertToExcalidrawElements([
       { type: "embeddable", x, y, width: w, height: h, link: playUrl, locked: false } as never,
     ]);
-    // Append only — the element is already placed at the centre of the current view, so we
-    // must NOT scroll/zoom the canvas (scrollToContent was jumping it to a blank area).
-    api.updateScene({ elements: [...api.getSceneElements(), ...els] });
+    // Append + select the new tile. Selecting it makes Excalidraw mount the embed iframe
+    // right away (otherwise it often doesn't render until a full page refresh). We do NOT
+    // scroll/zoom the canvas — it's already placed at the centre of the current view.
+    const newId = (els[0] as { id?: string })?.id;
+    api.updateScene({
+      elements: [...api.getSceneElements(), ...els],
+      appState: newId ? { selectedElementIds: { [newId]: true } } : undefined,
+    });
+    try { api.refresh(); } catch { /* ignore */ }
   }, []);
 
   const getInitialData = useCallback(async () => {
