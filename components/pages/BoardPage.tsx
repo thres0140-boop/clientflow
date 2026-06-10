@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Client } from "@/lib/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFn = (...args: any[]) => any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExcalApi = any;
+
+type VideoItem = { key: string; label: string; sub?: string; thumb?: string | null; embedUrl: string };
 
 const Excalidraw = dynamic(
   () => import("@excalidraw/excalidraw").then((mod) => mod.Excalidraw),
@@ -34,9 +38,24 @@ export default function BoardPage({ clients, selectedClientId, sidebarCollapsed 
 }
 
 function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: number }) {
-  const apiRef = useRef<{ getSceneElements: AnyFn; getAppState: AnyFn } | null>(null);
+  const apiRef = useRef<ExcalApi | null>(null);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "">("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Drop a video onto the board as a playable embed (iframe → our /play page), then
+  // scroll the canvas to it.
+  const addVideo = useCallback(async (item: VideoItem) => {
+    const api = apiRef.current;
+    if (!api) return;
+    setPickerOpen(false);
+    const mod = await import("@excalidraw/excalidraw");
+    const els = mod.convertToExcalidrawElements([
+      { type: "embeddable", x: 0, y: 0, width: 270, height: 480, link: item.embedUrl } as never,
+    ]);
+    api.updateScene({ elements: [...api.getSceneElements(), ...els] });
+    try { api.scrollToContent(els, { fitToContent: true, animate: true }); } catch { /* ignore */ }
+  }, []);
 
   const getInitialData = useCallback(async () => {
     try {
@@ -87,12 +106,22 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         </span>
       </div>
 
+      {/* Add-video button */}
+      <button
+        onClick={() => setPickerOpen(true)}
+        className="absolute top-2 z-20 flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow"
+        style={{ left: leftOffset + 16 }}
+      >
+        🎬 Add video
+      </button>
+
       {/* Full canvas — fills everything right of the sidebar */}
       <div className="absolute inset-0 top-0 bottom-0 right-0 transition-[left] duration-200" style={{ left: leftOffset }}>
         <Excalidraw
           excalidrawAPI={(api) => { apiRef.current = api; }}
           initialData={getInitialData}
           onChange={handleChange}
+          validateEmbeddable={true}
           UIOptions={{
             canvasActions: {
               toggleTheme: true,
@@ -102,7 +131,97 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
           }}
         />
       </div>
+
+      {pickerOpen && <VideoPicker clientId={client.id} onPick={addVideo} onClose={() => setPickerOpen(false)} />}
     </>
+  );
+}
+
+// ─── Video picker ────────────────────────────────────────────────────────────
+function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: (v: VideoItem) => void; onClose: () => void }) {
+  const [tab, setTab] = useState<"mine" | "competitors">("mine");
+  const [mine, setMine] = useState<VideoItem[]>([]);
+  const [comp, setComp] = useState<VideoItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      fetch(`/api/script-drafts?clientId=${clientId}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/competitors/reels?clientId=${clientId}`).then((r) => r.json()).catch(() => ({ reels: [] })),
+    ]).then(([drafts, reelsResp]) => {
+      if (cancelled) return;
+      const mineItems: VideoItem[] = (Array.isArray(drafts) ? drafts : [])
+        .filter((d: any) => d.editedVideoUrl)
+        .map((d: any) => ({
+          key: `d${d.id}`,
+          label: d.title || "Untitled",
+          sub: d.concept?.name || d.weekLabel || "",
+          thumb: null,
+          embedUrl: `/play?src=${encodeURIComponent(d.editedVideoUrl)}`,
+        }));
+      const reels = Array.isArray(reelsResp?.reels) ? reelsResp.reels : [];
+      const compItems: VideoItem[] = reels.map((r: any) => ({
+        key: `r${r.id}`,
+        label: r.handle ? `@${r.handle}` : "Reel",
+        sub: r.caption ? String(r.caption).slice(0, 60) : "",
+        thumb: r.thumbnail_url || null,
+        embedUrl: `/play?reel=${encodeURIComponent(r.id)}`,
+      }));
+      setMine(mineItems);
+      setComp(compItems);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [clientId]);
+
+  const items = tab === "mine" ? mine : comp;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[82vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-800">Add a video to the board</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+        <div className="px-5 pt-3 flex gap-2">
+          {([["mine", "📹 My videos"], ["competitors", "🔍 Competitor reels"]] as [typeof tab, string][]).map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg ${tab === id ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="p-5 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+          ) : items.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">
+              {tab === "mine" ? "No finished videos yet." : "No competitor reels yet — track competitors first."}
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {items.map((it) => (
+                <button key={it.key} onClick={() => onPick(it)}
+                  className="text-left bg-slate-50 border border-slate-200 rounded-xl overflow-hidden hover:border-indigo-400 hover:shadow transition-all">
+                  <div className="aspect-[9/16] bg-slate-900 flex items-center justify-center">
+                    {it.thumb
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={it.thumb} alt="" className="w-full h-full object-cover" />
+                      : <span className="text-2xl opacity-40">🎬</span>}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-[11px] font-semibold text-slate-700 truncate">{it.label}</p>
+                    {it.sub && <p className="text-[10px] text-slate-400 truncate">{it.sub}</p>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
