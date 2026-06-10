@@ -43,18 +43,32 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
   const [saveState, setSaveState] = useState<"saved" | "saving" | "">("");
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Drop a video onto the board as a playable embed (iframe → our /play page), then
-  // scroll the canvas to it.
+  // Drop a video onto the board as a playable embed (iframe → our /play page), placed
+  // at the centre of the CURRENT view so nothing jumps and the existing content stays put.
   const addVideo = useCallback(async (item: VideoItem) => {
     const api = apiRef.current;
     if (!api) return;
     setPickerOpen(false);
     const mod = await import("@excalidraw/excalidraw");
+    const w = 270, h = 480;
+    // Absolute URL — Excalidraw can drop the query string off a relative embed link.
+    const link = item.embedUrl.startsWith("http") ? item.embedUrl : `${window.location.origin}${item.embedUrl}`;
+    // Place at the centre of the current viewport (scene coords).
+    let x = 100, y = 100;
+    try {
+      const st = api.getAppState();
+      const zoom = (st.zoom && st.zoom.value) || 1;
+      const vw = st.width || window.innerWidth;
+      const vh = st.height || window.innerHeight;
+      if (Number.isFinite(st.scrollX) && Number.isFinite(st.scrollY)) {
+        x = vw / 2 / zoom - st.scrollX - w / 2;
+        y = vh / 2 / zoom - st.scrollY - h / 2;
+      }
+    } catch { /* use fallback */ }
     const els = mod.convertToExcalidrawElements([
-      { type: "embeddable", x: 0, y: 0, width: 270, height: 480, link: item.embedUrl } as never,
+      { type: "embeddable", x, y, width: w, height: h, link } as never,
     ]);
     api.updateScene({ elements: [...api.getSceneElements(), ...els] });
-    try { api.scrollToContent(els, { fitToContent: true, animate: true }); } catch { /* ignore */ }
   }, []);
 
   const getInitialData = useCallback(async () => {
@@ -106,11 +120,12 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         </span>
       </div>
 
-      {/* Add-video button */}
+      {/* Add-video button — sits to the right of Excalidraw's hamburger menu so it
+          doesn't cover it. */}
       <button
         onClick={() => setPickerOpen(true)}
-        className="absolute top-2 z-20 flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow"
-        style={{ left: leftOffset + 16 }}
+        className="absolute top-2.5 z-20 flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow"
+        style={{ left: leftOffset + 64 }}
       >
         🎬 Add video
       </button>
