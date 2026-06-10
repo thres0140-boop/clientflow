@@ -920,6 +920,7 @@ export async function POST(req: NextRequest) {
     `;
     await (prisma as any).$executeRaw`
       ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "mediaUrlAt" TIMESTAMP(3);
+      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "cachedVideoUrl" TEXT;
     `;
     await (prisma as any).$executeRaw`
       ALTER TABLE "Competitor"

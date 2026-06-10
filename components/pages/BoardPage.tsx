@@ -54,14 +54,19 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
     // sandboxed embed iframe (which can't send cookies, so authed lookups fail there).
     let playUrl: string;
     if (item.reelId) {
+      // Cache the reel to permanent R2 storage so the board link never expires (IG urls do).
       let resolved: string | null = null;
+      let permanent = false;
       try {
-        const d = await fetch(`/api/competitors/reel-media?id=${encodeURIComponent(item.reelId)}`).then((r) => r.json());
+        const d = await fetch(`/api/competitors/reel-cache?id=${encodeURIComponent(item.reelId)}`, { method: "POST" }).then((r) => r.json());
         resolved = d?.url || null;
+        permanent = !!d?.permanent || !!d?.cached;
       } catch { /* ignore */ }
       if (!resolved) { alert("Couldn't load this reel's video (Instagram link may have expired). Try again."); return; }
-      // Stream through the public /api/vid proxy so the sandboxed iframe can play it.
-      playUrl = `${window.location.origin}/play?src=${encodeURIComponent(resolved)}&proxy=1`;
+      // Permanent R2 copy plays directly; ephemeral fallback goes through the proxy.
+      playUrl = permanent
+        ? `${window.location.origin}/play?src=${encodeURIComponent(resolved)}`
+        : `${window.location.origin}/play?src=${encodeURIComponent(resolved)}&proxy=1`;
     } else if (item.src) {
       playUrl = `${window.location.origin}/play?src=${encodeURIComponent(item.src)}`;
     } else {

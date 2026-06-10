@@ -230,6 +230,7 @@ model CompetitorReel {
   thumbnailUrl  String?
   mediaUrl      String?
   mediaUrlAt    DateTime?
+  cachedVideoUrl String?  // permanent R2 copy (IG urls expire) — used for board embeds
   permalink     String?
   postedAt      DateTime?
   firstSeenAt   DateTime  @default(now())
