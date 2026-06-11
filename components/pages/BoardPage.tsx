@@ -42,18 +42,18 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "">("");
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [playOverlay, setPlayOverlay] = useState<string | null>(null);
 
-  // Drop a video onto the board as a NATIVE element (a labeled box with a link) — never an
-  // iframe/embeddable, which crashes the webview. Clicking the box's link plays the video
-  // in an in-app overlay (see onLinkOpen below). Placed at the centre of the current view.
+  // Drop a video onto the board as an inline embed (our tiny static play.html, click-to-load)
+  // so it plays right on the canvas. Placed at the centre of the current view.
   const addVideo = useCallback(async (item: VideoItem) => {
     const api = apiRef.current;
     if (!api) return;
     setPickerOpen(false);
 
-    // Resolve the direct, public playable URL here (authenticated app).
-    let videoUrl: string;
+    // Resolve a PUBLIC playable URL, then embed our tiny static player (click-to-load) so
+    // the video plays INLINE on the board. No refresh()/selectedElementIds call afterward —
+    // that's what was crashing the renderer.
+    let playUrl: string;
     if (item.reelId) {
       let resolved: string | null = null;
       let permanent = false;
@@ -63,16 +63,17 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         permanent = !!d?.permanent || !!d?.cached;
       } catch { /* ignore */ }
       if (!resolved) { alert("Couldn't load this reel's video (Instagram link may have expired). Try again."); return; }
-      // Permanent R2 copy plays directly; ephemeral goes through the public proxy.
-      videoUrl = permanent ? resolved : `${window.location.origin}/api/vid?u=${encodeURIComponent(resolved)}`;
+      playUrl = permanent
+        ? `${window.location.origin}/play.html?src=${encodeURIComponent(resolved)}`
+        : `${window.location.origin}/play.html?src=${encodeURIComponent(resolved)}&proxy=1`;
     } else if (item.src) {
-      videoUrl = item.src;
+      playUrl = `${window.location.origin}/play.html?src=${encodeURIComponent(item.src)}`;
     } else {
       return;
     }
 
     const mod = await import("@excalidraw/excalidraw");
-    const w = 240, h = 140;
+    const w = 270, h = 480;
     let x = 100, y = 100;
     try {
       const st = api.getAppState();
@@ -85,13 +86,9 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
       }
     } catch { /* use fallback */ }
     const els = mod.convertToExcalidrawElements([
-      {
-        type: "rectangle", x, y, width: w, height: h,
-        strokeColor: "#6366f1", backgroundColor: "#eef2ff", roundness: { type: 3 },
-        link: videoUrl,
-        label: { text: `▶ ${(item.label || "Video").slice(0, 40)}`, fontSize: 16, strokeColor: "#3730a3" },
-      } as never,
+      { type: "embeddable", x, y, width: w, height: h, link: playUrl } as never,
     ]);
+    // Append only — no refresh()/appState mutation (that combo crashed the webview).
     api.updateScene({ elements: [...api.getSceneElements(), ...els] });
   }, []);
 
@@ -160,14 +157,7 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
           excalidrawAPI={(api) => { apiRef.current = api; }}
           initialData={getInitialData}
           onChange={handleChange}
-          onLinkOpen={(element: { link?: string }, event: { preventDefault?: () => void }) => {
-            const link = element?.link || "";
-            // Video links open in our in-app overlay; everything else opens normally.
-            if (/\.(mp4|mov|webm|m4v)(\?|$)/i.test(link) || link.includes("/api/vid") || link.includes("res.cloudinary.com") || link.includes("r2.dev")) {
-              event?.preventDefault?.();
-              setPlayOverlay(link);
-            }
-          }}
+          validateEmbeddable={true}
           UIOptions={{
             canvasActions: {
               toggleTheme: true,
@@ -179,26 +169,6 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
       </div>
 
       {pickerOpen && <VideoPicker clientId={client.id} onPick={addVideo} onClose={() => setPickerOpen(false)} />}
-
-      {playOverlay && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4" onClick={() => setPlayOverlay(null)}>
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video
-              src={playOverlay}
-              controls autoPlay playsInline
-              onError={(e) => {
-                const v = e.currentTarget;
-                const proxied = `${window.location.origin}/api/vid?u=${encodeURIComponent(playOverlay)}`;
-                if (!v.src.includes("/api/vid")) v.src = proxied;
-              }}
-              className="max-h-[88vh] w-auto max-w-[94vw] rounded-xl bg-black"
-            />
-            <button onClick={() => setPlayOverlay(null)}
-              className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-white text-slate-800 shadow-lg flex items-center justify-center text-lg hover:bg-slate-100">×</button>
-          </div>
-        </div>
-      )}
     </>
   );
 }
