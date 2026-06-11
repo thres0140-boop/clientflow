@@ -240,11 +240,16 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     reload();
   }
 
-  async function unscheduleDraft(draftId: number) {
+  async function unscheduleDraft(draftId: number, zernioPostId?: string | null) {
+    // Cancel the booking on Zernio too — otherwise it still auto-posts even though the app
+    // shows it as unscheduled.
+    if (zernioPostId) {
+      await fetch(`/api/zernio/posts/${zernioPostId}`, { method: "DELETE" }).catch(() => {});
+    }
     await fetch(`/api/script-drafts/${draftId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduledDate: null, zernioBooked: false }),
+      body: JSON.stringify({ scheduledDate: null, zernioBooked: false, zernioPostId: null }),
     });
     reload();
   }
@@ -549,7 +554,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                                 </div>
                               </button>
                               <button
-                                onClick={() => unscheduleDraft(draft.id)}
+                                onClick={() => unscheduleDraft(draft.id, draft.zernioPostId)}
                                 className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${solid ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
                                 title="Remove from calendar"
                               >×</button>
@@ -643,7 +648,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             {draft.stage && <p className={`truncate text-[10px] ${solid ? "text-white/70" : "text-slate-400"}`}>📍 {draft.stage.name}</p>}
                           </button>
                           <button
-                            onClick={() => unscheduleDraft(draft.id)}
+                            onClick={() => unscheduleDraft(draft.id, draft.zernioPostId)}
                             className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${solid ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
                             title="Remove from calendar"
                           >×</button>
@@ -799,7 +804,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
         />
       )}
       {selectedDraft && (
-        <ScriptDraftModal draft={selectedDraft} onClose={() => setSelectedDraft(null)} />
+        <ScriptDraftModal draft={selectedDraft} onClose={() => setSelectedDraft(null)}
+          onCancelScheduled={async () => { await unscheduleDraft(selectedDraft.id, selectedDraft.zernioPostId); setSelectedDraft(null); }} />
       )}
       {planDrop && canEdit && (
         <PlanTimeModal
@@ -861,7 +867,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
 
 // ── Script Draft Modal (read-only view from calendar) ───────────────────────
 
-function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () => void }) {
+function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: ScriptDraft; onClose: () => void; onCancelScheduled?: () => void | Promise<void> }) {
+  const [cancelling, setCancelling] = useState(false);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -932,6 +939,14 @@ function ScriptDraftModal({ draft, onClose }: { draft: ScriptDraft; onClose: () 
             <span>{draft.zernioBooked ? `Scheduled to auto-post · ${when}` : `Planned · ${when} (not yet confirmed)`}</span>
           </div>
           );})()}
+        {draft.zernioBooked && onCancelScheduled && (
+          <button
+            onClick={async () => { if (!confirm("Cancel this scheduled post? It will be removed from auto-posting on Zernio too.")) return; setCancelling(true); try { await onCancelScheduled(); } finally { setCancelling(false); } }}
+            disabled={cancelling}
+            className="w-full py-2.5 text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 disabled:opacity-50">
+            {cancelling ? "Cancelling…" : "✕ Cancel scheduled post"}
+          </button>
+        )}
       </div>
     </div>
   );
