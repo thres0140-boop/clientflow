@@ -240,17 +240,21 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     reload();
   }
 
-  async function unscheduleDraft(draftId: number, zernioPostId?: string | null) {
-    // Cancel the booking on Zernio too — otherwise it still auto-posts even though the app
-    // shows it as unscheduled.
-    if (zernioPostId) {
-      await fetch(`/api/zernio/posts/${zernioPostId}`, { method: "DELETE" }).catch(() => {});
-    }
+  async function unscheduleDraft(draftId: number) {
+    // Cancel on Zernio (recovering the post id if we don't have it stored) AND clear the
+    // local booking. Returns needsManual=true if Zernio's post couldn't be found.
+    const r = await fetch("/api/zernio/cancel", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ draftId }),
+    }).then((res) => res.json()).catch(() => ({}));
+    // Also clear the planned date so the card leaves the calendar slot.
     await fetch(`/api/script-drafts/${draftId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduledDate: null, zernioBooked: false, zernioPostId: null }),
-    });
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledDate: null }),
+    }).catch(() => {});
+    if (r?.needsManual) {
+      alert("Cleared it here, but I couldn't find this post on Zernio to cancel it automatically — please delete it in Zernio too, just in case.");
+    }
     reload();
   }
 
@@ -554,7 +558,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                                 </div>
                               </button>
                               <button
-                                onClick={() => unscheduleDraft(draft.id, draft.zernioPostId)}
+                                onClick={() => unscheduleDraft(draft.id)}
                                 className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${solid ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
                                 title="Remove from calendar"
                               >×</button>
@@ -648,7 +652,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             {draft.stage && <p className={`truncate text-[10px] ${solid ? "text-white/70" : "text-slate-400"}`}>📍 {draft.stage.name}</p>}
                           </button>
                           <button
-                            onClick={() => unscheduleDraft(draft.id, draft.zernioPostId)}
+                            onClick={() => unscheduleDraft(draft.id)}
                             className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${solid ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
                             title="Remove from calendar"
                           >×</button>
@@ -805,7 +809,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       )}
       {selectedDraft && (
         <ScriptDraftModal draft={selectedDraft} onClose={() => setSelectedDraft(null)}
-          onCancelScheduled={async () => { await unscheduleDraft(selectedDraft.id, selectedDraft.zernioPostId); setSelectedDraft(null); }} />
+          onCancelScheduled={async () => { await unscheduleDraft(selectedDraft.id); setSelectedDraft(null); }} />
       )}
       {planDrop && canEdit && (
         <PlanTimeModal

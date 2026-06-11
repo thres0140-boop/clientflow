@@ -82,8 +82,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: data?.message ?? data?.error ?? "Failed to post", raw: data }, { status: 400 });
   }
 
-  // Save zernioPostId — Zernio returns _id (MongoDB style)
-  const zernioPostId = data?._id ?? data?.id ?? null;
+  // Save zernioPostId — Zernio returns _id (MongoDB style), sometimes wrapped in { post }.
+  const zernioPostId = data?._id ?? data?.id ?? data?.post?._id ?? data?.post?.id ?? null;
   if (zernioPostId && contentPieceId) {
     await (prisma as any).contentPiece.update({
       where: { id: parseInt(contentPieceId) },
