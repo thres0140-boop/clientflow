@@ -107,7 +107,15 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
       const res = await fetch(`/api/board?clientId=${client.id}`);
       const { snapshot } = await res.json();
       if (snapshot && snapshot !== "{}") {
-        return JSON.parse(snapshot);
+        const data = JSON.parse(snapshot);
+        // Load ONLY the content (elements + files). Deliberately DROP the saved appState/view
+        // — a corrupted view (NaN/null zoom or scroll, bad collaborators) crashes Excalidraw
+        // on load. Resetting pan/zoom is a tiny cost vs a board that won't open. Also drop any
+        // element with non-finite coords (defensive).
+        const elements = Array.isArray(data.elements)
+          ? data.elements.filter((e: any) => e && [e.x, e.y, e.width, e.height].every((n: any) => typeof n === "number" && Number.isFinite(n))) // eslint-disable-line @typescript-eslint/no-explicit-any
+          : [];
+        return { elements, files: data.files || undefined };
       }
     } catch {
       // fresh board
