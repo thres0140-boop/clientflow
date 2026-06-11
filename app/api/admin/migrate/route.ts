@@ -407,6 +407,25 @@ export async function GET(req: NextRequest) {
     } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
 
+  // ?boardinfo=1 — per-client board snapshot size + element type histogram (diagnose crashes)
+  if (req.nextUrl.searchParams.get("boardinfo")) {
+    try {
+      const rows = await (prisma as any).$queryRawUnsafe(`SELECT "clientId", length(snapshot) AS len, snapshot FROM "Board" ORDER BY length(snapshot) DESC;`);
+      const out = rows.map((r: any) => {
+        let elements = 0; const types: Record<string, number> = {}; let files = 0; let embeds: string[] = [];
+        try {
+          const snap = JSON.parse(r.snapshot || "{}");
+          const els = snap.elements || [];
+          elements = els.length;
+          for (const e of els) { types[e.type] = (types[e.type] || 0) + 1; if (e.type === "embeddable" && e.link) embeds.push(String(e.link).slice(0, 60)); }
+          files = snap.files ? Object.keys(snap.files).length : 0;
+        } catch { /* ignore */ }
+        return { clientId: r.clientId, snapshotKB: Math.round(r.len / 1024), elements, types, files, embedCount: embeds.length, embeds: embeds.slice(0, 8) };
+      });
+      return NextResponse.json({ boards: out });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+
   // ?zsched=1 — list drafts that are booked / have a Zernio post id.
   if (req.nextUrl.searchParams.get("zsched")) {
     try {
