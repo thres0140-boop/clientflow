@@ -1124,7 +1124,7 @@ function DraftDetailPanel({
   onSendBack?: (reason: string) => void;
   getNextStage: (stageId: number) => WorkflowStage | null;
   onUploaded: (urls: string[]) => void;
-  onEditedVideoUploaded: (url: string) => void;
+  onEditedVideoUploaded: (url: string | null) => void;
   onExampleUploaded: (url: string | null) => void;
   onReviewSubmitted: () => void;
   activeProfileId: number | null;
@@ -1830,7 +1830,7 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
 }
 
 // ─── Finished video upload in detail panel ───────────────────────────────────
-function FinishedVideoUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string) => void }) {
+function FinishedVideoUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string | null) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -1884,11 +1884,20 @@ function FinishedVideoUpload({ draft, onUploaded }: { draft: ScriptDraft; onUplo
           </div>
         </div>
       ) : (
-        <button
-          onClick={() => inputRef.current?.click()}
-          className="w-full py-2 text-sm font-medium border-2 border-dashed border-orange-300 rounded-lg text-orange-500 hover:border-orange-400 hover:text-orange-600 transition-colors">
-          {draft.editedVideoUrl ? "⬆ Replace finished video" : "⬆ Add finished video"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="flex-1 py-2 text-sm font-medium border-2 border-dashed border-orange-300 rounded-lg text-orange-500 hover:border-orange-400 hover:text-orange-600 transition-colors">
+            {draft.editedVideoUrl ? "⬆ Replace finished video" : "⬆ Add finished video"}
+          </button>
+          {draft.editedVideoUrl && (
+            <button
+              onClick={() => { if (confirm("Delete the finished video?")) { onUploaded(null); setExpanded(false); } }}
+              className="px-3 py-2 text-xs font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100">
+              🗑 Delete
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
