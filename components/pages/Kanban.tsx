@@ -1004,26 +1004,65 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 }
 
 // ─── Copyable link + QR for the finished video (open it on your phone) ────────
-function VideoShareLink({ url }: { url: string }) {
+function VideoShareLink({ url, draftId }: { url: string; draftId?: number }) {
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  // Review link: a phone page where someone watches the video and can approve it to the
+  // next stage (or send it back) without logging in.
+  const [reviewUrl, setReviewUrl] = useState<string | null>(null);
+  const [reviewCopied, setReviewCopied] = useState(false);
+  const [reviewQR, setReviewQR] = useState(false);
+  const [minting, setMinting] = useState(false);
+
+  async function getReviewUrl(): Promise<string | null> {
+    if (reviewUrl) return reviewUrl;
+    if (!draftId) return null;
+    setMinting(true);
+    try {
+      const d = await fetch("/api/upload-tokens", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftId }) }).then((r) => r.json());
+      if (!d?.token) return null;
+      const u = `${window.location.origin}/review/${d.token}`;
+      setReviewUrl(u);
+      return u;
+    } catch { return null; } finally { setMinting(false); }
+  }
+
   return (
-    <div className="mt-2">
+    <div className="mt-2 space-y-2">
       <div className="flex items-center gap-2">
         <input readOnly value={url} onFocus={(e) => e.currentTarget.select()}
           className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-500 truncate" />
         <button
           onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ } }}
-          className="px-2.5 py-1.5 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 whitespace-nowrap">
-          {copied ? "✓ Copied" : "🔗 Copy link"}
+          className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">
+          {copied ? "✓" : "🔗 Video"}
         </button>
         <button onClick={() => setShowQR((s) => !s)}
-          className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱 QR</button>
+          className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱</button>
       </div>
       {showQR && (
-        <div className="mt-2 flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3">
-          <QRCodeSVG value={url} size={150} />
-          <p className="text-[10px] text-slate-400">Scan to open the video on your phone</p>
+        <div className="flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3">
+          <QRCodeSVG value={url} size={140} />
+          <p className="text-[10px] text-slate-400">Scan to open the raw video</p>
+        </div>
+      )}
+
+      {draftId && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => { const u = await getReviewUrl(); if (u) { try { await navigator.clipboard.writeText(u); setReviewCopied(true); setTimeout(() => setReviewCopied(false), 1500); } catch { /* ignore */ } } }}
+            disabled={minting}
+            className="flex-1 px-2.5 py-1.5 text-[11px] font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap disabled:opacity-50">
+            {minting ? "…" : reviewCopied ? "✓ Review link copied" : "✅ Copy review link (approve from phone)"}
+          </button>
+          <button onClick={async () => { await getReviewUrl(); setReviewQR((s) => !s); }}
+            className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱</button>
+        </div>
+      )}
+      {reviewQR && reviewUrl && (
+        <div className="flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3">
+          <QRCodeSVG value={reviewUrl} size={140} />
+          <p className="text-[10px] text-slate-400">Scan to review + approve on your phone</p>
         </div>
       )}
     </div>
@@ -1396,7 +1435,7 @@ function DraftDetailPanel({
                     ) : (
                       <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
                     )}
-                    {draft.editedVideoUrl && <VideoShareLink url={draft.editedVideoUrl} />}
+                    {draft.editedVideoUrl && <VideoShareLink url={draft.editedVideoUrl} draftId={draft.id} />}
                   </div>
                 )}
 

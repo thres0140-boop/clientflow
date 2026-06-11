@@ -33,6 +33,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     clientColor: draft.client.color,
     conceptName: draft.concept?.name ?? null,
     rawContentUrls: draft.rawContentUrls,
+    editedVideoUrl: draft.editedVideoUrl,
+    caption: draft.caption,
     stageName: current?.name ?? null,
     nextStageName: next?.name ?? null,
   });
@@ -58,20 +60,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ to
   return NextResponse.json({ ok: true, urls: updated });
 }
 
-// POST /api/upload-tokens/[token] — advance the draft to the next workflow stage
-// (so the recorder can push it forward straight from their phone after uploading).
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+// POST /api/upload-tokens/[token] — advance the draft to the next stage (default), or
+// with { action: "sendback", note } move it back a stage with feedback. Lets a reviewer
+// approve-through or send-back straight from the phone review link, no login.
+export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const body = await req.json().catch(() => ({}));
   const draft = await prisma.scriptDraft.findUnique({ where: { uploadToken: token } });
   if (!draft) return NextResponse.json({ error: "Invalid link" }, { status: 404 });
 
-  const { next } = await stageInfo(draft.clientId, draft.stageId ?? null);
-  if (!next) return NextResponse.json({ ok: true, done: true, message: "Already at the last stage." });
+  const { stages } = await stageInfo(draft.clientId, draft.stageId ?? null);
+  const idx = draft.stageId ? stages.findIndex((s) => s.id === draft.stageId) : -1;
 
+  if (body?.action === "sendback") {
+    const prev = idx > 0 ? stages[idx - 1] : null;
+    const fromName = idx >= 0 ? stages[idx]?.name ?? "stage" : "stage";
+    const toName = prev?.name ?? "Ideas";
+    const reason = String(body.note || "").slice(0, 1000);
+    await prisma.draftNote.create({
+      data: { draftId: draft.id, content: `↩ Sent back (${fromName} → ${toName})${reason ? ": " + reason : ""}`, author: body.author || "Reviewer" },
+    }).catch(() => {});
+    await prisma.scriptDraft.update({
+      where: { id: draft.id },
+      data: { stageId: prev?.id ?? null, status: "pending", rejectionFeedback: reason || `Sent back from ${fromName}` },
+    });
+    return NextResponse.json({ ok: true, sentBackTo: toName });
+  }
+
+  // Default: advance to next stage.
+  const next = idx >= 0 ? (stages[idx + 1] ?? null) : (stages[0] ?? null);
+  if (!next) return NextResponse.json({ ok: true, done: true, message: "Already at the last stage." });
   await prisma.scriptDraft.update({
     where: { id: draft.id },
-    data: { stageId: next.id, status: "accepted" },
+    data: { stageId: next.id, status: "accepted", rejectionFeedback: null },
   });
-
   return NextResponse.json({ ok: true, nextStage: next.name });
 }
