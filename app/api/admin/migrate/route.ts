@@ -407,6 +407,32 @@ export async function GET(req: NextRequest) {
     } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
 
+  // ?zsched=1 — list drafts that are booked / have a Zernio post id.
+  if (req.nextUrl.searchParams.get("zsched")) {
+    try {
+      const rows = await (prisma as any).$queryRawUnsafe(
+        `SELECT id, title, "scheduledDate", "zernioBooked", "zernioPostId" FROM "ScriptDraft" WHERE "zernioPostId" IS NOT NULL OR "zernioBooked" = true ORDER BY "scheduledDate" DESC LIMIT 30;`
+      );
+      return NextResponse.json({ drafts: rows });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+  // ?zget=<postId> / ?zdel=<postId> — probe Zernio's real GET/DELETE response for a post.
+  const zget = req.nextUrl.searchParams.get("zget");
+  const zdel = req.nextUrl.searchParams.get("zdel");
+  if (zget || zdel) {
+    const base = "https://zernio.com/api/v1";
+    const key = process.env.ZERNIO_API_KEY;
+    const id = (zget || zdel)!;
+    try {
+      const r = await fetch(`${base}/posts/${id}`, {
+        method: zdel ? "DELETE" : "GET",
+        headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+      });
+      const text = await r.text();
+      return NextResponse.json({ action: zdel ? "DELETE" : "GET", postId: id, status: r.status, body: text.slice(0, 800) });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+
   // ?colcheck=TableName — list a table's columns (verify a migration actually applied)
   const colcheck = req.nextUrl.searchParams.get("colcheck");
   if (colcheck) {
