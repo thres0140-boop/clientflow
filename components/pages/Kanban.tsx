@@ -841,21 +841,39 @@ async function blobUpload(file: File, onProgress: (pct: number) => void): Promis
     throw new Error("Big-video upload failed: " + (presign?.error || "storage not configured"));
   }
 
-  await new Promise<void>((resolve, reject) => {
+  // One PUT attempt. Network blips during a large upload fire xhr.onerror (not a real
+  // server/CORS error) — so we retry a few times before giving up.
+  const attempt = () => new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", presign.uploadUrl!);
     xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+    xhr.timeout = 10 * 60_000; // 10 min for very large files
     xhr.upload.onprogress = (ev) => {
       if (ev.lengthComputable) onProgress(Math.round((ev.loaded / ev.total) * 100));
     };
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`R2 upload failed (${xhr.status}): ${xhr.responseText?.slice(0, 200) || ""}`));
+      else reject(new Error(`server ${xhr.status}`));
     };
-    xhr.onerror = () => reject(new Error("Upload blocked (storage CORS not allowed for this domain). Try again in a minute, or contact support."));
+    xhr.onerror = () => reject(new Error("network"));
+    xhr.ontimeout = () => reject(new Error("timeout"));
     xhr.send(file);
   });
 
+  const MAX_TRIES = 3;
+  for (let i = 1; i <= MAX_TRIES; i++) {
+    try {
+      await attempt();
+      return presign.publicUrl;
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      if (i === MAX_TRIES) {
+        throw new Error(`Upload failed after ${MAX_TRIES} tries (${reason}). This is usually a weak/interrupted connection on a large file — try again on a stronger network.`);
+      }
+      onProgress(0);
+      await new Promise((r) => setTimeout(r, 1500 * i)); // brief backoff, then retry
+    }
+  }
   return presign.publicUrl;
 }
 
