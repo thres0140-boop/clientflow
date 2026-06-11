@@ -428,6 +428,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ path, status: r.status, body: text.slice(0, 2000) });
     } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
+  // ?zfindall=1 — compact list of all Zernio posts (id, scheduledFor, content snippet, media)
+  if (req.nextUrl.searchParams.get("zfindall")) {
+    const base = "https://zernio.com/api/v1";
+    const key = process.env.ZERNIO_API_KEY;
+    try {
+      const r = await fetch(`${base}/posts`, { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" } });
+      const j = await r.json();
+      const posts: any[] = Array.isArray(j) ? j : (j.posts || j.data || []);
+      return NextResponse.json({ count: posts.length, posts: posts.map((p) => ({
+        id: p._id ?? p.id,
+        scheduledFor: p.scheduledFor ?? p.scheduledAt ?? p.publishAt ?? p.scheduledDate ?? null,
+        status: p.status ?? null,
+        content: String(p.content || "").slice(0, 50),
+        media: (p.mediaItems || p.media || [])[0]?.url ?? null,
+      })) });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
   // ?zget=<postId> / ?zdel=<postId> — probe Zernio's real GET/DELETE response for a post.
   const zget = req.nextUrl.searchParams.get("zget");
   const zdel = req.nextUrl.searchParams.get("zdel");
