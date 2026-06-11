@@ -42,18 +42,28 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "">("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Video tiles are NATIVE rectangles (in customData) — a real <video> is layered on top of
+  // each, positioned from the live canvas transform. No iframe/embeddable anywhere.
+  const [tiles, setTiles] = useState<{ id: string; x: number; y: number; width: number; height: number; url: string }[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [view, setView] = useState<any>(null);
 
-  // Drop a video onto the board as an inline embed (our tiny static play.html, click-to-load)
-  // so it plays right on the canvas. Placed at the centre of the current view.
+  const syncTiles = useCallback((elements: any[], appState: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const vids = (elements || [])
+      .filter((e: any) => e && !e.isDeleted && e.customData?.video?.url) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .map((e: any) => ({ id: e.id, x: e.x, y: e.y, width: e.width, height: e.height, url: e.customData.video.url as string })); // eslint-disable-line @typescript-eslint/no-explicit-any
+    setTiles(vids);
+    setView(appState);
+  }, []);
+
+  // Drop a video onto the board: a native rectangle whose customData holds the playable URL.
   const addVideo = useCallback(async (item: VideoItem) => {
     const api = apiRef.current;
     if (!api) return;
     setPickerOpen(false);
 
-    // Resolve a PUBLIC playable URL, then embed our tiny static player (click-to-load) so
-    // the video plays INLINE on the board. No refresh()/selectedElementIds call afterward —
-    // that's what was crashing the renderer.
-    let playUrl: string;
+    // Resolve a direct, public playable URL (R2/Cloudinary direct; ephemeral via proxy).
+    let url: string;
     if (item.reelId) {
       let resolved: string | null = null;
       let permanent = false;
@@ -63,11 +73,9 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         permanent = !!d?.permanent || !!d?.cached;
       } catch { /* ignore */ }
       if (!resolved) { alert("Couldn't load this reel's video (Instagram link may have expired). Try again."); return; }
-      playUrl = permanent
-        ? `${window.location.origin}/play.html?src=${encodeURIComponent(resolved)}`
-        : `${window.location.origin}/play.html?src=${encodeURIComponent(resolved)}&proxy=1`;
+      url = permanent ? resolved : `${window.location.origin}/api/vid?u=${encodeURIComponent(resolved)}`;
     } else if (item.src) {
-      playUrl = `${window.location.origin}/play.html?src=${encodeURIComponent(item.src)}`;
+      url = item.src;
     } else {
       return;
     }
@@ -86,11 +94,13 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
       }
     } catch { /* use fallback */ }
     const els = mod.convertToExcalidrawElements([
-      { type: "embeddable", x, y, width: w, height: h, link: playUrl } as never,
+      { type: "rectangle", x, y, width: w, height: h, strokeColor: "#6366f1", backgroundColor: "#0f1c34", roundness: { type: 3 } } as never,
     ]);
-    // Append only — no refresh()/appState mutation (that combo crashed the webview).
+    // Carry the playable URL on the element so the overlay <video> can find it + it persists.
+    (els[0] as { customData?: unknown }).customData = { video: { url } };
     api.updateScene({ elements: [...api.getSceneElements(), ...els] });
-  }, []);
+    syncTiles(api.getSceneElements(), api.getAppState());
+  }, [syncTiles]);
 
   const getInitialData = useCallback(async () => {
     try {
@@ -106,6 +116,8 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
   }, [client.id]);
 
   const handleChange = useCallback((elements: unknown, appState: unknown, files: unknown) => {
+    // Keep the overlay videos locked to their tiles as the board pans/zooms/moves.
+    syncTiles(elements as any[], appState as any); // eslint-disable-line @typescript-eslint/no-explicit-any
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     setSaveState("saving");
     saveTimeout.current = setTimeout(async () => {
@@ -126,7 +138,7 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         setSaveState("");
       }
     }, 1500);
-  }, [client.id]);
+  }, [client.id, syncTiles]);
 
   return (
     <>
@@ -157,7 +169,6 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
           excalidrawAPI={(api) => { apiRef.current = api; }}
           initialData={getInitialData}
           onChange={handleChange}
-          validateEmbeddable={true}
           UIOptions={{
             canvasActions: {
               toggleTheme: true,
@@ -168,8 +179,58 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         />
       </div>
 
+      {/* Real <video> elements layered on top of their board tiles, locked to the live
+          canvas transform. pointer-events:none container so the board stays fully draggable;
+          only the play/pause control captures clicks. */}
+      {view && (
+        <div className="fixed inset-0 z-10 pointer-events-none overflow-hidden">
+          {tiles.map((t) => {
+            const zoom = view.zoom?.value || 1;
+            const left = (t.x + (view.scrollX || 0)) * zoom + (view.offsetLeft || 0);
+            const top = (t.y + (view.scrollY || 0)) * zoom + (view.offsetTop || 0);
+            return <VideoTile key={t.id} url={t.url} left={left} top={top} width={t.width * zoom} height={t.height * zoom} />;
+          })}
+        </div>
+      )}
+
       {pickerOpen && <VideoPicker clientId={client.id} onPick={addVideo} onClose={() => setPickerOpen(false)} />}
     </>
+  );
+}
+
+// A real video locked over its board tile. Container is click-through (so the board stays
+// draggable); only the ▶/⏸ button captures clicks. Video loads on first play (light).
+function VideoTile({ url, left, top, width, height }: { url: string; left: number; top: number; width: number; height: number }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [started, setStarted] = useState(false);
+  const btn = Math.max(26, Math.min(60, width * 0.2));
+  function toggle() {
+    setStarted(true);
+    const v = ref.current;
+    if (!v) { setPlaying(true); return; }
+    if (v.paused) { v.play().then(() => setPlaying(true)).catch(() => {}); } else { v.pause(); setPlaying(false); }
+  }
+  return (
+    <div style={{ position: "absolute", left, top, width, height, pointerEvents: "none", borderRadius: 8, overflow: "hidden", background: "#000" }}>
+      {started && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video ref={ref} src={url} playsInline preload="auto"
+          onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+          onError={(e) => { const v = e.currentTarget; if (!v.src.includes("/api/vid")) v.src = `${window.location.origin}/api/vid?u=${encodeURIComponent(url)}`; }}
+          style={{ width: "100%", height: "100%", objectFit: "contain", background: "#000" }} />
+      )}
+      {/* Small centre ▶ when not playing (rest of the tile is click-through → draggable) */}
+      {!playing && (
+        <button onClick={toggle} aria-label="Play"
+          style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: btn, height: btn, borderRadius: "50%", border: 0, background: "rgba(255,255,255,.92)", color: "#0f1c34", display: "flex", alignItems: "center", justifyContent: "center", fontSize: btn * 0.42, cursor: "pointer", pointerEvents: "auto", boxShadow: "0 2px 10px rgba(0,0,0,.4)" }}>▶</button>
+      )}
+      {/* Small ⏸ pill top-right while playing */}
+      {playing && (
+        <button onClick={toggle} aria-label="Pause"
+          style={{ position: "absolute", right: 6, top: 6, width: 26, height: 26, borderRadius: "50%", border: 0, background: "rgba(0,0,0,.55)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, cursor: "pointer", pointerEvents: "auto" }}>⏸</button>
+      )}
+    </div>
   );
 }
 
