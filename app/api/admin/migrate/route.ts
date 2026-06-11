@@ -760,6 +760,18 @@ export async function POST(req: NextRequest) {
     await (prisma as any).$executeRawUnsafe(`ALTER TABLE "CompetitorCandidate" ADD COLUMN IF NOT EXISTS "gender" TEXT;`);
     await (prisma as any).$executeRawUnsafe(`ALTER TABLE "CompetitorCandidate" ADD COLUMN IF NOT EXISTS "language" TEXT;`);
     await (prisma as any).$executeRawUnsafe(`ALTER TABLE "CompetitorCandidate" ADD COLUMN IF NOT EXISTS "bio" TEXT;`);
+    await (prisma as any).$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "PushSubscription" (
+        "id" SERIAL PRIMARY KEY,
+        "endpoint" TEXT NOT NULL UNIQUE,
+        "p256dh" TEXT NOT NULL,
+        "auth" TEXT NOT NULL,
+        "subscriberType" TEXT NOT NULL DEFAULT 'owner',
+        "memberId" INTEGER,
+        "clientId" INTEGER,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
     await (prisma as any).$executeRaw`
       ALTER TABLE "DraftNote"

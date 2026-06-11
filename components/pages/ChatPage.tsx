@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Client, Message, Concept, TrackedVideo, TeamMember } from "@/lib/types";
+import PushToggle from "@/components/PushToggle";
 
 type ReelContext = {
   id?: number;
@@ -567,6 +568,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
             <h1 className="text-lg font-bold text-slate-800">{ownerName}</h1>
             <p className="text-xs text-slate-400">use @ to tag concepts or videos</p>
           </div>
+          <div className="ml-auto"><PushToggle /></div>
         </div>
         {renderChatArea()}
         {renderReelModal()}
@@ -633,6 +635,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
             <h1 className="text-lg font-bold text-slate-800">{activeConv?.label}</h1>
             <p className="text-xs text-slate-400">use @ to tag concepts or videos</p>
           </div>
+          <div className="ml-auto"><PushToggle /></div>
         </div>
 
         {renderChatArea()}

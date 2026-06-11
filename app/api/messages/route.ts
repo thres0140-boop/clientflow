@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySessionToken } from "@/lib/session";
 import { sendWhatsApp } from "@/lib/notify";
+import { sendPush } from "@/lib/push";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
@@ -66,15 +67,21 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // WhatsApp the owner when a client/team member messages them (not the owner's own sends).
+  // Notify the other side (WhatsApp + web push). Best-effort, never blocks the send.
   try {
     const token = req.cookies.get("cf_session")?.value;
     const session = token ? await verifySessionToken(token) : null;
+    const cid = body.clientId ? parseInt(body.clientId) : null;
+    const client = cid ? await prisma.client.findUnique({ where: { id: cid }, select: { name: true } }) : null;
+    const preview = String(body.content || "").replace(/^__REEL__.*?__END__/, "🎬 ").slice(0, 140);
     if (session && session.type === "member") {
+      // A client/editor messaged → alert the owner.
       const sender = session.name || "Someone";
-      const client = body.clientId ? await prisma.client.findUnique({ where: { id: parseInt(body.clientId) }, select: { name: true } }) : null;
-      const preview = String(body.content || "").replace(/^__REEL__.*?__END__/, "🎬 ").slice(0, 140);
       sendWhatsApp(`💬 New message from ${sender}${client ? ` · ${client.name}` : ""}:\n${preview}`).catch(() => {});
+      sendPush({ subscriberType: "owner" }, { title: `💬 ${sender}${client ? ` · ${client.name}` : ""}`, body: preview, url: "/" }).catch(() => {});
+    } else if (session && session.type === "owner" && cid) {
+      // Owner messaged → push the client's members (their installed app).
+      sendPush({ subscriberType: "member", clientId: cid }, { title: "💬 New message", body: preview, url: "/" }).catch(() => {});
     }
   } catch { /* non-fatal */ }
 

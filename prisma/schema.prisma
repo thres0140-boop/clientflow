@@ -110,6 +110,17 @@ model TeamMember {
   stageCompletions StageHistory[]
 }
 
+model PushSubscription {
+  id             Int      @id @default(autoincrement())
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  subscriberType String   @default("owner") // "owner" | "member"
+  memberId       Int?
+  clientId       Int?
+  createdAt      DateTime @default(now())
+}
+
 model WorkflowStage {
   id                Int      @id @default(autoincrement())
   clientId          Int?
