@@ -13,10 +13,14 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Canonical host. R2 only accepts browser uploads from ordoagency.com — anyone who
-  // opened the app via the raw *.vercel.app deployment URL is on an origin R2 blocks,
-  // so their large uploads die with a CORS/network error. Bounce them to the real domain.
-  const host = req.headers.get("host") || "";
-  if (host.endsWith(".vercel.app")) {
+  // opened the app via the raw *.vercel.app deployment URL (or any other host) is on an
+  // origin R2 blocks, so their large uploads die with a CORS/network error while the owner
+  // (on the real domain) works. Funnel every non-canonical host to www so everyone lands
+  // on the allowed origin.
+  const host = (req.headers.get("host") || "").toLowerCase();
+  const canonical = host === "www.ordoagency.com" || host === "ordoagency.com"
+    || host.startsWith("localhost") || host.startsWith("127.0.0.1") || host === "";
+  if (!canonical) {
     const url = new URL(req.url);
     url.host = "www.ordoagency.com";
     url.protocol = "https:";
