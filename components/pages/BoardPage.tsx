@@ -69,11 +69,19 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
   const [tiles, setTiles] = useState<{ id: string; x: number; y: number; width: number; height: number; url: string }[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [view, setView] = useState<any>(null);
+  const lastSig = useRef<string>("");
 
   const syncTiles = useCallback((elements: any[], appState: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const vids = (elements || [])
       .filter((e: any) => e && !e.isDeleted && e.customData?.video?.url) // eslint-disable-line @typescript-eslint/no-explicit-any
       .map((e: any) => ({ id: e.id, x: e.x, y: e.y, width: e.width, height: e.height, url: e.customData.video.url as string })); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const a = appState || {};
+    // Only update React state when the tiles OR the view transform actually change. Excalidraw
+    // fires onChange on every render; setState-ing unconditionally re-triggers it → infinite
+    // loop (React #185). This signature guard breaks that loop.
+    const sig = JSON.stringify({ v: vids, z: a.zoom?.value, sx: a.scrollX, sy: a.scrollY, ox: a.offsetLeft, oy: a.offsetTop });
+    if (sig === lastSig.current) return;
+    lastSig.current = sig;
     setTiles(vids);
     setView(appState);
   }, []);
