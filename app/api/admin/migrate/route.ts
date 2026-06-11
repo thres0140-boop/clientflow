@@ -382,6 +382,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(drafts.map((d: any) => ({ id: d.id, title: d.title, status: d.status, exampleVideoUrl: d.exampleVideoUrl })));
   }
 
+  // ?r2cors=<origin> — simulate the browser's CORS preflight (OPTIONS) to the R2 upload
+  // endpoint from a given origin, so we can see exactly which origins R2 allows to PUT.
+  const r2corsOrigin = req.nextUrl.searchParams.get("r2cors");
+  if (r2corsOrigin) {
+    const acct = process.env.R2_ACCOUNT_ID, bucket = process.env.R2_BUCKET;
+    if (!acct || !bucket) return NextResponse.json({ error: "R2 not configured" });
+    const url = `https://${acct}.r2.cloudflarestorage.com/${bucket}/__corsprobe__.bin`;
+    try {
+      const r = await fetch(url, { method: "OPTIONS", headers: {
+        Origin: r2corsOrigin,
+        "Access-Control-Request-Method": "PUT",
+        "Access-Control-Request-Headers": "content-type",
+      }});
+      return NextResponse.json({
+        testedOrigin: r2corsOrigin,
+        status: r.status,
+        allowOrigin: r.headers.get("access-control-allow-origin"),
+        allowMethods: r.headers.get("access-control-allow-methods"),
+        allowHeaders: r.headers.get("access-control-allow-headers"),
+        maxAge: r.headers.get("access-control-max-age"),
+        allowed: r.status >= 200 && r.status < 300 && !!r.headers.get("access-control-allow-origin"),
+      });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+
   // ?colcheck=TableName — list a table's columns (verify a migration actually applied)
   const colcheck = req.nextUrl.searchParams.get("colcheck");
   if (colcheck) {
