@@ -12,6 +12,18 @@ const PUBLIC = ["/login", "/owner", "/invite", "/api/auth", "/api/unipile/webhoo
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Canonical host. R2 only accepts browser uploads from ordoagency.com — anyone who
+  // opened the app via the raw *.vercel.app deployment URL is on an origin R2 blocks,
+  // so their large uploads die with a CORS/network error. Bounce them to the real domain.
+  const host = req.headers.get("host") || "";
+  if (host.endsWith(".vercel.app")) {
+    const url = new URL(req.url);
+    url.host = "www.ordoagency.com";
+    url.protocol = "https:";
+    url.port = "";
+    return NextResponse.redirect(url, 308);
+  }
+
   if (PUBLIC.some((p) => pathname.startsWith(p))) return NextResponse.next();
   if (pathname.startsWith("/_next") || pathname === "/favicon.ico") return NextResponse.next();
 
