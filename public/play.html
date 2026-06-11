@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Video</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui,sans-serif}
+  #w{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:contain;background:#000}
+  .pb{position:fixed;inset:0;border:0;cursor:pointer;background:#000;display:flex;align-items:center;justify-content:center}
+  .pb span{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.92);color:#0f1c34;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+  .msg{color:rgba(255,255,255,.6);font-size:13px}
+</style></head>
+<body><div id="w"></div>
+<!-- Deliberately a tiny static page (no framework) so embedding many of these on the
+     Strategy Board stays light and never crashes the renderer. Click to load + play. -->
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  var src = p.get("src");
+  var proxy = p.get("proxy") === "1";
+  var w = document.getElementById("w");
+  if(!src){ w.innerHTML='<p class="msg">No video</p>'; return; }
+  var url = proxy ? "/api/vid?u=" + encodeURIComponent(src) : src;
+  var btn = document.createElement("button");
+  btn.className = "pb"; btn.setAttribute("aria-label","Play video");
+  btn.innerHTML = "<span>▶</span>";
+  btn.onclick = function(){
+    var v = document.createElement("video");
+    v.src = url; v.controls = true; v.autoplay = true; v.playsInline = true; v.preload = "auto";
+    var triedProxy = proxy;
+    v.onerror = function(){ if(!triedProxy && src){ triedProxy = true; v.src = "/api/vid?u=" + encodeURIComponent(src); } else { w.innerHTML='<p class="msg">Couldn\\'t load this video.</p>'; } };
+    w.innerHTML = ""; w.appendChild(v);
+  };
+  w.appendChild(btn);
+})();
+</script></body></html>
