@@ -8,6 +8,7 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember, Creator } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
+import SparkMD5 from "spark-md5";
 import { markSeen as markSentBackSeen, getSeen as getSentBackSeen } from "@/lib/sentBackSeen";
 
 type Props = {
@@ -824,57 +825,73 @@ const UPLOAD_CHUNK = 20 * 1024 * 1024; // 20MB
 
 // Videos bigger than Cloudinary's ~100MB cap go to Vercel Blob (no size limit).
 const CLOUDINARY_MAX = 95 * 1024 * 1024;
-async function blobUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
-  // Large videos (>95MB) go to Cloudflare R2 via a presigned PUT URL. The browser uploads
-  // the file DIRECTLY to R2 — no Vercel request-size limit, no Blob client-SDK 400s.
-  let presign: { uploadUrl?: string; publicUrl?: string; error?: string };
-  try {
-    presign = await fetch("/api/r2/presign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, contentType: file.type || "video/mp4" }),
-    }).then((r) => r.json());
-  } catch (e) {
-    throw new Error("Big-video upload failed (could not start): " + (e instanceof Error ? e.message : String(e)));
-  }
-  if (!presign?.uploadUrl || !presign?.publicUrl) {
-    throw new Error("Big-video upload failed: " + (presign?.error || "storage not configured"));
-  }
-
-  // One PUT attempt. Network blips during a large upload fire xhr.onerror (not a real
-  // server/CORS error) — so we retry a few times before giving up.
+// PUT one part to its presigned URL, retrying on transient failures. Sends raw bytes with
+// NO Content-Type header (the presigned UploadPart signs host only). Doesn't read any
+// response header, so it needs no bucket ExposeHeaders config.
+function putPartWithRetry(url: string, blob: Blob, onLoaded: (loaded: number) => void): Promise<void> {
+  const MAX = 4;
   const attempt = () => new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", presign.uploadUrl!);
-    xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
-    xhr.timeout = 10 * 60_000; // 10 min for very large files
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) onProgress(Math.round((ev.loaded / ev.total) * 100));
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`server ${xhr.status}`));
-    };
+    xhr.open("PUT", url);
+    xhr.timeout = 5 * 60_000;
+    xhr.upload.onprogress = (ev) => { if (ev.lengthComputable) onLoaded(ev.loaded); };
+    xhr.onload = () => { (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error(`server ${xhr.status}`)); };
     xhr.onerror = () => reject(new Error("network"));
     xhr.ontimeout = () => reject(new Error("timeout"));
-    xhr.send(file);
+    xhr.send(blob);
   });
-
-  const MAX_TRIES = 3;
-  for (let i = 1; i <= MAX_TRIES; i++) {
-    try {
-      await attempt();
-      return presign.publicUrl;
-    } catch (e) {
-      const reason = e instanceof Error ? e.message : String(e);
-      if (i === MAX_TRIES) {
-        throw new Error(`Upload failed after ${MAX_TRIES} tries (${reason}). This is usually a weak/interrupted connection on a large file — try again on a stronger network.`);
-      }
-      onProgress(0);
-      await new Promise((r) => setTimeout(r, 1500 * i)); // brief backoff, then retry
+  return (async () => {
+    for (let i = 1; i <= MAX; i++) {
+      try { await attempt(); return; }
+      catch (e) { if (i === MAX) throw e; await new Promise((r) => setTimeout(r, 1000 * i)); }
     }
+  })();
+}
+
+async function blobUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
+  // Large videos (>95MB) go to Cloudflare R2 as MULTIPART: ~8MB parts uploaded + retried
+  // independently. A single multi-hundred-MB PUT gets killed by some AV/firewall/flaky
+  // uplinks; small parts sail through, and a blip costs one retried chunk, not the job.
+  const PART = 8 * 1024 * 1024;
+  const total = file.size;
+  const partCount = Math.max(1, Math.ceil(total / PART));
+
+  const mp = async (payload: object) =>
+    fetch("/api/r2/multipart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then((r) => r.json());
+
+  const create = await mp({ action: "create", filename: file.name, contentType: file.type || "video/mp4" });
+  if (!create?.uploadId || !create?.key || !create?.publicUrl) {
+    throw new Error("Big-video upload failed (could not start): " + (create?.error || "storage not configured"));
   }
-  return presign.publicUrl;
+  const { uploadId, key, publicUrl } = create;
+
+  const parts: { PartNumber: number; ETag: string }[] = [];
+  let uploadedBytes = 0;
+  try {
+    for (let i = 0; i < partCount; i++) {
+      const start = i * PART;
+      const end = Math.min(start + PART, total);
+      const blob = file.slice(start, end);
+      // ETag for an unencrypted part is the MD5 of its bytes — compute it here so we don't
+      // need to read R2's response header (avoids any CORS ExposeHeaders requirement).
+      const buf = await blob.arrayBuffer();
+      const etag = '"' + SparkMD5.ArrayBuffer.hash(buf) + '"';
+      const signed = await mp({ action: "sign", key, uploadId, partNumber: i + 1 });
+      if (!signed?.url) throw new Error("could not sign part " + (i + 1));
+      await putPartWithRetry(signed.url, blob, (loaded) => onProgress(Math.min(99, Math.round(((uploadedBytes + loaded) / total) * 100))));
+      uploadedBytes += end - start;
+      onProgress(Math.min(99, Math.round((uploadedBytes / total) * 100)));
+      parts.push({ PartNumber: i + 1, ETag: etag });
+    }
+    const done = await mp({ action: "complete", key, uploadId, parts });
+    if (!done?.publicUrl) throw new Error(done?.error || "could not finalize upload");
+    onProgress(100);
+    return done.publicUrl || publicUrl;
+  } catch (e) {
+    mp({ action: "abort", key, uploadId }).catch(() => {}); // best-effort cleanup
+    const reason = e instanceof Error ? e.message : String(e);
+    throw new Error(`Upload failed (${reason}). The file uploads in pieces and auto-retries each — if it keeps failing, the network/security software is blocking storage; try a different network.`);
+  }
 }
 
 function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
