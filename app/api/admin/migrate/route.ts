@@ -407,6 +407,22 @@ export async function GET(req: NextRequest) {
     } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
 
+  // ?boardstripembeds=<clientId> — remove ONLY embeddable (video) elements from a board's
+  // saved snapshot, keeping every other element. Safe recovery for a board that crashes.
+  const stripCid = req.nextUrl.searchParams.get("boardstripembeds");
+  if (stripCid) {
+    try {
+      const board = await (prisma as any).board.findUnique({ where: { clientId: parseInt(stripCid) } });
+      if (!board) return NextResponse.json({ error: "no board" });
+      const snap = JSON.parse(board.snapshot || "{}");
+      const before = (snap.elements || []).length;
+      snap.elements = (snap.elements || []).filter((e: any) => e.type !== "embeddable");
+      const removed = before - snap.elements.length;
+      await (prisma as any).board.update({ where: { clientId: parseInt(stripCid) }, data: { snapshot: JSON.stringify(snap) } });
+      return NextResponse.json({ ok: true, clientId: parseInt(stripCid), removed, remaining: snap.elements.length });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
+
   // ?boardinfo=1 — per-client board snapshot size + element type histogram (diagnose crashes)
   if (req.nextUrl.searchParams.get("boardinfo")) {
     try {
