@@ -1,8 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Component, ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Client } from "@/lib/types";
+
+// Catches any render crash from the board (Excalidraw) and shows the REAL error instead of
+// the browser's blank "page couldn't load" screen, so we can see what's actually wrong.
+class BoardErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center p-6 bg-slate-50">
+          <div className="max-w-lg w-full bg-white border border-red-200 rounded-2xl p-5 shadow">
+            <p className="text-sm font-bold text-red-600 mb-1">The board hit an error</p>
+            <p className="text-xs text-slate-500 mb-3">Your content is safe in the database. Here&apos;s the actual error (screenshot this for support):</p>
+            <pre className="text-[11px] text-slate-700 bg-slate-100 rounded-lg p-3 whitespace-pre-wrap break-words max-h-60 overflow-auto">{String(this.state.error?.message || this.state.error)}{"\n\n"}{String(this.state.error?.stack || "").slice(0, 800)}</pre>
+            <button onClick={() => location.reload()} className="mt-3 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">Reload</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFn = (...args: any[]) => any;
@@ -173,6 +195,7 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
 
       {/* Full canvas — fills everything right of the sidebar */}
       <div className="absolute inset-0 top-0 bottom-0 right-0 transition-[left] duration-200" style={{ left: leftOffset }}>
+        <BoardErrorBoundary>
         <Excalidraw
           excalidrawAPI={(api) => { apiRef.current = api; }}
           initialData={getInitialData}
@@ -185,6 +208,7 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
             },
           }}
         />
+        </BoardErrorBoundary>
       </div>
 
       {/* Real <video> elements layered on top of their board tiles, locked to the live
