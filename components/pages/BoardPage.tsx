@@ -145,7 +145,13 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         const elements = Array.isArray(data.elements)
           ? data.elements.filter((e: any) => e && [e.x, e.y, e.width, e.height].every((n: any) => typeof n === "number" && Number.isFinite(n))) // eslint-disable-line @typescript-eslint/no-explicit-any
           : [];
-        return { elements, files: data.files || undefined };
+        // Restore only the SAFE view settings (theme, background) so dark mode persists —
+        // but NOT the crash-prone scroll/zoom values.
+        const a = data.appState || {};
+        const appState: Record<string, unknown> = {};
+        if (a.theme) appState.theme = a.theme;
+        if (a.viewBackgroundColor) appState.viewBackgroundColor = a.viewBackgroundColor;
+        return { elements, appState, files: data.files || undefined };
       }
     } catch {
       // fresh board
