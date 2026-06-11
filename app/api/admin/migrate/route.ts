@@ -416,6 +416,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ drafts: rows });
     } catch (e) { return NextResponse.json({ error: String(e) }); }
   }
+  // ?zlist=<path> — probe a Zernio list endpoint (default /posts) to recover post ids.
+  const zlist = req.nextUrl.searchParams.get("zlist");
+  if (zlist) {
+    const base = "https://zernio.com/api/v1";
+    const key = process.env.ZERNIO_API_KEY;
+    const path = zlist === "1" ? "/posts" : zlist;
+    try {
+      const r = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" } });
+      const text = await r.text();
+      return NextResponse.json({ path, status: r.status, body: text.slice(0, 2000) });
+    } catch (e) { return NextResponse.json({ error: String(e) }); }
+  }
   // ?zget=<postId> / ?zdel=<postId> — probe Zernio's real GET/DELETE response for a post.
   const zget = req.nextUrl.searchParams.get("zget");
   const zdel = req.nextUrl.searchParams.get("zdel");
