@@ -12,6 +12,9 @@ export default function PlayPage() {
   const [triedProxy, setTriedProxy] = useState(false);
   const [err, setErr] = useState(false);
   const [poster, setPoster] = useState<string | null>(null);
+  // Don't mount the <video> (and start buffering) until the user clicks play. Many board
+  // embeds all buffering at once exhausts the renderer's memory and crashes the page.
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -54,9 +57,15 @@ export default function PlayPage() {
     <div style={{ position: "fixed", inset: 0, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {err ? (
         <p style={{ color: "rgba(255,255,255,.6)", fontFamily: "system-ui, sans-serif", fontSize: 13 }}>Couldn&apos;t load this video.</p>
-      ) : url ? (
+      ) : url && started ? (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video src={url} poster={poster || undefined} controls playsInline onError={onVideoError} style={{ width: "100%", height: "100%", objectFit: "contain", background: "#000" }} />
+        <video src={url} poster={poster || undefined} controls autoPlay playsInline preload="auto" onError={onVideoError} style={{ width: "100%", height: "100%", objectFit: "contain", background: "#000" }} />
+      ) : url ? (
+        // Lightweight placeholder — no video loaded yet. Click to play.
+        <button onClick={() => setStarted(true)} aria-label="Play video"
+          style={{ position: "absolute", inset: 0, border: "none", cursor: "pointer", background: poster ? `#000 center/contain no-repeat url(${poster})` : "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,.92)", color: "#0f1c34", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, boxShadow: "0 4px 16px rgba(0,0,0,.4)" }}>▶</span>
+        </button>
       ) : (
         <div style={{ width: 28, height: 28, border: "2px solid rgba(255,255,255,.6)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
       )}
