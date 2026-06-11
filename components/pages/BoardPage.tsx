@@ -42,19 +42,19 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "">("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [playOverlay, setPlayOverlay] = useState<string | null>(null);
 
-  // Drop a video onto the board as a playable embed (iframe → our /play page), placed
-  // at the centre of the CURRENT view so nothing jumps and the existing content stays put.
+  // Drop a video onto the board as a NATIVE element (a labeled box with a link) — never an
+  // iframe/embeddable, which crashes the webview. Clicking the box's link plays the video
+  // in an in-app overlay (see onLinkOpen below). Placed at the centre of the current view.
   const addVideo = useCallback(async (item: VideoItem) => {
     const api = apiRef.current;
     if (!api) return;
     setPickerOpen(false);
 
-    // Resolve a PUBLIC playable URL here, in the authenticated app — never inside the
-    // sandboxed embed iframe (which can't send cookies, so authed lookups fail there).
-    let playUrl: string;
+    // Resolve the direct, public playable URL here (authenticated app).
+    let videoUrl: string;
     if (item.reelId) {
-      // Cache the reel to permanent R2 storage so the board link never expires (IG urls do).
       let resolved: string | null = null;
       let permanent = false;
       try {
@@ -63,19 +63,16 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         permanent = !!d?.permanent || !!d?.cached;
       } catch { /* ignore */ }
       if (!resolved) { alert("Couldn't load this reel's video (Instagram link may have expired). Try again."); return; }
-      // Permanent R2 copy plays directly; ephemeral fallback goes through the proxy.
-      playUrl = permanent
-        ? `${window.location.origin}/play.html?src=${encodeURIComponent(resolved)}`
-        : `${window.location.origin}/play.html?src=${encodeURIComponent(resolved)}&proxy=1`;
+      // Permanent R2 copy plays directly; ephemeral goes through the public proxy.
+      videoUrl = permanent ? resolved : `${window.location.origin}/api/vid?u=${encodeURIComponent(resolved)}`;
     } else if (item.src) {
-      playUrl = `${window.location.origin}/play.html?src=${encodeURIComponent(item.src)}`;
+      videoUrl = item.src;
     } else {
       return;
     }
 
     const mod = await import("@excalidraw/excalidraw");
-    const w = 270, h = 480;
-    // Place at the centre of the current viewport (scene coords).
+    const w = 240, h = 140;
     let x = 100, y = 100;
     try {
       const st = api.getAppState();
@@ -88,17 +85,14 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
       }
     } catch { /* use fallback */ }
     const els = mod.convertToExcalidrawElements([
-      { type: "embeddable", x, y, width: w, height: h, link: playUrl, locked: false } as never,
+      {
+        type: "rectangle", x, y, width: w, height: h,
+        strokeColor: "#6366f1", backgroundColor: "#eef2ff", roundness: { type: 3 },
+        link: videoUrl,
+        label: { text: `▶ ${(item.label || "Video").slice(0, 40)}`, fontSize: 16, strokeColor: "#3730a3" },
+      } as never,
     ]);
-    // Append + select the new tile. Selecting it makes Excalidraw mount the embed iframe
-    // right away (otherwise it often doesn't render until a full page refresh). We do NOT
-    // scroll/zoom the canvas — it's already placed at the centre of the current view.
-    const newId = (els[0] as { id?: string })?.id;
-    api.updateScene({
-      elements: [...api.getSceneElements(), ...els],
-      appState: newId ? { selectedElementIds: { [newId]: true } } : undefined,
-    });
-    try { api.refresh(); } catch { /* ignore */ }
+    api.updateScene({ elements: [...api.getSceneElements(), ...els] });
   }, []);
 
   const getInitialData = useCallback(async () => {
@@ -166,7 +160,14 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
           excalidrawAPI={(api) => { apiRef.current = api; }}
           initialData={getInitialData}
           onChange={handleChange}
-          validateEmbeddable={true}
+          onLinkOpen={(element: { link?: string }, event: { preventDefault?: () => void }) => {
+            const link = element?.link || "";
+            // Video links open in our in-app overlay; everything else opens normally.
+            if (/\.(mp4|mov|webm|m4v)(\?|$)/i.test(link) || link.includes("/api/vid") || link.includes("res.cloudinary.com") || link.includes("r2.dev")) {
+              event?.preventDefault?.();
+              setPlayOverlay(link);
+            }
+          }}
           UIOptions={{
             canvasActions: {
               toggleTheme: true,
@@ -178,6 +179,26 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
       </div>
 
       {pickerOpen && <VideoPicker clientId={client.id} onPick={addVideo} onClose={() => setPickerOpen(false)} />}
+
+      {playOverlay && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4" onClick={() => setPlayOverlay(null)}>
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              src={playOverlay}
+              controls autoPlay playsInline
+              onError={(e) => {
+                const v = e.currentTarget;
+                const proxied = `${window.location.origin}/api/vid?u=${encodeURIComponent(playOverlay)}`;
+                if (!v.src.includes("/api/vid")) v.src = proxied;
+              }}
+              className="max-h-[88vh] w-auto max-w-[94vw] rounded-xl bg-black"
+            />
+            <button onClick={() => setPlayOverlay(null)}
+              className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-white text-slate-800 shadow-lg flex items-center justify-center text-lg hover:bg-slate-100">×</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
