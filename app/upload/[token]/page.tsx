@@ -20,6 +20,7 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
   const { token } = use(params);
   const [draft, setDraft] = useState<DraftInfo | null>(null);
   const [error, setError] = useState("");
+  const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploaded, setUploaded] = useState<string[]>([]);
@@ -49,7 +50,7 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
       .catch(() => setError("Could not load upload page."));
   }, [token]);
 
-  function cloudinaryUpload(file: File): Promise<string> {
+  function cloudinaryAttempt(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
       const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
@@ -59,16 +60,28 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
       form.append("upload_preset", preset);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`);
+      xhr.timeout = 10 * 60_000;
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
       };
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).secure_url);
-        else reject(new Error(JSON.parse(xhr.responseText).error?.message ?? "Upload failed"));
+        else { try { reject(new Error(JSON.parse(xhr.responseText).error?.message ?? `Upload failed (${xhr.status})`)); } catch { reject(new Error(`Upload failed (${xhr.status})`)); } }
       };
-      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.onerror = () => reject(new Error("network"));
+      xhr.ontimeout = () => reject(new Error("timeout"));
       xhr.send(form);
     });
+  }
+
+  // Retry transient network blips a few times before giving up (phones drop connections).
+  async function cloudinaryUpload(file: File): Promise<string> {
+    let lastErr: unknown;
+    for (let i = 1; i <= 3; i++) {
+      try { return await cloudinaryAttempt(file); }
+      catch (e) { lastErr = e; const m = e instanceof Error ? e.message : String(e); if (i < 3 && (m === "network" || m === "timeout")) { setProgress(0); await new Promise((r) => setTimeout(r, 1200 * i)); } else throw e; }
+    }
+    throw lastErr;
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -76,6 +89,7 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
     if (!files.length || !draft) return;
     setUploading(true);
     setProgress(0);
+    setUploadError("");
     try {
       for (let i = 0; i < files.length; i++) {
         const url = await cloudinaryUpload(files[i]);
@@ -90,7 +104,14 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
       }
       setDone(true);
     } catch (err) {
-      setError(String(err));
+      // Show upload problems INLINE — never replace the page with the scary "Invalid link"
+      // screen (the link is fine; the upload just hiccuped).
+      const m = err instanceof Error ? err.message : String(err);
+      setUploadError(
+        m === "network" || m === "timeout"
+          ? "Upload interrupted (weak connection). Your other files are saved — tap to try this one again."
+          : `Upload failed: ${m}`
+      );
     } finally {
       setUploading(false);
       setProgress(0);
@@ -102,8 +123,9 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <div className="text-center space-y-3">
           <div className="text-5xl">🔗</div>
-          <h1 className="text-lg font-bold text-slate-800">Invalid link</h1>
+          <h1 className="text-lg font-bold text-slate-800">{/expired|invalid/i.test(error) ? "Invalid link" : "Couldn't load"}</h1>
           <p className="text-sm text-slate-500">{error}</p>
+          <button onClick={() => location.reload()} className="mt-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">Reload</button>
         </div>
       </div>
     );
@@ -198,8 +220,12 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
                 disabled={uploading}
                 onChange={handleFile}
               />
-              {uploading ? `Uploading… ${progress}%` : uploaded.length > 0 ? "📎 Upload More Files" : "📱 Select Videos / Photos"}
+              {uploading ? `Uploading… ${progress}%` : uploadError ? "🔁 Try again" : uploaded.length > 0 ? "📎 Upload More Files" : "📱 Select Videos / Photos"}
             </label>
+
+            {uploadError && !uploading && (
+              <p className="text-center text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{uploadError}</p>
+            )}
 
             {uploading && (
               <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
