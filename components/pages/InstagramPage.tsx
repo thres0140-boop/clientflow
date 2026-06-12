@@ -386,7 +386,7 @@ function FeedPreview({ client, reels, profile }: { client: Client; reels: IGReel
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-slate-400 text-sm">No posts or planned content yet.</div>
       ) : (
-        <div className="grid grid-cols-3 gap-1 bg-white rounded-xl overflow-hidden border border-slate-200 p-1">
+        <div className="grid grid-cols-4 gap-[3px]">
           {items.map((it) => (
             <button key={it.key} onClick={() => setViewer(it)} className="relative aspect-[4/5] bg-slate-900 overflow-hidden group">
               {it.kind === "planned" ? (
