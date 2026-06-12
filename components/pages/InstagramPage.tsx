@@ -386,9 +386,9 @@ function FeedPreview({ client, reels, profile }: { client: Client; reels: IGReel
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-slate-400 text-sm">No posts or planned content yet.</div>
       ) : (
-        <div className="grid grid-cols-4 gap-[3px]">
+        <div className="grid grid-cols-4 gap-[2px]">
           {items.map((it) => (
-            <button key={it.key} onClick={() => setViewer(it)} className="relative aspect-[4/5] bg-slate-900 overflow-hidden group">
+            <button key={it.key} onClick={() => setViewer(it)} className="relative aspect-[3/4] bg-slate-900 overflow-hidden group">
               {it.kind === "planned" ? (
                 // eslint-disable-next-line jsx-a11y/media-has-caption
                 <video src={it.videoUrl} muted playsInline preload="metadata" className="w-full h-full object-cover" />
@@ -400,7 +400,7 @@ function FeedPreview({ client, reels, profile }: { client: Client; reels: IGReel
               )}
               {it.kind === "planned" ? (
                 <>
-                  <div className="absolute inset-0 ring-2 ring-indigo-500 ring-inset pointer-events-none" />
+                  <div className="absolute inset-0 ring-1 ring-indigo-400/70 ring-inset pointer-events-none" />
                   <span className="absolute top-1.5 left-1.5 bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">📅 PLANNED</span>
                   {it.when && <span className="absolute bottom-1.5 left-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">{new Date(it.when.includes("T") ? it.when : it.when + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
                 </>
