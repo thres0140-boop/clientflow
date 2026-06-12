@@ -367,7 +367,7 @@ function FeedPreview({ client, reels, profile }: { client: Client; reels: IGReel
   const plannedCount = items.filter((i) => i.kind === "planned").length;
 
   return (
-    <div>
+    <div className="max-w-[975px] mx-auto">
       {/* Mini profile header like Instagram */}
       <div className="flex items-center gap-4 mb-4 px-1">
         {profile?.profilePictureUrl
