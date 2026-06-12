@@ -66,7 +66,7 @@ function timeAgo(ms: number) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-type Tab = "reels" | "competitors";
+type Tab = "reels" | "feed" | "competitors";
 
 export default function InstagramPage({ clients, selectedClientId, attachConcept, onExitAttach }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
@@ -188,7 +188,7 @@ export default function InstagramPage({ clients, selectedClientId, attachConcept
       />
 
       <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
-        {([["reels", "📱 Reels"], ["competitors", "🔍 Competitors"]] as [Tab, string][]).map(([id, label]) => (
+        {([["reels", "📱 Reels"], ["feed", "🗓 My Feed"], ["competitors", "🔍 Competitors"]] as [Tab, string][]).map(([id, label]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -227,6 +227,8 @@ export default function InstagramPage({ clients, selectedClientId, attachConcept
           : <NotConnectedReels client={client} />
       )}
 
+
+      {tab === "feed" && <FeedPreview client={client} reels={reels} profile={profile} />}
 
       {tab === "competitors" && <CompetitorsTab client={client} />}
     </div>
@@ -328,6 +330,127 @@ const WEEKDAY_FILTERS: { label: string; dow: number }[] = [
   { label: "Mon", dow: 1 }, { label: "Tue", dow: 2 }, { label: "Wed", dow: 3 },
   { label: "Thu", dow: 4 }, { label: "Fri", dow: 5 }, { label: "Sat", dow: 6 }, { label: "Sun", dow: 0 },
 ];
+
+// ─── My Feed preview: posted reels + planned/edited upcoming content, interleaved as an
+// Instagram-style grid so you can see how the profile will look and click any tile to watch.
+type FeedItem =
+  | { key: string; kind: "posted"; date: number; reel: IGReel }
+  | { key: string; kind: "planned"; date: number; videoUrl: string; title: string; caption: string; when: string | null };
+
+function FeedPreview({ client, reels, profile }: { client: Client; reels: IGReel[]; profile: IGProfile | null }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [viewer, setViewer] = useState<FeedItem | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/script-drafts?clientId=${client.id}`).then((r) => r.json())
+      .then((d) => setDrafts(Array.isArray(d) ? d : []))
+      .catch(() => setDrafts([]))
+      .finally(() => setLoading(false));
+  }, [client.id]);
+
+  const items: FeedItem[] = [
+    // Planned/edited content (has a finished video, not yet posted) — appears at the top.
+    ...drafts
+      .filter((d) => d.editedVideoUrl && d.status !== "posted")
+      .map((d) => {
+        const when = d.scheduledDate || null;
+        const date = when ? new Date(when.includes("T") ? when : when + "T12:00:00").getTime() : (d.generatedAt ? new Date(d.generatedAt).getTime() : Date.now() + 1e10);
+        return { key: `d${d.id}`, kind: "planned" as const, date, videoUrl: d.editedVideoUrl as string, title: d.title || "Untitled", caption: d.caption || d.script || "", when };
+      }),
+    // Already-posted reels.
+    ...reels.map((r) => ({ key: `r${r.id}`, kind: "posted" as const, date: new Date(r.timestamp).getTime(), reel: r })),
+  ].sort((a, b) => b.date - a.date);
+
+  const plannedCount = items.filter((i) => i.kind === "planned").length;
+
+  return (
+    <div>
+      {/* Mini profile header like Instagram */}
+      <div className="flex items-center gap-4 mb-4 px-1">
+        {profile?.profilePictureUrl
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={`/api/img?u=${encodeURIComponent(profile.profilePictureUrl)}`} alt="" className="w-16 h-16 rounded-full object-cover bg-slate-100" />
+          : <div className="w-16 h-16 rounded-full bg-slate-100" />}
+        <div>
+          <p className="text-base font-bold text-slate-800">@{profile?.username || client.name}</p>
+          <p className="text-xs text-slate-500">{fmt(profile?.mediaCount || reels.length)} posts · {fmt(profile?.followers || 0)} followers</p>
+          {plannedCount > 0 && <p className="text-[11px] text-indigo-600 font-semibold mt-0.5">+ {plannedCount} planned showing in feed</p>}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-40 text-slate-400 text-sm">Building your feed…</div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-16 text-slate-400 text-sm">No posts or planned content yet.</div>
+      ) : (
+        <div className="grid grid-cols-3 gap-1 bg-white rounded-xl overflow-hidden border border-slate-200 p-1">
+          {items.map((it) => (
+            <button key={it.key} onClick={() => setViewer(it)} className="relative aspect-[4/5] bg-slate-900 overflow-hidden group">
+              {it.kind === "planned" ? (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video src={it.videoUrl} muted playsInline preload="metadata" className="w-full h-full object-cover" />
+              ) : it.reel.thumbnail_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={it.reel.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">▶</div>
+              )}
+              {it.kind === "planned" ? (
+                <>
+                  <div className="absolute inset-0 ring-2 ring-indigo-500 ring-inset pointer-events-none" />
+                  <span className="absolute top-1.5 left-1.5 bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">📅 PLANNED</span>
+                  {it.when && <span className="absolute bottom-1.5 left-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">{new Date(it.when.includes("T") ? it.when : it.when + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
+                </>
+              ) : (
+                it.reel.plays != null && <span className="absolute bottom-1.5 left-1.5 bg-black/55 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">▶ {fmt(it.reel.plays)}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {viewer && <FeedViewer item={viewer} onClose={() => setViewer(null)} />}
+    </div>
+  );
+}
+
+// IG-style viewer for a feed tile.
+function FeedViewer({ item, onClose }: { item: FeedItem; onClose: () => void }) {
+  const videoUrl = item.kind === "planned" ? item.videoUrl : (item.reel.media_url || null);
+  const caption = item.kind === "planned" ? item.caption : (item.reel.caption || "");
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={onClose}>
+      <div className="bg-black rounded-2xl overflow-hidden flex flex-col sm:flex-row max-w-3xl w-full max-h-[88vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-black flex items-center justify-center sm:w-[60%]">
+          {videoUrl ? (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <video src={videoUrl} controls autoPlay playsInline className="w-full max-h-[88vh] object-contain bg-black"
+              onError={(e) => { const v = e.currentTarget; if (!v.src.includes("/api/vid")) v.src = `${window.location.origin}/api/vid?u=${encodeURIComponent(videoUrl)}`; }} />
+          ) : item.kind === "posted" && item.reel.thumbnail_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.reel.thumbnail_url} alt="" className="w-full object-contain" />
+          ) : <div className="p-10 text-white/40">No preview</div>}
+        </div>
+        <div className="sm:w-[40%] bg-white p-4 overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.kind === "planned" ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
+              {item.kind === "planned" ? "📅 Planned" : "✓ Posted"}
+            </span>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          </div>
+          {item.kind === "planned" && <p className="text-sm font-bold text-slate-800 mb-1">{item.title}</p>}
+          {caption && <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{caption}</p>}
+          {item.kind === "posted" && item.reel.permalink && (
+            <a href={item.reel.permalink} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-700">Open on Instagram ↗</a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel) => void }) {
   const [sort, setSort] = useState<"recent" | "best">("recent");
