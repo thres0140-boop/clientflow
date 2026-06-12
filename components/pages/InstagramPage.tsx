@@ -367,7 +367,7 @@ function FeedPreview({ client, reels, profile }: { client: Client; reels: IGReel
   const plannedCount = items.filter((i) => i.kind === "planned").length;
 
   return (
-    <div className="max-w-[975px] mx-auto">
+    <div className="max-w-[1400px] mx-auto">
       {/* Mini profile header like Instagram */}
       <div className="flex items-center gap-4 mb-4 px-1">
         {profile?.profilePictureUrl
@@ -386,7 +386,7 @@ function FeedPreview({ client, reels, profile }: { client: Client; reels: IGReel
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-slate-400 text-sm">No posts or planned content yet.</div>
       ) : (
-        <div className="grid grid-cols-4 gap-[2px]">
+        <div className="grid grid-cols-4 gap-[3px]">
           {items.map((it) => (
             <button key={it.key} onClick={() => setViewer(it)} className="relative aspect-[3/4] bg-slate-900 overflow-hidden group">
               {it.kind === "planned" ? (
