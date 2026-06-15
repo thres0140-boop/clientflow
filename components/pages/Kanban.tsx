@@ -2072,7 +2072,9 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
   const [expanded, setExpanded] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [playUrl, setPlayUrl] = useState<string | null>(null);
   const urls: string[] = JSON.parse(draft.rawContentUrls || "[]");
+  const isImage = (u: string) => /\.(jpe?g|png|gif|webp|heic|heif|avif)(\?|$)/i.test(u);
 
   async function uploadFiles(files: File[]) {
     const media = files.filter((f) => f.type.startsWith("video") || f.type.startsWith("image"));
@@ -2177,7 +2179,18 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
               <div className="grid grid-cols-4 gap-1.5">
                 {urls.map((url, i) => (
                   <div key={i} className="relative group rounded-lg overflow-hidden bg-slate-900 aspect-square">
-                    <video src={url} className="w-full h-full object-cover" />
+                    {isImage(url)
+                      ? <img src={url} alt="" className="w-full h-full object-cover" />
+                      : <video src={url} preload="metadata" muted playsInline className="w-full h-full object-cover" />}
+                    {/* Tap anywhere on the tile to view/play it in-app (lightbox) */}
+                    <button
+                      onClick={() => setPlayUrl(url)}
+                      title={isImage(url) ? "View" : "Play"}
+                      className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+                      <span className="w-7 h-7 rounded-full bg-white/85 text-slate-900 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                        {isImage(url) ? "🔍" : "▶"}
+                      </span>
+                    </button>
                     <button
                       onClick={() => removeFile(i)}
                       className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
@@ -2230,6 +2243,40 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
             className="px-3 py-2 text-sm border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-purple-400 hover:text-purple-600 transition-colors">
             📱 QR
           </button>
+        </div>
+      )}
+
+      {playUrl && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setPlayUrl(null)}>
+          <button
+            onClick={() => setPlayUrl(null)}
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/15 text-white text-lg flex items-center justify-center hover:bg-white/25">
+            ✕
+          </button>
+          {isImage(playUrl) ? (
+            <img
+              src={playUrl}
+              alt=""
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-full max-h-full object-contain rounded-lg" />
+          ) : (
+            <video
+              src={playUrl}
+              controls
+              autoPlay
+              playsInline
+              onClick={(e) => e.stopPropagation()}
+              onError={(e) => {
+                // Same proxy fallback we use elsewhere — if R2/Cloudinary blocks direct
+                // playback, route through our own origin so it always plays.
+                const v = e.currentTarget;
+                const proxied = `/api/vid?u=${encodeURIComponent(playUrl)}`;
+                if (!v.src.includes("/api/vid")) v.src = proxied;
+              }}
+              className="max-w-full max-h-full rounded-lg bg-black" />
+          )}
         </div>
       )}
 
