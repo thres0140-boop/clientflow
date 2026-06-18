@@ -20,6 +20,7 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
   const [drafts, setDrafts] = useState<ScriptDraft[]>([]);
   const [inputs, setInputs] = useState<Record<number, string>>({});
   const [addOpen, setAddOpen] = useState<Record<number, boolean>>({});
+  const [assignQty, setAssignQty] = useState<Record<number, number>>({});
   const [revise, setRevise] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,6 +66,27 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
         body: JSON.stringify({ clientId: client.id, conceptId: c.id, title: `${c.name} — ${client.name} script`, script: v, weekLabel: `Week ${WEEK_NUMBER}`, clientAuthored: canSubmit }),
       });
       setInputs((p) => ({ ...p, [c.id]: "" }));
+      setAddOpen((p) => ({ ...p, [c.id]: false }));
+      load();
+    } finally {
+      setSubmitting(null);
+    }
+  }
+
+  // Owner: re-assign a fresh round of scripts to the client at any time. We just roll the
+  // cycle anchor to today (so a new window starts now) and set the quota — the client's
+  // writing tasks reappear, defaulting to the same amount as the last run.
+  async function assignRound(c: Concept) {
+    if (!client) return;
+    const qty = Math.max(1, parseInt(String(assignQty[c.id] ?? (c as any).clientQuota ?? 1)) || 1);
+    setSubmitting(c.id);
+    try {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      await fetch(`/api/concepts/${c.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientAnchor: today, clientQuota: qty }),
+      });
       setAddOpen((p) => ({ ...p, [c.id]: false }));
       load();
     } finally {
@@ -179,51 +201,56 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                   </div>
                 )}
 
-                {/* Add / write area. The cycle quota is just the scheduled target —
-                    a new script can be added at ANY time (owner or writer), even when the
-                    cycle is already "done" or not due yet. While under quota the box is open
-                    by default; otherwise it's behind a "+ add" toggle so it stays tidy. */}
-                {(() => {
-                  const open = !!addOpen[c.id] || (canSubmit && remaining > 0);
-                  const extra = remaining === 0; // beyond the cycle target
-                  if (open) {
-                    return (
-                      <div className="space-y-2">
-                        <p className="text-[11px] font-semibold text-slate-500">
-                          {canSubmit
-                            ? (extra ? "Extra script (ahead of schedule)" : `Write script ${done + 1} of ${quota}`)
-                            : `Add a script for ${client.name}`}
-                        </p>
-                        <textarea rows={4} value={inputs[c.id] ?? ""}
-                          onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
-                          placeholder="Write the on-screen text / script here…"
-                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
-                        <div className="flex justify-end gap-2">
-                          {!!addOpen[c.id] && (
-                            <button onClick={() => setAddOpen((p) => ({ ...p, [c.id]: false }))}
-                              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">
-                              Cancel
-                            </button>
-                          )}
-                          <button onClick={() => submit(c)} disabled={submitting === c.id || !(inputs[c.id] || "").trim()}
-                            className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                            {submitting === c.id ? "Submitting…" : (canSubmit ? "Submit this script for review" : "Add this script")}
-                          </button>
-                        </div>
-                        {canSubmit && !extra && remaining > 1 && (
-                          <p className="text-[11px] text-slate-400 text-right">{remaining - 1} more after this one.</p>
-                        )}
+                {/* Writer (client): writes ONE script at a time, up to the assigned quota. */}
+                {canSubmit && remaining > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold text-slate-500">Write script {done + 1} of {quota}</p>
+                    <textarea rows={4} value={inputs[c.id] ?? ""}
+                      onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
+                      placeholder="Write the on-screen text / script here…"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
+                    <div className="flex justify-end">
+                      <button onClick={() => submit(c)} disabled={submitting === c.id || !(inputs[c.id] || "").trim()}
+                        className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                        {submitting === c.id ? "Submitting…" : "Submit this script for review"}
+                      </button>
+                    </div>
+                    {remaining > 1 && <p className="text-[11px] text-slate-400 text-right">{remaining - 1} more after this one.</p>}
+                  </div>
+                )}
+                {canSubmit && remaining === 0 && (
+                  <p className="text-xs text-slate-400">All assigned scripts are in. Nothing to write right now 🎉</p>
+                )}
+
+                {/* Owner: re-assign a fresh round to the client anytime — defaults to the
+                    same amount as the last run. Don then sees the writing tasks again. */}
+                {!canSubmit && (
+                  addOpen[c.id] ? (
+                    <div className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+                      <div className="flex items-center gap-2 text-xs text-slate-600">
+                        <span className="font-semibold">Assign</span>
+                        <input type="number" min={1}
+                          value={assignQty[c.id] ?? (quota || 1)}
+                          onChange={(e) => setAssignQty((p) => ({ ...p, [c.id]: parseInt(e.target.value) || 1 }))}
+                          className="w-16 border border-slate-300 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                        <span>new script{(assignQty[c.id] ?? quota) === 1 ? "" : "s"} to {client.name}</span>
                       </div>
-                    );
-                  }
-                  // Quota met (or owner overview): offer to add one anyway, anytime.
-                  return (
-                    <button onClick={() => setAddOpen((p) => ({ ...p, [c.id]: true }))}
+                      <div className="flex gap-2">
+                        <button onClick={() => setAddOpen((p) => ({ ...p, [c.id]: false }))}
+                          className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+                        <button onClick={() => assignRound(c)} disabled={submitting === c.id}
+                          className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                          {submitting === c.id ? "Assigning…" : "Assign"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setAssignQty((p) => ({ ...p, [c.id]: quota || 1 })); setAddOpen((p) => ({ ...p, [c.id]: true })); }}
                       className="w-full py-2 text-xs font-semibold text-slate-500 border border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors">
-                      {canSubmit ? "+ Write another script (ahead of schedule)" : `+ Add a script for ${client.name}`}
+                      ↻ Assign a new round{quota ? ` (${quota} script${quota > 1 ? "s" : ""})` : ""} to {client.name}
                     </button>
-                  );
-                })()}
+                  )
+                )}
               </div>
             );
           })}
