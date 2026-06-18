@@ -19,6 +19,7 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [drafts, setDrafts] = useState<ScriptDraft[]>([]);
   const [inputs, setInputs] = useState<Record<number, string>>({});
+  const [addOpen, setAddOpen] = useState<Record<number, boolean>>({});
   const [revise, setRevise] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -61,9 +62,10 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
     try {
       await fetch("/api/script-drafts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: client.id, conceptId: c.id, title: `${c.name} — ${client.name} script`, script: v, weekLabel: `Week ${WEEK_NUMBER}`, clientAuthored: true }),
+        body: JSON.stringify({ clientId: client.id, conceptId: c.id, title: `${c.name} — ${client.name} script`, script: v, weekLabel: `Week ${WEEK_NUMBER}`, clientAuthored: canSubmit }),
       });
       setInputs((p) => ({ ...p, [c.id]: "" }));
+      setAddOpen((p) => ({ ...p, [c.id]: false }));
       load();
     } finally {
       setSubmitting(null);
@@ -177,26 +179,51 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                   </div>
                 )}
 
-                {/* Writing area — client writes ONE script at a time and submits it */}
-                {canSubmit && remaining > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold text-slate-500">Write script {done + 1} of {quota}</p>
-                    <textarea rows={4} value={inputs[c.id] ?? ""}
-                      onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
-                      placeholder="Write the on-screen text / script here…"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
-                    <div className="flex justify-end">
-                      <button onClick={() => submit(c)} disabled={submitting === c.id || !(inputs[c.id] || "").trim()}
-                        className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                        {submitting === c.id ? "Submitting…" : "Submit this script for review"}
-                      </button>
-                    </div>
-                    {remaining > 1 && <p className="text-[11px] text-slate-400 text-right">{remaining - 1} more after this one.</p>}
-                  </div>
-                )}
-                {!canSubmit && remaining > 0 && (
-                  <p className="text-xs text-slate-400">Waiting on {remaining} more script{remaining !== 1 ? "s" : ""} from the client.</p>
-                )}
+                {/* Add / write area. The cycle quota is just the scheduled target —
+                    a new script can be added at ANY time (owner or writer), even when the
+                    cycle is already "done" or not due yet. While under quota the box is open
+                    by default; otherwise it's behind a "+ add" toggle so it stays tidy. */}
+                {(() => {
+                  const open = !!addOpen[c.id] || (canSubmit && remaining > 0);
+                  const extra = remaining === 0; // beyond the cycle target
+                  if (open) {
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-slate-500">
+                          {canSubmit
+                            ? (extra ? "Extra script (ahead of schedule)" : `Write script ${done + 1} of ${quota}`)
+                            : `Add a script for ${client.name}`}
+                        </p>
+                        <textarea rows={4} value={inputs[c.id] ?? ""}
+                          onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
+                          placeholder="Write the on-screen text / script here…"
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
+                        <div className="flex justify-end gap-2">
+                          {!!addOpen[c.id] && (
+                            <button onClick={() => setAddOpen((p) => ({ ...p, [c.id]: false }))}
+                              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">
+                              Cancel
+                            </button>
+                          )}
+                          <button onClick={() => submit(c)} disabled={submitting === c.id || !(inputs[c.id] || "").trim()}
+                            className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                            {submitting === c.id ? "Submitting…" : (canSubmit ? "Submit this script for review" : "Add this script")}
+                          </button>
+                        </div>
+                        {canSubmit && !extra && remaining > 1 && (
+                          <p className="text-[11px] text-slate-400 text-right">{remaining - 1} more after this one.</p>
+                        )}
+                      </div>
+                    );
+                  }
+                  // Quota met (or owner overview): offer to add one anyway, anytime.
+                  return (
+                    <button onClick={() => setAddOpen((p) => ({ ...p, [c.id]: true }))}
+                      className="w-full py-2 text-xs font-semibold text-slate-500 border border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors">
+                      {canSubmit ? "+ Write another script (ahead of schedule)" : `+ Add a script for ${client.name}`}
+                    </button>
+                  );
+                })()}
               </div>
             );
           })}
