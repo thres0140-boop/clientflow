@@ -293,6 +293,7 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
       {selected && (
         <ConceptDetailModal
           concept={selected}
+          clients={clients}
           onClose={() => setSelected(null)}
           onDelete={() => deleteConcept(selected.id)}
           onUpdated={(patch) => { setSelected((s) => s ? { ...s, ...patch } as Concept : s); reload(); }}
@@ -1014,7 +1015,7 @@ export function ConceptModal({
   );
 }
 
-function ConceptDetailModal({ concept, onClose, onDelete, onUpdated }: { concept: Concept; onClose: () => void; onDelete: () => void; onUpdated?: (patch: Partial<Concept>) => void }) {
+function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: { concept: Concept; clients: Client[]; onClose: () => void; onDelete: () => void; onUpdated?: (patch: Partial<Concept>) => void }) {
   const [reels, setReels] = useState<string[]>(() => {
     try { return JSON.parse((concept as any).reelUrls || "[]"); } catch { return []; }
   });
@@ -1026,6 +1027,51 @@ function ConceptDetailModal({ concept, onClose, onDelete, onUpdated }: { concept
   const [savingType, setSavingType] = useState(false);
   const [name, setName] = useState<string>(concept.name);
   const [editingName, setEditingName] = useState(false);
+
+  // Client assignment + "client writes the script" settings — editable right here so you
+  // never have to delete & recreate a concept just to hand it to a client.
+  const [clientId, setClientId] = useState<string>(concept.clientId ? String(concept.clientId) : "");
+  const [clientOwned, setClientOwned] = useState<boolean>(!!concept.clientOwned);
+  const [clientQuota, setClientQuota] = useState<string>(concept.clientQuota != null ? String(concept.clientQuota) : "3");
+  const [clientIntervalDays, setClientIntervalDays] = useState<string>(concept.clientIntervalDays != null ? String(concept.clientIntervalDays) : "7");
+  const [clientAnchor, setClientAnchor] = useState<string>(concept.clientAnchor || "");
+  const [savingAssign, setSavingAssign] = useState(false);
+
+  const todayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  async function saveAssignment(next: {
+    clientId?: string; clientOwned?: boolean; clientQuota?: string; clientIntervalDays?: string; clientAnchor?: string;
+  }) {
+    const cId = next.clientId ?? clientId;
+    const owned = (next.clientOwned ?? clientOwned) && !!cId;
+    const quota = next.clientQuota ?? clientQuota;
+    const interval = next.clientIntervalDays ?? clientIntervalDays;
+    const anchor = next.clientAnchor ?? clientAnchor;
+    setSavingAssign(true);
+    await fetch(`/api/concepts/${concept.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: cId || null,
+        clientOwned: owned,
+        clientQuota: owned ? quota : null,
+        clientIntervalDays: owned ? interval : null,
+        clientAnchor: owned ? (anchor || todayStr()) : null,
+      }),
+    });
+    setSavingAssign(false);
+    const cl = clients.find((c) => String(c.id) === String(cId));
+    onUpdated?.({
+      clientId: cId ? parseInt(cId) : null,
+      client: cl ? { name: cl.name, color: cl.color } : null,
+      clientOwned: owned,
+      clientQuota: owned ? parseInt(quota) || null : null,
+      clientIntervalDays: owned ? parseInt(interval) || null : null,
+      clientAnchor: owned ? (anchor || todayStr()) : null,
+    } as Partial<Concept>);
+  }
 
   async function saveName(next: string) {
     const v = next.trim();
@@ -1146,19 +1192,67 @@ function ConceptDetailModal({ concept, onClose, onDelete, onUpdated }: { concept
               {concept.angle}
             </span>
           )}
-          {concept.client && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-              style={{ backgroundColor: concept.client.color }}>
-              {concept.client.name}
-            </span>
-          )}
-          {!concept.clientId && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Global</span>
-          )}
+          {/* Client assignment — pick a client right here (or set Global). */}
+          <div className="inline-flex items-center rounded-full text-xs font-medium text-white"
+            style={{ backgroundColor: clientId ? (clients.find((c) => String(c.id) === clientId)?.color || "#6366f1") : "#e2e8f0" }}>
+            <select
+              value={clientId}
+              onChange={(e) => { setClientId(e.target.value); saveAssignment({ clientId: e.target.value, clientOwned: e.target.value ? clientOwned : false }); }}
+              disabled={savingAssign}
+              title="Assign this concept to a client"
+              className={`bg-transparent px-2.5 py-0.5 pr-1 rounded-full font-medium focus:outline-none cursor-pointer appearance-none ${clientId ? "text-white" : "text-slate-500"}`}
+            >
+              <option value="">Global (no client)</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <span className={`pr-2 opacity-70 text-[9px] ${clientId ? "text-white" : "text-slate-500"}`}>{savingAssign ? "…" : "▾"}</span>
+          </div>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
             Used {concept.timesUsed}×
           </span>
         </div>
+
+        {/* Hand it to the client to write — quota + cadence, same as on creation. */}
+        {clientId && (
+          <div className={`rounded-lg border ${clientOwned ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200"}`}>
+            <label className="flex items-start gap-2 px-3 py-2.5 cursor-pointer">
+              <input type="checkbox" checked={clientOwned}
+                onChange={(e) => { setClientOwned(e.target.checked); saveAssignment({ clientOwned: e.target.checked }); }}
+                className="mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-slate-700">✍️ {clients.find((c) => String(c.id) === clientId)?.name || "Client"} writes the scripts</p>
+                <p className="text-[11px] text-slate-500">They get assigned a batch of scripts to write for this concept on a recurring cadence.</p>
+              </div>
+            </label>
+            {clientOwned && (
+              <div className="px-3 pb-3 space-y-2">
+                <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600">
+                  <span>Assign</span>
+                  <input type="number" min={1} max={50} value={clientQuota}
+                    onChange={(e) => setClientQuota(e.target.value)}
+                    onBlur={() => saveAssignment({})}
+                    className="w-14 border border-slate-300 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  <span>scripts</span>
+                  <select value={clientIntervalDays}
+                    onChange={(e) => { setClientIntervalDays(e.target.value); saveAssignment({ clientIntervalDays: e.target.value }); }}
+                    className="border border-slate-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <option value="7">every week</option>
+                    <option value="14">every 2 weeks</option>
+                    <option value="21">every 3 weeks</option>
+                    <option value="28">every 4 weeks</option>
+                  </select>
+                  <span>starting</span>
+                  <input type="date" value={clientAnchor || todayStr()}
+                    onChange={(e) => { setClientAnchor(e.target.value); saveAssignment({ clientAnchor: e.target.value }); }}
+                    className="border border-slate-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                </div>
+                <p className="text-[11px] text-blue-700">
+                  {clients.find((c) => String(c.id) === clientId)?.name || "The client"} will see {clientQuota || "?"} script{clientQuota === "1" ? "" : "s"} to write {clientIntervalDays === "7" ? "every week" : `every ${parseInt(clientIntervalDays || "7") / 7} weeks`} on their Script Tasks page.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Attached reels */}
         <div>
