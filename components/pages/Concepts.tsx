@@ -1036,6 +1036,7 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
   const [clientIntervalDays, setClientIntervalDays] = useState<string>(concept.clientIntervalDays != null ? String(concept.clientIntervalDays) : "7");
   const [clientAnchor, setClientAnchor] = useState<string>(concept.clientAnchor || "");
   const [savingAssign, setSavingAssign] = useState(false);
+  const [savedAssign, setSavedAssign] = useState(false);
 
   const todayStr = () => {
     const d = new Date();
@@ -1051,6 +1052,7 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
     const interval = next.clientIntervalDays ?? clientIntervalDays;
     const anchor = next.clientAnchor ?? clientAnchor;
     setSavingAssign(true);
+    setSavedAssign(false);
     await fetch(`/api/concepts/${concept.id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1062,6 +1064,7 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
       }),
     });
     setSavingAssign(false);
+    setSavedAssign(true);
     const cl = clients.find((c) => String(c.id) === String(cId));
     onUpdated?.({
       clientId: cId ? parseInt(cId) : null,
@@ -1249,6 +1252,15 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
                 <p className="text-[11px] text-blue-700">
                   {clients.find((c) => String(c.id) === clientId)?.name || "The client"} will see {clientQuota || "?"} script{clientQuota === "1" ? "" : "s"} to write {clientIntervalDays === "7" ? "every week" : `every ${parseInt(clientIntervalDays || "7") / 7} weeks`} on their Script Tasks page.
                 </p>
+                <div className="flex items-center justify-end gap-3 pt-1">
+                  {savedAssign && !savingAssign && (
+                    <span className="text-[11px] font-semibold text-emerald-600">✓ Saved — it's on {clients.find((c) => String(c.id) === clientId)?.name || "the client"}'s Script Tasks now</span>
+                  )}
+                  <button onClick={() => saveAssignment({})} disabled={savingAssign}
+                    className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                    {savingAssign ? "Saving…" : savedAssign ? "Saved ✓" : "Save & assign"}
+                  </button>
+                </div>
               </div>
             )}
           </div>
