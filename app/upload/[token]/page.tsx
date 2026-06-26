@@ -50,27 +50,36 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
       .catch(() => setError("Could not load upload page."));
   }, [token]);
 
-  function cloudinaryAttempt(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-      const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
-      const resourceType = file.type.startsWith("video") ? "video" : "image";
-      const form = new FormData();
-      form.append("file", file);
-      form.append("upload_preset", preset);
+  // Upload straight to Cloudflare R2 via a token-gated presigned PUT (Cloudinary is gone).
+  // A single PUT handles files up to 5GB, which covers any phone clip.
+  function r2Attempt(file: File): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      let presign: { uploadUrl: string; publicUrl: string };
+      try {
+        const r = await fetch(`/api/upload-tokens/${token}/presign`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name || "clip.mp4", contentType: file.type || "video/mp4" }),
+        });
+        const d = await r.json();
+        if (!r.ok || !d.uploadUrl) { reject(new Error(d.error || `Couldn't start upload (${r.status})`)); return; }
+        presign = d;
+      } catch { reject(new Error("network")); return; }
+
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`);
-      xhr.timeout = 10 * 60_000;
+      xhr.open("PUT", presign.uploadUrl);
+      xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+      xhr.timeout = 15 * 60_000;
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
       };
       xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).secure_url);
-        else { try { reject(new Error(JSON.parse(xhr.responseText).error?.message ?? `Upload failed (${xhr.status})`)); } catch { reject(new Error(`Upload failed (${xhr.status})`)); } }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(presign.publicUrl);
+        else reject(new Error(`Upload failed (${xhr.status})`));
       };
       xhr.onerror = () => reject(new Error("network"));
       xhr.ontimeout = () => reject(new Error("timeout"));
-      xhr.send(form);
+      xhr.send(file);
     });
   }
 
@@ -78,7 +87,7 @@ export default function MobileUploadPage({ params }: { params: Promise<{ token: 
   async function cloudinaryUpload(file: File): Promise<string> {
     let lastErr: unknown;
     for (let i = 1; i <= 3; i++) {
-      try { return await cloudinaryAttempt(file); }
+      try { return await r2Attempt(file); }
       catch (e) { lastErr = e; const m = e instanceof Error ? e.message : String(e); if (i < 3 && (m === "network" || m === "timeout")) { setProgress(0); await new Promise((r) => setTimeout(r, 1200 * i)); } else throw e; }
     }
     throw lastErr;
