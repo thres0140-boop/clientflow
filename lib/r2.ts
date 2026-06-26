@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 // Server-side Cloudflare R2 upload (S3-compatible). Used to cache competitor reel
 // thumbnails (Instagram CDN URLs expire within days, so we download + rehost them).
@@ -40,6 +40,21 @@ export async function uploadToR2(key: string, body: Uint8Array | Buffer, content
     return `${publicBase}/${key}`;
   } catch {
     return null;
+  }
+}
+
+// Delete an object from R2 given its public URL (the reverse of uploadToR2). Best-effort:
+// returns true if we issued the delete, false if not ours / not configured / it failed.
+export async function deleteFromR2(url?: string | null): Promise<boolean> {
+  const c = client();
+  if (!c || !publicBase || !url || !isR2Url(url)) return false;
+  const key = decodeURIComponent(url.slice(publicBase.length + 1).split("?")[0]);
+  if (!key) return false;
+  try {
+    await c.send(new DeleteObjectCommand({ Bucket: bucket!, Key: key }));
+    return true;
+  } catch {
+    return false;
   }
 }
 

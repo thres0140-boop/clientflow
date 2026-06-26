@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendWhatsApp } from "@/lib/notify";
+import { deletePostedMedia } from "@/lib/mediaCleanup";
 
 // POST /api/webhooks/zernio
 // Receives Zernio webhook events for post.published, post.failed, post.scheduled
@@ -155,6 +156,22 @@ async function handlePublished(body: any) {
     }
     if (draft) {
       await (prisma as any).scriptDraft.update({ where: { id: draft.id }, data: { status: "posted", ...(zernioPostId && !draft.zernioPostId ? { zernioPostId } : {}) } });
+
+      // It's LIVE on Instagram now → purge the raw clips + finished cut from our storage so
+      // Cloudinary/R2 don't pile up (this is what maxed out Cloudinary's free plan). We clear
+      // the fields too so the UI doesn't show dead links. Best-effort; never blocks the webhook.
+      try {
+        const rawUrls: string[] = JSON.parse(draft.rawContentUrls || "[]");
+        const removed = await deletePostedMedia([...rawUrls, draft.editedVideoUrl]);
+        await (prisma as any).scriptDraft.update({
+          where: { id: draft.id },
+          data: { rawContentUrls: "[]", editedVideoUrl: null },
+        });
+        console.log(`[zernio-webhook] media cleanup for draft ${draft.id}: removed ${removed}/${rawUrls.length + (draft.editedVideoUrl ? 1 : 0)} files`);
+      } catch (e) {
+        console.error("[zernio-webhook] media cleanup failed for draft", draft.id, e);
+      }
+
       const cLabel = conceptLabelOf(draft);
       const permalink = post.permalink ?? igPlatform?.permalink ?? igPlatform?.url ?? null;
       const link = permalink || draft.editedVideoUrl || (process.env.APP_URL || "https://www.ordoagency.com");
