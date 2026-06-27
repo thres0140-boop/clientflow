@@ -894,67 +894,11 @@ async function blobUpload(file: File, onProgress: (pct: number) => void): Promis
   }
 }
 
+// Everything uploads to Cloudflare R2 now (Cloudinary is gone — its free tier kept getting
+// disabled and capped videos at ~95MB). blobUpload handles ANY size via multipart: small
+// files are a single part, big videos chunk + retry. No size cap, no credit limit.
 function cloudinaryUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
-  // Large videos exceed Cloudinary's limit → Vercel Blob instead.
-  if (file.type.startsWith("video") && file.size > CLOUDINARY_MAX) {
-    return blobUpload(file, onProgress);
-  }
-  const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-  const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
-  const resourceType = file.type.startsWith("video") ? "video" : "image";
-  const url = `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`;
-
-  // Small files → single request (with granular progress).
-  if (file.size <= UPLOAD_CHUNK) {
-    return new Promise((resolve, reject) => {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("upload_preset", preset);
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", url);
-      xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).secure_url);
-        else { try { reject(new Error(JSON.parse(xhr.responseText).error?.message ?? "Upload failed")); } catch { reject(new Error("Upload failed")); } }
-      };
-      xhr.onerror = () => reject(new Error("Network error"));
-      xhr.send(form);
-    });
-  }
-
-  // Large files → chunked upload (each chunk shares an X-Unique-Upload-Id).
-  return (async () => {
-    const uniqueId = `${Math.round(performance.now())}-${file.size}-${file.name.replace(/\W+/g, "")}`;
-    let start = 0;
-    while (start < file.size) {
-      const end = Math.min(start + UPLOAD_CHUNK, file.size);
-      const form = new FormData();
-      form.append("file", file.slice(start, end), file.name || "video.mp4"); // filename required
-      form.append("upload_preset", preset);
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "X-Unique-Upload-Id": uniqueId, "Content-Range": `bytes ${start}-${end - 1}/${file.size}` },
-        body: form,
-      });
-      if (!res.ok) {
-        let msg = `Upload failed (${res.status})`;
-        try { msg = (await res.json()).error?.message ?? msg; } catch { /* ignore */ }
-        const m = msg.match(/Got (\d+)\. Maximum is (\d+)/);
-        if (m) {
-          const mb = (n: string) => Math.round(parseInt(n) / 1048576);
-          msg = `This video is ${mb(m[1])} MB — the limit is ${mb(m[2])} MB. Compress/trim it under ${mb(m[2])} MB, or upgrade the Cloudinary plan for larger videos.`;
-        }
-        throw new Error(msg);
-      }
-      onProgress(Math.round((end / file.size) * 100));
-      if (end >= file.size) {
-        const data = await res.json();
-        return data.secure_url as string;
-      }
-      start = end;
-    }
-    throw new Error("Upload failed");
-  })();
+  return blobUpload(file, onProgress);
 }
 
 // ─── File upload button ─────────────────────────────────────────────────────

@@ -1213,33 +1213,28 @@ function ConfirmScheduleModal({
 
 // ── Post to Instagram Modal (Buffer-style direct scheduling) ─────────────────
 
-// Cloudinary upload with progress tracking.
-// Uses the same preset as the rest of the app; no eager transformations = original quality.
+// Upload to Cloudflare R2 via a presigned PUT (Cloudinary is gone). A single PUT handles up
+// to 5GB — fine for any IG reel — and R2 has no credit limit to lock us out.
 function igUpload(file: File, onProgress: (pct: number) => void): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-    const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
-    const resourceType = file.type.startsWith("video") ? "video" : "image";
-    const form = new FormData();
-    form.append("file", file);
-    form.append("upload_preset", preset);
+  return new Promise(async (resolve, reject) => {
+    let presign: { uploadUrl: string; publicUrl: string };
+    try {
+      const r = await fetch("/api/r2/presign", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name || "video.mp4", contentType: file.type || "video/mp4" }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.uploadUrl) { reject(new Error(d.error || `Couldn't start upload (${r.status})`)); return; }
+      presign = d;
+    } catch { reject(new Error("Network error")); return; }
+
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloud}/${resourceType}/upload`);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const data = JSON.parse(xhr.responseText);
-        // Use fl_attachment to ensure Zernio/Instagram receive raw bytes without transforms
-        const url: string = data.secure_url;
-        resolve(url);
-      } else {
-        reject(new Error(JSON.parse(xhr.responseText)?.error?.message ?? "Upload failed"));
-      }
-    };
+    xhr.open("PUT", presign.uploadUrl);
+    xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
+    xhr.onload = () => { (xhr.status >= 200 && xhr.status < 300) ? resolve(presign.publicUrl) : reject(new Error(`Upload failed (${xhr.status})`)); };
     xhr.onerror = () => reject(new Error("Network error"));
-    xhr.send(form);
+    xhr.send(file);
   });
 }
 
