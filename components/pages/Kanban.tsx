@@ -199,6 +199,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [detailDraft, setDetailDraft] = useState<ScriptDraft | null>(null);
   const [rejectDraftData, setRejectDraftData] = useState<ScriptDraft | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [showRemix, setShowRemix] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [conceptFilter, setConceptFilter] = useState<number | "all">("all");
   const [dayFilter, setDayFilter] = useState<string>("all");
@@ -523,6 +524,12 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             </button>
           )}
           {!activeProfile && (
+            <button onClick={() => setShowRemix(true)}
+              className="px-3 py-2 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 flex items-center gap-1.5">
+              ♻️ Remix Winner
+            </button>
+          )}
+          {!activeProfile && (
             <button onClick={() => setShowGenerate(true)}
               className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-1.5">
               ✨ Generate Scripts
@@ -788,6 +795,16 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           concepts={concepts}
           onClose={() => setShowGenerate(false)}
           onGenerated={() => { setShowGenerate(false); reload(); }}
+        />
+      )}
+
+      {/* Remix-a-winner modal */}
+      {showRemix && (
+        <RemixModal
+          client={client}
+          concepts={concepts}
+          onClose={() => setShowRemix(false)}
+          onGenerated={() => { setShowRemix(false); reload(); }}
         />
       )}
 
@@ -2628,6 +2645,126 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
 }
 
 // ─── Stage manager modal ────────────────────────────────────────────────────
+// Remix a proven winner: paste one reel that performed, pick the concept whose voice/format
+// to use, and spin N variations that say the SAME message a different way.
+function RemixModal({ client, concepts, onClose, onGenerated }: {
+  client: Client; concepts: Concept[]; onClose: () => void; onGenerated: () => void;
+}) {
+  // Any concept can host a remix EXCEPT client-written ones (those are written by the client).
+  const remixConcepts = concepts.filter((c) => !(c as any).clientOwned);
+  const [conceptId, setConceptId] = useState<number | null>(remixConcepts[0]?.id ?? null);
+  const [source, setSource] = useState("");
+  const [sourceTitle, setSourceTitle] = useState("");
+  const [weekLabel, setWeekLabel] = useState(`Week ${WEEK_NUMBER}`);
+  const [dayLabel, setDayLabel] = useState("");
+  const [count, setCount] = useState(client.scriptAlternatives);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState("");
+
+  async function generate() {
+    if (!conceptId) { setError("Pick a concept to remix into."); return; }
+    if (!source.trim()) { setError("Paste the winning reel's script first."); return; }
+    setGenerating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/script-drafts/remix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: client.id, conceptId, source, sourceTitle: sourceTitle || null,
+          weekLabel, dayLabel: dayLabel || null, count,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Remix failed."); return; }
+      onGenerated();
+    } catch {
+      setError("Remix failed. Check your API key.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-800">♻️ Remix a Winner</h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">Take one reel that performed → market that same message {count} different ways.</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+        <div className="px-6 py-5 space-y-5">
+          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">The winning reel — paste its script / on-screen text</label>
+            <textarea rows={6} value={source} onChange={(e) => setSource(e.target.value)}
+              placeholder="Paste the exact script (or on-screen text) of the reel that already performed…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none" />
+            <input value={sourceTitle} onChange={(e) => setSourceTitle(e.target.value)}
+              placeholder="Optional: a label for this winner (e.g. '250k views — survival mode')"
+              className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Match to concept (voice & format)</label>
+            {remixConcepts.length === 0 ? (
+              <p className="text-xs text-slate-400">No AI concepts yet — add one in the Concept Library first.</p>
+            ) : (
+              <select value={conceptId ?? ""} onChange={(e) => setConceptId(parseInt(e.target.value))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
+                {remixConcepts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {(c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Week label</label>
+              <input value={weekLabel} onChange={(e) => setWeekLabel(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Day (optional)</label>
+              <input value={dayLabel} onChange={(e) => setDayLabel(e.target.value)} placeholder="e.g. Monday"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">How many variations</label>
+            <div className="flex items-center gap-3">
+              {[3, 5, 7, 10].map((n) => (
+                <button key={n} onClick={() => setCount(n)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${
+                    count === n ? "bg-purple-600 text-white border-purple-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}>
+                  {n}
+                </button>
+              ))}
+              <input type="number" min={1} max={30} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 5)}
+                className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button onClick={generate} disabled={generating || !conceptId || !source.trim()}
+            className="px-5 py-2 text-sm font-semibold bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50">
+            {generating ? "Remixing…" : `♻️ Make ${count} variations`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StageManagerModal({ client, stages, team, creators, ownerName, onClose, onSaved }: {
   client: Client; stages: WorkflowStage[]; team: TeamMember[]; creators: Creator[]; ownerName: string;
   onClose: () => void; onSaved: () => void;
