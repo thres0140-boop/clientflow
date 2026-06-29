@@ -2658,6 +2658,7 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
   const [weekLabel, setWeekLabel] = useState(`Week ${WEEK_NUMBER}`);
   const [dayLabel, setDayLabel] = useState("");
   const [count, setCount] = useState(client.scriptAlternatives);
+  const [format, setFormat] = useState<"auto" | "spoken" | "text">("auto");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [showReelPicker, setShowReelPicker] = useState(false);
@@ -2702,7 +2703,7 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId: client.id, conceptId, source, sourceTitle: sourceTitle || null,
-          weekLabel, dayLabel: dayLabel || null, count,
+          weekLabel, dayLabel: dayLabel || null, count, format,
         }),
       });
       const data = await res.json();
@@ -2772,6 +2773,23 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
               <input value={dayLabel} onChange={(e) => setDayLabel(e.target.value)} placeholder="e.g. Monday"
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Output format</label>
+            <div className="flex gap-2">
+              {([["auto", "Match concept"], ["spoken", "🎤 Spoken script"], ["text", "📝 On-screen text"]] as const).map(([v, lbl]) => (
+                <button key={v} onClick={() => setFormat(v)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
+                    format === v ? "bg-purple-600 text-white border-purple-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400">
+              {format === "spoken" ? "Full talking-head script (~80–130 words)." : format === "text" ? "Short on-screen text cards (4–8 lines)." : "Auto-picks based on the concept's format."}
+            </p>
           </div>
 
           <div>

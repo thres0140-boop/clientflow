@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { clientId, conceptId, source, sourceTitle, weekLabel, dayLabel, count = 5 } = body;
+  const { clientId, conceptId, source, sourceTitle, weekLabel, dayLabel, count = 5, format = "auto" } = body;
   if (!source || !String(source).trim()) {
     return NextResponse.json({ error: "Paste the winning reel's script first." }, { status: 400 });
   }
@@ -54,7 +54,9 @@ export async function POST(req: NextRequest) {
     /op\s*scherm|tekstkaart|text\s*card|on[\s-]*screen|overlay|regel\s*\d/.test(struct) ||
     /tekstkaart|op\s*scherm|text\s*card|geen\s*voice|no\s*voice|on[\s-]*screen\s*text/.test(guide);
   const isTalkingHead = /talking[\s_-]*head|voiceover|spoken|interview|monolog/.test(vt);
-  const isTextOverlay = textOverlaySignals && !isTalkingHead;
+  // Caller can force the format ("text" = on-screen cards, "spoken" = talking-head). Only
+  // fall back to auto-detection from the concept when format === "auto".
+  const isTextOverlay = format === "text" ? true : format === "spoken" ? false : (textOverlaySignals && !isTalkingHead);
 
   const captionPlaybook = (clientData as any).captionGuidelines as string | null | undefined;
   const captionStyle = captionPlaybook
