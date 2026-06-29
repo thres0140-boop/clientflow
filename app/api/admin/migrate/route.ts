@@ -897,6 +897,10 @@ export async function POST(req: NextRequest) {
       ADD COLUMN IF NOT EXISTS "isRemix" BOOLEAN NOT NULL DEFAULT false;
     `;
     await (prisma as any).$executeRaw`
+      ALTER TABLE "ScriptDraft"
+      ADD COLUMN IF NOT EXISTS "hookAlternatives" TEXT NOT NULL DEFAULT '[]';
+    `;
+    await (prisma as any).$executeRaw`
       ALTER TABLE "InstagramConnection"
       ADD COLUMN IF NOT EXISTS "zernioAccountId" TEXT;
     `;

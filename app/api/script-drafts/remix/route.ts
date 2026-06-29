@@ -15,10 +15,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { clientId, conceptId, source, sourceTitle, weekLabel, dayLabel, count = 5, format = "auto" } = body;
+  const { clientId, conceptId, source, sourceTitle, weekLabel, dayLabel, count = 5, format = "auto", keepHook = true, hookAltCount = 3 } = body;
   if (!source || !String(source).trim()) {
     return NextResponse.json({ error: "Paste the winning reel's script first." }, { status: 400 });
   }
+  // The proven hook = the first non-empty line of the winning reel.
+  const sourceHook = String(source).split("\n").map((l) => l.trim()).find(Boolean) || "";
 
   const clientData = await prisma.client.findUnique({ where: { id: parseInt(clientId) } });
   if (!clientData) return NextResponse.json({ error: "Client not found" }, { status: 404 });
@@ -93,9 +95,17 @@ HARD RULES:
   • Different hook/opening each time — never reuse the same first line.
   • Keep it in this creator's voice and this concept's format.
 
+${keepHook ? `\nHOOK RULE — KEEP THE PROVEN HOOK:
+The winner's hook is its strongest, proven part. EVERY variation MUST open with this EXACT hook, word-for-word — do NOT change, rephrase, or translate it:
+"${sourceHook}"
+The "hook" field = this exact line, and the "script" must START with it. Only rework the BODY that follows.` : `\nHOOK RULE — REWRITE THE HOOK:
+Give each variation a fresh, different opening hook, while keeping the same core message.`}
+${hookAltCount > 0 ? `\nHOOK ALTERNATIVES:
+For each variation also provide "hookAlternatives": an array of ${hookAltCount} DIFFERENT alternative opening hooks that fit the same script (same promise, different wording). ${keepHook ? "These are extra options to test against the proven hook." : ""}` : ""}
+
 Output ONLY a valid JSON array, nothing else:
 [
-  { "title": "short title", "hook": "${isTextOverlay ? "first on-screen text line" : "opening hook line"}", "script": "${isTextOverlay ? "on-screen text cards (short punchy lines)" : "full spoken script"}", "caption": "caption (different angle from the script)" }
+  { "title": "short title", "hook": "${isTextOverlay ? "first on-screen text line" : "opening hook line"}", "script": "${isTextOverlay ? "on-screen text cards (short punchy lines)" : "full spoken script"}", "caption": "caption (different angle from the script)"${hookAltCount > 0 ? `, "hookAlternatives": ["alt hook 1", "alt hook 2"${hookAltCount > 2 ? ", …" : ""}]` : ""} }
 ]`;
 
   const userMessage = `Here is the PROVEN WINNING reel${sourceTitle ? ` ("${sourceTitle}")` : ""} to remix:
@@ -106,7 +116,7 @@ ${String(source).trim()}
 
 Generate EXACTLY ${count} variations of THIS reel for ${weekLabel || "this batch"}${dayLabel ? `, ${dayLabel}` : ""}. Same message, same payoff — reworded ${count} different ways, each with a fresh hook. Do not change the topic or the point.`;
 
-  let drafts: { title: string; hook: string; script: string; caption?: string }[] = [];
+  let drafts: { title: string; hook: string; script: string; caption?: string; hookAlternatives?: string[] }[] = [];
   try {
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
@@ -123,19 +133,30 @@ Generate EXACTLY ${count} variations of THIS reel for ${weekLabel || "this batch
 
   const created = [];
   for (const d of drafts) {
+    // When keeping the proven hook, force the hook + make sure the script opens with it.
+    const finalHook = keepHook ? sourceHook : (d.hook || "");
+    let finalScript = d.script || "";
+    if (keepHook && sourceHook && !finalScript.trim().startsWith(sourceHook)) {
+      finalScript = `${sourceHook}\n${finalScript}`;
+    }
+    // Collect all hook options (the active one first), deduped.
+    const alts = Array.isArray(d.hookAlternatives) ? d.hookAlternatives.filter((h) => typeof h === "string" && h.trim()) : [];
+    const allHooks = Array.from(new Set([finalHook, ...alts].filter(Boolean)));
+
     const draft = await prisma.scriptDraft.create({
       data: {
         clientId: clientData.id,
         conceptId: concept.id,
         title: d.title || `Remix — ${concept.name}`,
-        hook: d.hook || null,
-        script: d.script,
+        hook: finalHook || null,
+        script: finalScript,
         caption: d.caption || null,
         weekLabel: weekLabel || null,
         dayLabel: dayLabel || null,
         status: "pending",
         isSavedIdea: false,
         isRemix: true,
+        hookAlternatives: JSON.stringify(allHooks.length > 1 ? allHooks : []),
       } as any,
       include: {
         concept: { select: { name: true, conceptType: true } },
