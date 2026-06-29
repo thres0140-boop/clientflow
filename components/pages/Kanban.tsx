@@ -2815,42 +2815,76 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [sort, setSort] = useState<"recent" | "views">("recent");
+  const [ranking, setRanking] = useState(false);
 
-  async function loadPage(c: string | null) {
+  // Returns the next cursor so we can chain pages for the "top performers" ranking.
+  async function loadPage(c: string | null): Promise<string | null> {
     const url = `/api/instagram/media?clientId=${clientId}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`;
     const d = await fetch(url).then((r) => r.json()).catch(() => ({}));
     const page = Array.isArray(d?.reels) ? d.reels : Array.isArray(d) ? d : [];
     setReels((prev) => (c ? [...prev, ...page] : page));
-    setCursor(d?.nextCursor ?? null);
+    const next = d?.nextCursor ?? null;
+    setCursor(next);
+    return next;
   }
   useEffect(() => { setLoading(true); loadPage(null).finally(() => setLoading(false)); }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
-    if (cursor && !loadingMore && el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
+    if (sort === "recent" && cursor && !loadingMore && el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
       setLoadingMore(true);
       loadPage(cursor).finally(() => setLoadingMore(false));
     }
   }
 
+  // "Top performers" needs the whole library (IG returns reels newest-first, so the best
+  // performer could be 40 reels deep). Pull remaining pages, then sort by plays.
+  async function rankByViews() {
+    setSort("views");
+    if (!cursor || ranking) return;
+    setRanking(true);
+    let c: string | null = cursor;
+    let guard = 0;
+    while (c && guard < 20) { c = await loadPage(c); guard++; }
+    setRanking(false);
+  }
+
+  const displayed = sort === "views"
+    ? [...reels].sort((a, b) => (b.plays ?? 0) - (a.plays ?? 0))
+    : reels;
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-[620px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold text-slate-800">Pick a winning reel</h3>
             <p className="text-[11px] text-slate-400">Click the reel that performed — we'll pull its script automatically.</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <div className="flex items-center gap-2">
+            <div className="flex bg-slate-100 rounded-lg p-0.5 text-[11px] font-semibold">
+              <button onClick={() => setSort("recent")}
+                className={`px-2.5 py-1 rounded-md transition-colors ${sort === "recent" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                Recent
+              </button>
+              <button onClick={rankByViews}
+                className={`px-2.5 py-1 rounded-md transition-colors ${sort === "views" ? "bg-white text-purple-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                🔥 Top performers
+              </button>
+            </div>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          </div>
         </div>
         <div className="p-4 overflow-y-auto" onScroll={onScroll}>
+          {sort === "views" && ranking && <p className="mb-2 text-[11px] text-purple-600 text-center">⏳ Ranking all reels by views…</p>}
           {loading ? (
             <div className="py-16 text-center text-sm text-slate-400">Loading {clientName}'s reels…</div>
-          ) : reels.length === 0 ? (
+          ) : displayed.length === 0 ? (
             <div className="py-16 text-center text-sm text-slate-400">No reels found — is Instagram connected for {clientName}?</div>
           ) : (
             <div className="grid grid-cols-4 gap-2">
-              {reels.map((r) => (
+              {displayed.map((r) => (
                 <button key={r.id} type="button" onClick={() => onPick(r)}
                   className="relative aspect-[9/16] rounded-lg overflow-hidden border-2 border-transparent hover:border-purple-400 transition-all group">
                   {r.thumbnail_url
