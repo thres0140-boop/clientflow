@@ -341,6 +341,7 @@ model ScriptDraft {
   zernioBooked       Boolean  @default(false)
   zernioPostId       String?
   clientAuthored     Boolean  @default(false)
+  isRemix            Boolean  @default(false)
   rejectionFeedback  String?
   exampleVideoUrl    String?  // reference recording for the person filming to copy
   generatedAt        DateTime @default(now())

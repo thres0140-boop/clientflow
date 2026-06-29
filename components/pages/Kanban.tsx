@@ -106,9 +106,14 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
       )}
       <p className="text-xs font-semibold text-slate-800 truncate">{draft.title}</p>
       {draft.concept && (
-        <p className="text-sm text-indigo-500 font-semibold mt-1">
-          {draft.concept.conceptType ? <span className="opacity-70">{draft.concept.conceptType} · </span> : null}
-          {draft.concept.name}
+        <p className="text-sm text-indigo-500 font-semibold mt-1 flex items-center gap-1.5 flex-wrap">
+          <span>
+            {draft.concept.conceptType ? <span className="opacity-70">{draft.concept.conceptType} · </span> : null}
+            {draft.concept.name}
+          </span>
+          {(draft as any).isRemix && (
+            <span className="inline-flex items-center text-[9px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">♻️ Remixed</span>
+          )}
         </p>
       )}
       <p className="text-[10px] text-slate-400 mt-1 truncate flex items-center gap-1 flex-wrap">

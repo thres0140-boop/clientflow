@@ -135,7 +135,8 @@ Generate EXACTLY ${count} variations of THIS reel for ${weekLabel || "this batch
         dayLabel: dayLabel || null,
         status: "pending",
         isSavedIdea: false,
-      },
+        isRemix: true,
+      } as any,
       include: {
         concept: { select: { name: true, conceptType: true } },
         client: { select: { name: true, color: true } },
