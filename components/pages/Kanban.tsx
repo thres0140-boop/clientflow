@@ -2660,6 +2660,36 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
   const [count, setCount] = useState(client.scriptAlternatives);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [showReelPicker, setShowReelPicker] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+
+  // A reel was picked from the profile grid → pull its spoken script via transcription and
+  // drop it into the source box. (Best for talking-head reels; silent on-screen-text reels
+  // have no audio, so those still get pasted by hand.)
+  async function onReelPicked(reel: any) {
+    setShowReelPicker(false);
+    const cap = (reel.caption || "").split("\n")[0]?.slice(0, 60) || "";
+    setSourceTitle(cap || (reel.plays != null ? `${reel.plays >= 1000 ? (reel.plays / 1000).toFixed(1) + "K" : reel.plays} views` : ""));
+    if (!reel.media_url) { setError("That reel has no playable video to transcribe — paste its text instead."); return; }
+    setTranscribing(true);
+    setError("");
+    try {
+      const res = await fetch("/api/instagram/transcribe", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaUrl: reel.media_url }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.transcript?.trim()) {
+        setError(d.error?.includes("too long") ? "This reel is too long to auto-transcribe — paste its text instead." : "Couldn't read this reel's audio (it may be a text-only reel). Paste its on-screen text instead.");
+        return;
+      }
+      setSource(d.transcript.trim());
+    } catch {
+      setError("Transcription failed — paste the reel's text instead.");
+    } finally {
+      setTranscribing(false);
+    }
+  }
 
   async function generate() {
     if (!conceptId) { setError("Pick a concept to remix into."); return; }
@@ -2699,10 +2729,17 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
           {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">The winning reel — paste its script / on-screen text</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-600">The winning reel</label>
+              <button type="button" onClick={() => setShowReelPicker(true)} disabled={transcribing}
+                className="text-[11px] font-semibold text-purple-600 hover:text-purple-800 disabled:opacity-50">
+                🎬 Pick from {client.name}'s reels
+              </button>
+            </div>
             <textarea rows={6} value={source} onChange={(e) => setSource(e.target.value)}
-              placeholder="Paste the exact script (or on-screen text) of the reel that already performed…"
+              placeholder="Pick a reel above to auto-pull its script — or paste the exact script / on-screen text of the reel that already performed…"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none" />
+            {transcribing && <p className="mt-1 text-[11px] text-purple-600">⏳ Reading the reel's audio…</p>}
             <input value={sourceTitle} onChange={(e) => setSourceTitle(e.target.value)}
               placeholder="Optional: a label for this winner (e.g. '250k views — survival mode')"
               className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400" />
@@ -2759,6 +2796,77 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
             className="px-5 py-2 text-sm font-semibold bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50">
             {generating ? "Remixing…" : `♻️ Make ${count} variations`}
           </button>
+        </div>
+      </div>
+
+      {showReelPicker && (
+        <RemixReelPicker clientId={client.id} clientName={client.name}
+          onClose={() => setShowReelPicker(false)} onPick={onReelPicked} />
+      )}
+    </div>
+  );
+}
+
+// Single-select reel grid for the remix flow — browse the client's posted IG reels, click one.
+function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
+  clientId: number; clientName: string; onClose: () => void; onPick: (reel: any) => void;
+}) {
+  const [reels, setReels] = useState<any[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadPage(c: string | null) {
+    const url = `/api/instagram/media?clientId=${clientId}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`;
+    const d = await fetch(url).then((r) => r.json()).catch(() => ({}));
+    const page = Array.isArray(d?.reels) ? d.reels : Array.isArray(d) ? d : [];
+    setReels((prev) => (c ? [...prev, ...page] : page));
+    setCursor(d?.nextCursor ?? null);
+  }
+  useEffect(() => { setLoading(true); loadPage(null).finally(() => setLoading(false)); }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget;
+    if (cursor && !loadingMore && el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
+      setLoadingMore(true);
+      loadPage(cursor).finally(() => setLoadingMore(false));
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[620px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Pick a winning reel</h3>
+            <p className="text-[11px] text-slate-400">Click the reel that performed — we'll pull its script automatically.</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+        <div className="p-4 overflow-y-auto" onScroll={onScroll}>
+          {loading ? (
+            <div className="py-16 text-center text-sm text-slate-400">Loading {clientName}'s reels…</div>
+          ) : reels.length === 0 ? (
+            <div className="py-16 text-center text-sm text-slate-400">No reels found — is Instagram connected for {clientName}?</div>
+          ) : (
+            <div className="grid grid-cols-4 gap-2">
+              {reels.map((r) => (
+                <button key={r.id} type="button" onClick={() => onPick(r)}
+                  className="relative aspect-[9/16] rounded-lg overflow-hidden border-2 border-transparent hover:border-purple-400 transition-all group">
+                  {r.thumbnail_url
+                    ? <img src={r.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">▶</div>}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
+                  {r.plays != null && <span className="absolute bottom-1 left-1 text-[10px] font-bold text-white">▶ {r.plays >= 1000 ? (r.plays / 1000).toFixed(1) + "K" : r.plays}</span>}
+                  <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="px-2 py-1 rounded-md bg-purple-600 text-white text-[10px] font-bold">♻️ Remix this</span>
+                  </span>
+                </button>
+              ))}
+              {loadingMore && <div className="col-span-4 py-3 text-center text-xs text-slate-400">Loading more…</div>}
+            </div>
+          )}
         </div>
       </div>
     </div>
