@@ -124,6 +124,7 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
   const [error, setError] = useState("");
   const [bright, setBright] = useState<BrightSpot[]>([]);
   const [brightLoading, setBrightLoading] = useState(true);
+  const [review, setReview] = useState<{ draftId: number; clientId: number } | null>(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -229,7 +230,8 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
             ) : (
               <div className="space-y-2">
                 {blockingMe.slice(0, 14).map((b) => (
-                  <button key={b.draftId} onClick={() => onOpenKanban(b.clientId, b.draftId)}
+                  <button key={b.draftId} onClick={() => setReview({ draftId: b.draftId, clientId: b.clientId })}
+                    title="Open & review here"
                     className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-left">
                     <span className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ backgroundColor: b.clientColor }} />
                     <div className="min-w-0 flex-1">
@@ -314,6 +316,146 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
             </div>
           </div>
         </div>
+      </div>
+
+      {review && (
+        <HQReviewDrawer
+          draftId={review.draftId}
+          clientId={review.clientId}
+          onClose={() => setReview(null)}
+          onDone={() => { setReview(null); load(); }}
+          onOpenKanban={() => { const r = review; setReview(null); onOpenKanban(r.clientId, r.draftId); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Open a draft and review it right from HQ — watch the finished cut, then approve (advance)
+// or send it back — without leaving the command center.
+function HQReviewDrawer({ draftId, clientId, onClose, onDone, onOpenKanban }: {
+  draftId: number; clientId: number; onClose: () => void; onDone: () => void; onOpenKanban: () => void;
+}) {
+  const [draft, setDraft] = useState<any>(null);
+  const [stages, setStages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [sendBackOpen, setSendBackOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [vidErr, setVidErr] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [d, s] = await Promise.all([
+          fetch(`/api/script-drafts/${draftId}`).then((r) => r.json()),
+          fetch("/api/workflow/ensure-defaults", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId }) }).then((r) => r.json()),
+        ]);
+        setDraft(d); setStages(Array.isArray(s) ? s : []);
+      } catch { /* ignore */ } finally { setLoading(false); }
+    })();
+  }, [draftId, clientId]);
+
+  const assigneesOf = (s: any) => { try { return JSON.parse(s.assignees || "[]"); } catch { return []; } };
+  function nextStage() {
+    if (!draft) return null;
+    const idx = stages.findIndex((s) => s.id === draft.stageId);
+    if (idx < 0) return null;
+    for (let i = idx + 1; i < stages.length; i++) {
+      const s = stages[i];
+      if (/check/i.test(s.name) && assigneesOf(s).length === 0) continue;
+      return s;
+    }
+    return null;
+  }
+  function prevStage() { const idx = stages.findIndex((s) => s.id === draft?.stageId); return idx > 0 ? stages[idx - 1] : null; }
+
+  async function approve() {
+    setBusy(true);
+    const next = nextStage();
+    await fetch(`/api/script-drafts/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stageId: next?.id ?? null, status: "accepted", rejectionFeedback: null }) });
+    onDone();
+  }
+  async function sendBack() {
+    if (!note.trim()) return;
+    setBusy(true);
+    const prev = prevStage();
+    await fetch("/api/draft-notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftId: draft.id, content: `↩ Sent back: ${note}`, author: "Owner" }) }).catch(() => {});
+    await fetch(`/api/script-drafts/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stageId: prev?.id ?? null, status: prev ? "accepted" : "pending", rejectionFeedback: note }) });
+    onDone();
+  }
+
+  const next = nextStage();
+  const rawCount = (() => { try { return JSON.parse(draft?.rawContentUrls || "[]").length; } catch { return 0; } })();
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="flex-1 bg-black/40" onClick={onClose} />
+      <div className="w-[620px] max-w-[94vw] bg-white shadow-2xl flex flex-col overflow-hidden">
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
+        ) : !draft ? (
+          <div className="p-8 text-center text-slate-500">Couldn&apos;t load this draft.</div>
+        ) : (
+          <>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between flex-shrink-0">
+              <div>
+                <p className="text-xs font-semibold text-indigo-500">{draft.concept ? (draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name) : ""}</p>
+                <h3 className="text-sm font-bold text-slate-800">{draft.title}</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">{draft.client?.name}{draft.stage?.name ? ` · ${draft.stage.name}` : ""}</p>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* Finished video */}
+              {draft.editedVideoUrl ? (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Finished video</p>
+                  <video src={vidErr ? `/api/vid?u=${encodeURIComponent(draft.editedVideoUrl)}` : draft.editedVideoUrl}
+                    controls playsInline onError={() => !vidErr && setVidErr(true)}
+                    className="w-full max-h-[46vh] rounded-xl bg-black" />
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">No finished video uploaded yet{rawCount ? ` · ${rawCount} raw file${rawCount > 1 ? "s" : ""} attached` : ""}.</p>
+              )}
+
+              {draft.hook && (
+                <div><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Hook</p>
+                  <p className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{draft.hook}</p></div>
+              )}
+              <div><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Script</p>
+                <pre className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">{draft.script}</pre></div>
+              {draft.caption && (
+                <div><p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Caption</p>
+                  <p className="text-sm text-slate-600 whitespace-pre-wrap">{draft.caption}</p></div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="border-t border-slate-100 px-6 py-4 flex-shrink-0 space-y-3">
+              {sendBackOpen ? (
+                <div className="space-y-2">
+                  <textarea autoFocus rows={2} value={note} onChange={(e) => setNote(e.target.value)}
+                    placeholder="What needs fixing? (the editor sees this)"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setSendBackOpen(false)} className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+                    <button onClick={sendBack} disabled={busy || !note.trim()} className="px-4 py-1.5 text-xs font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50">{busy ? "Sending…" : "↩ Send back"}</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setSendBackOpen(true)} disabled={busy} className="px-4 py-2.5 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 disabled:opacity-50">↩ Send back</button>
+                  <button onClick={approve} disabled={busy} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 disabled:opacity-50">
+                    {busy ? "Working…" : `✓ Approve → ${next ? next.name : "Schedule"}`}
+                  </button>
+                  <button onClick={onOpenKanban} title="Open full card in Kanban" className="px-3 py-2.5 text-sm text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl">↗</button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
