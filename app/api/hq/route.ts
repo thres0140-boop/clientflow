@@ -110,6 +110,21 @@ export async function GET(req: NextRequest) {
     const postingGap = upcoming.length === 0;
     const pipelineStarved = ideas + inStage < PIPELINE_MIN;
 
+    // Content runway — how far ahead this client is covered with SCHEDULED posts.
+    const todayMs = now - (now % DAY); // floor to start of day (UTC-ish, fine for day granularity)
+    const allUpcoming = cDrafts.filter((d) => {
+      if (!d.scheduledDate) return false;
+      const t = new Date(d.scheduledDate.includes("T") ? d.scheduledDate : d.scheduledDate + "T00:00:00").getTime();
+      return t >= todayMs;
+    });
+    const coveredUntilMs = allUpcoming.reduce((mx, d) => {
+      const t = new Date(d.scheduledDate!.includes("T") ? d.scheduledDate! : d.scheduledDate! + "T00:00:00").getTime();
+      return t > mx ? t : mx;
+    }, 0);
+    const coveredUntil = coveredUntilMs ? new Date(coveredUntilMs).toISOString().slice(0, 10) : null;
+    const runwayDays = coveredUntilMs ? Math.max(0, Math.ceil((coveredUntilMs - todayMs) / DAY)) : 0;
+    const scheduledTotal = allUpcoming.length;
+
     const lastActivityAt = cDrafts.reduce((max, d) => {
       const t = new Date(d.updatedAt).getTime(); return t > max ? t : max;
     }, 0) || null;
@@ -131,6 +146,7 @@ export async function GET(req: NextRequest) {
       ideas, inStage, stageCounts, lastStageName,
       stuck: stuck.length, awaitingReview: awaitingReview.length, scriptsDue,
       upcomingPosts: upcoming.length,
+      coveredUntil, runwayDays, scheduledTotal,
       lastActivityAt,
     };
   });
@@ -175,6 +191,15 @@ export async function GET(req: NextRequest) {
     .map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.ideas + c.inStage, health: c.health }))
     .sort((a, b) => b.count - a.count);
 
+  // Content runway — least-covered clients first (most urgent to feed).
+  const runway = clientCards
+    .map((c) => ({
+      id: c.id, name: c.name, color: c.color,
+      runwayDays: c.runwayDays, coveredUntil: c.coveredUntil, scheduled: c.scheduledTotal,
+      inProduction: c.ideas + c.inStage,
+    }))
+    .sort((a, b) => a.runwayDays - b.runwayDays);
+
   // Recent activity digest.
   let recent: any[] = [];
   try {
@@ -186,5 +211,5 @@ export async function GET(req: NextRequest) {
     recent = recent.map((r) => ({ ...r, clientName: r.clientId ? nameById.get(r.clientId) || null : null }));
   } catch { recent = []; }
 
-  return NextResponse.json({ summary, totals, clients: clientCards, blockingMe, recent, charts: { stageDistribution, workload } });
+  return NextResponse.json({ summary, totals, clients: clientCards, blockingMe, recent, charts: { stageDistribution, workload, runway } });
 }

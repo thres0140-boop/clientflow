@@ -21,7 +21,11 @@ type HQ = {
   clients: ClientCard[];
   blockingMe: Blocking[];
   recent: Activity[];
-  charts: { stageDistribution: { name: string; count: number }[]; workload: { id: number; name: string; color: string; count: number; health: "red" | "yellow" | "green" }[] };
+  charts: {
+    stageDistribution: { name: string; count: number }[];
+    workload: { id: number; name: string; color: string; count: number; health: "red" | "yellow" | "green" }[];
+    runway: { id: number; name: string; color: string; runwayDays: number; coveredUntil: string | null; scheduled: number; inProduction: number }[];
+  };
 };
 type MomRow = { id: number; name: string; color: string; health: "red" | "yellow" | "green" | "gray"; delta?: number | null; curAvg?: number; prevAvg?: number; curCount?: number; prevCount?: number; note?: string };
 
@@ -79,6 +83,34 @@ function WorkloadBars({ workload, onOpen }: { workload: HQ["charts"]["workload"]
           <span className="text-[11px] font-semibold text-slate-500 w-6 flex-shrink-0">{w.count}</span>
         </button>
       ))}
+    </div>
+  );
+}
+
+function ContentRunway({ rows, onOpen }: { rows: HQ["charts"]["runway"]; onOpen: (id: number) => void }) {
+  const max = Math.max(10, ...rows.map((r) => r.runwayDays));
+  const fmtDate = (s: string | null) => s ? new Date(s + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—";
+  const barColor = (d: number) => d <= 0 ? "#cbd5e1" : d < 3 ? "#ef4444" : d <= 7 ? "#f59e0b" : "#10b981";
+  const daysColor = (d: number) => d <= 0 ? "text-slate-400" : d < 3 ? "text-red-600" : d <= 7 ? "text-amber-600" : "text-emerald-600";
+  if (!rows.length) return <p className="text-xs text-slate-400">No clients.</p>;
+  return (
+    <div className="space-y-2.5">
+      {rows.map((r) => {
+        const total = r.scheduled + r.inProduction;
+        const pct = total ? Math.round((r.scheduled / total) * 100) : 0;
+        return (
+          <button key={r.id} onClick={() => onOpen(r.id)} className="w-full text-left group">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-600 w-16 text-right flex-shrink-0 truncate group-hover:text-slate-900">{r.name}</span>
+              <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden">
+                <div className="h-full rounded transition-all" style={{ width: `${Math.max(4, (r.runwayDays / max) * 100)}%`, backgroundColor: barColor(r.runwayDays) }} />
+              </div>
+              <span className={`text-[11px] font-bold w-12 text-right flex-shrink-0 ${daysColor(r.runwayDays)}`}>{r.runwayDays > 0 ? `${r.runwayDays}d` : "empty"}</span>
+            </div>
+            <p className="text-[9px] text-slate-400 ml-[72px] mt-0.5">{r.scheduled} scheduled · {pct}% ready · until {fmtDate(r.coveredUntil)}</p>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -232,8 +264,9 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
             <StageFunnel stages={charts.stageDistribution} />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Workload by client</p>
-            <WorkloadBars workload={charts.workload} onOpen={(id) => onOpenKanban(id)} />
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Content runway — how long we're covered</p>
+            <p className="text-[10px] text-slate-400 mb-3">Days of scheduled content left per client · 🔴 &lt;3d · 🟡 ≤7d · 🟢 stocked</p>
+            <ContentRunway rows={charts.runway} onOpen={(id) => onOpenKanban(id)} />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Client health</p>
