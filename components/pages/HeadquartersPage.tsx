@@ -14,18 +14,18 @@ type ClientCard = {
 };
 type Blocking = { draftId: number; clientId: number; clientName: string; clientColor: string; title: string; stage: string; ageDays: number; concept: string | null };
 type Activity = { id: number; clientId: number | null; clientName: string | null; actor: string; type: string; title: string | null; detail: string | null; createdAt: string };
+type Totals = { awaitingReview: number; scriptsDue: number; stuck: number; upcomingPosts: number; inPipeline: number };
 type HQ = {
   summary: { total: number; red: number; yellow: number; green: number };
+  totals: Totals;
   clients: ClientCard[];
   blockingMe: Blocking[];
   recent: Activity[];
+  charts: { stageDistribution: { name: string; count: number }[]; workload: { id: number; name: string; color: string; count: number; health: "red" | "yellow" | "green" }[] };
 };
-
 type BrightSpot = { clientId: number; clientName: string; color: string; reelId: string; thumb: string | null; plays: number; ratio: number; permalink: string | null };
 
-const ACTIVITY_ICON: Record<string, string> = {
-  script_submitted: "📝", stage_moved: "📋", footage_uploaded: "🎬", accepted: "✅", scheduled: "🗓", posted: "🚀", remixed: "♻️",
-};
+const ACTIVITY_ICON: Record<string, string> = { script_submitted: "📝", stage_moved: "📋", footage_uploaded: "🎬", accepted: "✅", scheduled: "🗓", posted: "🚀", remixed: "♻️" };
 
 function ago(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -34,14 +34,87 @@ function ago(iso: string): string {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
 }
-function agoMs(ms: number | null): string {
-  if (!ms) return "—";
-  return ago(new Date(ms).toISOString());
-}
+function agoMs(ms: number | null): string { return ms ? ago(new Date(ms).toISOString()) : "—"; }
 
 const DOT = { red: "bg-red-500", yellow: "bg-amber-400", green: "bg-emerald-500" } as const;
 const RING = { red: "border-red-200 bg-red-50/50", yellow: "border-amber-200 bg-amber-50/40", green: "border-slate-200 bg-white" } as const;
+const FUNNEL_COLORS = ["#6366f1", "#7c3aed", "#9333ea", "#c026d3", "#db2777", "#e11d48"];
 
+// ── Charts (dependency-free) ───────────────────────────────────────────────
+function StageFunnel({ stages }: { stages: { name: string; count: number }[] }) {
+  const max = Math.max(1, ...stages.map((s) => s.count));
+  return (
+    <div className="space-y-2">
+      {stages.map((s, i) => (
+        <div key={s.name} className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-500 w-24 text-right flex-shrink-0 truncate">{s.name}</span>
+          <div className="flex-1 h-5 bg-slate-100 rounded-md overflow-hidden">
+            <div className="h-full rounded-md flex items-center justify-end pr-1.5 text-[10px] font-bold text-white transition-all"
+              style={{ width: `${Math.max(8, (s.count / max) * 100)}%`, backgroundColor: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }}>
+              {s.count}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WorkloadBars({ workload, onOpen }: { workload: HQ["charts"]["workload"]; onOpen: (id: number) => void }) {
+  const max = Math.max(1, ...workload.map((w) => w.count));
+  return (
+    <div className="space-y-2">
+      {workload.slice(0, 8).map((w) => (
+        <button key={w.id} onClick={() => onOpen(w.id)} className="w-full flex items-center gap-2 group">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${DOT[w.health]}`} />
+          <span className="text-[11px] text-slate-600 w-20 text-right flex-shrink-0 truncate group-hover:text-slate-900">{w.name}</span>
+          <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden">
+            <div className="h-full rounded transition-all" style={{ width: `${Math.max(6, (w.count / max) * 100)}%`, backgroundColor: w.color }} />
+          </div>
+          <span className="text-[11px] font-semibold text-slate-500 w-6 flex-shrink-0">{w.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function HealthRing({ red, yellow, green }: { red: number; yellow: number; green: number }) {
+  const total = Math.max(1, red + yellow + green);
+  const redDeg = (red / total) * 360;
+  const yelDeg = ((red + yellow) / total) * 360;
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative w-24 h-24 flex-shrink-0">
+        <div className="w-24 h-24 rounded-full" style={{ background: `conic-gradient(#ef4444 0 ${redDeg}deg, #f59e0b ${redDeg}deg ${yelDeg}deg, #10b981 ${yelDeg}deg 360deg)` }} />
+        <div className="absolute inset-[14px] bg-white rounded-full flex flex-col items-center justify-center">
+          <span className="text-xl font-bold text-slate-800">{red + yellow + green}</span>
+          <span className="text-[9px] text-slate-400 -mt-0.5">clients</span>
+        </div>
+      </div>
+      <div className="space-y-1.5 text-xs">
+        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> <span className="font-semibold text-slate-700">{red}</span> <span className="text-slate-400">act today</span></p>
+        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" /> <span className="font-semibold text-slate-700">{yellow}</span> <span className="text-slate-400">watch</span></p>
+        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> <span className="font-semibold text-slate-700">{green}</span> <span className="text-slate-400">on track</span></p>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ value, label, tone }: { value: number; label: string; tone: "red" | "amber" | "emerald" | "indigo" | "slate" }) {
+  const map = {
+    red: "border-red-200 bg-red-50 text-red-600", amber: "border-amber-200 bg-amber-50 text-amber-600",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-600", indigo: "border-indigo-200 bg-indigo-50 text-indigo-600",
+    slate: "border-slate-200 bg-white text-slate-600",
+  }[tone];
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${map}`}>
+      <p className="text-2xl font-bold leading-none">{value}</p>
+      <p className="text-[11px] font-semibold mt-1 opacity-90">{label}</p>
+    </div>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────
 export default function HeadquartersPage({ clients, onOpenKanban }: {
   clients: Client[];
   onOpenKanban: (clientId: number, draftId?: number) => void;
@@ -65,8 +138,6 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
   }
   useEffect(() => { load(); }, []);
 
-  // Bright spots — fetch each client's recent reels and flag the ones that beat that
-  // client's OWN median (apples-to-apples, never a raw cross-client leaderboard).
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -83,11 +154,11 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
             const ratio = r.plays / median;
             if (ratio >= 2) found.push({ clientId: c.id, clientName: c.name, color: c.color, reelId: r.id, thumb: r.thumbnail_url || null, plays: r.plays, ratio, permalink: r.permalink || null });
           }
-        } catch { /* skip client */ }
+        } catch { /* skip */ }
       }));
       if (cancelled) return;
       found.sort((a, b) => b.ratio - a.ratio);
-      setBright(found.slice(0, 8));
+      setBright(found.slice(0, 10));
       setBrightLoading(false);
     })();
     return () => { cancelled = true; };
@@ -97,21 +168,18 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
   if (error) return <div className="p-10 text-center text-slate-500">{error}</div>;
   if (!data) return null;
 
-  const { summary, clients: cards, blockingMe, recent } = data;
-  const reds = cards.filter((c) => c.health === "red");
-
+  const { summary, totals, clients: cards, blockingMe, recent, charts } = data;
   const statusLine = summary.total === 0
     ? "No clients yet."
     : `${summary.total} client${summary.total > 1 ? "s" : ""} · ` +
       (summary.red ? `${summary.red} need${summary.red > 1 ? "" : "s"} you today` : "nothing on fire") +
-      `${summary.yellow ? ` · ${summary.yellow} to watch` : ""}` +
-      ` · ${summary.green} on track`;
+      `${summary.yellow ? ` · ${summary.yellow} to watch` : ""} · ${summary.green} on track`;
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[1280px] mx-auto px-8 py-8">
-        {/* Header + status sentence */}
-        <div className="flex items-start justify-between mb-6">
+    <div className="flex-1 overflow-y-auto bg-slate-50">
+      <div className="px-6 lg:px-10 py-7 w-full">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-5">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">🏛️ Headquarters</h1>
             <p className="text-sm text-slate-500 mt-1">{statusLine}</p>
@@ -119,138 +187,131 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
           <button onClick={load} className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">↻ Refresh</button>
         </div>
 
-        {/* Summary chips */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-            <p className="text-2xl font-bold text-red-600">{summary.red}</p>
-            <p className="text-xs font-semibold text-red-700">🔴 Act today</p>
+        {/* Stat row */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+          <StatCard value={summary.red} label="🔴 Act today" tone="red" />
+          <StatCard value={summary.yellow} label="🟡 Watch" tone="amber" />
+          <StatCard value={summary.green} label="🟢 On track" tone="emerald" />
+          <StatCard value={totals.awaitingReview} label="⏳ Awaiting your review" tone="indigo" />
+          <StatCard value={totals.scriptsDue} label="📝 Scripts owed" tone="slate" />
+          <StatCard value={totals.upcomingPosts} label="🗓 Scheduled (7d)" tone="slate" />
+        </div>
+
+        {/* Charts band */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-7">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Pipeline — where the work sits</p>
+            <StageFunnel stages={charts.stageDistribution} />
           </div>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-2xl font-bold text-amber-600">{summary.yellow}</p>
-            <p className="text-xs font-semibold text-amber-700">🟡 Watch</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Workload by client</p>
+            <WorkloadBars workload={charts.workload} onOpen={(id) => onOpenKanban(id)} />
           </div>
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p className="text-2xl font-bold text-emerald-600">{summary.green}</p>
-            <p className="text-xs font-semibold text-emerald-700">🟢 On track</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Client health</p>
+            <HealthRing red={summary.red} yellow={summary.yellow} green={summary.green} />
           </div>
         </div>
 
         {summary.red === 0 && (
-          <div className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50/60 px-5 py-4 text-center">
+          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/60 px-5 py-4 text-center">
             <p className="text-sm font-semibold text-emerald-700">✨ All clear — nothing needs you right now.</p>
-            <p className="text-xs text-emerald-600 mt-0.5">Check the wins below, or close the tab.</p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LEFT: Health board + blocking queue */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Blocking-me queue */}
-            {blockingMe.length > 0 && (
-              <section>
-                <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">⏳ Waiting on your review ({blockingMe.length})</h2>
-                <div className="space-y-2">
-                  {blockingMe.slice(0, 12).map((b) => (
-                    <button key={b.draftId} onClick={() => onOpenKanban(b.clientId, b.draftId)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-left">
-                      <span className="w-2 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: b.clientColor }} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-800 truncate">{b.title}</p>
-                        <p className="text-[11px] text-slate-400">{b.clientName}{b.concept ? ` · ${b.concept}` : ""}</p>
-                      </div>
-                      <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">{b.stage}</span>
-                      <span className="text-[10px] text-slate-400 flex-shrink-0">{b.ageDays}d</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Client health board */}
-            <section>
-              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Client Health</h2>
+        {/* Main board: full width 12-col */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          {/* Waiting on review */}
+          <div className="xl:col-span-4">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">⏳ Waiting on your review ({blockingMe.length})</h2>
+            {blockingMe.length === 0 ? (
+              <p className="text-xs text-slate-400">Nothing waiting on you 🎉</p>
+            ) : (
               <div className="space-y-2">
-                {cards.map((c) => (
-                  <button key={c.id} onClick={() => onOpenKanban(c.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left hover:shadow-sm ${RING[c.health]}`}>
-                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT[c.health]}`} />
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ backgroundColor: c.color }}>
-                      {c.name.slice(0, 1).toUpperCase()}
-                    </div>
+                {blockingMe.slice(0, 14).map((b) => (
+                  <button key={b.draftId} onClick={() => onOpenKanban(b.clientId, b.draftId)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-left">
+                    <span className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ backgroundColor: b.clientColor }} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{c.name}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {c.signals.length === 0 ? (
-                          <span className="text-[10px] text-emerald-600 font-medium">on track</span>
-                        ) : c.signals.map((s, i) => (
-                          <span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${s.level === "red" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{s.label}</span>
-                        ))}
-                      </div>
+                      <p className="text-sm font-semibold text-slate-800 truncate">{b.title}</p>
+                      <p className="text-[11px] text-slate-400">{b.clientName}{b.concept ? ` · ${b.concept}` : ""}</p>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[10px] text-slate-400">{c.ideas + c.inStage} in pipeline</p>
-                      <p className="text-[10px] text-slate-400">{c.upcomingPosts} scheduled · {agoMs(c.lastActivityAt)}</p>
-                    </div>
+                    <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">{b.stage}</span>
+                    <span className="text-[10px] text-slate-400 flex-shrink-0">{b.ageDays}d</span>
                   </button>
                 ))}
               </div>
-            </section>
+            )}
           </div>
 
-          {/* RIGHT: Bright spots + activity */}
-          <div className="space-y-8">
-            {/* Bright spots */}
-            <section>
-              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">🟢 Bright spots — overperformers</h2>
-              {brightLoading ? (
-                <p className="text-xs text-slate-400">Scanning reels…</p>
-              ) : bright.length === 0 ? (
-                <p className="text-xs text-slate-400">No standout reels right now.</p>
-              ) : (
-                <div className="space-y-2">
-                  {bright.map((b) => (
-                    <div key={b.reelId} className="flex items-center gap-3 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40">
-                      {b.thumb
-                        ? <img src={b.thumb} alt="" className="w-10 h-14 rounded-lg object-cover flex-shrink-0" />
-                        : <div className="w-10 h-14 rounded-lg bg-slate-200 flex-shrink-0" />}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-slate-800 truncate">{b.clientName}</p>
-                        <p className="text-[11px] text-emerald-700 font-bold">{b.ratio.toFixed(1)}× their median</p>
-                        <p className="text-[10px] text-slate-400">{b.plays >= 1000 ? (b.plays / 1000).toFixed(1) + "K" : b.plays} views</p>
-                      </div>
-                      <button onClick={() => onOpenKanban(b.clientId)}
-                        title="Remix this winner in the client's Kanban"
-                        className="px-2 py-1 text-[10px] font-bold text-white bg-purple-600 rounded-lg hover:bg-purple-700 flex-shrink-0">♻️ Remix</button>
+          {/* Client health board */}
+          <div className="xl:col-span-5">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Client Health</h2>
+            <div className="space-y-2">
+              {cards.map((c) => (
+                <button key={c.id} onClick={() => onOpenKanban(c.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left hover:shadow-sm ${RING[c.health]}`}>
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${DOT[c.health]}`} />
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ backgroundColor: c.color }}>{c.name.slice(0, 1).toUpperCase()}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{c.name}</p>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {c.signals.length === 0 ? <span className="text-[10px] text-emerald-600 font-medium">on track</span>
+                        : c.signals.map((s, i) => <span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${s.level === "red" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{s.label}</span>)}
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[10px] text-slate-400">{c.ideas + c.inStage} in pipeline</p>
+                    <p className="text-[10px] text-slate-400">{c.upcomingPosts} scheduled · {agoMs(c.lastActivityAt)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {/* Recent activity digest */}
-            <section>
-              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Recent activity</h2>
-              {recent.length === 0 ? (
-                <p className="text-xs text-slate-400">Nothing logged yet — actions will start appearing here.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {recent.slice(0, 15).map((a) => (
-                    <div key={a.id} className="flex items-start gap-2 text-xs">
-                      <span className="mt-0.5">{ACTIVITY_ICON[a.type] || "•"}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-slate-700 leading-snug">
-                          <span className="font-semibold">{a.actor}</span>{" "}
-                          {a.type === "script_submitted" ? "submitted a script" : a.type === "stage_moved" ? "moved a card" : a.type === "footage_uploaded" ? "uploaded footage" : a.type === "posted" ? "went live" : a.type}
-                          {a.clientName ? <span className="text-slate-400"> · {a.clientName}</span> : null}
-                        </p>
-                        {a.title && <p className="text-[11px] text-slate-400 truncate">{a.title}{a.detail ? ` · ${a.detail}` : ""}</p>}
+          {/* Right: bright spots + activity */}
+          <div className="xl:col-span-3 space-y-7">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">🟢 Bright spots</h2>
+              {brightLoading ? <p className="text-xs text-slate-400">Scanning reels…</p>
+                : bright.length === 0 ? <p className="text-xs text-slate-400">No standout reels right now.</p>
+                : (
+                  <div className="space-y-2">
+                    {bright.map((b) => (
+                      <div key={b.reelId} className="flex items-center gap-3 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40">
+                        {b.thumb ? <img src={b.thumb} alt="" className="w-9 h-12 rounded-lg object-cover flex-shrink-0" /> : <div className="w-9 h-12 rounded-lg bg-slate-200 flex-shrink-0" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-slate-800 truncate">{b.clientName}</p>
+                          <p className="text-[11px] text-emerald-700 font-bold">{b.ratio.toFixed(1)}× median</p>
+                          <p className="text-[10px] text-slate-400">{b.plays >= 1000 ? (b.plays / 1000).toFixed(1) + "K" : b.plays} views</p>
+                        </div>
+                        <button onClick={() => onOpenKanban(b.clientId)} title="Remix this winner" className="px-2 py-1 text-[10px] font-bold text-white bg-purple-600 rounded-lg hover:bg-purple-700 flex-shrink-0">♻️</button>
                       </div>
-                      <span className="text-[10px] text-slate-300 flex-shrink-0 whitespace-nowrap">{ago(a.createdAt)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                    ))}
+                  </div>
+                )}
+            </div>
+
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Recent activity</h2>
+              {recent.length === 0 ? <p className="text-xs text-slate-400">Nothing logged yet.</p>
+                : (
+                  <div className="space-y-1.5">
+                    {recent.slice(0, 14).map((a) => (
+                      <div key={a.id} className="flex items-start gap-2 text-xs">
+                        <span className="mt-0.5">{ACTIVITY_ICON[a.type] || "•"}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-slate-700 leading-snug"><span className="font-semibold">{a.actor}</span>{" "}
+                            {a.type === "script_submitted" ? "submitted a script" : a.type === "stage_moved" ? "moved a card" : a.type === "footage_uploaded" ? "uploaded footage" : a.type === "posted" ? "went live" : a.type}
+                            {a.clientName ? <span className="text-slate-400"> · {a.clientName}</span> : null}</p>
+                          {a.title && <p className="text-[11px] text-slate-400 truncate">{a.title}{a.detail ? ` · ${a.detail}` : ""}</p>}
+                        </div>
+                        <span className="text-[10px] text-slate-300 flex-shrink-0 whitespace-nowrap">{ago(a.createdAt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
           </div>
         </div>
       </div>

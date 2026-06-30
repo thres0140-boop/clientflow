@@ -147,6 +147,34 @@ export async function GET(req: NextRequest) {
     green: clientCards.filter((c) => c.health === "green").length,
   };
 
+  // Pipeline distribution across ALL clients (the bottleneck funnel).
+  const stageAgg = new Map<string, { count: number; order: number }>();
+  stageAgg.set("Ideas", { count: 0, order: -1 });
+  for (const d of drafts) {
+    if (d.stageId && d.stage) {
+      const cur = stageAgg.get(d.stage.name) || { count: 0, order: d.stage.order };
+      cur.count++; stageAgg.set(d.stage.name, cur);
+    } else {
+      const i = stageAgg.get("Ideas")!; i.count++;
+    }
+  }
+  const stageDistribution = Array.from(stageAgg.entries())
+    .map(([name, v]) => ({ name, count: v.count, order: v.order }))
+    .sort((a, b) => a.order - b.order)
+    .filter((s) => s.count > 0 || s.name === "Ideas");
+
+  const totals = {
+    awaitingReview: blockingMe.length,
+    scriptsDue: clientCards.reduce((s, c) => s + c.scriptsDue, 0),
+    stuck: clientCards.reduce((s, c) => s + c.stuck, 0),
+    upcomingPosts: clientCards.reduce((s, c) => s + c.upcomingPosts, 0),
+    inPipeline: clientCards.reduce((s, c) => s + c.ideas + c.inStage, 0),
+  };
+
+  const workload = clientCards
+    .map((c) => ({ id: c.id, name: c.name, color: c.color, count: c.ideas + c.inStage, health: c.health }))
+    .sort((a, b) => b.count - a.count);
+
   // Recent activity digest.
   let recent: any[] = [];
   try {
@@ -158,5 +186,5 @@ export async function GET(req: NextRequest) {
     recent = recent.map((r) => ({ ...r, clientName: r.clientId ? nameById.get(r.clientId) || null : null }));
   } catch { recent = []; }
 
-  return NextResponse.json({ summary, clients: clientCards, blockingMe, recent });
+  return NextResponse.json({ summary, totals, clients: clientCards, blockingMe, recent, charts: { stageDistribution, workload } });
 }
