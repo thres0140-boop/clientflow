@@ -78,7 +78,6 @@ const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
 
 const NAV_GROUPS = [
   { label: "WORK", items: [
-    { id: "headquarters" as Page, label: "Headquarters" },
     { id: "pipeline" as Page, label: "Content Scheduling" },
     { id: "kanban" as Page, label: "Script Kanban" },
     { id: "tasks" as Page, label: "Script Tasks" },
@@ -190,12 +189,26 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
       {showStrip && (
       <div className="flex flex-col h-full flex-shrink-0" style={{ width: 56, backgroundColor: STRIP_BG }}>
 
+        {/* Headquarters — pinned global view above all clients (owner only). */}
+        {session?.type !== "member" && (
+          <div className="flex flex-col items-center pt-3 pb-2.5 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}` }}>
+            <button onClick={() => { onSelectClient(null); onNavigate("headquarters"); }} title="Headquarters — overview of all clients"
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0"
+              style={{
+                backgroundColor: currentPage === "headquarters" ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.06)",
+                boxShadow: currentPage === "headquarters" ? "0 0 0 2px white" : "none",
+              }}>
+              <IconHQ active={currentPage === "headquarters"} />
+            </button>
+          </div>
+        )}
+
         {/* Client avatars + add button (Discord-style: add sits under the last project) */}
         <div className="flex flex-col items-center gap-2.5 py-3 flex-1 overflow-y-auto">
           {orderedClients.map((c) => {
             const pic = (c.instagramConnection as any)?.profilePictureUrl;
             return (
-              <button key={c.id} onClick={() => onSelectClient(c.id)} title={`${c.name} — drag to reorder`}
+              <button key={c.id} onClick={() => { onSelectClient(c.id); if (currentPage === "headquarters") onNavigate("kanban"); }} title={`${c.name} — drag to reorder`}
                 draggable
                 onDragStart={() => setDragId(c.id)}
                 onDragOver={(e) => e.preventDefault()}
