@@ -29,6 +29,7 @@ model Client {
   scriptRules           String?
   ctaKeyword            String?  // e.g. "regie" — inbound DMs containing this are flagged as CTA leads
   isTestAccount         Boolean  @default(false)
+  hideFromHq            Boolean  @default(false)
 
   concepts              Concept[]
   contentPieces         ContentPiece[]

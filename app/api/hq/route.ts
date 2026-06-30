@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   if (session.type !== "owner") return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const clients = await prisma.client.findMany({
-    where: { isTestAccount: { not: true } },
+    where: { isTestAccount: { not: true }, hideFromHq: { not: true } } as any,
     select: { id: true, name: true, color: true },
     orderBy: { name: "asc" },
   });

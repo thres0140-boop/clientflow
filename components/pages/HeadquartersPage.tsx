@@ -115,8 +115,9 @@ function StatCard({ value, label, tone }: { value: number; label: string; tone: 
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
-export default function HeadquartersPage({ clients, onOpenKanban }: {
+export default function HeadquartersPage({ clients, refreshClients, onOpenKanban }: {
   clients: Client[];
+  refreshClients?: () => void;
   onOpenKanban: (clientId: number, draftId?: number) => void;
 }) {
   const [data, setData] = useState<HQ | null>(null);
@@ -125,6 +126,15 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
   const [bright, setBright] = useState<BrightSpot[]>([]);
   const [brightLoading, setBrightLoading] = useState(true);
   const [review, setReview] = useState<{ draftId: number; clientId: number } | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
+
+  const visibleClients = (clients || []).filter((c) => !(c as any).isTestAccount && !(c as any).hideFromHq);
+
+  async function toggleClient(c: Client, hide: boolean) {
+    await fetch(`/api/clients/${c.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hideFromHq: hide }) });
+    refreshClients?.();
+    load();
+  }
 
   async function load() {
     setLoading(true); setError("");
@@ -144,7 +154,7 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
     (async () => {
       setBrightLoading(true);
       const found: BrightSpot[] = [];
-      await Promise.all((clients || []).filter((c) => !(c as any).isTestAccount).map(async (c) => {
+      await Promise.all(visibleClients.map(async (c) => {
         try {
           const d = await fetch(`/api/instagram/media?clientId=${c.id}`).then((r) => r.json());
           const reels = (d?.reels || []).filter((r: any) => typeof r.plays === "number" && r.plays > 0);
@@ -185,7 +195,30 @@ export default function HeadquartersPage({ clients, onOpenKanban }: {
             <h1 className="text-2xl font-bold text-slate-800">🏛️ Headquarters</h1>
             <p className="text-sm text-slate-500 mt-1">{statusLine}</p>
           </div>
-          <button onClick={load} className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">↻ Refresh</button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button onClick={() => setManageOpen((o) => !o)} className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">⚙ Clients</button>
+              {manageOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setManageOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 max-h-[60vh] overflow-y-auto">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-2 py-1.5">Show in Headquarters</p>
+                    {(clients || []).filter((c) => !(c as any).isTestAccount).map((c) => {
+                      const shown = !(c as any).hideFromHq;
+                      return (
+                        <label key={c.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                          <input type="checkbox" checked={shown} onChange={(e) => toggleClient(c, !e.target.checked)} className="rounded" />
+                          <span className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ backgroundColor: c.color }}>{c.name.slice(0, 1).toUpperCase()}</span>
+                          <span className={`text-xs truncate ${shown ? "text-slate-700" : "text-slate-400 line-through"}`}>{c.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            <button onClick={load} className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">↻ Refresh</button>
+          </div>
         </div>
 
         {/* Stat row */}

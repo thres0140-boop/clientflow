@@ -7,11 +7,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const client = await prisma.client.update({
     where: { id: parseInt(id) },
     data: {
-      name: body.name,
-      platform: body.platform,
-      profileUrl: body.profileUrl || null,
-      color: body.color || "#6366f1",
-      notes: body.notes || null,
+      name: body.name !== undefined ? body.name : undefined,
+      platform: body.platform !== undefined ? body.platform : undefined,
+      profileUrl: body.profileUrl !== undefined ? (body.profileUrl || null) : undefined,
+      color: body.color !== undefined ? (body.color || "#6366f1") : undefined,
+      notes: body.notes !== undefined ? (body.notes || null) : undefined,
       captionStyle: body.captionStyle !== undefined ? (body.captionStyle || null) : undefined,
       captionGuidelines: body.captionGuidelines !== undefined ? (body.captionGuidelines || null) : undefined,
       dayTemplate: body.dayTemplate !== undefined ? (body.dayTemplate || null) : undefined,
@@ -19,6 +19,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       scriptRules: body.scriptRules !== undefined ? (body.scriptRules || null) : undefined,
       ctaKeyword: body.ctaKeyword !== undefined ? (body.ctaKeyword || null) : undefined,
       isTestAccount: body.isTestAccount !== undefined ? body.isTestAccount === true : undefined,
+      hideFromHq: body.hideFromHq !== undefined ? body.hideFromHq === true : undefined,
     } as any,
   });
   return NextResponse.json(client);

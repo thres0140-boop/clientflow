@@ -900,6 +900,10 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "ScriptDraft"
       ADD COLUMN IF NOT EXISTS "hookAlternatives" TEXT NOT NULL DEFAULT '[]';
     `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "Client"
+      ADD COLUMN IF NOT EXISTS "hideFromHq" BOOLEAN NOT NULL DEFAULT false;
+    `;
     // Headquarters: activity log + nightly reel snapshots.
     await (prisma as any).$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "ActivityEvent" (
