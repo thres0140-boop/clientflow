@@ -192,10 +192,15 @@ export default function App() {
   useEffect(() => {
     if (selectedClientId !== null) {
       localStorage.setItem("cf_active_client", String(selectedClientId));
-      localStorage.setItem("cf_active_page", page);
       fetchTeam(selectedClientId);
     }
   }, [selectedClientId, fetchTeam]);
+
+  // Persist the active page on EVERY change — including Headquarters, where no client is
+  // selected (so restarting the app reopens where you left off, not on a client profile).
+  useEffect(() => {
+    try { localStorage.setItem("cf_active_page", page); } catch { /* */ }
+  }, [page]);
 
   // Brief loading flash when switching client or page
   useEffect(() => {
