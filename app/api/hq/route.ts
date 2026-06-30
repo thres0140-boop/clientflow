@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
 
   const STUCK_DAYS = Math.max(1, parseInt(req.nextUrl.searchParams.get("stuckDays") || "") || DEFAULT_STUCK_DAYS);
   const PIPELINE_MIN = Math.max(1, parseInt(req.nextUrl.searchParams.get("pipelineMin") || "") || DEFAULT_PIPELINE_MIN);
+  const READY_DAYS = Math.max(1, parseInt(req.nextUrl.searchParams.get("readyDays") || "") || 7);
 
   const clients = await prisma.client.findMany({
     where: { hideFromHq: { not: true } } as any,
@@ -127,6 +128,15 @@ export async function GET(req: NextRequest) {
     const plannedUntil = anyUntilMs ? new Date(anyUntilMs).toISOString().slice(0, 10) : null;
     const plannedRunwayDays = anyUntilMs ? Math.max(0, Math.ceil((anyUntilMs - todayMs) / DAY)) : 0;
 
+    // Readiness — of the videos slated for the next READY_DAYS days, how many have reached
+    // Check 1 or further (i.e. far enough along to actually make the date).
+    const checkStage = cStages.find((s) => /check/i.test(s.name));
+    const checkOrder = checkStage ? checkStage.order : Infinity;
+    const windowEnd = todayMs + READY_DAYS * DAY;
+    const windowDrafts = cDrafts.filter((d) => d.scheduledDate && dateMs(d) >= todayMs && dateMs(d) <= windowEnd);
+    const readyTotal = windowDrafts.length;
+    const readyAtCheck = windowDrafts.filter((d) => d.stageId && d.stage && d.stage.order >= checkOrder).length;
+
     const lastActivityAt = cDrafts.reduce((max, d) => {
       const t = new Date(d.updatedAt).getTime(); return t > max ? t : max;
     }, 0) || null;
@@ -149,6 +159,7 @@ export async function GET(req: NextRequest) {
       stuck: stuck.length, awaitingReview: awaitingReview.length, scriptsDue,
       upcomingPosts: upcoming.length,
       coveredUntil, runwayDays, scheduledTotal, plannedTotal, plannedUntil, plannedRunwayDays,
+      readyTotal, readyAtCheck,
       lastActivityAt,
     };
   });
@@ -204,6 +215,17 @@ export async function GET(req: NextRequest) {
     }))
     .sort((a, b) => a.runwayDays - b.runwayDays);
 
+  // Readiness of upcoming content (next READY_DAYS days) — how much has reached Check 1+.
+  const readiness = {
+    windowDays: READY_DAYS,
+    total: clientCards.reduce((s, c) => s + c.readyTotal, 0),
+    atCheck: clientCards.reduce((s, c) => s + c.readyAtCheck, 0),
+    byClient: clientCards
+      .map((c) => ({ id: c.id, name: c.name, color: c.color, total: c.readyTotal, atCheck: c.readyAtCheck, behind: c.readyTotal - c.readyAtCheck }))
+      .filter((c) => c.total > 0)
+      .sort((a, b) => b.behind - a.behind),
+  };
+
   // Recent activity digest.
   let recent: any[] = [];
   try {
@@ -215,5 +237,5 @@ export async function GET(req: NextRequest) {
     recent = recent.map((r) => ({ ...r, clientName: r.clientId ? nameById.get(r.clientId) || null : null }));
   } catch { recent = []; }
 
-  return NextResponse.json({ summary, totals, clients: clientCards, blockingMe, recent, charts: { stageDistribution, workload, runway } });
+  return NextResponse.json({ summary, totals, clients: clientCards, blockingMe, recent, readiness, charts: { stageDistribution, workload, runway } });
 }

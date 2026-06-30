@@ -21,6 +21,7 @@ type HQ = {
   clients: ClientCard[];
   blockingMe: Blocking[];
   recent: Activity[];
+  readiness: { windowDays: number; total: number; atCheck: number; byClient: { id: number; name: string; color: string; total: number; atCheck: number; behind: number }[] };
   charts: {
     stageDistribution: { name: string; count: number }[];
     workload: { id: number; name: string; color: string; count: number; health: "red" | "yellow" | "green" }[];
@@ -173,6 +174,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
   const [review, setReview] = useState<{ draftId: number; clientId: number } | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [readyDays, setReadyDays] = useState(7);
   const [thr, setThr] = useState<typeof DEFAULT_THR>(() => {
     if (typeof window !== "undefined") { try { return { ...DEFAULT_THR, ...JSON.parse(localStorage.getItem("hq_thresholds") || "{}") }; } catch { /* */ } }
     return DEFAULT_THR;
@@ -194,7 +196,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
   async function load() {
     setLoading(true); setError("");
     try {
-      const res = await fetch(`/api/hq?stuckDays=${thr.stuckDays}`);
+      const res = await fetch(`/api/hq?stuckDays=${thr.stuckDays}&readyDays=${readyDays}`);
       if (res.status === 403) { setError("Headquarters is owner-only."); setData(null); return; }
       const d = await res.json();
       if (!res.ok) { setError(d.error || "Failed to load."); return; }
@@ -202,7 +204,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
     } catch { setError("Failed to load."); }
     finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, [thr.stuckDays]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [thr.stuckDays, readyDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Per-client momentum — how each client's content is trending vs their own previous period.
   useEffect(() => {
@@ -352,6 +354,47 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                 ))}
               </div>
             )}
+
+            {/* Upcoming readiness — how much of the next N days' content is at Check 1+ */}
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">📦 Upcoming readiness</h2>
+                <div className="flex bg-slate-100 rounded-lg p-0.5 text-[10px] font-semibold">
+                  {[7, 14, 30].map((d) => (
+                    <button key={d} onClick={() => setReadyDays(d)} className={`px-2 py-1 rounded-md transition-colors ${readyDays === d ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{d}d</button>
+                  ))}
+                </div>
+              </div>
+              {(() => {
+                const { total, atCheck } = data!.readiness;
+                const behind = total - atCheck;
+                const pct = total ? Math.round((atCheck / total) * 100) : 0;
+                return (
+                  <>
+                    <div className="flex items-end justify-between mb-1.5">
+                      <p className="text-sm"><span className="text-2xl font-bold text-slate-800">{atCheck}</span> <span className="text-slate-400">/ {total} at Check 1+</span></p>
+                      <p className="text-xs font-semibold text-slate-500">{pct}%</p>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1.5">{behind} of {total} videos planned for the next {readyDays} days are still behind Check 1.</p>
+                    {data!.readiness.byClient.filter((c) => c.behind > 0).length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        {data!.readiness.byClient.filter((c) => c.behind > 0).map((c) => (
+                          <button key={c.id} onClick={() => onOpenKanban(c.id)} className="w-full flex items-center gap-2 text-left group">
+                            <span className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ backgroundColor: c.color }}>{c.name.slice(0, 1).toUpperCase()}</span>
+                            <span className="text-xs text-slate-600 flex-1 truncate group-hover:text-slate-900">{c.name}</span>
+                            <span className="text-[11px] text-amber-600 font-semibold flex-shrink-0">{c.behind} behind</span>
+                            <span className="text-[10px] text-slate-400 flex-shrink-0">{c.atCheck}/{c.total}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           </div>
 
           {/* Client health board */}
