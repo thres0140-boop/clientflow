@@ -24,7 +24,7 @@ type HQ = {
   charts: {
     stageDistribution: { name: string; count: number }[];
     workload: { id: number; name: string; color: string; count: number; health: "red" | "yellow" | "green" }[];
-    runway: { id: number; name: string; color: string; runwayDays: number; coveredUntil: string | null; scheduled: number; inProduction: number }[];
+    runway: { id: number; name: string; color: string; runwayDays: number; coveredUntil: string | null; scheduled: number; planned: number; inProduction: number }[];
   };
 };
 type MomRow = { id: number; name: string; color: string; health: "red" | "yellow" | "green" | "gray"; delta?: number | null; curAvg?: number; prevAvg?: number; curCount?: number; prevCount?: number; note?: string };
@@ -97,22 +97,20 @@ function ContentRunway({ rows, onOpen, redDays, yellowDays }: { rows: HQ["charts
   if (!rows.length) return <p className="text-xs text-slate-400">No clients.</p>;
   return (
     <div className="space-y-2.5">
-      {rows.map((r) => {
-        const total = r.scheduled + r.inProduction;
-        const pct = total ? Math.round((r.scheduled / total) * 100) : 0;
-        return (
-          <button key={r.id} onClick={() => onOpen(r.id)} className="w-full text-left group">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-600 w-16 text-right flex-shrink-0 truncate group-hover:text-slate-900">{r.name}</span>
-              <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden">
-                <div className="h-full rounded transition-all" style={{ width: `${Math.max(4, (r.runwayDays / max) * 100)}%`, backgroundColor: barColor(r.runwayDays) }} />
-              </div>
-              <span className={`text-[11px] font-bold w-12 text-right flex-shrink-0 ${daysColor(r.runwayDays)}`}>{r.runwayDays > 0 ? `${r.runwayDays}d` : "empty"}</span>
+      {rows.map((r) => (
+        <button key={r.id} onClick={() => onOpen(r.id)} className="w-full text-left group">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-600 w-16 text-right flex-shrink-0 truncate group-hover:text-slate-900">{r.name}</span>
+            <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden">
+              <div className="h-full rounded transition-all" style={{ width: `${Math.max(4, (r.runwayDays / max) * 100)}%`, backgroundColor: barColor(r.runwayDays) }} />
             </div>
-            <p className="text-[9px] text-slate-400 ml-[72px] mt-0.5">{r.scheduled} scheduled · {pct}% ready · until {fmtDate(r.coveredUntil)}</p>
-          </button>
-        );
-      })}
+            <span className={`text-[11px] font-bold w-12 text-right flex-shrink-0 ${daysColor(r.runwayDays)}`}>{r.runwayDays > 0 ? `${r.runwayDays}d` : "empty"}</span>
+          </div>
+          <p className="text-[9px] text-slate-400 ml-[72px] mt-0.5">
+            <span className="font-semibold text-slate-500">{r.scheduled} booked</span> · until {fmtDate(r.coveredUntil)}{r.planned > 0 ? ` · +${r.planned} planned` : ""}
+          </p>
+        </button>
+      ))}
     </div>
   );
 }

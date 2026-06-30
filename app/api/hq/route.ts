@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     select: {
       id: true, clientId: true, title: true, stageId: true, status: true,
       updatedAt: true, generatedAt: true, scheduledDate: true, clientAuthored: true,
-      conceptId: true, hook: true,
+      conceptId: true, hook: true, zernioBooked: true,
       stage: { select: { name: true, order: true } },
       concept: { select: { name: true, conceptType: true } },
     },
@@ -104,29 +104,23 @@ export async function GET(req: NextRequest) {
       scriptsDue += Math.max(0, (oc.clientQuota || 0) - done);
     }
 
-    // Posting gap = nothing scheduled in the next 7 days.
-    const upcoming = cDrafts.filter((d) => {
-      if (!d.scheduledDate) return false;
-      const t = new Date(d.scheduledDate.includes("T") ? d.scheduledDate : d.scheduledDate + "T00:00:00").getTime();
-      return t >= now && t <= soon;
-    });
+    // "Scheduled" = actually BOOKED to auto-post (zernioBooked), not merely planned on the
+    // calendar. Runway is based on booked posts only — that's the content truly locked in.
+    const dateMs = (d: any) => new Date(d.scheduledDate.includes("T") ? d.scheduledDate : d.scheduledDate + "T00:00:00").getTime();
+    const todayMs = now - (now % DAY);
+
+    const bookedUpcoming = cDrafts.filter((d) => d.scheduledDate && (d as any).zernioBooked === true && dateMs(d) >= todayMs);
+    const plannedUpcoming = cDrafts.filter((d) => d.scheduledDate && (d as any).zernioBooked !== true && dateMs(d) >= todayMs);
+
+    const upcoming = bookedUpcoming.filter((d) => dateMs(d) <= soon);
     const postingGap = upcoming.length === 0;
     const pipelineStarved = ideas + inStage < PIPELINE_MIN;
 
-    // Content runway — how far ahead this client is covered with SCHEDULED posts.
-    const todayMs = now - (now % DAY); // floor to start of day (UTC-ish, fine for day granularity)
-    const allUpcoming = cDrafts.filter((d) => {
-      if (!d.scheduledDate) return false;
-      const t = new Date(d.scheduledDate.includes("T") ? d.scheduledDate : d.scheduledDate + "T00:00:00").getTime();
-      return t >= todayMs;
-    });
-    const coveredUntilMs = allUpcoming.reduce((mx, d) => {
-      const t = new Date(d.scheduledDate!.includes("T") ? d.scheduledDate! : d.scheduledDate! + "T00:00:00").getTime();
-      return t > mx ? t : mx;
-    }, 0);
+    const coveredUntilMs = bookedUpcoming.reduce((mx, d) => Math.max(mx, dateMs(d)), 0);
     const coveredUntil = coveredUntilMs ? new Date(coveredUntilMs).toISOString().slice(0, 10) : null;
     const runwayDays = coveredUntilMs ? Math.max(0, Math.ceil((coveredUntilMs - todayMs) / DAY)) : 0;
-    const scheduledTotal = allUpcoming.length;
+    const scheduledTotal = bookedUpcoming.length;
+    const plannedTotal = plannedUpcoming.length;
 
     const lastActivityAt = cDrafts.reduce((max, d) => {
       const t = new Date(d.updatedAt).getTime(); return t > max ? t : max;
@@ -137,7 +131,7 @@ export async function GET(req: NextRequest) {
     if (awaitingReview.length) signals.push({ level: "red", label: `${awaitingReview.length} awaiting your review` });
     if (scriptsDue > 0) signals.push({ level: "red", label: `owes ${scriptsDue} script${scriptsDue > 1 ? "s" : ""}` });
     if (stuck.length) signals.push({ level: "red", label: `${stuck.length} stuck >${STUCK_DAYS}d` });
-    if (postingGap) signals.push({ level: "yellow", label: "nothing scheduled (7d)" });
+    if (postingGap) signals.push({ level: "yellow", label: "nothing booked (7d)" });
     if (pipelineStarved) signals.push({ level: "yellow", label: "pipeline low" });
 
     const health: "red" | "yellow" | "green" =
@@ -149,7 +143,7 @@ export async function GET(req: NextRequest) {
       ideas, inStage, stageCounts, lastStageName,
       stuck: stuck.length, awaitingReview: awaitingReview.length, scriptsDue,
       upcomingPosts: upcoming.length,
-      coveredUntil, runwayDays, scheduledTotal,
+      coveredUntil, runwayDays, scheduledTotal, plannedTotal,
       lastActivityAt,
     };
   });
@@ -198,7 +192,8 @@ export async function GET(req: NextRequest) {
   const runway = clientCards
     .map((c) => ({
       id: c.id, name: c.name, color: c.color,
-      runwayDays: c.runwayDays, coveredUntil: c.coveredUntil, scheduled: c.scheduledTotal,
+      runwayDays: c.runwayDays, coveredUntil: c.coveredUntil,
+      scheduled: c.scheduledTotal, planned: c.plannedTotal,
       inProduction: c.ideas + c.inStage,
     }))
     .sort((a, b) => a.runwayDays - b.runwayDays);
