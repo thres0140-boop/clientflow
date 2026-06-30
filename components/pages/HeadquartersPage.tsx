@@ -23,7 +23,12 @@ type HQ = {
   recent: Activity[];
   charts: { stageDistribution: { name: string; count: number }[]; workload: { id: number; name: string; color: string; count: number; health: "red" | "yellow" | "green" }[] };
 };
-type BrightSpot = { clientId: number; clientName: string; color: string; reelId: string; thumb: string | null; plays: number; ratio: number; permalink: string | null };
+type MomRow = { id: number; name: string; color: string; health: "red" | "yellow" | "green" | "gray"; delta?: number | null; curAvg?: number; prevAvg?: number; curCount?: number; prevCount?: number; note?: string };
+
+function fmtK(n?: number): string {
+  if (!n) return "0";
+  return n >= 1000 ? (n / 1000).toFixed(1) + "K" : String(n);
+}
 
 const ACTIVITY_ICON: Record<string, string> = { script_submitted: "📝", stage_moved: "📋", footage_uploaded: "🎬", accepted: "✅", scheduled: "🗓", posted: "🚀", remixed: "♻️" };
 
@@ -123,8 +128,9 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
   const [data, setData] = useState<HQ | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [bright, setBright] = useState<BrightSpot[]>([]);
-  const [brightLoading, setBrightLoading] = useState(true);
+  const [period, setPeriod] = useState<"week" | "month">("month");
+  const [mom, setMom] = useState<MomRow[]>([]);
+  const [momLoading, setMomLoading] = useState(true);
   const [review, setReview] = useState<{ draftId: number; clientId: number } | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
 
@@ -149,31 +155,19 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
   }
   useEffect(() => { load(); }, []);
 
+  // Per-client momentum — how each client's content is trending vs their own previous period.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setBrightLoading(true);
-      const found: BrightSpot[] = [];
-      await Promise.all(visibleClients.map(async (c) => {
-        try {
-          const d = await fetch(`/api/instagram/media?clientId=${c.id}`).then((r) => r.json());
-          const reels = (d?.reels || []).filter((r: any) => typeof r.plays === "number" && r.plays > 0);
-          if (reels.length < 4) return;
-          const sorted = [...reels].map((r: any) => r.plays).sort((a, b) => a - b);
-          const median = sorted[Math.floor(sorted.length / 2)] || 1;
-          for (const r of reels) {
-            const ratio = r.plays / median;
-            if (ratio >= 2) found.push({ clientId: c.id, clientName: c.name, color: c.color, reelId: r.id, thumb: r.thumbnail_url || null, plays: r.plays, ratio, permalink: r.permalink || null });
-          }
-        } catch { /* skip */ }
-      }));
-      if (cancelled) return;
-      found.sort((a, b) => b.ratio - a.ratio);
-      setBright(found.slice(0, 10));
-      setBrightLoading(false);
+      setMomLoading(true);
+      try {
+        const d = await fetch(`/api/hq/momentum?period=${period}`).then((r) => r.json());
+        if (!cancelled) setMom(Array.isArray(d?.clients) ? d.clients : []);
+      } catch { if (!cancelled) setMom([]); }
+      finally { if (!cancelled) setMomLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [clients]);
+  }, [period, clients]);
 
   if (loading) return <div className="flex-1 flex items-center justify-center py-32"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (error) return <div className="p-10 text-center text-slate-500">{error}</div>;
@@ -307,24 +301,42 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
           {/* Right: bright spots + activity */}
           <div className="xl:col-span-3 space-y-7">
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">🟢 Bright spots</h2>
-              {brightLoading ? <p className="text-xs text-slate-400">Scanning reels…</p>
-                : bright.length === 0 ? <p className="text-xs text-slate-400">No standout reels right now.</p>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">📈 Client momentum</h2>
+                <div className="flex bg-slate-100 rounded-lg p-0.5 text-[10px] font-semibold">
+                  <button onClick={() => setPeriod("week")} className={`px-2.5 py-1 rounded-md transition-colors ${period === "week" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Week</button>
+                  <button onClick={() => setPeriod("month")} className={`px-2.5 py-1 rounded-md transition-colors ${period === "month" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Month</button>
+                </div>
+              </div>
+              {momLoading ? <p className="text-xs text-slate-400">Calculating momentum…</p>
+                : mom.length === 0 ? <p className="text-xs text-slate-400">No performance data.</p>
                 : (
                   <div className="space-y-2">
-                    {bright.map((b) => (
-                      <div key={b.reelId} className="flex items-center gap-3 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40">
-                        {b.thumb ? <img src={b.thumb} alt="" className="w-9 h-12 rounded-lg object-cover flex-shrink-0" /> : <div className="w-9 h-12 rounded-lg bg-slate-200 flex-shrink-0" />}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-slate-800 truncate">{b.clientName}</p>
-                          <p className="text-[11px] text-emerald-700 font-bold">{b.ratio.toFixed(1)}× median</p>
-                          <p className="text-[10px] text-slate-400">{b.plays >= 1000 ? (b.plays / 1000).toFixed(1) + "K" : b.plays} views</p>
-                        </div>
-                        <button onClick={() => onOpenKanban(b.clientId)} title="Remix this winner" className="px-2 py-1 text-[10px] font-bold text-white bg-purple-600 rounded-lg hover:bg-purple-700 flex-shrink-0">♻️</button>
-                      </div>
-                    ))}
+                    {mom.map((m) => {
+                      const up = (m.delta ?? 0) >= 0;
+                      return (
+                        <button key={m.id} onClick={() => onOpenKanban(m.id)}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors hover:shadow-sm ${
+                            m.health === "red" ? "border-red-200 bg-red-50/50" : m.health === "yellow" ? "border-amber-200 bg-amber-50/40" : m.health === "green" ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-white"
+                          }`}>
+                          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${m.health === "red" ? "bg-red-500" : m.health === "yellow" ? "bg-amber-400" : m.health === "green" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-800 truncate">{m.name}</p>
+                            <p className="text-[10px] text-slate-400">{fmtK(m.curAvg)} vs {fmtK(m.prevAvg)} avg views · {m.curCount ?? 0} posts</p>
+                          </div>
+                          {m.delta != null ? (
+                            <span className={`text-sm font-bold flex-shrink-0 ${up ? "text-emerald-600" : "text-red-600"}`}>
+                              {up ? "▲" : "▼"} {Math.abs(m.delta * 100).toFixed(0)}%
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 flex-shrink-0">{m.note === "not connected" ? "not connected" : "not enough posts"}</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
+              <p className="text-[10px] text-slate-400 mt-2">Avg views of reels posted in the last {period === "week" ? "7" : "30"} days vs the {period === "week" ? "7" : "30"} before. 🟢 up · 🟡 flat · 🔴 down.</p>
             </div>
 
             <div>
