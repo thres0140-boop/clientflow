@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addConceptExample, splitExamples, joinExamples } from "@/lib/conceptExamples";
 import { sendWhatsApp } from "@/lib/notify";
+import { logActivity } from "@/lib/activity";
 
 export async function GET(req: NextRequest) {
   const idParam = req.nextUrl.searchParams.get("id");
@@ -98,6 +99,7 @@ export async function POST(req: NextRequest) {
     const concept = draft.concept ? `${draft.concept.conceptType ? `${draft.concept.conceptType} · ` : ""}${draft.concept.name}` : "a concept";
     const who = draft.client?.name || "Client";
     sendWhatsApp(`📝 ${who} submitted a script for ${concept}`).catch(() => {});
+    logActivity({ clientId: draft.clientId, actor: who, type: "script_submitted", title: draft.title, detail: concept, draftId: draft.id });
   }
 
   return NextResponse.json(draft, { status: 201 });

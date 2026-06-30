@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import Pipeline from "@/components/pages/Pipeline";
+import HeadquartersPage from "@/components/pages/HeadquartersPage";
 import Concepts from "@/components/pages/Concepts";
 import Analytics from "@/components/pages/Analytics";
 import TeamPage from "@/components/pages/TeamPage";
@@ -20,6 +21,7 @@ import type { SessionPayload } from "@/lib/session";
 import { countUnseenSentBack } from "@/lib/sentBackSeen";
 
 export type Page =
+  | "headquarters"
   | "pipeline"
   | "kanban"
   | "tasks"
@@ -218,7 +220,7 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe"];
+    const all: Page[] = ["headquarters","pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
@@ -227,7 +229,8 @@ export default function App() {
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
     // Clients always get their Script Tasks; team members only if the owner granted it.
     if (activeProfile?.isClientAccount && !base.includes("tasks")) base.push("tasks");
-    return base;
+    // Headquarters is owner-only — never expose it to a member login.
+    return base.filter((p) => p !== "headquarters" || session?.type === "owner");
   })();
 
   // Pages this member may VIEW but not edit (view-only). Empty for the owner.
@@ -266,6 +269,7 @@ export default function App() {
     }
     const props = { clients, selectedClientId, refreshClients: fetchClients };
     switch (page) {
+      case "headquarters": return <HeadquartersPage clients={clients} onOpenKanban={(clientId, draftId) => { setSelectedClientId(clientId); if (draftId) setKanbanHighlightId(draftId); setPage("kanban"); }} />;
       case "pipeline": return <Pipeline {...props} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} onOpenInKanban={(session?.type === "member" && activeProfile?.isClientAccount) ? (id) => { setKanbanHighlightId(id); setPage("kanban"); } : undefined} />;
       case "concepts": return <Concepts {...props} onAttachReels={(c) => { setAttachConcept(c); setPage("instagram"); }} />;
       case "analytics": return <Analytics {...props} />;

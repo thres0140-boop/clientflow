@@ -493,3 +493,35 @@ model ConceptFeedback {
   concept Concept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
   client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
+
+// Immutable activity log — the foundation for the Headquarters digest + future feed/trends.
+// Nothing else writes cross-client "X happened at T" rows, and this can't be backfilled.
+model ActivityEvent {
+  id        Int      @id @default(autoincrement())
+  clientId  Int?
+  actor     String   // who did it (client name, member name, "Owner", "System")
+  type      String   // script_submitted | stage_moved | footage_uploaded | accepted | scheduled | posted | remixed
+  title     String?  // short human label
+  detail    String?  // extra context (e.g. "→ Edit")
+  draftId   Int?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([clientId, createdAt])
+}
+
+// Nightly per-reel play-count snapshots — captures history so trend lines become possible.
+// Can't be backfilled, so capture starts now even before the charts are built.
+model ReelSnapshot {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  reelId    String   // Instagram media id
+  plays     Int      @default(0)
+  likes     Int      @default(0)
+  comments  Int      @default(0)
+  takenAt   String   // YYYY-MM-DD (one row per reel per day)
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, reelId, takenAt])
+  @@index([clientId, takenAt])
+}

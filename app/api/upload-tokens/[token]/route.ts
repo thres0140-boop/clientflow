@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity";
 
 // Ordered stages for a client + the stage that comes after `stageId`.
 async function stageInfo(clientId: number, stageId: number | null) {
@@ -56,6 +57,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ to
     where: { id: draft.id },
     data: { rawContentUrls: JSON.stringify(updated) },
   });
+
+  logActivity({ clientId: draft.clientId, actor: "Client", type: "footage_uploaded", title: draft.title, detail: `${updated.length} file${updated.length > 1 ? "s" : ""}`, draftId: draft.id });
 
   return NextResponse.json({ ok: true, urls: updated });
 }

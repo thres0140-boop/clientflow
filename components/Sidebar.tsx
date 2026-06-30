@@ -6,6 +6,10 @@ import type { SessionPayload } from "@/lib/session";
 
 type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe";
 
+function IconHQ({ active }: { active: boolean }) {
+  const c = active ? "white" : "rgba(147,197,253,0.6)";
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L14 5v9.5H2V5L8 1.5z" stroke={c} strokeWidth="1.3" strokeLinejoin="round"/><rect x="5" y="9" width="2.2" height="5.5" fill={c}/><rect x="8.8" y="7" width="2.2" height="7.5" fill={c}/></svg>;
+}
 function IconCalendar({ active }: { active: boolean }) {
   const c = active ? "white" : "rgba(147,197,253,0.6)";
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="12" rx="2" stroke={c} strokeWidth="1.3"/><path d="M5 1.5V3.5M11 1.5V3.5" stroke={c} strokeWidth="1.3" strokeLinecap="round"/><path d="M1.5 6H14.5" stroke={c} strokeWidth="1.3"/><rect x="4" y="8.5" width="2" height="2" rx="0.5" fill={c}/><rect x="7" y="8.5" width="2" height="2" rx="0.5" fill={c}/><rect x="10" y="8.5" width="2" height="2" rx="0.5" fill={c}/></svg>;
@@ -61,6 +65,7 @@ function IconTranscribe({ active }: { active: boolean }) {
 }
 
 const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
+  headquarters: (a) => <IconHQ active={a} />,
   pipeline: (a) => <IconCalendar active={a} />, kanban: (a) => <IconKanban active={a} />,
   concepts: (a) => <IconConcepts active={a} />, context: (a) => <IconBrain active={a} />,
   analytics: (a) => <IconAnalytics active={a} />, dms: (a) => <IconDMs active={a} />,
@@ -73,6 +78,7 @@ const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
 
 const NAV_GROUPS = [
   { label: "WORK", items: [
+    { id: "headquarters" as Page, label: "Headquarters" },
     { id: "pipeline" as Page, label: "Content Scheduling" },
     { id: "kanban" as Page, label: "Script Kanban" },
     { id: "tasks" as Page, label: "Script Tasks" },

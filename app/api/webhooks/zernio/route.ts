@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendWhatsApp } from "@/lib/notify";
 import { deletePostedMedia } from "@/lib/mediaCleanup";
+import { logActivity } from "@/lib/activity";
 
 // POST /api/webhooks/zernio
 // Receives Zernio webhook events for post.published, post.failed, post.scheduled
@@ -176,6 +177,7 @@ async function handlePublished(body: any) {
       const permalink = post.permalink ?? igPlatform?.permalink ?? igPlatform?.url ?? null;
       const link = permalink || draft.editedVideoUrl || (process.env.APP_URL || "https://www.ordoagency.com");
       sendWhatsApp(`✅ LIVE on Instagram: "${draft.title}"${cLabel ? ` (${cLabel})` : ""}\n🔗 ${link}`).catch(() => {});
+      logActivity({ clientId: draft.clientId, actor: "System", type: "posted", title: draft.title, detail: cLabel || "live on Instagram", draftId: draft.id });
     }
   } catch (err) {
     console.error("[zernio-webhook] handlePublished error:", err);

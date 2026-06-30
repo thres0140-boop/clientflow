@@ -900,6 +900,35 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "ScriptDraft"
       ADD COLUMN IF NOT EXISTS "hookAlternatives" TEXT NOT NULL DEFAULT '[]';
     `;
+    // Headquarters: activity log + nightly reel snapshots.
+    await (prisma as any).$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ActivityEvent" (
+        "id" SERIAL PRIMARY KEY,
+        "clientId" INTEGER,
+        "actor" TEXT NOT NULL,
+        "type" TEXT NOT NULL,
+        "title" TEXT,
+        "detail" TEXT,
+        "draftId" INTEGER,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ActivityEvent_createdAt_idx" ON "ActivityEvent"("createdAt");`);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ActivityEvent_clientId_createdAt_idx" ON "ActivityEvent"("clientId","createdAt");`);
+    await (prisma as any).$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ReelSnapshot" (
+        "id" SERIAL PRIMARY KEY,
+        "clientId" INTEGER NOT NULL,
+        "reelId" TEXT NOT NULL,
+        "plays" INTEGER NOT NULL DEFAULT 0,
+        "likes" INTEGER NOT NULL DEFAULT 0,
+        "comments" INTEGER NOT NULL DEFAULT 0,
+        "takenAt" TEXT NOT NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await (prisma as any).$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "ReelSnapshot_clientId_reelId_takenAt_key" ON "ReelSnapshot"("clientId","reelId","takenAt");`);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ReelSnapshot_clientId_takenAt_idx" ON "ReelSnapshot"("clientId","takenAt");`);
     await (prisma as any).$executeRaw`
       ALTER TABLE "InstagramConnection"
       ADD COLUMN IF NOT EXISTS "zernioAccountId" TEXT;

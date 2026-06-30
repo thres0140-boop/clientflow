@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 const FIELDS = "id,caption,media_type,media_product_type,is_shared_to_feed,permalink,thumbnail_url,media_url,timestamp,like_count,comments_count";
 
-async function enrichReels(reels: any[], accessToken: string) {
+export async function enrichReels(reels: any[], accessToken: string) {
   return Promise.all(
     reels.map(async (reel) => {
       const insights: Record<string, number> = {};

@@ -4,6 +4,7 @@ import { addConceptExample } from "@/lib/conceptExamples";
 import { verifySessionToken } from "@/lib/session";
 import { sendWhatsApp } from "@/lib/notify";
 import { canEditPage } from "@/lib/permissions";
+import { logActivity } from "@/lib/activity";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -107,6 +108,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           ? `✅ ${actor} fixed & resubmitted "${draft.title}"${conceptStr}${who}\n(you'd sent it back) — now in ${newName}`
           : `📋 ${actor} moved "${draft.title}"${conceptStr}${who}\nfrom ${prevName} → ${newName}`;
         sendWhatsApp(`${header}\n🔗 Check it: ${link}`).catch(() => {});
+        logActivity({
+          clientId: draft.clientId, actor, draftId: draft.id, title: draft.title,
+          type: sendingBack ? "stage_moved" : "stage_moved",
+          detail: sendingBack ? `↩ sent back from ${prevName}` : `${prevName} → ${newName}`,
+        });
       }
     } catch { /* non-fatal */ }
   }
