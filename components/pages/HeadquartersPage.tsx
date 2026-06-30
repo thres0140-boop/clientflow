@@ -24,7 +24,7 @@ type HQ = {
   charts: {
     stageDistribution: { name: string; count: number }[];
     workload: { id: number; name: string; color: string; count: number; health: "red" | "yellow" | "green" }[];
-    runway: { id: number; name: string; color: string; runwayDays: number; coveredUntil: string | null; scheduled: number; planned: number; inProduction: number }[];
+    runway: { id: number; name: string; color: string; runwayDays: number; coveredUntil: string | null; plannedUntil: string | null; plannedRunwayDays: number; scheduled: number; planned: number; inProduction: number }[];
   };
 };
 type MomRow = { id: number; name: string; color: string; health: "red" | "yellow" | "green" | "gray"; delta?: number | null; curAvg?: number; prevAvg?: number; curCount?: number; prevCount?: number; note?: string };
@@ -90,27 +90,34 @@ function WorkloadBars({ workload, onOpen }: { workload: HQ["charts"]["workload"]
 }
 
 function ContentRunway({ rows, onOpen, redDays, yellowDays }: { rows: HQ["charts"]["runway"]; onOpen: (id: number) => void; redDays: number; yellowDays: number }) {
-  const max = Math.max(10, ...rows.map((r) => r.runwayDays));
+  const max = Math.max(10, ...rows.map((r) => Math.max(r.runwayDays, r.plannedRunwayDays)));
   const fmtDate = (s: string | null) => s ? new Date(s + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—";
   const barColor = (d: number) => d <= 0 ? "#cbd5e1" : d < redDays ? "#ef4444" : d <= yellowDays ? "#f59e0b" : "#10b981";
   const daysColor = (d: number) => d <= 0 ? "text-slate-400" : d < redDays ? "text-red-600" : d <= yellowDays ? "text-amber-600" : "text-emerald-600";
   if (!rows.length) return <p className="text-xs text-slate-400">No clients.</p>;
   return (
     <div className="space-y-2.5">
-      {rows.map((r) => (
-        <button key={r.id} onClick={() => onOpen(r.id)} className="w-full text-left group">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-600 w-16 text-right flex-shrink-0 truncate group-hover:text-slate-900">{r.name}</span>
-            <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden">
-              <div className="h-full rounded transition-all" style={{ width: `${Math.max(4, (r.runwayDays / max) * 100)}%`, backgroundColor: barColor(r.runwayDays) }} />
+      {rows.map((r) => {
+        const hasPlannedBeyond = r.plannedRunwayDays > r.runwayDays;
+        return (
+          <button key={r.id} onClick={() => onOpen(r.id)} className="w-full text-left group">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-600 w-16 text-right flex-shrink-0 truncate group-hover:text-slate-900">{r.name}</span>
+              <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden relative">
+                {/* planned reach (lighter, behind) */}
+                <div className="absolute inset-y-0 left-0 rounded bg-slate-300/70" style={{ width: `${Math.min(100, (r.plannedRunwayDays / max) * 100)}%` }} />
+                {/* scheduled / locked-in (solid, on top) */}
+                <div className="absolute inset-y-0 left-0 rounded transition-all" style={{ width: `${Math.max(r.runwayDays > 0 ? 4 : 0, (r.runwayDays / max) * 100)}%`, backgroundColor: barColor(r.runwayDays) }} />
+              </div>
+              <span className={`text-[11px] font-bold w-12 text-right flex-shrink-0 ${daysColor(r.runwayDays)}`}>{r.runwayDays > 0 ? `${r.runwayDays}d` : "empty"}</span>
             </div>
-            <span className={`text-[11px] font-bold w-12 text-right flex-shrink-0 ${daysColor(r.runwayDays)}`}>{r.runwayDays > 0 ? `${r.runwayDays}d` : "empty"}</span>
-          </div>
-          <p className="text-[9px] text-slate-400 ml-[72px] mt-0.5">
-            <span className="font-semibold text-slate-500">{r.scheduled} booked</span> · until {fmtDate(r.coveredUntil)}{r.planned > 0 ? ` · +${r.planned} planned` : ""}
-          </p>
-        </button>
-      ))}
+            <p className="text-[9px] text-slate-400 ml-[72px] mt-0.5">
+              <span className="font-semibold text-slate-500">{r.scheduled} scheduled</span> · until {fmtDate(r.coveredUntil)}
+              {hasPlannedBeyond ? <span className="text-slate-400"> · planned to {fmtDate(r.plannedUntil)}</span> : null}
+            </p>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -302,7 +309,11 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Content runway — how long we're covered</p>
-            <p className="text-[10px] text-slate-400 mb-3">Days of scheduled content left per client · 🔴 &lt;{thr.runwayRed}d · 🟡 ≤{thr.runwayYellow}d · 🟢 stocked</p>
+            <div className="flex items-center gap-3 text-[10px] text-slate-400 mb-3">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> scheduled</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-slate-300" /> planned</span>
+              <span>· 🔴 &lt;{thr.runwayRed}d · 🟡 ≤{thr.runwayYellow}d</span>
+            </div>
             <ContentRunway rows={charts.runway} onOpen={(id) => onOpenKanban(id)} redDays={thr.runwayRed} yellowDays={thr.runwayYellow} />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5">

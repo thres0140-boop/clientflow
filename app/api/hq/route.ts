@@ -116,11 +116,16 @@ export async function GET(req: NextRequest) {
     const postingGap = upcoming.length === 0;
     const pipelineStarved = ideas + inStage < PIPELINE_MIN;
 
+    // Scheduled (locked-in) runway.
     const coveredUntilMs = bookedUpcoming.reduce((mx, d) => Math.max(mx, dateMs(d)), 0);
     const coveredUntil = coveredUntilMs ? new Date(coveredUntilMs).toISOString().slice(0, 10) : null;
     const runwayDays = coveredUntilMs ? Math.max(0, Math.ceil((coveredUntilMs - todayMs) / DAY)) : 0;
     const scheduledTotal = bookedUpcoming.length;
     const plannedTotal = plannedUpcoming.length;
+    // Planned reach = furthest date you have ANY content for (scheduled OR planned).
+    const anyUntilMs = Math.max(coveredUntilMs, plannedUpcoming.reduce((mx, d) => Math.max(mx, dateMs(d)), 0));
+    const plannedUntil = anyUntilMs ? new Date(anyUntilMs).toISOString().slice(0, 10) : null;
+    const plannedRunwayDays = anyUntilMs ? Math.max(0, Math.ceil((anyUntilMs - todayMs) / DAY)) : 0;
 
     const lastActivityAt = cDrafts.reduce((max, d) => {
       const t = new Date(d.updatedAt).getTime(); return t > max ? t : max;
@@ -143,7 +148,7 @@ export async function GET(req: NextRequest) {
       ideas, inStage, stageCounts, lastStageName,
       stuck: stuck.length, awaitingReview: awaitingReview.length, scriptsDue,
       upcomingPosts: upcoming.length,
-      coveredUntil, runwayDays, scheduledTotal, plannedTotal,
+      coveredUntil, runwayDays, scheduledTotal, plannedTotal, plannedUntil, plannedRunwayDays,
       lastActivityAt,
     };
   });
@@ -193,6 +198,7 @@ export async function GET(req: NextRequest) {
     .map((c) => ({
       id: c.id, name: c.name, color: c.color,
       runwayDays: c.runwayDays, coveredUntil: c.coveredUntil,
+      plannedUntil: c.plannedUntil, plannedRunwayDays: c.plannedRunwayDays,
       scheduled: c.scheduledTotal, planned: c.plannedTotal,
       inProduction: c.ideas + c.inStage,
     }))
