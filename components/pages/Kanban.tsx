@@ -119,9 +119,16 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
       <p className="text-[10px] text-slate-400 mt-1 truncate flex items-center gap-1 flex-wrap">
         {fmtSchedule(draft.scheduledDate) ? (
           // Scheduled → show the real posting date (weekday + day of month), not "Week 23".
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold text-[9px]">
-            📅 {fmtSchedule(draft.scheduledDate)}
-          </span>
+          <>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold text-[9px]">
+              📅 {fmtSchedule(draft.scheduledDate)}
+            </span>
+            {(draft as any).zernioBooked ? (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-bold text-[9px]">✓ Scheduled</span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[9px]">🕓 Planned</span>
+            )}
+          </>
         ) : (
           // Not scheduled yet → keep the week label + planned weekday (if any).
           <>
