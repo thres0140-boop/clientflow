@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
 
   const period = req.nextUrl.searchParams.get("period") === "week" ? "week" : "month";
   const span = period === "week" ? 7 : 30;
+  const up = (Math.max(0, parseInt(req.nextUrl.searchParams.get("up") || "") || 10)) / 100;
+  const down = (Math.max(0, parseInt(req.nextUrl.searchParams.get("down") || "") || 10)) / 100;
   const now = Date.now();
   const curStart = now - span * DAY;
   const prevStart = now - 2 * span * DAY;
@@ -59,7 +61,7 @@ export async function GET(req: NextRequest) {
       let delta: number | null = null;
       if (prev.length && cur.length && prevAvg > 0) {
         delta = (curAvg - prevAvg) / prevAvg;
-        health = delta >= 0.10 ? "green" : delta <= -0.10 ? "red" : "yellow";
+        health = delta >= up ? "green" : delta <= -down ? "red" : "yellow";
       }
       return { ...base, health, delta, curAvg, prevAvg, curCount: cur.length, prevCount: prev.length };
     } catch {

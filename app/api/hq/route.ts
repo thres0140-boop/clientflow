@@ -5,8 +5,8 @@ import { verifySessionToken } from "@/lib/session";
 export const runtime = "nodejs";
 
 const DAY = 86400000;
-const STUCK_DAYS = 4;       // a draft sitting in one stage longer than this = stuck
-const PIPELINE_MIN = 2;     // fewer than this many upcoming items = starved pipeline
+const DEFAULT_STUCK_DAYS = 4;   // a draft sitting in one stage longer than this = stuck
+const DEFAULT_PIPELINE_MIN = 2; // fewer than this many upcoming items = starved pipeline
 
 // Rolling cycle window for a client-owned concept (mirrors Script Tasks' cycle()).
 function cycleWindow(anchorStr: string | null, intervalDays: number | null) {
@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
   const session = token ? await verifySessionToken(token) : null;
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (session.type !== "owner") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  const STUCK_DAYS = Math.max(1, parseInt(req.nextUrl.searchParams.get("stuckDays") || "") || DEFAULT_STUCK_DAYS);
+  const PIPELINE_MIN = Math.max(1, parseInt(req.nextUrl.searchParams.get("pipelineMin") || "") || DEFAULT_PIPELINE_MIN);
 
   const clients = await prisma.client.findMany({
     where: { isTestAccount: { not: true }, hideFromHq: { not: true } } as any,

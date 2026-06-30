@@ -34,6 +34,8 @@ function fmtK(n?: number): string {
   return n >= 1000 ? (n / 1000).toFixed(1) + "K" : String(n);
 }
 
+const DEFAULT_THR = { runwayRed: 3, runwayYellow: 7, stuckDays: 4, momUp: 10, momDown: 10 };
+
 const ACTIVITY_ICON: Record<string, string> = { script_submitted: "📝", stage_moved: "📋", footage_uploaded: "🎬", accepted: "✅", scheduled: "🗓", posted: "🚀", remixed: "♻️" };
 
 function ago(iso: string): string {
@@ -87,11 +89,11 @@ function WorkloadBars({ workload, onOpen }: { workload: HQ["charts"]["workload"]
   );
 }
 
-function ContentRunway({ rows, onOpen }: { rows: HQ["charts"]["runway"]; onOpen: (id: number) => void }) {
+function ContentRunway({ rows, onOpen, redDays, yellowDays }: { rows: HQ["charts"]["runway"]; onOpen: (id: number) => void; redDays: number; yellowDays: number }) {
   const max = Math.max(10, ...rows.map((r) => r.runwayDays));
   const fmtDate = (s: string | null) => s ? new Date(s + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—";
-  const barColor = (d: number) => d <= 0 ? "#cbd5e1" : d < 3 ? "#ef4444" : d <= 7 ? "#f59e0b" : "#10b981";
-  const daysColor = (d: number) => d <= 0 ? "text-slate-400" : d < 3 ? "text-red-600" : d <= 7 ? "text-amber-600" : "text-emerald-600";
+  const barColor = (d: number) => d <= 0 ? "#cbd5e1" : d < redDays ? "#ef4444" : d <= yellowDays ? "#f59e0b" : "#10b981";
+  const daysColor = (d: number) => d <= 0 ? "text-slate-400" : d < redDays ? "text-red-600" : d <= yellowDays ? "text-amber-600" : "text-emerald-600";
   if (!rows.length) return <p className="text-xs text-slate-400">No clients.</p>;
   return (
     <div className="space-y-2.5">
@@ -165,6 +167,16 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
   const [momLoading, setMomLoading] = useState(true);
   const [review, setReview] = useState<{ draftId: number; clientId: number } | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [thr, setThr] = useState<typeof DEFAULT_THR>(() => {
+    if (typeof window !== "undefined") { try { return { ...DEFAULT_THR, ...JSON.parse(localStorage.getItem("hq_thresholds") || "{}") }; } catch { /* */ } }
+    return DEFAULT_THR;
+  });
+  function setThreshold(key: keyof typeof DEFAULT_THR, val: number) {
+    const next = { ...thr, [key]: val };
+    setThr(next);
+    try { localStorage.setItem("hq_thresholds", JSON.stringify(next)); } catch { /* */ }
+  }
 
   const visibleClients = (clients || []).filter((c) => !(c as any).isTestAccount && !(c as any).hideFromHq);
 
@@ -177,7 +189,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
   async function load() {
     setLoading(true); setError("");
     try {
-      const res = await fetch("/api/hq");
+      const res = await fetch(`/api/hq?stuckDays=${thr.stuckDays}`);
       if (res.status === 403) { setError("Headquarters is owner-only."); setData(null); return; }
       const d = await res.json();
       if (!res.ok) { setError(d.error || "Failed to load."); return; }
@@ -185,7 +197,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
     } catch { setError("Failed to load."); }
     finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [thr.stuckDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Per-client momentum — how each client's content is trending vs their own previous period.
   useEffect(() => {
@@ -193,13 +205,13 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
     (async () => {
       setMomLoading(true);
       try {
-        const d = await fetch(`/api/hq/momentum?period=${period}`).then((r) => r.json());
+        const d = await fetch(`/api/hq/momentum?period=${period}&up=${thr.momUp}&down=${thr.momDown}`).then((r) => r.json());
         if (!cancelled) setMom(Array.isArray(d?.clients) ? d.clients : []);
       } catch { if (!cancelled) setMom([]); }
       finally { if (!cancelled) setMomLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [period, clients]);
+  }, [period, clients, thr.momUp, thr.momDown]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <div className="flex-1 flex items-center justify-center py-32"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (error) return <div className="p-10 text-center text-slate-500">{error}</div>;
@@ -243,6 +255,33 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                 </>
               )}
             </div>
+            <div className="relative">
+              <button onClick={() => setSettingsOpen((o) => !o)} className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">⚙ Thresholds</button>
+              {settingsOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-3">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Headquarters thresholds</p>
+                    {([
+                      ["runwayRed", "Runway 🔴 below (days)"],
+                      ["runwayYellow", "Runway 🟡 up to (days)"],
+                      ["stuckDays", "Draft 'stuck' after (days)"],
+                      ["momUp", "Momentum 🟢 up ≥ (%)"],
+                      ["momDown", "Momentum 🔴 down ≥ (%)"],
+                    ] as [keyof typeof DEFAULT_THR, string][]).map(([key, label]) => (
+                      <div key={key} className="flex items-center justify-between gap-2">
+                        <label className="text-xs text-slate-600">{label}</label>
+                        <input type="number" min={1} value={thr[key]}
+                          onChange={(e) => setThreshold(key, Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                      </div>
+                    ))}
+                    <button onClick={() => { setThr(DEFAULT_THR); try { localStorage.setItem("hq_thresholds", JSON.stringify(DEFAULT_THR)); } catch { /* */ } }}
+                      className="w-full text-[11px] font-semibold text-slate-500 hover:text-slate-700 pt-1">Reset to defaults</button>
+                  </div>
+                </>
+              )}
+            </div>
             <button onClick={load} className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">↻ Refresh</button>
           </div>
         </div>
@@ -265,8 +304,8 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Content runway — how long we're covered</p>
-            <p className="text-[10px] text-slate-400 mb-3">Days of scheduled content left per client · 🔴 &lt;3d · 🟡 ≤7d · 🟢 stocked</p>
-            <ContentRunway rows={charts.runway} onOpen={(id) => onOpenKanban(id)} />
+            <p className="text-[10px] text-slate-400 mb-3">Days of scheduled content left per client · 🔴 &lt;{thr.runwayRed}d · 🟡 ≤{thr.runwayYellow}d · 🟢 stocked</p>
+            <ContentRunway rows={charts.runway} onOpen={(id) => onOpenKanban(id)} redDays={thr.runwayRed} yellowDays={thr.runwayYellow} />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">Client health</p>
