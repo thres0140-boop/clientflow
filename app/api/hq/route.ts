@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const PIPELINE_MIN = Math.max(1, parseInt(req.nextUrl.searchParams.get("pipelineMin") || "") || DEFAULT_PIPELINE_MIN);
 
   const clients = await prisma.client.findMany({
-    where: { isTestAccount: { not: true }, hideFromHq: { not: true } } as any,
+    where: { hideFromHq: { not: true } } as any,
     select: { id: true, name: true, color: true },
     orderBy: { name: "asc" },
   });

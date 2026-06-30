@@ -183,7 +183,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
     try { localStorage.setItem("hq_thresholds", JSON.stringify(next)); } catch { /* */ }
   }
 
-  const visibleClients = (clients || []).filter((c) => !(c as any).isTestAccount && !(c as any).hideFromHq);
+  const visibleClients = (clients || []).filter((c) => !(c as any).hideFromHq);
 
   async function toggleClient(c: Client, hide: boolean) {
     await fetch(`/api/clients/${c.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hideFromHq: hide }) });
@@ -246,7 +246,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                   <div className="fixed inset-0 z-40" onClick={() => setManageOpen(false)} />
                   <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 max-h-[60vh] overflow-y-auto">
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-2 py-1.5">Show in Headquarters</p>
-                    {(clients || []).filter((c) => !(c as any).isTestAccount).map((c) => {
+                    {(clients || []).map((c) => {
                       const shown = !(c as any).hideFromHq;
                       return (
                         <label key={c.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">

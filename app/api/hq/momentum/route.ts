@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const prevStart = now - 2 * span * DAY;
 
   const clients = await prisma.client.findMany({
-    where: { isTestAccount: { not: true }, hideFromHq: { not: true } } as any,
+    where: { hideFromHq: { not: true } } as any,
     select: { id: true, name: true, color: true, instagramConnection: { select: { accessToken: true } } },
     orderBy: { name: "asc" },
   });
