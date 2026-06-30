@@ -123,11 +123,19 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold text-[9px]">
               📅 {fmtSchedule(draft.scheduledDate)}
             </span>
-            {(draft as any).zernioBooked ? (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-bold text-[9px]">✓ Scheduled</span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[9px]">🕓 Planned</span>
-            )}
+            {(() => {
+              // Only flag it Planned/Scheduled if the date is today or in the FUTURE — a past
+              // date isn't an upcoming plan.
+              const sd = draft.scheduledDate!;
+              const t = new Date(sd.includes("T") ? sd : sd + "T00:00:00").getTime();
+              const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+              if (t < startToday.getTime()) return null;
+              return (draft as any).zernioBooked ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-bold text-[9px]">✓ Scheduled</span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[9px]">🕓 Planned</span>
+              );
+            })()}
           </>
         ) : (
           // Not scheduled yet → keep the week label + planned weekday (if any).
