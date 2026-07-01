@@ -218,6 +218,8 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [activeDraftId, setActiveDraftId] = useState<number | null>(null);
   const [detailDraft, setDetailDraft] = useState<ScriptDraft | null>(null);
   const [rejectDraftData, setRejectDraftData] = useState<ScriptDraft | null>(null);
+  const [replaceMode, setReplaceMode] = useState(false);
+  const [replacingBusy, setReplacingBusy] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
   const [showBatch, setShowBatch] = useState(false);
   const [showRemix, setShowRemix] = useState(false);
@@ -369,9 +371,32 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   function rejectDraft(draftId: number) {
     const draft = drafts.find((d) => d.id === draftId) || detailDraft;
     if (draft) {
+      setReplaceMode(false);
       setRejectDraftData(draft);
       setDetailDraft(null);
     }
+  }
+
+  // Replace = same reject question (feedback for AI, or just delete), then generate a fresh
+  // script for the SAME concept to take its place.
+  function replaceDraft(draftId: number) {
+    const draft = drafts.find((d) => d.id === draftId) || detailDraft;
+    if (draft) {
+      setReplaceMode(true);
+      setRejectDraftData(draft);
+      setDetailDraft(null);
+    }
+  }
+
+  async function generateReplacement(draft: ScriptDraft) {
+    setReplacingBusy(true);
+    try {
+      await fetch("/api/script-drafts/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: draft.clientId, conceptIds: [draft.conceptId], count: 1, weekLabel: draft.weekLabel, dayLabel: (draft as any).dayLabel || null }),
+      });
+    } catch { /* non-fatal */ }
+    finally { setReplacingBusy(false); }
   }
 
   async function confirmReject(draft: ScriptDraft, reasonType: string, reason: string) {
@@ -403,14 +428,20 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       });
       await fetch(`/api/script-drafts/${draft.id}`, { method: "DELETE" });
     }
+    const wasReplace = replaceMode && !draft.clientAuthored;
     setRejectDraftData(null);
+    setReplaceMode(false);
+    if (wasReplace) { await generateReplacement(draft); }
     reload();
   }
 
   // Delete a draft outright — no AI learning signal, no feedback to the client.
   async function deleteOnly(draft: ScriptDraft) {
     await fetch(`/api/script-drafts/${draft.id}`, { method: "DELETE" });
+    const wasReplace = replaceMode;
     setRejectDraftData(null);
+    setReplaceMode(false);
+    if (wasReplace) { await generateReplacement(draft); }
     reload();
   }
 
@@ -852,6 +883,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           onClose={() => setDetailDraft(null)}
           onAccept={() => { moveDraft(detailDraft.id, stages[0]?.id ?? null); setDetailDraft(null); }}
           onReject={() => rejectDraft(detailDraft.id)}
+          onReplace={() => replaceDraft(detailDraft.id)}
           onSaveAsIdea={(weeks) => { saveAsIdea(detailDraft.id, weeks); setDetailDraft(null); }}
           onScriptUpdated={(script, hook) => {
             fetch(`/api/script-drafts/${detailDraft.id}`, {
@@ -910,10 +942,18 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       )}
 
       {/* Rejection reason modal */}
+      {replacingBusy && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium shadow-2xl flex items-center gap-2">
+          <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          Generating a replacement script…
+        </div>
+      )}
+
       {rejectDraftData && (
         <RejectModal
           draft={rejectDraftData}
-          onCancel={() => { setRejectDraftData(null); setDetailDraft(rejectDraftData); }}
+          replace={replaceMode}
+          onCancel={() => { setReplaceMode(false); setRejectDraftData(null); setDetailDraft(rejectDraftData); }}
           onConfirm={(reasonType, reason) => confirmReject(rejectDraftData, reasonType, reason)}
           onDeleteOnly={() => deleteOnly(rejectDraftData)}
         />
@@ -1288,12 +1328,12 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
 
 // ─── Detail / Refine panel ──────────────────────────────────────────────────
 function DraftDetailPanel({
-  draft, navList, language, stages, team, client: clientData, onClose, onAccept, onReject, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, onSendBack, getNextStage, onUploaded, onEditedVideoUploaded, onExampleUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
+  draft, navList, language, stages, team, client: clientData, onClose, onAccept, onReject, onReplace, onSaveAsIdea, onScriptUpdated, onProceed, onMoveToStage, onSendBack, getNextStage, onUploaded, onEditedVideoUploaded, onExampleUploaded, onReviewSubmitted, activeProfileId, ownerName = "Owner", isClient = false, onOpenChat, isTextOverlay = false,
 }: {
   draft: ScriptDraft; language: string; stages: WorkflowStage[]; team: TeamMember[]; client?: { name: string; color: string } | null;
   navList?: number[];
   isTextOverlay?: boolean;
-  onClose: () => void; onAccept: () => void; onReject: () => void;
+  onClose: () => void; onAccept: () => void; onReject: () => void; onReplace?: () => void;
   onSaveAsIdea: (weeks: number) => void;
   onScriptUpdated: (script: string, hook: string | null) => void;
   onProceed: () => void;
@@ -1836,6 +1876,12 @@ function DraftDetailPanel({
                 className="flex-1 py-2 text-sm font-semibold text-white bg-green-500 rounded-xl hover:bg-green-600">
                 ✓ Accept
               </button>
+              {onReplace && !draft.clientAuthored && (
+                <button onClick={onReplace}
+                  className="px-4 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100">
+                  🔄 Replace
+                </button>
+              )}
               <button onClick={onReject}
                 className="px-4 py-2 text-sm font-semibold text-red-500 bg-red-50 rounded-xl hover:bg-red-100">
                 ✗ Reject
@@ -3368,12 +3414,13 @@ const REJECT_REASONS = [
 ];
 
 function RejectModal({
-  draft, onCancel, onConfirm, onDeleteOnly,
+  draft, onCancel, onConfirm, onDeleteOnly, replace = false,
 }: {
   draft: ScriptDraft;
   onCancel: () => void;
   onConfirm: (reasonType: string, reason: string) => void;
   onDeleteOnly: () => void;
+  replace?: boolean;
 }) {
   // Pre-fill with the creator's feedback if this was sent back, so the owner can
   // reject it into AI training with one click (editable).
@@ -3389,10 +3436,12 @@ function RejectModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
-          <h2 className="text-base font-bold text-slate-800">{draft.clientAuthored ? "Send back for changes" : "Why are you rejecting this?"}</h2>
+          <h2 className="text-base font-bold text-slate-800">{replace ? "Why replace this one?" : draft.clientAuthored ? "Send back for changes" : "Why are you rejecting this?"}</h2>
           <p className="text-xs text-slate-400 mt-0.5 truncate">"{draft.title}"</p>
           <p className="text-[10px] text-indigo-500 mt-0.5">
-            {draft.clientAuthored
+            {replace
+              ? "Claude learns from this, then writes a fresh script for this concept to replace it."
+              : draft.clientAuthored
               ? "The client sees this feedback on their Script Tasks page and can revise & resubmit."
               : "Claude will learn from this for future scripts on this concept."}
           </p>
@@ -3435,16 +3484,16 @@ function RejectModal({
             disabled={!selected || (selected === "custom" && !customText.trim())}
             className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl disabled:opacity-40 transition-colors"
           >
-            {draft.clientAuthored ? "↩ Send back to client" : "✗ Reject & Delete"}
+            {replace ? "🔄 Replace with a new one" : draft.clientAuthored ? "↩ Send back to client" : "✗ Reject & Delete"}
           </button>
         </div>
 
-        {/* Delete without teaching the AI / notifying the client — no reason needed. */}
+        {/* Delete/replace without teaching the AI / notifying the client — no reason needed. */}
         <button
           onClick={onDeleteOnly}
           className="w-full text-center text-xs font-medium text-slate-400 hover:text-red-500 pt-1"
         >
-          🗑 Just delete — don&apos;t teach the AI{draft.clientAuthored ? " or notify the client" : ""}
+          {replace ? "🔄 Just replace — don't teach the AI" : `🗑 Just delete — don't teach the AI${draft.clientAuthored ? " or notify the client" : ""}`}
         </button>
       </div>
     </div>
