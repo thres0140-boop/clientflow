@@ -2846,12 +2846,23 @@ function BatchModal({ client, concepts, drafts, onClose, onGenerated }: {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
-  // What each concept still NEEDS = cadence × weeks minus what's already on the board (any
-  // non-posted draft of that concept). Recomputed whenever the duration changes.
+  // The Content Scheduling day template ({ weekday: conceptId }) is the source of truth: how
+  // many days per week each concept is assigned. Fall back to the concept's own cadence only
+  // if no template is set up yet.
+  const template: Record<string, number | null> = (() => {
+    try { return JSON.parse((client as any).dayTemplate || "{}"); } catch { return {}; }
+  })();
+  const hasTemplate = Object.values(template).some((v) => v != null);
+  const perWeekOf = (c: Concept) => hasTemplate
+    ? Object.values(template).filter((v) => v === c.id).length
+    : postsPerWeekOf(c);
+
+  // What each concept still NEEDS = (calendar days/week × weeks) minus what's already on the
+  // board. Recomputed whenever the duration changes.
   useEffect(() => {
     const next: Record<number, number> = {};
     for (const c of genConcepts) {
-      const target = postsPerWeekOf(c) * weeks;
+      const target = perWeekOf(c) * weeks;
       const have = drafts.filter((d) => d.conceptId === c.id).length;
       next[c.id] = Math.max(0, target - have);
     }
@@ -2885,7 +2896,7 @@ function BatchModal({ client, concepts, drafts, onClose, onGenerated }: {
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">📦 Generate Batch</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">A full period&apos;s content — the right amount per concept, minus what you already have.</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Counts from your Content Scheduling day template — how many days each concept is assigned × the period, minus what you have.</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
@@ -2924,7 +2935,7 @@ function BatchModal({ client, concepts, drafts, onClose, onGenerated }: {
                         {on && <span className="text-white text-[9px] font-bold">✓</span>}
                       </button>
                       <span className="flex-1 font-medium text-slate-700 truncate" title={label}>{label}</span>
-                      <span className="text-[10px] text-slate-400 flex-shrink-0">{postsPerWeekOf(c)}/wk · have {have}</span>
+                      <span className="text-[10px] text-slate-400 flex-shrink-0">{perWeekOf(c)}/wk · have {have}</span>
                       <input type="number" min={0} value={counts[c.id] ?? 0} disabled={!on}
                         onChange={(e) => setCounts((p) => ({ ...p, [c.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
                         className="w-12 border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40" />
