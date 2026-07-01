@@ -725,7 +725,19 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                   <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[120px]">
                     {stageDrafts.map((draft) => (
                       <div key={draft.id} className="space-y-1.5">
-                        <DraggableCard draft={draft} days={daysOf(draft)} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} highlight={flashId === draft.id} onClick={() => openDraft(draft)} />
+                        <div className="relative group">
+                          <DraggableCard draft={draft} days={daysOf(draft)} selected={detailDraft?.id === draft.id} notify={isUnseenSentBack(draft)} highlight={flashId === draft.id} onClick={() => openDraft(draft)} />
+                          {/* Quick delete from any stage — plain delete, no AI-context learning. */}
+                          {!activeProfile && (
+                            <button
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${draft.title}"?\n\nThis permanently removes the reel and can't be undone.`)) deleteOnly(draft); }}
+                              title="Delete this reel"
+                              className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-red-600 hover:border-red-300 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                              ✕
+                            </button>
+                          )}
+                        </div>
                         {/* Per-card actions */}
                         {stage.name === "Edit" ? (
                           <div className="space-y-1">
