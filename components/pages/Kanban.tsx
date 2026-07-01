@@ -220,12 +220,25 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [rejectDraftData, setRejectDraftData] = useState<ScriptDraft | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
   const [showRemix, setShowRemix] = useState(false);
+  const [goal, setGoal] = useState(7);
+  const [goalOpen, setGoalOpen] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [conceptFilter, setConceptFilter] = useState<number | "all">("all");
   const [dayFilter, setDayFilter] = useState<string>("all");
   const [showStageManager, setShowStageManager] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  // Per-client production goal (how many scripts you want in production for the period).
+  useEffect(() => {
+    if (!selectedClientId) return;
+    try { const v = parseInt(localStorage.getItem(`cf_kanban_goal_${selectedClientId}`) || ""); setGoal(v > 0 ? v : 7); } catch { setGoal(7); }
+  }, [selectedClientId]);
+  function saveGoal(n: number) {
+    const v = Math.max(1, n || 1);
+    setGoal(v);
+    try { if (selectedClientId) localStorage.setItem(`cf_kanban_goal_${selectedClientId}`, String(v)); } catch { /* */ }
+  }
 
   const reload = useCallback(async () => {
     if (!selectedClientId) return;
@@ -505,6 +518,51 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             <h1 className="text-xl font-bold text-slate-900">{client.name}</h1>
             <p className="text-xs text-slate-400">Script Kanban · Week {WEEK_NUMBER}</p>
           </div>
+          {/* Production goal — how many scripts you want in production; fills as you drag
+              Ideas → Record. Owner only. */}
+          {!activeProfile && (() => {
+            const produced = drafts.filter((d) => (d as any).stageId != null).length;
+            const remaining = Math.max(0, goal - produced);
+            const pct = Math.min(100, Math.round((produced / goal) * 100));
+            return (
+              <div className="relative ml-2">
+                <button onClick={() => setGoalOpen((o) => !o)}
+                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+                  <span className="text-sm">🎯</span>
+                  <div className="text-left">
+                    <p className="text-[11px] font-bold text-slate-700 leading-none">{produced} / {goal} <span className="font-normal text-slate-400">in production</span></p>
+                    <div className="w-28 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                      <div className={`h-full rounded-full ${remaining === 0 ? "bg-emerald-500" : "bg-indigo-500"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <span className={`text-[11px] font-bold ${remaining > 0 ? "text-amber-600" : "text-emerald-600"}`}>{remaining > 0 ? `${remaining} left` : "✓ done"}</span>
+                </button>
+                {goalOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setGoalOpen(false)} />
+                    <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2.5">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Scripts goal for the period</p>
+                      <div className="flex gap-2">
+                        {[["7", "1 week"], ["14", "2 weeks"], ["30", "1 month"]].map(([n, lbl]) => (
+                          <button key={n} onClick={() => saveGoal(parseInt(n))}
+                            className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${goal === parseInt(n) ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                            {n}<span className="block text-[8px] font-normal opacity-80">{lbl}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">Custom</span>
+                        <input type="number" min={1} value={goal} onChange={(e) => saveGoal(parseInt(e.target.value) || 1)}
+                          className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                        <span className="text-[10px] text-slate-400">scripts</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">Counts cards in Record or further. Drag from Ideas to fill it.</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
         <div className="flex items-center gap-2">
           {concepts.length > 0 && (
