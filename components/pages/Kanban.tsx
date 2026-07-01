@@ -222,6 +222,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [showRemix, setShowRemix] = useState(false);
   const [goal, setGoal] = useState(7);
   const [goalOpen, setGoalOpen] = useState(false);
+  const [goalMap, setGoalMap] = useState<Record<number, number>>({});
   const [showImport, setShowImport] = useState(false);
   const [conceptFilter, setConceptFilter] = useState<number | "all">("all");
   const [dayFilter, setDayFilter] = useState<string>("all");
@@ -233,11 +234,18 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   useEffect(() => {
     if (!selectedClientId) return;
     try { const v = parseInt(localStorage.getItem(`cf_kanban_goal_${selectedClientId}`) || ""); setGoal(v > 0 ? v : 7); } catch { setGoal(7); }
+    try { setGoalMap(JSON.parse(localStorage.getItem(`cf_kanban_goalmap_${selectedClientId}`) || "{}")); } catch { setGoalMap({}); }
   }, [selectedClientId]);
   function saveGoal(n: number) {
     const v = Math.max(1, n || 1);
     setGoal(v);
     try { if (selectedClientId) localStorage.setItem(`cf_kanban_goal_${selectedClientId}`, String(v)); } catch { /* */ }
+  }
+  function saveGoalConcept(conceptId: number, n: number) {
+    const next = { ...goalMap, [conceptId]: Math.max(0, n || 0) };
+    if (!next[conceptId]) delete next[conceptId];
+    setGoalMap(next);
+    try { if (selectedClientId) localStorage.setItem(`cf_kanban_goalmap_${selectedClientId}`, JSON.stringify(next)); } catch { /* */ }
   }
 
   const reload = useCallback(async () => {
@@ -540,8 +548,8 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                 {goalOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setGoalOpen(false)} />
-                    <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2.5">
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Scripts goal for the period</p>
+                    <div className="absolute left-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2.5">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Total scripts goal for the period</p>
                       <div className="flex gap-2">
                         {[["7", "1 week"], ["14", "2 weeks"], ["30", "1 month"]].map(([n, lbl]) => (
                           <button key={n} onClick={() => saveGoal(parseInt(n))}
@@ -549,12 +557,38 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                             {n}<span className="block text-[8px] font-normal opacity-80">{lbl}</span>
                           </button>
                         ))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">Custom</span>
                         <input type="number" min={1} value={goal} onChange={(e) => saveGoal(parseInt(e.target.value) || 1)}
-                          className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                        <span className="text-[10px] text-slate-400">scripts</span>
+                          title="Custom total"
+                          className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                      </div>
+
+                      {/* Per-concept targets */}
+                      <div className="pt-1 border-t border-slate-100">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Needed per concept</p>
+                        <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                          {concepts.length === 0 ? (
+                            <p className="text-[10px] text-slate-400">No concepts yet.</p>
+                          ) : concepts.map((c) => {
+                            const inProd = drafts.filter((d) => d.conceptId === c.id && (d as any).stageId != null).length;
+                            const target = goalMap[c.id] || 0;
+                            const left = Math.max(0, target - inProd);
+                            const label = (c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name;
+                            return (
+                              <div key={c.id} className="flex items-center gap-2">
+                                <span className="text-[11px] text-slate-600 flex-1 truncate" title={label}>{label}</span>
+                                <span className={`text-[10px] font-semibold ${target > 0 ? (left === 0 ? "text-emerald-600" : "text-amber-600") : "text-slate-400"}`}>
+                                  {inProd}/{target || "–"}{target > 0 && left > 0 ? ` · ${left} left` : target > 0 && left === 0 ? " ✓" : ""}
+                                </span>
+                                <input type="number" min={0} value={target || ""} placeholder="0"
+                                  onChange={(e) => saveGoalConcept(c.id, parseInt(e.target.value) || 0)}
+                                  className="w-12 border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {Object.values(goalMap).some((v) => v > 0) && (
+                          <p className="text-[10px] text-slate-400 mt-1.5">Per-concept targets total {Object.values(goalMap).reduce((s, v) => s + (v || 0), 0)}.</p>
+                        )}
                       </div>
                       <p className="text-[10px] text-slate-400">Counts cards in Record or further. Drag from Ideas to fill it.</p>
                     </div>
