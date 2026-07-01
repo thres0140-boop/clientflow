@@ -81,7 +81,9 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { clientId, conceptIds, weekLabel, dayLabel, count = 5 } = body;
+  // `count` = a single number applied to every concept. `counts` = an optional per-concept
+  // map { conceptId: n } used by Batch mode to generate exactly as many as each concept needs.
+  const { clientId, conceptIds, weekLabel, dayLabel, count: defaultCount = 5, counts } = body;
 
   const clientData = await prisma.client.findUnique({ where: { id: parseInt(clientId) } });
   if (!clientData) return NextResponse.json({ error: "Client not found" }, { status: 404 });
@@ -98,6 +100,9 @@ export async function POST(req: NextRequest) {
   const created = [];
 
   for (const concept of concepts) {
+    // Per-concept count (Batch mode) or the shared default.
+    const count = counts && counts[concept.id] != null ? parseInt(String(counts[concept.id])) : defaultCount;
+    if (!count || count <= 0) continue;
 
     // --- Build system prompt: permanent context about this creator + concept ---
     const blueprintLines = [

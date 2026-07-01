@@ -219,6 +219,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
   const [detailDraft, setDetailDraft] = useState<ScriptDraft | null>(null);
   const [rejectDraftData, setRejectDraftData] = useState<ScriptDraft | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [showBatch, setShowBatch] = useState(false);
   const [showRemix, setShowRemix] = useState(false);
   const [goal, setGoal] = useState(7);
   const [goalOpen, setGoalOpen] = useState(false);
@@ -642,6 +643,12 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             </button>
           )}
           {!activeProfile && (
+            <button onClick={() => setShowBatch(true)}
+              className="px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 flex items-center gap-1.5">
+              📦 Generate Batch
+            </button>
+          )}
+          {!activeProfile && (
             <button onClick={() => setShowGenerate(true)}
               className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-1.5">
               ✨ Generate Scripts
@@ -919,6 +926,17 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           concepts={concepts}
           onClose={() => setShowGenerate(false)}
           onGenerated={() => { setShowGenerate(false); reload(); }}
+        />
+      )}
+
+      {/* Batch generate modal */}
+      {showBatch && (
+        <BatchModal
+          client={client}
+          concepts={concepts}
+          drafts={drafts}
+          onClose={() => setShowBatch(false)}
+          onGenerated={() => { setShowBatch(false); reload(); }}
         />
       )}
 
@@ -2802,6 +2820,134 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
           <button onClick={generate} disabled={generating || selectedConcepts.length === 0}
             className="px-5 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">
             {generating ? "Generating…" : `✨ Generate ${count * selectedConcepts.length} scripts`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Batch generate modal ───────────────────────────────────────────────────
+// Generate a whole period's worth of content: pick a duration + concepts, and it makes the
+// right number PER concept (based on each concept's posting cadence), minus what you already
+// have, so one click fills the batch "as needed".
+function postsPerWeekOf(c: Concept): number {
+  const days = ((c as any).postDays || "").split(/[,;/]+|\s+/).filter(Boolean).length;
+  return days > 0 ? days : 1;
+}
+function BatchModal({ client, concepts, drafts, onClose, onGenerated }: {
+  client: Client; concepts: Concept[]; drafts: ScriptDraft[]; onClose: () => void; onGenerated: () => void;
+}) {
+  const genConcepts = concepts.filter((c) => !(c as any).clientOwned);
+  const [weeks, setWeeks] = useState(1);
+  const [selected, setSelected] = useState<number[]>(genConcepts.map((c) => c.id));
+  const [weekLabel, setWeekLabel] = useState(`Week ${WEEK_NUMBER}`);
+  const [counts, setCounts] = useState<Record<number, number>>({});
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState("");
+
+  // What each concept still NEEDS = cadence × weeks minus what's already on the board (any
+  // non-posted draft of that concept). Recomputed whenever the duration changes.
+  useEffect(() => {
+    const next: Record<number, number> = {};
+    for (const c of genConcepts) {
+      const target = postsPerWeekOf(c) * weeks;
+      const have = drafts.filter((d) => d.conceptId === c.id).length;
+      next[c.id] = Math.max(0, target - have);
+    }
+    setCounts(next);
+  }, [weeks]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggle(id: number) { setSelected((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]); }
+  const total = selected.reduce((s, id) => s + (counts[id] || 0), 0);
+
+  async function generate() {
+    const active = selected.filter((id) => (counts[id] || 0) > 0);
+    if (!active.length) { setError("Nothing to generate — every concept is already covered or set to 0."); return; }
+    setGenerating(true); setError("");
+    try {
+      const countsPayload: Record<number, number> = {};
+      for (const id of active) countsPayload[id] = counts[id];
+      const res = await fetch("/api/script-drafts/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: client.id, conceptIds: active, counts: countsPayload, weekLabel, dayLabel: null }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Generation failed."); return; }
+      onGenerated();
+    } catch { setError("Generation failed. Check your API key."); }
+    finally { setGenerating(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-800">📦 Generate Batch</h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">A full period&apos;s content — the right amount per concept, minus what you already have.</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+        <div className="px-6 py-5 space-y-5">
+          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Batch length</label>
+            <div className="flex gap-2">
+              {[[1, "1 week"], [2, "2 weeks"], [4, "1 month"]].map(([w, lbl]) => (
+                <button key={w} onClick={() => setWeeks(w as number)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-all ${weeks === w ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-slate-600">Concepts in the batch</label>
+              <button onClick={() => setSelected(selected.length === genConcepts.length ? [] : genConcepts.map((c) => c.id))}
+                className="text-xs text-indigo-600 hover:underline">{selected.length === genConcepts.length ? "Deselect all" : "Select all"}</button>
+            </div>
+            {genConcepts.length === 0 ? (
+              <p className="text-xs text-slate-400">No AI concepts — add some in the Concept Library first.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {genConcepts.map((c) => {
+                  const on = selected.includes(c.id);
+                  const label = (c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name;
+                  const have = drafts.filter((d) => d.conceptId === c.id).length;
+                  return (
+                    <div key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs ${on ? "bg-indigo-50 border-indigo-200" : "bg-slate-50 border-slate-200 opacity-60"}`}>
+                      <button onClick={() => toggle(c.id)} className={`w-4 h-4 rounded flex items-center justify-center border flex-shrink-0 ${on ? "bg-indigo-600 border-indigo-600" : "border-slate-300 bg-white"}`}>
+                        {on && <span className="text-white text-[9px] font-bold">✓</span>}
+                      </button>
+                      <span className="flex-1 font-medium text-slate-700 truncate" title={label}>{label}</span>
+                      <span className="text-[10px] text-slate-400 flex-shrink-0">{postsPerWeekOf(c)}/wk · have {have}</span>
+                      <input type="number" min={0} value={counts[c.id] ?? 0} disabled={!on}
+                        onChange={(e) => setCounts((p) => ({ ...p, [c.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                        className="w-12 border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Week label</label>
+            <input value={weekLabel} onChange={(e) => setWeekLabel(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+
+          <p className="text-xs text-slate-400">Will generate <strong className="text-slate-700">{total} scripts</strong> across {selected.filter((id) => (counts[id] || 0) > 0).length} concept{selected.filter((id) => (counts[id] || 0) > 0).length !== 1 ? "s" : ""} — enough to cover the next {weeks === 4 ? "month" : `${weeks} week${weeks > 1 ? "s" : ""}`}.</p>
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button onClick={generate} disabled={generating || total === 0}
+            className="px-5 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">
+            {generating ? "Generating…" : `📦 Generate ${total} scripts`}
           </button>
         </div>
       </div>
