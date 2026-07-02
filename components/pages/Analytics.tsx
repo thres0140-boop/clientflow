@@ -92,8 +92,15 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   const [bookingLink, setBookingLink] = useState("");
   const [editingBL,   setEditingBL]   = useState(false);
 
-  // Concept tab
-  const [conceptWeeksBack, setConceptWeeksBack] = useState(8);
+  // Concept tab — persisted period (weeks).
+  const [conceptWeeksBack, setConceptWeeksBack] = useState<number>(() => {
+    if (typeof window !== "undefined") { const v = parseInt(localStorage.getItem("cf_concept_weeks") || ""); if (v) return v; }
+    return 8;
+  });
+  function setConceptWeeks(n: number) {
+    setConceptWeeksBack(n);
+    try { localStorage.setItem("cf_concept_weeks", String(n)); } catch { /* */ }
+  }
   const [conceptReels, setConceptReels] = useState<string | null>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
@@ -494,29 +501,31 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   }
 
   // ── Concept Analytics ─────────────────────────────────────────────────
-  const nowMonday = getMonday(new Date());
-  const conceptWeekStarts: Date[] = Array.from({ length: conceptWeeksBack }, (_, i) =>
-    getMonday(addDays(nowMonday, -7 * (conceptWeeksBack - 1 - i)))
-  );
-
   // Aggregate the SAME auto-tracked data as General Analytics (per-day views from posted
-  // reels), grouped by the concept tagged to each day, across the chosen weeks. No manual
-  // TrackedVideo needed — this uses the data that's already flowing in.
-  const conceptDates: string[] = [];
-  for (const ws of conceptWeekStarts) for (let i = 0; i < 7; i++) conceptDates.push(toYMD(addDays(ws, i)));
-  const conceptAutoMap = buildAutoMap(conceptDates);
+  // reels), grouped by concept. Compare the current window vs the equally-long window before
+  // it for the up/down trajectory. No manual TrackedVideo needed.
+  const nowMonday = getMonday(new Date());
+  const weekStartsFrom = (offsetWeeks: number) =>
+    Array.from({ length: conceptWeeksBack }, (_, i) => getMonday(addDays(nowMonday, -7 * (conceptWeeksBack - 1 - i + offsetWeeks))));
+  const datesOf = (starts: Date[]) => { const s = new Set<string>(); for (const ws of starts) for (let i = 0; i < 7; i++) s.add(toYMD(addDays(ws, i))); return s; };
+
+  const curDates = datesOf(weekStartsFrom(0));
+  const prevDates = datesOf(weekStartsFrom(conceptWeeksBack)); // the window before the current one
+  const conceptAutoMap = buildAutoMap([...curDates, ...prevDates]);
+
   const conceptLabels = Array.from(new Set(
-    conceptDates.flatMap((d) => conceptAutoMap[d]?.concepts || [])
+    [...curDates].flatMap((d) => conceptAutoMap[d]?.concepts || [])
   )).sort();
 
-  // The actual posted reels behind a concept (matched by the day they went live).
-  function reelsForConcept(label: string): any[] {
+  // Posted reels behind a concept within a given date window (matched by the day they aired).
+  function reelsForConcept(label: string, dates: Set<string> = curDates): any[] {
     return igReels.filter((r) => {
       if (!r.timestamp) return false;
-      const day = conceptAutoMap[toYMD(new Date(r.timestamp))];
-      return day && day.concepts.includes(label);
+      const ymd = toYMD(new Date(r.timestamp));
+      return dates.has(ymd) && conceptAutoMap[ymd]?.concepts.includes(label);
     });
   }
+  const avgOf = (reels: any[]) => reels.length ? Math.round(reels.reduce((s, r) => s + (r.plays || 0), 0) / reels.length) : 0;
 
   return (
     <div className="space-y-5">
@@ -643,12 +652,15 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-slate-600">Show last</span>
-            {[4, 8, 12].map((n) => (
-              <button key={n} onClick={() => setConceptWeeksBack(n)}
-                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${conceptWeeksBack === n ? "bg-indigo-600 text-white border-indigo-600" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-                {n} weeks
-              </button>
-            ))}
+            <select value={conceptWeeksBack} onChange={(e) => setConceptWeeks(parseInt(e.target.value))}
+              className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              <option value={1}>1 week</option>
+              <option value={2}>2 weeks</option>
+              <option value={4}>4 weeks</option>
+              <option value={8}>8 weeks</option>
+              <option value={12}>12 weeks</option>
+            </select>
+            <span className="text-xs text-slate-400">vs the previous {conceptWeeksBack === 1 ? "week" : `${conceptWeeksBack} weeks`}</span>
           </div>
 
           {!selectedClientId ? (
@@ -663,17 +675,25 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                 .map((label) => {
                   const reels = reelsForConcept(label);
                   const total = reels.reduce((s, r) => s + (r.plays || 0), 0);
-                  const avg = reels.length ? Math.round(total / reels.length) : 0;
-                  return { label, reels, total, avg };
+                  const avg = avgOf(reels);
+                  const prevAvg = avgOf(reelsForConcept(label, prevDates));
+                  const delta = prevAvg > 0 && reels.length ? (avg - prevAvg) / prevAvg : null;
+                  return { label, reels, total, avg, delta };
                 })
                 .sort((a, b) => b.avg - a.avg)
-                .map(({ label, reels, total, avg }) => (
+                .map(({ label, reels, total, avg, delta }) => (
                   <div key={label} className="flex items-center gap-4 bg-white border border-slate-200 rounded-xl px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-800 truncate">{label}</p>
                       <p className="text-[11px] text-slate-400">{reels.length} post{reels.length !== 1 ? "s" : ""} · {fmtN(total)} total views</p>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    {delta !== null && (
+                      <div className={`text-right flex-shrink-0 ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        <p className="text-sm font-bold">{delta >= 0 ? "▲" : "▼"} {Math.abs(delta * 100).toFixed(0)}%</p>
+                        <p className="text-[10px] text-slate-400">vs prev</p>
+                      </div>
+                    )}
+                    <div className="text-right flex-shrink-0 w-16">
                       <p className="text-lg font-bold text-slate-800">{fmtN(avg)}</p>
                       <p className="text-[10px] text-slate-400">avg / post</p>
                     </div>
