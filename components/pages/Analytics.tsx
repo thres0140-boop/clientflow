@@ -94,6 +94,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
 
   // Concept tab
   const [conceptWeeksBack, setConceptWeeksBack] = useState(8);
+  const [conceptReels, setConceptReels] = useState<string | null>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
@@ -508,13 +509,13 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     conceptDates.flatMap((d) => conceptAutoMap[d]?.concepts || [])
   )).sort();
 
-  function conceptWeekViews(label: string, ws: Date): number {
-    let sum = 0;
-    for (let i = 0; i < 7; i++) {
-      const day = conceptAutoMap[toYMD(addDays(ws, i))];
-      if (day && day.concepts.includes(label)) sum += day.views;
-    }
-    return sum;
+  // The actual posted reels behind a concept (matched by the day they went live).
+  function reelsForConcept(label: string): any[] {
+    return igReels.filter((r) => {
+      if (!r.timestamp) return false;
+      const day = conceptAutoMap[toYMD(new Date(r.timestamp))];
+      return day && day.concepts.includes(label);
+    });
   }
 
   return (
@@ -657,48 +658,93 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
               No concept-tagged posts yet in this window. Once posts go live with a concept, their performance shows here.
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
-              <table className="text-sm min-w-full">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 sticky left-0 bg-slate-50 min-w-[160px]">Concept</th>
-                    {conceptWeekStarts.map((ws, i) => (
-                      <th key={i} className="px-3 py-3 text-right text-xs font-semibold text-slate-400 whitespace-nowrap min-w-[72px]">
-                        {MONTHS[ws.getMonth()]} {ws.getDate()}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {conceptLabels.map((label) => (
-                    <tr key={label} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white text-sm">{label}</td>
-                      {conceptWeekStarts.map((ws, i) => {
-                        const views = conceptWeekViews(label, ws);
-                        const prev  = i > 0 ? conceptWeekViews(label, conceptWeekStarts[i - 1]) : null;
-                        const delta = prev !== null ? views - prev : null;
-                        return (
-                          <td key={i} className="px-3 py-3 text-right">
-                            {views > 0 ? (
-                              <div className="inline-flex flex-col items-end gap-0">
-                                <span className="text-xs font-semibold text-slate-700">{fmtN(views)}</span>
-                                {delta !== null && delta !== 0 && (
-                                  <span className={`text-[10px] font-bold leading-tight ${delta > 0 ? "text-green-500" : "text-red-400"}`}>
-                                    {delta > 0 ? "↑" : "↓"}{fmtN(Math.abs(delta))}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-slate-200 text-xs">—</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {conceptLabels
+                .map((label) => {
+                  const reels = reelsForConcept(label);
+                  const total = reels.reduce((s, r) => s + (r.plays || 0), 0);
+                  const avg = reels.length ? Math.round(total / reels.length) : 0;
+                  return { label, reels, total, avg };
+                })
+                .sort((a, b) => b.avg - a.avg)
+                .map(({ label, reels, total, avg }) => (
+                  <div key={label} className="flex items-center gap-4 bg-white border border-slate-200 rounded-xl px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{label}</p>
+                      <p className="text-[11px] text-slate-400">{reels.length} post{reels.length !== 1 ? "s" : ""} · {fmtN(total)} total views</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-lg font-bold text-slate-800">{fmtN(avg)}</p>
+                      <p className="text-[10px] text-slate-400">avg / post</p>
+                    </div>
+                    <button onClick={() => setConceptReels(label)} disabled={!reels.length}
+                      className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-40 flex-shrink-0">
+                      🎬 View reels
+                    </button>
+                  </div>
+                ))}
             </div>
+          )}
+
+          {conceptReels && (
+            <ConceptReelsModal label={conceptReels} reels={reelsForConcept(conceptReels)} onClose={() => setConceptReels(null)} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Popup showing the posted reels behind one concept, newest first, click to play inline.
+function ConceptReelsModal({ label, reels, onClose }: { label: string; reels: any[]; onClose: () => void }) {
+  const [play, setPlay] = useState<any | null>(null);
+  const [vidErr, setVidErr] = useState(false);
+  const sorted = [...reels].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const fmtViews = (n: number) => n >= 1000 ? (n / 1000).toFixed(1) + "K" : String(n || 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[640px] max-w-[94vw] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">🎬 {label}</h3>
+            <p className="text-[11px] text-slate-400">{sorted.length} posted reel{sorted.length !== 1 ? "s" : ""}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+        </div>
+        <div className="p-4 overflow-y-auto">
+          {sorted.length === 0 ? (
+            <p className="py-12 text-center text-sm text-slate-400">No reels found for this concept.</p>
+          ) : (
+            <div className="grid grid-cols-4 gap-2">
+              {sorted.map((r) => (
+                <button key={r.id} onClick={() => { setVidErr(false); setPlay(r); }}
+                  className="relative aspect-[9/16] rounded-lg overflow-hidden border border-slate-200 hover:border-indigo-400 transition-all group">
+                  {r.thumbnail_url
+                    ? <img src={r.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">▶</div>}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
+                  <span className="absolute bottom-1 left-1 text-[10px] font-bold text-white">▶ {fmtViews(r.plays)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {play && (
+        <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4" onClick={() => setPlay(null)}>
+          <button onClick={() => setPlay(null)} className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/15 text-white text-lg flex items-center justify-center hover:bg-white/25">×</button>
+          {play.media_url ? (
+            <video
+              src={vidErr ? `/api/vid?u=${encodeURIComponent(play.media_url)}` : play.media_url}
+              controls autoPlay playsInline onClick={(e) => e.stopPropagation()}
+              onError={() => !vidErr && setVidErr(true)}
+              className="max-w-full max-h-full rounded-lg bg-black" />
+          ) : (
+            <a href={play.permalink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+              className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-slate-700">Open on Instagram ↗</a>
           )}
         </div>
       )}
