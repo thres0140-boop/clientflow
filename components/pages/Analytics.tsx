@@ -498,18 +498,23 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     getMonday(addDays(nowMonday, -7 * (conceptWeeksBack - 1 - i)))
   );
 
-  const conceptMap: Record<number, string> = {};
-  for (const v of allVideos) {
-    if (v.conceptId && v.concept?.name) conceptMap[v.conceptId] = v.concept.name;
-  }
-  const conceptIds = Object.keys(conceptMap).map(Number);
+  // Aggregate the SAME auto-tracked data as General Analytics (per-day views from posted
+  // reels), grouped by the concept tagged to each day, across the chosen weeks. No manual
+  // TrackedVideo needed — this uses the data that's already flowing in.
+  const conceptDates: string[] = [];
+  for (const ws of conceptWeekStarts) for (let i = 0; i < 7; i++) conceptDates.push(toYMD(addDays(ws, i)));
+  const conceptAutoMap = buildAutoMap(conceptDates);
+  const conceptLabels = Array.from(new Set(
+    conceptDates.flatMap((d) => conceptAutoMap[d]?.concepts || [])
+  )).sort();
 
-  function conceptWeekViews(cid: number, ws: Date): number {
-    const from = toYMD(ws);
-    const to   = toYMD(addDays(ws, 6));
-    return allVideos
-      .filter((v) => v.conceptId === cid && v.datePosted && v.datePosted >= from && v.datePosted <= to)
-      .reduce((s, v) => s + v.views, 0);
+  function conceptWeekViews(label: string, ws: Date): number {
+    let sum = 0;
+    for (let i = 0; i < 7; i++) {
+      const day = conceptAutoMap[toYMD(addDays(ws, i))];
+      if (day && day.concepts.includes(label)) sum += day.views;
+    }
+    return sum;
   }
 
   return (
@@ -647,9 +652,9 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
 
           {!selectedClientId ? (
             <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400 text-sm">Select a client</div>
-          ) : conceptIds.length === 0 ? (
+          ) : conceptLabels.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400 text-sm">
-              No tracked videos yet. Track videos and tag them to concepts to see weekly performance here.
+              No concept-tagged posts yet in this window. Once posts go live with a concept, their performance shows here.
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
@@ -665,12 +670,12 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {conceptIds.map((cid) => (
-                    <tr key={cid} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white text-sm">{conceptMap[cid]}</td>
+                  {conceptLabels.map((label) => (
+                    <tr key={label} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-3 font-medium text-slate-700 sticky left-0 bg-white text-sm">{label}</td>
                       {conceptWeekStarts.map((ws, i) => {
-                        const views = conceptWeekViews(cid, ws);
-                        const prev  = i > 0 ? conceptWeekViews(cid, conceptWeekStarts[i - 1]) : null;
+                        const views = conceptWeekViews(label, ws);
+                        const prev  = i > 0 ? conceptWeekViews(label, conceptWeekStarts[i - 1]) : null;
                         const delta = prev !== null ? views - prev : null;
                         return (
                           <td key={i} className="px-3 py-3 text-right">
