@@ -1355,6 +1355,7 @@ function DraftDetailPanel({
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [refining, setRefining] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [saveWeeks, setSaveWeeks] = useState(2);
   const [checkApproved, setCheckApproved] = useState(false);
   const [notes, setNotes] = useState<{ id: number; author: string; content: string; createdAt: string; imageUrl?: string | null }[]>([]);
@@ -1449,6 +1450,32 @@ function DraftDetailPanel({
     } finally {
       setRefining(false);
     }
+  }
+
+  // One-click translate the script (and hook) to native Dutch, keeping tone + format.
+  async function translateToDutch() {
+    setTranslating(true);
+    const prompt = "Translate this to natural, native Dutch (Netherlands). Keep the exact same meaning, tone, structure and format (same on-screen text cards / spoken style). Do not add or remove anything. Output ONLY the translation, no preamble.";
+    try {
+      const sData = await fetch("/api/script-drafts/refine", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ originalScript: script, hook, language: "nl", messages: [{ role: "user", content: prompt }] }),
+      }).then((r) => r.json());
+      const newScript = (sData.script || script).trim();
+      let newHook = hook;
+      if (isTextOverlay) {
+        newHook = newScript.split("\n").map((l: string) => l.trim()).find(Boolean) || hook;
+      } else if (hook) {
+        const hData = await fetch("/api/script-drafts/refine", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ originalScript: hook, hook: "", language: "nl", messages: [{ role: "user", content: prompt }] }),
+        }).then((r) => r.json());
+        newHook = (hData.script || hook).trim();
+      }
+      setScript(newScript); setHook(newHook);
+      onScriptUpdated(newScript, newHook || null);
+    } catch { /* non-fatal */ }
+    finally { setTranslating(false); }
   }
 
   return (
@@ -1557,6 +1584,14 @@ function DraftDetailPanel({
                 <p className="text-[10px] text-slate-400 mt-1">{script.split(" ").filter(Boolean).length} words</p>
               </div>
             </>
+          )}
+
+          {/* Translate to Dutch — one click, keeps tone + format. */}
+          {!isClient && (
+            <button onClick={translateToDutch} disabled={translating || !script.trim()}
+              className="w-full py-2 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 disabled:opacity-50 flex items-center justify-center gap-1.5">
+              {translating ? "Translating…" : "🇳🇱 Translate script to Dutch"}
+            </button>
           )}
 
           {/* Schedule to calendar — owner only */}
