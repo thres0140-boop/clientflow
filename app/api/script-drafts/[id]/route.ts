@@ -44,6 +44,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.rawContentUrls !== undefined) data.rawContentUrls = JSON.stringify(body.rawContentUrls);
   if (body.editedVideoUrl !== undefined) data.editedVideoUrl = body.editedVideoUrl || null;
   if (body.exampleVideoUrl !== undefined) data.exampleVideoUrl = body.exampleVideoUrl || null;
+  if (body.exampleLink !== undefined) data.exampleLink = body.exampleLink || null;
   if (body.checkReviewerIds !== undefined) data.checkReviewerIds = JSON.stringify(body.checkReviewerIds);
   if (body.scheduledDate !== undefined) data.scheduledDate = body.scheduledDate || null;
   if (body.zernioBooked !== undefined) data.zernioBooked = body.zernioBooked === true;

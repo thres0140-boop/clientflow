@@ -901,6 +901,10 @@ export async function POST(req: NextRequest) {
       ADD COLUMN IF NOT EXISTS "hookAlternatives" TEXT NOT NULL DEFAULT '[]';
     `;
     await (prisma as any).$executeRaw`
+      ALTER TABLE "ScriptDraft"
+      ADD COLUMN IF NOT EXISTS "exampleLink" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
       ALTER TABLE "Client"
       ADD COLUMN IF NOT EXISTS "hideFromHq" BOOLEAN NOT NULL DEFAULT false;
     `;

@@ -1258,9 +1258,14 @@ function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUplo
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [igLink, setIgLink] = useState((draft as any).exampleLink || "");
   function copyLink() {
-    if (!draft.exampleVideoUrl) return;
-    navigator.clipboard.writeText(draft.exampleVideoUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }).catch(() => {});
+    const url = (draft as any).exampleLink || draft.exampleVideoUrl;
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }).catch(() => {});
+  }
+  function saveIgLink(v: string) {
+    fetch(`/api/script-drafts/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ exampleLink: v.trim() || null }) }).catch(() => {});
   }
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1281,21 +1286,35 @@ function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUplo
         <p className="text-xs text-slate-400 italic mb-1.5">No example yet — add a reference recording for whoever films this.</p>
       )}
       <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
+
+      {/* Instagram (or other) link to the reference reel — paste it so whoever films can
+          open the real post directly. */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[11px] text-slate-400 flex-shrink-0">📎 IG link</span>
+        <input value={igLink}
+          onChange={(e) => setIgLink(e.target.value)}
+          onBlur={(e) => saveIgLink(e.target.value)}
+          placeholder="paste the Instagram reel link…"
+          className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+        {igLink.trim() && (
+          <a href={igLink} target="_blank" rel="noopener noreferrer"
+            className="text-[11px] font-semibold text-pink-600 hover:text-pink-800 flex-shrink-0">↗ Open</a>
+        )}
+      </div>
+
       <div className="flex items-center gap-2">
         <button onClick={() => inputRef.current?.click()} disabled={progress !== null}
           className="text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg">
           {progress !== null ? `Uploading ${progress}%…` : draft.exampleVideoUrl ? "Replace example" : "⬆ Upload example"}
         </button>
+        {(igLink.trim() || draft.exampleVideoUrl) && (
+          <button onClick={copyLink} title="Copy the reference link"
+            className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${copied ? "text-emerald-700 bg-emerald-50" : "text-indigo-700 bg-indigo-50 hover:bg-indigo-100"}`}>
+            {copied ? "✓ Copied" : igLink.trim() ? "🔗 Copy IG link" : "🔗 Copy link"}
+          </button>
+        )}
         {draft.exampleVideoUrl && (
-          <>
-            <button onClick={copyLink} title="Copy the example video link"
-              className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${copied ? "text-emerald-700 bg-emerald-50" : "text-indigo-700 bg-indigo-50 hover:bg-indigo-100"}`}>
-              {copied ? "✓ Copied" : "🔗 Copy link"}
-            </button>
-            <a href={draft.exampleVideoUrl} target="_blank" rel="noopener noreferrer"
-              className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 px-2 py-1">↗ Open</a>
-            <button onClick={() => onUploaded(null)} className="text-[11px] text-slate-400 hover:text-red-500 ml-auto">Remove</button>
-          </>
+          <button onClick={() => onUploaded(null)} className="text-[11px] text-slate-400 hover:text-red-500 ml-auto">Remove</button>
         )}
       </div>
     </div>

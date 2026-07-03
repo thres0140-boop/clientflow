@@ -346,6 +346,7 @@ model ScriptDraft {
   hookAlternatives   String   @default("[]")
   rejectionFeedback  String?
   exampleVideoUrl    String?  // reference recording for the person filming to copy
+  exampleLink        String?  // Instagram (or other) link to the reference reel
   generatedAt        DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
