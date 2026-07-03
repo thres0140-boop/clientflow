@@ -1257,6 +1257,11 @@ function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; on
 function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string | null) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+  function copyLink() {
+    if (!draft.exampleVideoUrl) return;
+    navigator.clipboard.writeText(draft.exampleVideoUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }).catch(() => {});
+  }
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1282,7 +1287,15 @@ function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUplo
           {progress !== null ? `Uploading ${progress}%…` : draft.exampleVideoUrl ? "Replace example" : "⬆ Upload example"}
         </button>
         {draft.exampleVideoUrl && (
-          <button onClick={() => onUploaded(null)} className="text-[11px] text-slate-400 hover:text-red-500">Remove</button>
+          <>
+            <button onClick={copyLink} title="Copy the example video link"
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${copied ? "text-emerald-700 bg-emerald-50" : "text-indigo-700 bg-indigo-50 hover:bg-indigo-100"}`}>
+              {copied ? "✓ Copied" : "🔗 Copy link"}
+            </button>
+            <a href={draft.exampleVideoUrl} target="_blank" rel="noopener noreferrer"
+              className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 px-2 py-1">↗ Open</a>
+            <button onClick={() => onUploaded(null)} className="text-[11px] text-slate-400 hover:text-red-500 ml-auto">Remove</button>
+          </>
         )}
       </div>
     </div>
