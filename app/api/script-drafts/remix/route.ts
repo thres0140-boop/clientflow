@@ -99,18 +99,20 @@ HARD RULES:
   • Keep this creator's voice and this concept's format.
 
 ${keepHook ? `\nHOOK RULE — KEEP THE PROVEN HOOK:
-Reuse the winner's opening hook VERBATIM (it's the proven part). Every "hook" field = this exact
-line, and each "script" STARTS with it, unchanged:
-"${sourceHook}"
-Everything AFTER the hook is a from-scratch rewrite per the rules above — the body must NOT echo
-the winner's sentences.` : `\nHOOK RULE — FRESH HOOK EACH TIME:
+The winner's opening hook is proven and gets re-attached automatically, so:
+  • DO NOT write the hook anywhere in your "script" field.
+  • Your "script" is ONLY the body that comes AFTER the hook — invented from a blank page, NOT a
+    continuation or paraphrase of the winner's body. Because you're not looking at the hook while
+    writing, do not try to "continue" the original — build a fresh body that makes the same point a
+    new way.
+  • Set the "hook" field to exactly: "${sourceHook}"` : `\nHOOK RULE — FRESH HOOK EACH TIME:
 Give every variation a different opening hook (different first line), all landing the same point.`}
 ${hookAltCount > 0 ? `\nHOOK ALTERNATIVES:
 For each variation also provide "hookAlternatives": an array of ${hookAltCount} DIFFERENT alternative opening hooks that fit the same script (same promise, different wording). ${keepHook ? "These are extra options to test against the proven hook." : ""}` : ""}
 
 Output ONLY a valid JSON array, nothing else:
 [
-  { "title": "short title", "hook": "${isTextOverlay ? "first on-screen text line" : "opening hook line"}", "script": "${isTextOverlay ? "on-screen text cards (short punchy lines)" : "full spoken script"}", "caption": "caption (different angle from the script)"${hookAltCount > 0 ? `, "hookAlternatives": ["alt hook 1", "alt hook 2"${hookAltCount > 2 ? ", …" : ""}]` : ""} }
+  { "title": "short title", "hook": "${isTextOverlay ? "first on-screen text line" : "opening hook line"}", "script": "${keepHook ? "the fresh BODY only — do NOT include the hook" : isTextOverlay ? "on-screen text cards (short punchy lines)" : "full spoken script"}", "caption": "caption (different angle from the script)"${hookAltCount > 0 ? `, "hookAlternatives": ["alt hook 1", "alt hook 2"${hookAltCount > 2 ? ", …" : ""}]` : ""} }
 ]`;
 
   const userMessage = `Here is the PROVEN WINNING reel${sourceTitle ? ` ("${sourceTitle}")` : ""} to remix:
@@ -138,12 +140,13 @@ Generate EXACTLY ${count} variations for ${weekLabel || "this batch"}${dayLabel 
 
   const created = [];
   for (const d of drafts) {
-    // When keeping the proven hook, force the hook + make sure the script opens with it.
+    // When keeping the proven hook, the model returns the body only — attach the hook here.
     const finalHook = keepHook ? sourceHook : (d.hook || "");
-    let finalScript = d.script || "";
-    if (keepHook && sourceHook && !finalScript.trim().startsWith(sourceHook)) {
-      finalScript = `${sourceHook}\n${finalScript}`;
+    let body = (d.script || "").trim();
+    if (keepHook && sourceHook && body.startsWith(sourceHook)) {
+      body = body.slice(sourceHook.length).replace(/^[\s\-–—:.]+/, "").trim(); // strip any echoed hook
     }
+    const finalScript = keepHook && sourceHook ? `${sourceHook}\n\n${body}` : body;
     // Collect all hook options (the active one first), deduped.
     const alts = Array.isArray(d.hookAlternatives) ? d.hookAlternatives.filter((h) => typeof h === "string" && h.trim()) : [];
     const allHooks = Array.from(new Set([finalHook, ...alts].filter(Boolean)));
