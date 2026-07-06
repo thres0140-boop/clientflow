@@ -3312,13 +3312,15 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
   }
   useEffect(() => { setLoading(true); loadPage(null).finally(() => setLoading(false)); }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function onScroll(e: React.UIEvent<HTMLDivElement>) {
-    const el = e.currentTarget;
-    if (sort === "recent" && cursor && !loadingMore && el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
-      setLoadingMore(true);
-      loadPage(cursor).finally(() => setLoadingMore(false));
-    }
-  }
+  // Auto-load EVERY page (like the Instagram page) so all reels are available — not just the
+  // first page. Each page load updates the cursor, which re-fires this until there are none left.
+  useEffect(() => {
+    if (loading || loadingMore || !cursor) return;
+    setLoadingMore(true);
+    loadPage(cursor).finally(() => setLoadingMore(false));
+  }, [cursor, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onScroll() { /* auto-load handles pagination now */ }
 
   // "Top performers" needs the whole library (IG returns reels newest-first, so the best
   // performer could be 40 reels deep). Pull remaining pages, then sort by plays.
