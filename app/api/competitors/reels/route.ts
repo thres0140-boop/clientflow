@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { scrapeCompetitor, scrapeCompetitorProfile } from "@/lib/scrapeCompetitors";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 // GET /api/competitors/reels?clientId=  → read-only, instant. Computes latest
@@ -89,23 +89,36 @@ export async function POST(req: NextRequest) {
   const competitors = await prisma.competitor.findMany({ where: { clientId: parseInt(clientId) } });
   if (!competitors.length) return NextResponse.json({ error: "No competitors added yet." }, { status: 400 });
 
-  const toScrape = competitors.filter((c) => {
-    const last = (c as any).lastScrapedAt ? new Date((c as any).lastScrapedAt).getTime() : 0;
-    return !last || last <= cutoff;
-  });
+  // Stalest first, and cap how many we scrape per manual refresh so a big roster can't blow
+  // past the function time limit (that 504'd the whole request). The rest keep getting picked
+  // up by the twice-daily cron, or on the next manual refresh.
+  const MAX_PER_REFRESH = 5;
+  const eligible = competitors
+    .filter((c) => { const last = (c as any).lastScrapedAt ? new Date((c as any).lastScrapedAt).getTime() : 0; return !last || last <= cutoff; })
+    .sort((a, b) => {
+      const la = (a as any).lastScrapedAt ? new Date((a as any).lastScrapedAt).getTime() : 0;
+      const lb = (b as any).lastScrapedAt ? new Date((b as any).lastScrapedAt).getTime() : 0;
+      return la - lb;
+    });
+  const toScrape = eligible.slice(0, MAX_PER_REFRESH);
 
-  let reels = 0;
+  let reels = 0, failed = 0;
   for (const c of toScrape) {
-    await scrapeCompetitorProfile(c.id).catch(() => {}); // refresh follower/post stats
-    const r = await scrapeCompetitor(c.id);
-    reels += r.reels;
+    try {
+      await scrapeCompetitorProfile(c.id).catch(() => {}); // stats refresh — non-fatal
+      const r = await scrapeCompetitor(c.id);
+      reels += r.reels;
+    } catch {
+      failed++; // one bad competitor must not fail the whole refresh
+    }
     await new Promise((res) => setTimeout(res, 300));
   }
 
   return NextResponse.json({
     ok: true,
     scraped: toScrape.length,
-    skipped: competitors.length - toScrape.length,
+    remaining: Math.max(0, eligible.length - toScrape.length),
+    failed,
     reels,
     cooldownHours: COOLDOWN_HOURS,
   });

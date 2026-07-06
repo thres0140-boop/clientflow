@@ -649,6 +649,7 @@ function CompetitorsTab({ client }: { client: Client }) {
       const d = await fetch(`/api/competitors/reels?clientId=${client.id}`, { method: "POST" }).then((r) => r.json());
       if (d.error) { alert(d.error); }
       else if (d.scraped === 0) { alert(`Already fresh — competitors were scraped within the last ${d.cooldownHours}h. Try again later.`); }
+      else if (d.remaining > 0) { alert(`Refreshed ${d.scraped} competitor${d.scraped !== 1 ? "s" : ""} (+${d.reels} reels). ${d.remaining} more will update in the background — hit Refresh again in a moment for the next batch.`); }
       await loadReels();
     } catch {
       alert("Refresh failed. Try again.");
