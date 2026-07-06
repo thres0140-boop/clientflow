@@ -82,24 +82,29 @@ ${captionStyle}
 LANGUAGE: ${langInstruction}
 
 THE TASK — REMIX A PROVEN WINNER:
-You are given ONE reel that ALREADY PERFORMED. Your job is NOT to invent new content. It is to
-take that exact winning message and re-express it ${count} different ways — same core message,
-same emotional payoff, same promise, just different wording / framing / opening each time.
-This is "market one thing 100 ways": the message stays identical so the proven result repeats;
-only the words change.
+You are given ONE reel that ALREADY PERFORMED. Keep only its core MESSAGE — the point it makes,
+the topic, the promise, the emotional payoff. Then write ${count} COMPLETELY FRESH scripts that
+make that SAME point in totally different words. Think "same idea, ${count} brand-new scripts
+written from scratch" — NOT "paraphrase the original ${count} times". The original is your brief,
+not your draft.
 
 HARD RULES:
-  • Decode WHY the winner works first (the core claim, the emotional trigger, the turn), then keep
-    that DNA in every variation. Do not drift to a new topic, claim, or angle.
-  • Each variation must be able to replace the original and still deliver the SAME point.
-  • Different hook/opening each time — never reuse the same first line.
-  • Keep it in this creator's voice and this concept's format.
+  • SAME point, BRAND-NEW script. Different sentences, different structure, different supporting
+    examples/analogies/metaphors, different rhythm. Each must read as an original script.
+  • NEVER copy the winner's wording. If a variation repeats a whole sentence — or more than ~5
+    consecutive words — from the original OR from another variation, rewrite it. This is the #1 rule:
+    a near-copy is a failure.
+  • Do NOT drift to a different topic or claim — the underlying point stays the same.
+  • Make the ${count} variations clearly distinct from EACH OTHER too, not just from the original.
+  • Keep this creator's voice and this concept's format.
 
 ${keepHook ? `\nHOOK RULE — KEEP THE PROVEN HOOK:
-The winner's hook is its strongest, proven part. EVERY variation MUST open with this EXACT hook, word-for-word — do NOT change, rephrase, or translate it:
+Reuse the winner's opening hook VERBATIM (it's the proven part). Every "hook" field = this exact
+line, and each "script" STARTS with it, unchanged:
 "${sourceHook}"
-The "hook" field = this exact line, and the "script" must START with it. Only rework the BODY that follows.` : `\nHOOK RULE — REWRITE THE HOOK:
-Give each variation a fresh, different opening hook, while keeping the same core message.`}
+Everything AFTER the hook is a from-scratch rewrite per the rules above — the body must NOT echo
+the winner's sentences.` : `\nHOOK RULE — FRESH HOOK EACH TIME:
+Give every variation a different opening hook (different first line), all landing the same point.`}
 ${hookAltCount > 0 ? `\nHOOK ALTERNATIVES:
 For each variation also provide "hookAlternatives": an array of ${hookAltCount} DIFFERENT alternative opening hooks that fit the same script (same promise, different wording). ${keepHook ? "These are extra options to test against the proven hook." : ""}` : ""}
 
@@ -114,7 +119,7 @@ Output ONLY a valid JSON array, nothing else:
 ${String(source).trim()}
 """
 
-Generate EXACTLY ${count} variations of THIS reel for ${weekLabel || "this batch"}${dayLabel ? `, ${dayLabel}` : ""}. Same message, same payoff — reworded ${count} different ways, each with a fresh hook. Do not change the topic or the point.`;
+Generate EXACTLY ${count} variations for ${weekLabel || "this batch"}${dayLabel ? `, ${dayLabel}` : ""}. Same POINT as this reel, but ${count} scripts written FROM SCRATCH — new sentences, new structure, new examples. Do NOT paraphrase or copy the wording above; only the underlying message carries over.${keepHook ? " Each opens with the exact proven hook, then a fresh body." : ""} If any two scripts (or a script and the original) share a full sentence, they are wrong — rewrite them.`;
 
   let drafts: { title: string; hook: string; script: string; caption?: string; hookAlternatives?: string[] }[] = [];
   try {
