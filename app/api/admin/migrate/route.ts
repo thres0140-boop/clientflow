@@ -32,12 +32,14 @@ export async function GET(req: NextRequest) {
         listKeys = Object.keys(ld || {}).slice(0, 20);
         const first = ld?.reels?.[0];
         const media = first?.node?.media || first?.media || first;
-        freshCode = media?.code || media?.shortcode || JSON.stringify(first || {}).slice(0, 150);
-        if (media?.code) {
-          const asUrl = await call(`get_media_data.php?${new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${media.code}/`, type: "reel" })}`);
-          const asCode = await call(`get_media_data.php?${new URLSearchParams({ reel_post_code_or_url: media.code, type: "reel" })}`);
-          freshTest = { asUrl, asCode };
-        }
+        freshCode = media?.code || media?.shortcode || "?";
+        // Does the LIST response already include a playable video url?
+        const vv = media?.video_versions || media?.videoVersions;
+        freshTest = {
+          mediaKeys: media ? Object.keys(media).slice(0, 40) : [],
+          videoVersionsUrl: Array.isArray(vv) && vv[0]?.url ? String(vv[0].url).slice(0, 90) : null,
+          hasVideoUrlField: !!(media?.video_url || media?.play_url || media?.videoUrl),
+        };
       } catch (e) { freshCode = "list err: " + String(e); }
       return NextResponse.json({ storedShortcode: reel.shortcode, handle: comp?.handle, keyLen: key.length, stored, listKeys, freshCode, freshTest });
     } catch (e) {
