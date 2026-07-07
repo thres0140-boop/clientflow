@@ -1159,13 +1159,29 @@ function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose:
     fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`)
       .then((r) => r.json()).then((d) => setUrl(d?.url || null)).catch(() => {}).finally(() => setLoading(false));
   }
+  // Prefer the freshly-scraped mp4 in the clean player; if we can't get one (Instagram no
+  // longer exposes the file without login), fall back to Instagram's own embed so it still plays.
+  const embedCode = (() => {
+    const s = reel.permalink || (reel as any).instagramUrl || "";
+    const m = String(s).match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
+    return m ? m[1] : ((reel as any).shortcode || null);
+  })();
   return (
     <div className="absolute inset-0 z-30 bg-black flex items-center justify-center">
-      {loading ? (
-        <div className="w-7 h-7 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-      ) : url ? (
+      {url ? (
         // eslint-disable-next-line jsx-a11y/media-has-caption
         <video key={url} src={`/api/vid?u=${encodeURIComponent(url)}`} poster={reel.thumbnail_url} controls autoPlay playsInline onError={refresh} className="w-full h-full object-contain" />
+      ) : loading ? (
+        <div className="w-7 h-7 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+      ) : embedCode ? (
+        <iframe
+          src={`https://www.instagram.com/reel/${embedCode}/embed/`}
+          className="w-full h-full border-0 bg-black"
+          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+          allowFullScreen
+          scrolling="no"
+          title="Instagram reel"
+        />
       ) : (
         <div className="flex flex-col items-center gap-2 px-4 text-center">
           <p className="text-white/60 text-xs">Couldn&apos;t load this reel.</p>
@@ -1739,12 +1755,20 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
             {(() => {
               const igLink = reel.permalink || reel.instagramUrl || (reel.id ? `https://www.instagram.com/reel/${reel.id}/` : null);
               const isCompetitor = !!reel.handle;
-              // Competitor reels: play the freshly-scraped CDN url in the clean player.
+              // Competitor reels: play the freshly-scraped mp4 in the clean player; if the file
+              // can't be scraped (IG hides it behind login now), fall back to IG's embed.
               if (isCompetitor && reel.id) {
                 if (compUrl) {
                   return <video key={compUrl} src={`/api/vid?u=${encodeURIComponent(compUrl)}`} poster={reel.thumbnail_url} controls autoPlay playsInline
                     onError={refreshCompUrl}
                     className="w-full h-full object-contain" />;
+                }
+                const cm = String(igLink || "").match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
+                const code = cm ? cm[1] : ((reel as any).shortcode || null);
+                if (!compLoading && code) {
+                  return <iframe src={`https://www.instagram.com/reel/${code}/embed/`}
+                    className="w-full h-full border-0 bg-black" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                    allowFullScreen scrolling="no" title="Instagram reel" />;
                 }
                 return (
                   <div className="relative w-full h-full">
