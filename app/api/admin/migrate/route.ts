@@ -11,22 +11,25 @@ export async function GET(req: NextRequest) {
   // ?reeltest — diagnose why competitor reel videos won't play: call get_media_data with the
   // runtime RapidAPI key and show the raw response.
   if (req.nextUrl.searchParams.get("reeltest")) {
-    const reel = await (prisma as any).competitorReel.findFirst({ where: { shortcode: { not: null } }, include: { competitor: true }, orderBy: { id: "desc" } });
-    if (!reel) return NextResponse.json({ error: "no competitor reels in DB" });
-    const key = process.env.RAPIDAPI_KEY || "";
-    const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
-    const reelUrl = `https://www.instagram.com/reel/${reel.shortcode}/`;
-    const qs = new URLSearchParams({ reel_post_code_or_url: reelUrl, type: "reel" });
-    let status = 0, snippet = "", topKeys: string[] = [];
     try {
-      const res = await fetch(`https://${HOST}/get_media_data.php?${qs.toString()}`, { headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": key } });
-      status = res.status;
-      const txt = await res.text();
-      snippet = txt.slice(0, 500);
-      try { topKeys = Object.keys(JSON.parse(txt)).slice(0, 25); } catch { /* not json */ }
-    } catch (e) { snippet = "fetch error: " + String(e); }
-    const fresh = await freshReelMediaUrl(reel.competitor?.handle || "", reel.shortcode).catch(() => null);
-    return NextResponse.json({ shortcode: reel.shortcode, handle: reel.competitor?.handle, keyLen: key.length, status, topKeys, gotUrl: !!fresh, snippet });
+      const reel = await (prisma as any).competitorReel.findFirst({ where: { shortcode: { not: null } }, orderBy: { id: "desc" }, select: { shortcode: true, competitorId: true } });
+      if (!reel) return NextResponse.json({ error: "no competitor reels in DB" });
+      const comp = await (prisma as any).competitor.findUnique({ where: { id: reel.competitorId }, select: { handle: true } });
+      const key = process.env.RAPIDAPI_KEY || "";
+      const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
+      const qs = new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${reel.shortcode}/`, type: "reel" });
+      let status = 0, snippet = "", topKeys: string[] = [];
+      try {
+        const res = await fetch(`https://${HOST}/get_media_data.php?${qs.toString()}`, { headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": key } });
+        status = res.status;
+        const txt = await res.text();
+        snippet = txt.slice(0, 500);
+        try { topKeys = Object.keys(JSON.parse(txt)).slice(0, 25); } catch { /* not json */ }
+      } catch (e) { snippet = "fetch error: " + String(e); }
+      return NextResponse.json({ shortcode: reel.shortcode, handle: comp?.handle, keyLen: key.length, status, topKeys, snippet });
+    } catch (e) {
+      return NextResponse.json({ error: "probe crashed: " + (e instanceof Error ? e.message : String(e)) });
+    }
   }
 
   // ?wacheck — show which Twilio/WhatsApp env vars are present (masked) + their shape.
