@@ -30,9 +30,14 @@ export async function GET(req: NextRequest) {
         const lr = await fetch(`https://${HOST}/get_ig_user_reels.php`, { method: "POST", headers: { ...hdr, "Content-Type": "application/x-www-form-urlencoded" }, body: "username_or_url=imredelouw&amount=2" });
         const ld = await lr.json();
         listKeys = Object.keys(ld || {}).slice(0, 20);
-        const first = ld?.reels?.[0] || ld?.data?.[0] || ld?.items?.[0] || (Array.isArray(ld) ? ld[0] : null);
-        freshCode = first?.code || first?.shortcode || first?.pk || JSON.stringify(first || {}).slice(0, 200);
-        if (first?.code || first?.shortcode) freshTest = await call(`get_media_data.php?${new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${first.code || first.shortcode}/`, type: "reel" })}`);
+        const first = ld?.reels?.[0];
+        const media = first?.node?.media || first?.media || first;
+        freshCode = media?.code || media?.shortcode || JSON.stringify(first || {}).slice(0, 150);
+        if (media?.code) {
+          const asUrl = await call(`get_media_data.php?${new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${media.code}/`, type: "reel" })}`);
+          const asCode = await call(`get_media_data.php?${new URLSearchParams({ reel_post_code_or_url: media.code, type: "reel" })}`);
+          freshTest = { asUrl, asCode };
+        }
       } catch (e) { freshCode = "list err: " + String(e); }
       return NextResponse.json({ storedShortcode: reel.shortcode, handle: comp?.handle, keyLen: key.length, stored, listKeys, freshCode, freshTest });
     } catch (e) {
