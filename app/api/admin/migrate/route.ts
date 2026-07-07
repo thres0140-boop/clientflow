@@ -8,6 +8,27 @@ export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("token");
   if (secret !== "zernio-migrate-2024") return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  // ?reeltest — diagnose why competitor reel videos won't play: call get_media_data with the
+  // runtime RapidAPI key and show the raw response.
+  if (req.nextUrl.searchParams.get("reeltest")) {
+    const reel = await (prisma as any).competitorReel.findFirst({ where: { shortcode: { not: null } }, include: { competitor: true }, orderBy: { id: "desc" } });
+    if (!reel) return NextResponse.json({ error: "no competitor reels in DB" });
+    const key = process.env.RAPIDAPI_KEY || "";
+    const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
+    const reelUrl = `https://www.instagram.com/reel/${reel.shortcode}/`;
+    const qs = new URLSearchParams({ reel_post_code_or_url: reelUrl, type: "reel" });
+    let status = 0, snippet = "", topKeys: string[] = [];
+    try {
+      const res = await fetch(`https://${HOST}/get_media_data.php?${qs.toString()}`, { headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": key } });
+      status = res.status;
+      const txt = await res.text();
+      snippet = txt.slice(0, 500);
+      try { topKeys = Object.keys(JSON.parse(txt)).slice(0, 25); } catch { /* not json */ }
+    } catch (e) { snippet = "fetch error: " + String(e); }
+    const fresh = await freshReelMediaUrl(reel.competitor?.handle || "", reel.shortcode).catch(() => null);
+    return NextResponse.json({ shortcode: reel.shortcode, handle: reel.competitor?.handle, keyLen: key.length, status, topKeys, gotUrl: !!fresh, snippet });
+  }
+
   // ?wacheck — show which Twilio/WhatsApp env vars are present (masked) + their shape.
   if (req.nextUrl.searchParams.get("wacheck")) {
     const mask = (v?: string) => (v ? `set (len ${v.length}, ends …${v.slice(-4)})` : "MISSING");
