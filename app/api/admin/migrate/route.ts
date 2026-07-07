@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   // runtime RapidAPI key and show the raw response.
   if (req.nextUrl.searchParams.get("reeltest")) {
     try {
-      const reel = await (prisma as any).competitorReel.findFirst({ where: { shortcode: { not: null } }, orderBy: { id: "desc" }, select: { shortcode: true, competitorId: true } });
+      const reel = await (prisma as any).competitorReel.findFirst({ orderBy: { id: "desc" }, select: { shortcode: true, competitorId: true } });
       if (!reel) return NextResponse.json({ error: "no competitor reels in DB" });
       const comp = await (prisma as any).competitor.findUnique({ where: { id: reel.competitorId }, select: { handle: true } });
       const key = process.env.RAPIDAPI_KEY || "";
