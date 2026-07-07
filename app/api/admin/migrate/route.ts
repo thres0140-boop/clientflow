@@ -33,13 +33,19 @@ export async function GET(req: NextRequest) {
         const first = ld?.reels?.[0];
         const media = first?.node?.media || first?.media || first;
         freshCode = media?.code || media?.shortcode || "?";
-        // Does the LIST response already include a playable video url?
-        const vv = media?.video_versions || media?.videoVersions;
-        freshTest = {
-          mediaKeys: media ? Object.keys(media).slice(0, 40) : [],
-          videoVersionsUrl: Array.isArray(vv) && vv[0]?.url ? String(vv[0].url).slice(0, 90) : null,
-          hasVideoUrlField: !!(media?.video_url || media?.play_url || media?.videoUrl),
-        };
+        const url = `https://www.instagram.com/reel/${media.code}/`;
+        // Brute-force endpoint + param combos to find one that still returns video data.
+        const endpoints = ["get_media_data.php", "get_media_data_v2.php", "get_post_data.php", "get_reel_data.php"];
+        const params = ["reel_post_code_or_url", "code_or_id_or_url", "code_or_url", "post_code_or_url", "url", "shortcode", "code"];
+        const hits: any[] = [];
+        for (const ep of endpoints) {
+          for (const p of params) {
+            const res = await call(`${ep}?${new URLSearchParams({ [p]: url })}`);
+            const ok = res.status === 200 && !res.snippet.includes("error") && !res.snippet.includes("not found") && !res.snippet.toLowerCase().includes("does not exist");
+            if (ok) hits.push({ ep, param: p, keys: res.keys, snippet: res.snippet.slice(0, 120) });
+          }
+        }
+        freshTest = { url, hitCount: hits.length, hits: hits.slice(0, 6) };
       } catch (e) { freshCode = "list err: " + String(e); }
       return NextResponse.json({ storedShortcode: reel.shortcode, handle: comp?.handle, keyLen: key.length, stored, listKeys, freshCode, freshTest });
     } catch (e) {
