@@ -70,17 +70,42 @@ function findVideoUrl(obj: any, depth = 0): string | null {
   return null;
 }
 
-// Re-fetch a fresh, currently-playable video URL for one reel (IG CDN links expire).
-// Uses the single-media endpoint (get_media_data.php) — one request per reel,
-// and unlike the reels-list endpoint it actually returns the video file URL.
+// Pull the real .mp4 URL for a reel straight off Instagram's public embed page. The reel's
+// video URL is baked into that HTML (it's what the embed player streams), so we don't need any
+// paid scraper for playback. IG CDN links expire, so we always re-fetch fresh at play time.
+async function videoUrlFromEmbed(shortcode: string): Promise<string | null> {
+  const unescape = (u: string) => u
+    .replace(/\\u0026/gi, "&").replace(/\\u002F/gi, "/").replace(/\\\//g, "/").replace(/&amp;/g, "&");
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36";
+  for (const path of ["embed/captioned/", "embed/"]) {
+    try {
+      const res = await fetch(`https://www.instagram.com/reel/${shortcode}/${path}`, {
+        headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" },
+      });
+      if (!res.ok) continue;
+      const html = await res.text();
+      // Prefer the explicit video_url / video_versions field, else any .mp4 CDN link.
+      let m = html.match(/"video_url":\s*"([^"]+?\.mp4[^"]*)"/)
+        || html.match(/"video_versions":\s*\[\s*{\s*[^}]*?"url":\s*"([^"]+?\.mp4[^"]*)"/)
+        || html.match(/(https:\/\/[^"'\\\s]+?\.mp4[^"'\\\s]*)/);
+      if (m && m[1]) return unescape(m[1]);
+    } catch { /* try next path */ }
+  }
+  return null;
+}
+
+// Re-fetch a fresh, currently-playable video URL for one reel. Scrapes IG's embed page
+// directly (free, reliable); falls back to the RapidAPI single-media endpoint if that fails.
 export async function freshReelMediaUrl(handle: string, shortcode: string): Promise<string | null> {
+  if (!shortcode) return null;
+  const fromEmbed = await videoUrlFromEmbed(shortcode);
+  if (fromEmbed) return fromEmbed;
+  // Fallback: paid scraper (currently unreliable, but harmless to try).
   const apiKey = process.env.RAPIDAPI_KEY;
-  if (!apiKey || !shortcode) return null;
-  const reelUrl = `https://www.instagram.com/reel/${shortcode}/`;
+  if (!apiKey) return null;
   try {
-    const qs = new URLSearchParams({ reel_post_code_or_url: reelUrl, type: "reel" });
+    const qs = new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${shortcode}/`, type: "reel" });
     const res = await fetch(`https://${SCRAPER_HOST}/get_media_data.php?${qs.toString()}`, {
-      method: "GET",
       headers: { "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
     });
     const data = await res.json();

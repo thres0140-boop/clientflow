@@ -1159,24 +1159,13 @@ function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose:
     fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`)
       .then((r) => r.json()).then((d) => setUrl(d?.url || null)).catch(() => {}).finally(() => setLoading(false));
   }
-  // Play via Instagram's own embed (the scraper's video endpoint is unreliable). Works for
-  // any public reel with zero API cost — just needs the shortcode from the permalink.
-  const embedCode = (() => {
-    const s = reel.permalink || (reel as any).instagramUrl || "";
-    const m = String(s).match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
-    return m ? m[1] : null;
-  })();
   return (
     <div className="absolute inset-0 z-30 bg-black flex items-center justify-center">
-      {embedCode ? (
-        <iframe
-          src={`https://www.instagram.com/reel/${embedCode}/embed/`}
-          className="w-full h-full border-0 bg-black"
-          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-          allowFullScreen
-          scrolling="no"
-          title="Instagram reel"
-        />
+      {loading ? (
+        <div className="w-7 h-7 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+      ) : url ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video key={url} src={`/api/vid?u=${encodeURIComponent(url)}`} poster={reel.thumbnail_url} controls autoPlay playsInline onError={refresh} className="w-full h-full object-contain" />
       ) : (
         <div className="flex flex-col items-center gap-2 px-4 text-center">
           <p className="text-white/60 text-xs">Couldn&apos;t load this reel.</p>
@@ -1750,21 +1739,27 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
             {(() => {
               const igLink = reel.permalink || reel.instagramUrl || (reel.id ? `https://www.instagram.com/reel/${reel.id}/` : null);
               const isCompetitor = !!reel.handle;
-              // Competitor reels: play via Instagram's own embed (scraper video endpoint is
-              // unreliable). Works for any public reel, zero API cost.
-              if (isCompetitor) {
-                const m = String(igLink || "").match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
-                const code = m ? m[1] : null;
-                if (code) {
-                  return <iframe src={`https://www.instagram.com/reel/${code}/embed/`}
-                    className="w-full h-full border-0 bg-black" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                    allowFullScreen scrolling="no" title="Instagram reel" />;
+              // Competitor reels: play the freshly-scraped CDN url in the clean player.
+              if (isCompetitor && reel.id) {
+                if (compUrl) {
+                  return <video key={compUrl} src={`/api/vid?u=${encodeURIComponent(compUrl)}`} poster={reel.thumbnail_url} controls autoPlay playsInline
+                    onError={refreshCompUrl}
+                    className="w-full h-full object-contain" />;
                 }
                 return (
-                  <a href={igLink || "#"} target="_blank" rel="noopener noreferrer" className="relative w-full h-full flex items-center justify-center">
-                    {reel.thumbnail_url ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 text-white gap-1.5"><span className="text-4xl">▶</span><span className="text-xs opacity-90">Watch on Instagram ↗</span></div>
-                  </a>
+                  <div className="relative w-full h-full">
+                    {reel.thumbnail_url
+                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      {compLoading
+                        ? <div className="w-7 h-7 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        : igLink && <a href={igLink} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1.5 text-white">
+                            <span className="text-4xl">▶</span>
+                            <span className="text-xs font-medium opacity-90">Watch on Instagram ↗</span>
+                          </a>}
+                    </div>
+                  </div>
                 );
               }
               if (reel.media_url) {
