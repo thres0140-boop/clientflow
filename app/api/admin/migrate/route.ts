@@ -17,16 +17,24 @@ export async function GET(req: NextRequest) {
       const comp = await (prisma as any).competitor.findUnique({ where: { id: reel.competitorId }, select: { handle: true } });
       const key = process.env.RAPIDAPI_KEY || "";
       const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
-      const qs = new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${reel.shortcode}/`, type: "reel" });
-      let status = 0, snippet = "", topKeys: string[] = [];
+      const hdr = { "x-rapidapi-host": HOST, "x-rapidapi-key": key } as any;
+      const call = async (path: string) => {
+        try { const r = await fetch(`https://${HOST}/${path}`, { headers: hdr }); const t = await r.text(); return { status: r.status, snippet: t.slice(0, 350), keys: (() => { try { return Object.keys(JSON.parse(t)).slice(0, 20); } catch { return []; } })() }; }
+        catch (e) { return { status: 0, snippet: String(e), keys: [] }; }
+      };
+      // 1) our stored shortcode
+      const stored = await call(`get_media_data.php?${new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${reel.shortcode}/`, type: "reel" })}`);
+      // 2) pull a FRESH reel from the list endpoint and try its code
+      let freshCode = "", freshTest: any = null, listKeys: string[] = [];
       try {
-        const res = await fetch(`https://${HOST}/get_media_data.php?${qs.toString()}`, { headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": key } });
-        status = res.status;
-        const txt = await res.text();
-        snippet = txt.slice(0, 500);
-        try { topKeys = Object.keys(JSON.parse(txt)).slice(0, 25); } catch { /* not json */ }
-      } catch (e) { snippet = "fetch error: " + String(e); }
-      return NextResponse.json({ shortcode: reel.shortcode, handle: comp?.handle, keyLen: key.length, status, topKeys, snippet });
+        const lr = await fetch(`https://${HOST}/get_ig_user_reels.php`, { method: "POST", headers: { ...hdr, "Content-Type": "application/x-www-form-urlencoded" }, body: "username_or_url=imredelouw&amount=2" });
+        const ld = await lr.json();
+        listKeys = Object.keys(ld || {}).slice(0, 20);
+        const first = ld?.reels?.[0] || ld?.data?.[0] || ld?.items?.[0] || (Array.isArray(ld) ? ld[0] : null);
+        freshCode = first?.code || first?.shortcode || first?.pk || JSON.stringify(first || {}).slice(0, 200);
+        if (first?.code || first?.shortcode) freshTest = await call(`get_media_data.php?${new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${first.code || first.shortcode}/`, type: "reel" })}`);
+      } catch (e) { freshCode = "list err: " + String(e); }
+      return NextResponse.json({ storedShortcode: reel.shortcode, handle: comp?.handle, keyLen: key.length, stored, listKeys, freshCode, freshTest });
     } catch (e) {
       return NextResponse.json({ error: "probe crashed: " + (e instanceof Error ? e.message : String(e)) });
     }
