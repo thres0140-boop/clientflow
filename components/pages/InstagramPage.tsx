@@ -1165,7 +1165,7 @@ function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose:
         <div className="w-7 h-7 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
       ) : url ? (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video key={url} src={url} poster={reel.thumbnail_url} controls autoPlay playsInline onError={refresh} className="w-full h-full object-contain" />
+        <video key={url} src={`/api/vid?u=${encodeURIComponent(url)}`} poster={reel.thumbnail_url} controls autoPlay playsInline onError={refresh} className="w-full h-full object-contain" />
       ) : (
         <div className="flex flex-col items-center gap-2 px-4 text-center">
           <p className="text-white/60 text-xs">Couldn&apos;t load this reel.</p>
@@ -1742,7 +1742,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
               // Competitor reels: play the freshly-fetched CDN url directly in the browser.
               if (isCompetitor && reel.id) {
                 if (compUrl) {
-                  return <video key={compUrl} src={compUrl} poster={reel.thumbnail_url} controls autoPlay playsInline
+                  return <video key={compUrl} src={`/api/vid?u=${encodeURIComponent(compUrl)}`} poster={reel.thumbnail_url} controls autoPlay playsInline
                     onError={refreshCompUrl}
                     className="w-full h-full object-contain" />;
                 }

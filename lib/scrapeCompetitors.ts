@@ -279,8 +279,8 @@ export async function scrapeCompetitor(
 
     // Rehost thumbnails to R2 (small concurrency; cap per run so a big backfill can't
     // time out — any leftovers get picked up on the next refresh while still fresh).
-    const CONCURRENCY = 6;
-    const queue = toCache.slice(0, 120);
+    const CONCURRENCY = 8;
+    const queue = toCache.slice(0, 400);
     for (let i = 0; i < queue.length; i += CONCURRENCY) {
       await Promise.all(queue.slice(i, i + CONCURRENCY).map(async (t) => {
         const url = await cacheImageToR2(t.igUrl, `comp-thumbs/${competitorId}/${t.shortcode}.jpg`);
