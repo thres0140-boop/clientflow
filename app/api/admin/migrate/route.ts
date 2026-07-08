@@ -10,6 +10,26 @@ export async function GET(req: NextRequest) {
 
   // ?reeltest — diagnose why competitor reel videos won't play: call get_media_data with the
   // runtime RapidAPI key and show the raw response.
+  // ?reelhandle=imredelouw — test EVERY stored reel for one competitor through the real
+  // freshReelMediaUrl and report which return null (pinpoints per-reel failures).
+  if (req.nextUrl.searchParams.get("reelhandle")) {
+    try {
+      const { freshReelMediaUrl } = await import("@/lib/scrapeCompetitors");
+      const handle = req.nextUrl.searchParams.get("reelhandle")!.replace(/^@/, "");
+      const comp = await (prisma as any).competitor.findFirst({ where: { handle: { equals: handle, mode: "insensitive" } }, select: { id: true, handle: true } });
+      if (!comp) return NextResponse.json({ error: "competitor not found", handle });
+      const reels = await (prisma as any).competitorReel.findMany({ where: { competitorId: comp.id }, orderBy: { id: "desc" }, take: 12, select: { id: true, shortcode: true, permalink: true, mediaUrl: true } });
+      const results = [];
+      for (const r of reels) {
+        const url = await freshReelMediaUrl(comp.handle, r.shortcode).catch((e) => "THREW:" + String(e));
+        results.push({ id: r.id, shortcode: r.shortcode, hasStored: !!r.mediaUrl, result: typeof url === "string" && url.startsWith("http") ? "OK" : (url || "NULL") });
+      }
+      return NextResponse.json({ handle: comp.handle, count: reels.length, results });
+    } catch (e) {
+      return NextResponse.json({ error: "crashed: " + (e instanceof Error ? e.message : String(e)) });
+    }
+  }
+
   if (req.nextUrl.searchParams.get("reeltest")) {
     try {
       const { freshReelMediaUrl } = await import("@/lib/scrapeCompetitors");
