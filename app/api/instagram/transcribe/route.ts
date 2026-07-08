@@ -65,7 +65,20 @@ async function audioViaCloudinary(videoUrl: string): Promise<Buffer | null> {
 }
 
 export async function POST(req: NextRequest) {
-  const { mediaUrl } = await req.json();
+  const { mediaUrl, reelId } = await req.json();
+
+  // Competitor reel: use the capture-once path — returns the stored transcript instantly if
+  // we have one, otherwise captures the video to R2, transcribes once, and stores it forever.
+  // This means transcription never depends on the flaky vendor after the first successful pass.
+  if (reelId) {
+    const { ensureReelTranscript } = await import("@/lib/reelCapture");
+    const transcript = await ensureReelTranscript(Number(reelId));
+    if (transcript === null) {
+      return NextResponse.json({ error: "Couldn't get this reel's video yet (source temporarily unavailable) — it'll be captured automatically shortly, try again in a bit." }, { status: 503 });
+    }
+    return NextResponse.json({ transcript });
+  }
+
   if (!mediaUrl) return NextResponse.json({ error: "mediaUrl required" }, { status: 400 });
 
   const apiKey = process.env.OPENAI_API_KEY;

@@ -1592,14 +1592,11 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
   async function transcribe() {
     setTranscribing(true);
     try {
-      // Competitor reels don't carry a usable stored media_url (IG CDN links expire),
-      // so resolve a fresh playable URL the same way the player does.
-      let videoUrl: string | null = reel.media_url || null;
-      if (reel.handle && reel.id) {
-        const d = await fetch(`/api/competitors/reel-media?id=${reel.id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
-        if (d.url) videoUrl = d.url;
-      }
-      if (!videoUrl) {
+      // Competitor reel: hand the transcriber the reel id. It returns a stored transcript
+      // instantly if we have one, else captures the video to R2 + transcribes once + stores
+      // it — so we never depend on the flaky live resolver. Non-competitor: use the media url.
+      const body = reel.handle && reel.id ? { reelId: reel.id } : { mediaUrl: reel.media_url || null };
+      if (!(reel.handle && reel.id) && !reel.media_url) {
         setTranscript("No video URL available for this reel.");
         setTranscribing(false);
         return;
@@ -1607,7 +1604,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
       const res = await fetch("/api/instagram/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaUrl: videoUrl }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       const text = data.error ? `Error: ${data.error}` : (data.transcript || "No speech detected.");

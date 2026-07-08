@@ -242,7 +242,11 @@ model CompetitorReel {
   thumbnailUrl  String?
   mediaUrl      String?
   mediaUrlAt    DateTime?
-  cachedVideoUrl String?  // permanent R2 copy (IG urls expire) — used for board embeds
+  cachedVideoUrl String?  // permanent R2 copy of the mp4 (IG urls expire) — capture-once
+  transcript    String?   // permanent Whisper transcript — captured once, never re-fetched
+  transcriptAt  DateTime?
+  captureStatus String?   // null/pending = not captured yet, done, unavailable (gave up)
+  captureTries  Int       @default(0)
   permalink     String?
   postedAt      DateTime?
   firstSeenAt   DateTime  @default(now())

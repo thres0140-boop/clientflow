@@ -1148,6 +1148,12 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "cachedVideoUrl" TEXT;
     `;
     await (prisma as any).$executeRaw`
+      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "transcript" TEXT;
+      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "transcriptAt" TIMESTAMP(3);
+      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "captureStatus" TEXT;
+      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "captureTries" INTEGER NOT NULL DEFAULT 0;
+    `;
+    await (prisma as any).$executeRaw`
       ALTER TABLE "Competitor"
         ADD COLUMN IF NOT EXISTS "followingCount" INTEGER,
         ADD COLUMN IF NOT EXISTS "postCount" INTEGER,

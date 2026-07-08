@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { freshReelMediaUrl } from "@/lib/scrapeCompetitors";
+import { ensureReelVideo } from "@/lib/reelCapture";
+import { isR2Url } from "@/lib/r2";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 // Never let the browser/CDN cache a media lookup — a stale {url:null} (from a moment the
 // scraper hiccuped) would otherwise keep a reel stuck on the embed fallback forever.
@@ -32,23 +34,29 @@ export async function GET(req: NextRequest) {
     return json({ url: url || null, permalink: `https://instagram.com/reel/${shortcode}`, cached: false });
   }
 
+  const reelId = parseInt(id);
   const reel = await (prisma as any).competitorReel.findUnique({
-    where: { id: parseInt(id) },
-    include: { competitor: { select: { handle: true } } },
+    where: { id: reelId },
+    select: { id: true, permalink: true, cachedVideoUrl: true, mediaUrl: true, mediaUrlAt: true },
   });
   if (!reel) return json({ error: "not found" }, { status: 404 });
 
-  // Cache hit: stored URL that's recent enough → no scraping cost.
-  const ageMs = reel.mediaUrlAt ? Date.now() - new Date(reel.mediaUrlAt).getTime() : Infinity;
-  if (!force && reel.mediaUrl && ageMs < CACHE_MS) {
-    return json({ url: reel.mediaUrl, permalink: reel.permalink || null, cached: true });
+  // Best case: we already own a permanent R2 copy of the video — serve it. Zero vendor cost,
+  // never expires. This is the capture-once path that makes playback reliable.
+  if (!force && reel.cachedVideoUrl && isR2Url(reel.cachedVideoUrl)) {
+    return json({ url: reel.cachedVideoUrl, permalink: reel.permalink || null, cached: true, permanent: true });
   }
 
-  const handle = reel.competitor?.handle;
-  const fresh = handle ? await freshReelMediaUrl(handle, reel.shortcode) : null;
-  if (fresh) {
-    (prisma as any).competitorReel.update({ where: { id: reel.id }, data: { mediaUrl: fresh, mediaUrlAt: new Date() } }).catch(() => {});
+  // Not captured yet: capture it now (downloads the mp4 to R2 + stores it) so this is the
+  // last time we ever resolve it live. If the vendor is in a bad window this returns null,
+  // and we fall back to a short-lived stored url so it still plays.
+  const cap = await ensureReelVideo(reelId).catch(() => ({ url: null, permanent: false }));
+  if (cap.url) {
+    return json({ url: cap.url, permalink: reel.permalink || null, cached: false, permanent: cap.permanent });
   }
-  // Fall back to whatever we had stored if a fresh fetch failed (e.g. quota).
-  return json({ url: fresh || reel.mediaUrl || null, permalink: reel.permalink || null, cached: false });
+  const ageMs = reel.mediaUrlAt ? Date.now() - new Date(reel.mediaUrlAt).getTime() : Infinity;
+  if (reel.mediaUrl && ageMs < CACHE_MS) {
+    return json({ url: reel.mediaUrl, permalink: reel.permalink || null, cached: true });
+  }
+  return json({ url: null, permalink: reel.permalink || null, cached: false });
 }
