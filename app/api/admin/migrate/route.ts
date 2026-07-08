@@ -12,42 +12,30 @@ export async function GET(req: NextRequest) {
   // runtime RapidAPI key and show the raw response.
   if (req.nextUrl.searchParams.get("reeltest")) {
     try {
-      const reel = await (prisma as any).competitorReel.findFirst({ orderBy: { id: "desc" }, select: { shortcode: true, competitorId: true } });
+      const { freshReelMediaUrl } = await import("@/lib/scrapeCompetitors");
+      const reel = await (prisma as any).competitorReel.findFirst({ orderBy: { id: "desc" }, select: { id: true, shortcode: true, competitorId: true } });
       if (!reel) return NextResponse.json({ error: "no competitor reels in DB" });
       const comp = await (prisma as any).competitor.findUnique({ where: { id: reel.competitorId }, select: { handle: true } });
       const key = process.env.RAPIDAPI_KEY || "";
       const HOST = "instagram-scraper-stable-api.p.rapidapi.com";
-      const hdr = { "x-rapidapi-host": HOST, "x-rapidapi-key": key } as any;
-      const call = async (path: string) => {
-        try { const r = await fetch(`https://${HOST}/${path}`, { headers: hdr }); const t = await r.text(); return { status: r.status, snippet: t.slice(0, 350), keys: (() => { try { return Object.keys(JSON.parse(t)).slice(0, 20); } catch { return []; } })() }; }
-        catch (e) { return { status: 0, snippet: String(e), keys: [] }; }
+      // What the app actually computes for this reel:
+      const appResult = await freshReelMediaUrl(comp?.handle || "", reel.shortcode).catch((e) => "THREW: " + String(e));
+      // Direct type=post and type=reel calls with the runtime key, for comparison:
+      const direct = async (type: string) => {
+        try {
+          const qs = new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${reel.shortcode}/`, type });
+          const r = await fetch(`https://${HOST}/get_media_data.php?${qs}`, { headers: { "x-rapidapi-host": HOST, "x-rapidapi-key": key } });
+          const t = await r.text();
+          const m = t.match(/"video_versions":\s*\[\s*\{[^}]*?"url":\s*"([^"]+?\.mp4[^"]*)"/) || t.match(/(https:[^"\\ ]+?\.mp4)/);
+          return { status: r.status, mp4: m ? "YES" : "NO", snippet: m ? m[1].slice(0, 70) : t.slice(0, 150) };
+        } catch (e) { return { status: 0, mp4: "ERR", snippet: String(e) }; }
       };
-      // 1) our stored shortcode
-      const stored = await call(`get_media_data.php?${new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${reel.shortcode}/`, type: "reel" })}`);
-      // 2) pull a FRESH reel from the list endpoint and try its code
-      let freshCode = "", freshTest: any = null, listKeys: string[] = [];
-      try {
-        const lr = await fetch(`https://${HOST}/get_ig_user_reels.php`, { method: "POST", headers: { ...hdr, "Content-Type": "application/x-www-form-urlencoded" }, body: "username_or_url=imredelouw&amount=2" });
-        const ld = await lr.json();
-        listKeys = Object.keys(ld || {}).slice(0, 20);
-        const first = ld?.reels?.[0];
-        const media = first?.node?.media || first?.media || first;
-        freshCode = media?.code || media?.shortcode || "?";
-        const url = `https://www.instagram.com/reel/${media.code}/`;
-        // Brute-force endpoint + param combos to find one that still returns video data.
-        const endpoints = ["get_media_data.php", "get_media_data_v2.php", "get_post_data.php", "get_reel_data.php"];
-        const params = ["reel_post_code_or_url", "code_or_id_or_url", "code_or_url", "post_code_or_url", "url", "shortcode", "code"];
-        const hits: any[] = [];
-        for (const ep of endpoints) {
-          for (const p of params) {
-            const res = await call(`${ep}?${new URLSearchParams({ [p]: url })}`);
-            const ok = res.status === 200 && !res.snippet.includes("error") && !res.snippet.includes("not found") && !res.snippet.toLowerCase().includes("does not exist");
-            if (ok) hits.push({ ep, param: p, keys: res.keys, snippet: res.snippet.slice(0, 120) });
-          }
-        }
-        freshTest = { url, hitCount: hits.length, hits: hits.slice(0, 6) };
-      } catch (e) { freshCode = "list err: " + String(e); }
-      return NextResponse.json({ storedShortcode: reel.shortcode, handle: comp?.handle, keyLen: key.length, stored, listKeys, freshCode, freshTest });
+      return NextResponse.json({
+        storedShortcode: reel.shortcode, reelId: reel.id, handle: comp?.handle,
+        keyLen: key.length, keyEnds: key.slice(-6),
+        appResult: typeof appResult === "string" ? appResult.slice(0, 120) : appResult,
+        directPost: await direct("post"), directReel: await direct("reel"),
+      });
     } catch (e) {
       return NextResponse.json({ error: "probe crashed: " + (e instanceof Error ? e.message : String(e)) });
     }
