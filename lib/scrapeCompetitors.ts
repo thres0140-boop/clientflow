@@ -101,17 +101,23 @@ async function apiMediaUrl(shortcode: string): Promise<string | null> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) return null;
   const url = `https://www.instagram.com/reel/${shortcode}/`;
-  for (const type of ["post", "reel"]) {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // The endpoint is flaky: it intermittently returns "post/reel data not found" for a valid
+  // reel, and some reels only resolve under type=post vs type=reel. So we retry across both
+  // types with a small backoff — a reel that fails one call almost always succeeds on a retry.
+  const plan: Array<[string, number]> = [["post", 0], ["reel", 0], ["post", 300], ["reel", 300], ["post", 700], ["reel", 700]];
+  for (const [type, delay] of plan) {
+    if (delay) await sleep(delay);
     try {
       const qs = new URLSearchParams({ reel_post_code_or_url: url, type });
       const res = await fetch(`https://${SCRAPER_HOST}/get_media_data.php?${qs.toString()}`, {
         headers: { "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
       });
       const data = await res.json();
-      if (data?.detail || data?.error || data?.message) continue; // e.g. "not found" under this type
+      if (data?.detail || data?.error || data?.message) continue; // e.g. "not found" — retry
       const found = findVideoUrl(data);
       if (found) return found;
-    } catch { /* try next type */ }
+    } catch { /* transient — retry */ }
   }
   return null;
 }
