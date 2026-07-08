@@ -10,6 +10,23 @@ export async function GET(req: NextRequest) {
 
   // ?reeltest — diagnose why competitor reel videos won't play: call get_media_data with the
   // runtime RapidAPI key and show the raw response.
+  // ?reelcols=1 — add the capture-once columns, one statement each (multi-statement raw
+  // queries can fail on the Neon adapter), reporting per-column so nothing silently 500s.
+  if (req.nextUrl.searchParams.get("reelcols")) {
+    const stmts: Array<[string, string]> = [
+      ["transcript", `ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "transcript" TEXT`],
+      ["transcriptAt", `ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "transcriptAt" TIMESTAMP(3)`],
+      ["captureStatus", `ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "captureStatus" TEXT`],
+      ["captureTries", `ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "captureTries" INTEGER NOT NULL DEFAULT 0`],
+    ];
+    const out: any = {};
+    for (const [name, sql] of stmts) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ reelcols: out });
+  }
+
   // ?reelhandle=imredelouw — test EVERY stored reel for one competitor through the real
   // freshReelMediaUrl and report which return null (pinpoints per-reel failures).
   if (req.nextUrl.searchParams.get("reelhandle")) {
@@ -1147,12 +1164,8 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "mediaUrlAt" TIMESTAMP(3);
       ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "cachedVideoUrl" TEXT;
     `;
-    await (prisma as any).$executeRaw`
-      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "transcript" TEXT;
-      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "transcriptAt" TIMESTAMP(3);
-      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "captureStatus" TEXT;
-      ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "captureTries" INTEGER NOT NULL DEFAULT 0;
-    `;
+    // Capture-once columns are added via the isolated ?reelcols=1 branch (single-statement,
+    // Neon-safe) to avoid multi-statement prepared-query failures 500-ing the whole migration.
     await (prisma as any).$executeRaw`
       ALTER TABLE "Competitor"
         ADD COLUMN IF NOT EXISTS "followingCount" INTEGER,
