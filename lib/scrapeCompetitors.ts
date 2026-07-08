@@ -17,6 +17,10 @@ export type ScrapedReel = {
 };
 
 const SCRAPER_HOST = "instagram-scraper-stable-api.p.rapidapi.com";
+// Independent second source for reel mp4s (same RapidAPI key/account). The primary's
+// get_media_data endpoint oscillates provider-side; this one resolves reliably, so it's the
+// primary source for playback/transcription capture, with the old scraper as fallback.
+const BACKUP_HOST = "instagram120.p.rapidapi.com";
 
 // Instagram media IDs (pk) encode their creation time in the high bits.
 // timestamp_ms = (pk >> 23) + 1314220021721  (Instagram's epoch offset).
@@ -122,11 +126,39 @@ async function apiMediaUrl(shortcode: string): Promise<string | null> {
   return null;
 }
 
-// Re-fetch a fresh, currently-playable video URL for one reel. Primary source is the RapidAPI
-// single-media endpoint (returns the real CDN .mp4); the IG embed scrape is a last-resort
-// fallback. IG CDN links expire, so this is always re-fetched fresh at play time.
+// Resolve a reel's mp4 via the reliable backup provider (instagram120). Its response is
+// [ { urls: [ { url: "…mp4…" } ], ... } ] — a plain list of download links.
+async function apiMediaUrlBackup(shortcode: string): Promise<string | null> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`https://${BACKUP_HOST}/api/instagram/mediaByShortcode`, {
+      method: "POST",
+      headers: { "x-rapidapi-host": BACKUP_HOST, "x-rapidapi-key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ shortcode }),
+    });
+    const data = await res.json();
+    const arr = Array.isArray(data) ? data : data ? [data] : [];
+    for (const item of arr) {
+      const urls = item?.urls;
+      if (Array.isArray(urls)) {
+        for (const u of urls) {
+          if (typeof u?.url === "string" && /\.mp4/.test(u.url) && u.url.startsWith("http")) return u.url;
+        }
+      }
+    }
+    return findVideoUrl(data); // generic fallback if the shape shifts
+  } catch { return null; }
+}
+
+// Re-fetch a fresh, currently-playable mp4 URL for one reel. Tries the reliable backup
+// provider first, then the flaky primary scraper, then the IG embed scrape as last resort.
+// IG CDN links expire, so the result is downloaded to R2 by the caller (capture-once) — this
+// only needs to succeed ONCE per reel, after which nothing calls a provider for it again.
 export async function freshReelMediaUrl(handle: string, shortcode: string): Promise<string | null> {
   if (!shortcode) return null;
+  const fromBackup = await apiMediaUrlBackup(shortcode);
+  if (fromBackup) return fromBackup;
   const fromApi = await apiMediaUrl(shortcode);
   if (fromApi) return fromApi;
   return await videoUrlFromEmbed(shortcode);
