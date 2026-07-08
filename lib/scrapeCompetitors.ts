@@ -94,26 +94,36 @@ async function videoUrlFromEmbed(shortcode: string): Promise<string | null> {
   return null;
 }
 
-// Re-fetch a fresh, currently-playable video URL for one reel. Scrapes IG's embed page
-// directly (free, reliable); falls back to the RapidAPI single-media endpoint if that fails.
-export async function freshReelMediaUrl(handle: string, shortcode: string): Promise<string | null> {
-  if (!shortcode) return null;
-  const fromEmbed = await videoUrlFromEmbed(shortcode);
-  if (fromEmbed) return fromEmbed;
-  // Fallback: paid scraper (currently unreliable, but harmless to try).
+// Hit the RapidAPI single-media endpoint for one reel and pull its fresh .mp4 CDN url.
+// The endpoint wants `type=post` for most reels (some only resolve under `type=reel`), so we
+// try both. Returns null on any provider error so the caller can fall back.
+async function apiMediaUrl(shortcode: string): Promise<string | null> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) return null;
-  try {
-    const qs = new URLSearchParams({ reel_post_code_or_url: `https://www.instagram.com/reel/${shortcode}/`, type: "reel" });
-    const res = await fetch(`https://${SCRAPER_HOST}/get_media_data.php?${qs.toString()}`, {
-      headers: { "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
-    });
-    const data = await res.json();
-    if (data?.detail || data?.error || data?.message) return null;
-    return findVideoUrl(data);
-  } catch {
-    return null;
+  const url = `https://www.instagram.com/reel/${shortcode}/`;
+  for (const type of ["post", "reel"]) {
+    try {
+      const qs = new URLSearchParams({ reel_post_code_or_url: url, type });
+      const res = await fetch(`https://${SCRAPER_HOST}/get_media_data.php?${qs.toString()}`, {
+        headers: { "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
+      });
+      const data = await res.json();
+      if (data?.detail || data?.error || data?.message) continue; // e.g. "not found" under this type
+      const found = findVideoUrl(data);
+      if (found) return found;
+    } catch { /* try next type */ }
   }
+  return null;
+}
+
+// Re-fetch a fresh, currently-playable video URL for one reel. Primary source is the RapidAPI
+// single-media endpoint (returns the real CDN .mp4); the IG embed scrape is a last-resort
+// fallback. IG CDN links expire, so this is always re-fetched fresh at play time.
+export async function freshReelMediaUrl(handle: string, shortcode: string): Promise<string | null> {
+  if (!shortcode) return null;
+  const fromApi = await apiMediaUrl(shortcode);
+  if (fromApi) return fromApi;
+  return await videoUrlFromEmbed(shortcode);
 }
 
 // Fetch reels (newest first), following pagination tokens up to `maxPages`
