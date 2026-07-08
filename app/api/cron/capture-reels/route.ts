@@ -22,12 +22,17 @@ export async function GET(req: NextRequest) {
   }
   const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") || String(BATCH)) || BATCH, 40);
 
-  // Prefer never-tried reels, then least-tried; skip ones we've given up on (unavailable).
+  // Not-fully-captured (missing video or transcript) AND not given up on. The second OR is
+  // null-safe: `NOT (captureStatus = 'unavailable')` is NULL (falsy) for the null rows that
+  // are the whole backlog, so we must explicitly allow null.
+  const where = {
+    AND: [
+      { OR: [{ cachedVideoUrl: null }, { transcript: null }] },
+      { OR: [{ captureStatus: null }, { captureStatus: { not: "unavailable" } }] },
+    ],
+  };
   const pending = await (prisma as any).competitorReel.findMany({
-    where: {
-      OR: [{ cachedVideoUrl: null }, { transcript: null }],
-      NOT: { captureStatus: "unavailable" },
-    },
+    where,
     orderBy: [{ captureTries: "asc" }, { id: "desc" }],
     take: limit,
     select: { id: true },
@@ -46,9 +51,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const remaining = await (prisma as any).competitorReel.count({
-    where: { OR: [{ cachedVideoUrl: null }, { transcript: null }], NOT: { captureStatus: "unavailable" } },
-  });
+  const remaining = await (prisma as any).competitorReel.count({ where });
 
   return NextResponse.json({ processed: pending.length, videosCaptured: video, transcriptsCaptured: transcript, remaining, results });
 }
