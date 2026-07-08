@@ -1146,7 +1146,7 @@ function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose:
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/competitors/reel-media?id=${reel.id}`)
+    fetch(`/api/competitors/reel-media?id=${reel.id}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => { if (!cancelled) setUrl(d?.url || null); })
       .catch(() => {})
@@ -1156,7 +1156,7 @@ function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose:
   function refresh() {
     if (triedRefresh) return;
     setTriedRefresh(true); setUrl(null); setLoading(true);
-    fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`)
+    fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`, { cache: "no-store" })
       .then((r) => r.json()).then((d) => setUrl(d?.url || null)).catch(() => {}).finally(() => setLoading(false));
   }
   // Prefer the freshly-scraped mp4 in the clean player; if we can't get one (Instagram no
@@ -1220,7 +1220,7 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
     if (playing.mediaUrl) { setPlayerUrl(playing.mediaUrl); setPlayerLoading(false); return; }
     let cancelled = false;
     setPlayerUrl(null); setPlayerLoading(true);
-    fetch(`/api/competitors/reel-media?handle=${encodeURIComponent(candidate.handle)}&shortcode=${encodeURIComponent(playing.shortcode)}`)
+    fetch(`/api/competitors/reel-media?handle=${encodeURIComponent(candidate.handle)}&shortcode=${encodeURIComponent(playing.shortcode)}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => { if (!cancelled) setPlayerUrl(d?.url || null); })
       .catch(() => { if (!cancelled) setPlayerUrl(null); })
@@ -1596,7 +1596,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
       // so resolve a fresh playable URL the same way the player does.
       let videoUrl: string | null = reel.media_url || null;
       if (reel.handle && reel.id) {
-        const d = await fetch(`/api/competitors/reel-media?id=${reel.id}`).then((r) => r.json()).catch(() => ({}));
+        const d = await fetch(`/api/competitors/reel-media?id=${reel.id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
         if (d.url) videoUrl = d.url;
       }
       if (!videoUrl) {
@@ -1709,7 +1709,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
     if (!isCompetitorReel || !reel.id) return;
     let cancelled = false;
     setCompLoading(true);
-    fetch(`/api/competitors/reel-media?id=${reel.id}`)
+    fetch(`/api/competitors/reel-media?id=${reel.id}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => { if (!cancelled && d.url) setCompUrl(d.url); })
       .catch(() => {})
@@ -1724,7 +1724,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
     setCompTriedRefresh(true);
     setCompUrl(null);
     setCompLoading(true);
-    fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`)
+    fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => { if (d.url) setCompUrl(d.url); })
       .catch(() => {})
