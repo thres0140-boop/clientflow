@@ -1153,39 +1153,37 @@ function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose:
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [reel.id]);
-  function refresh() {
-    if (triedRefresh) return;
-    setTriedRefresh(true); setUrl(null); setLoading(true);
+  function reload() {
+    setUrl(null); setLoading(true);
     fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`, { cache: "no-store" })
       .then((r) => r.json()).then((d) => setUrl(d?.url || null)).catch(() => {}).finally(() => setLoading(false));
   }
-  // Prefer the freshly-scraped mp4 in the clean player; if we can't get one (Instagram no
-  // longer exposes the file without login), fall back to Instagram's own embed so it still plays.
-  const embedCode = (() => {
-    const s = reel.permalink || (reel as any).instagramUrl || "";
-    const m = String(s).match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
-    return m ? m[1] : ((reel as any).shortcode || null);
-  })();
+  // Auto-retry once if a stored url fails to play (e.g. an old ephemeral CDN link); manual
+  // Retry (below) can be pressed repeatedly and triggers a fresh capture each time.
+  function refresh() {
+    if (triedRefresh) return;
+    setTriedRefresh(true); reload();
+  }
+  // Play our permanent R2 copy (or a freshly-captured one). If it's not ready yet, show a
+  // clean "preparing" state with a retry — never the Instagram embed (it leaks IG's own error
+  // pages and can't be transcribed).
   return (
     <div className="absolute inset-0 z-30 bg-black flex items-center justify-center">
       {url ? (
         // eslint-disable-next-line jsx-a11y/media-has-caption
         <video key={url} src={`/api/vid?u=${encodeURIComponent(url)}`} poster={reel.thumbnail_url} controls autoPlay playsInline onError={refresh} className="w-full h-full object-contain" />
       ) : loading ? (
-        <div className="w-7 h-7 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-      ) : embedCode ? (
-        <iframe
-          src={`https://www.instagram.com/reel/${embedCode}/embed/`}
-          className="w-full h-full border-0 bg-black"
-          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-          allowFullScreen
-          scrolling="no"
-          title="Instagram reel"
-        />
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-7 h-7 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+          <p className="text-white/50 text-[11px]">Preparing reel…</p>
+        </div>
       ) : (
-        <div className="flex flex-col items-center gap-2 px-4 text-center">
-          <p className="text-white/60 text-xs">Couldn&apos;t load this reel.</p>
-          <a href={reel.permalink || (reel as any).instagramUrl || `https://instagram.com/reel/${reel.id}`} target="_blank" rel="noopener noreferrer" className="bg-white/90 text-slate-800 text-[11px] font-semibold px-3 py-1 rounded-full">Open on Instagram ↗</a>
+        <div className="flex flex-col items-center gap-2.5 px-4 text-center">
+          <p className="text-white/60 text-xs">Not ready yet — still saving this reel.</p>
+          <div className="flex items-center gap-2">
+            <button onClick={reload} className="bg-white/90 text-slate-800 text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
+            <a href={reel.permalink || (reel as any).instagramUrl || `https://instagram.com/reel/${reel.id}`} target="_blank" rel="noopener noreferrer" className="text-white/70 text-[11px] font-medium px-3 py-1 rounded-full border border-white/20">Open on Instagram ↗</a>
+          </div>
         </div>
       )}
       <button onClick={onClose} title="Close" className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-sm hover:bg-black/80">✕</button>
@@ -1714,11 +1712,8 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
     return () => { cancelled = true; };
   }, [isCompetitorReel, reel.id]);
 
-  // If a cached URL is stale/dead the <video> errors — fetch a guaranteed-fresh
-  // one once (this is the only path that spends an API request on playback).
-  function refreshCompUrl() {
-    if (compTriedRefresh || !reel.id) return;
-    setCompTriedRefresh(true);
+  function reloadCompUrl() {
+    if (!reel.id) return;
     setCompUrl(null);
     setCompLoading(true);
     fetch(`/api/competitors/reel-media?id=${reel.id}&refresh=1`, { cache: "no-store" })
@@ -1726,6 +1721,13 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
       .then((d) => { if (d.url) setCompUrl(d.url); })
       .catch(() => {})
       .finally(() => setCompLoading(false));
+  }
+  // Auto-retry once if a stored url fails to play; the manual Retry button (reloadCompUrl)
+  // can be pressed repeatedly and forces a fresh capture each time.
+  function refreshCompUrl() {
+    if (compTriedRefresh || !reel.id) return;
+    setCompTriedRefresh(true);
+    reloadCompUrl();
   }
 
   return (
@@ -1760,25 +1762,22 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
                     onError={refreshCompUrl}
                     className="w-full h-full object-contain" />;
                 }
-                const cm = String(igLink || "").match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
-                const code = cm ? cm[1] : ((reel as any).shortcode || null);
-                if (!compLoading && code) {
-                  return <iframe src={`https://www.instagram.com/reel/${code}/embed/`}
-                    className="w-full h-full border-0 bg-black" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                    allowFullScreen scrolling="no" title="Instagram reel" />;
-                }
+                // Not captured yet — clean placeholder, never the IG embed.
                 return (
                   <div className="relative w-full h-full">
                     {reel.thumbnail_url
-                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover opacity-60" />
                       : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 text-white">
                       {compLoading
-                        ? <div className="w-7 h-7 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        : igLink && <a href={igLink} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1.5 text-white">
-                            <span className="text-4xl">▶</span>
-                            <span className="text-xs font-medium opacity-90">Watch on Instagram ↗</span>
-                          </a>}
+                        ? <><div className="w-7 h-7 border-2 border-white/40 border-t-white rounded-full animate-spin" /><span className="text-[11px] opacity-80">Preparing reel…</span></>
+                        : <>
+                            <span className="text-[11px] opacity-80">Not ready yet — still saving this reel.</span>
+                            <div className="flex items-center gap-2">
+                              <button onClick={reloadCompUrl} className="bg-white/90 text-slate-800 text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
+                              {igLink && <a href={igLink} target="_blank" rel="noopener noreferrer" className="text-white/70 text-[11px] font-medium px-3 py-1 rounded-full border border-white/20">Open on Instagram ↗</a>}
+                            </div>
+                          </>}
                     </div>
                   </div>
                 );
