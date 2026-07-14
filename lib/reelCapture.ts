@@ -62,7 +62,16 @@ export async function ensureReelVideo(reelId: number): Promise<{ url: string | n
   }
 
   const dl = await downloadToR2(fresh, `comp-videos/${reelId}.mp4`);
-  if (!dl) return { url: fresh, permanent: false }; // R2 hiccup — still playable via the fresh url
+  if (!dl) {
+    // Resolved but the download/upload failed (oversized, CDN hiccup). Still bump the counter
+    // so this reel doesn't sit at the front of the queue forever blocking the backfill.
+    const tries = (reel.captureTries || 0) + 1;
+    await (prisma as any).competitorReel.update({
+      where: { id: reelId },
+      data: { captureTries: tries, captureStatus: tries >= GIVE_UP_AFTER ? "unavailable" : "pending" },
+    }).catch(() => {});
+    return { url: fresh, permanent: false };
+  }
   await (prisma as any).competitorReel.update({
     where: { id: reelId },
     data: { cachedVideoUrl: dl.url, captureStatus: reel.transcript ? "done" : "pending" },
