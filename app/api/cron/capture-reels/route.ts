@@ -14,44 +14,49 @@ export const maxDuration = 300;
 const BATCH = 12;
 
 export async function GET(req: NextRequest) {
-  // Allow Vercel Cron (no auth header issue) or manual trigger with the migrate token.
-  const token = req.nextUrl.searchParams.get("token");
-  const isCron = req.headers.get("user-agent")?.includes("vercel-cron") || req.headers.get("x-vercel-cron");
-  if (!isCron && token !== "zernio-migrate-2024") {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") || String(BATCH)) || BATCH, 40);
-
-  // Not-fully-captured (missing video or transcript) AND not given up on. The second OR is
-  // null-safe: `NOT (captureStatus = 'unavailable')` is NULL (falsy) for the null rows that
-  // are the whole backlog, so we must explicitly allow null.
-  const where = {
-    AND: [
-      { OR: [{ cachedVideoUrl: null }, { transcript: null }] },
-      { OR: [{ captureStatus: null }, { captureStatus: { not: "unavailable" } }] },
-    ],
-  };
-  const pending = await (prisma as any).competitorReel.findMany({
-    where,
-    orderBy: [{ captureTries: "asc" }, { id: "desc" }],
-    take: limit,
-    select: { id: true },
-  });
-
-  let video = 0, transcript = 0;
-  const results: any[] = [];
-  for (const r of pending) {
-    try {
-      const res = await captureReel(r.id);
-      if (res.video) video++;
-      if (res.transcript) transcript++;
-      results.push({ id: r.id, ...res });
-    } catch (e) {
-      results.push({ id: r.id, error: String(e) });
+  try {
+    // Allow Vercel Cron (no auth header issue) or manual trigger with the migrate token.
+    const token = req.nextUrl.searchParams.get("token");
+    const isCron = req.headers.get("user-agent")?.includes("vercel-cron") || req.headers.get("x-vercel-cron");
+    if (!isCron && token !== "zernio-migrate-2024") {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
+    // Small default batch — each reel buffers a video + runs Whisper, so large batches risk
+    // the function's memory/time ceiling. Callers loop for backfill.
+    const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") || String(BATCH)) || BATCH, 20);
+
+    // Not-fully-captured (missing video or transcript) AND not given up on. The second OR is
+    // null-safe: `NOT (captureStatus = 'unavailable')` is NULL (falsy) for the null rows that
+    // are the whole backlog, so we must explicitly allow null.
+    const where = {
+      AND: [
+        { OR: [{ cachedVideoUrl: null }, { transcript: null }] },
+        { OR: [{ captureStatus: null }, { captureStatus: { not: "unavailable" } }] },
+      ],
+    };
+    const pending = await (prisma as any).competitorReel.findMany({
+      where,
+      orderBy: [{ captureTries: "asc" }, { id: "desc" }],
+      take: limit,
+      select: { id: true },
+    });
+
+    let video = 0, transcript = 0;
+    const results: any[] = [];
+    for (const r of pending) {
+      try {
+        const res = await captureReel(r.id);
+        if (res.video) video++;
+        if (res.transcript) transcript++;
+        results.push({ id: r.id, ...res });
+      } catch (e) {
+        results.push({ id: r.id, error: String(e).slice(0, 200) });
+      }
+    }
+
+    const remaining = await (prisma as any).competitorReel.count({ where });
+    return NextResponse.json({ processed: pending.length, videosCaptured: video, transcriptsCaptured: transcript, remaining, results });
+  } catch (e) {
+    return NextResponse.json({ error: "handler crashed: " + (e instanceof Error ? e.message : String(e)) }, { status: 500 });
   }
-
-  const remaining = await (prisma as any).competitorReel.count({ where });
-
-  return NextResponse.json({ processed: pending.length, videosCaptured: video, transcriptsCaptured: transcript, remaining, results });
 }

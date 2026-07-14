@@ -25,13 +25,17 @@ async function loadReel(reelId: number): Promise<ReelRow | null> {
   });
 }
 
+const MAX_VIDEO_BYTES = 80 * 1024 * 1024; // guardrail: don't buffer a huge file into memory (OOM)
+
 // Download an IG CDN video (browser UA — IG 403s plain server fetches) and push to R2.
 async function downloadToR2(srcUrl: string, key: string): Promise<{ url: string; bytes: Buffer } | null> {
   try {
     const res = await fetch(srcUrl, { headers: { "User-Agent": UA, Accept: "video/*,*/*", Referer: "https://www.instagram.com/" } });
     if (!res.ok) return null;
+    const len = parseInt(res.headers.get("content-length") || "0");
+    if (len && len > MAX_VIDEO_BYTES) return null; // too big to buffer safely — skip
     const bytes = Buffer.from(await res.arrayBuffer());
-    if (!bytes.length) return null;
+    if (!bytes.length || bytes.byteLength > MAX_VIDEO_BYTES) return null;
     const url = await uploadToR2(key, bytes, res.headers.get("content-type") || "video/mp4");
     return url ? { url, bytes } : null;
   } catch { return null; }
