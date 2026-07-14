@@ -74,30 +74,6 @@ function findVideoUrl(obj: any, depth = 0): string | null {
   return null;
 }
 
-// Pull the real .mp4 URL for a reel straight off Instagram's public embed page. The reel's
-// video URL is baked into that HTML (it's what the embed player streams), so we don't need any
-// paid scraper for playback. IG CDN links expire, so we always re-fetch fresh at play time.
-async function videoUrlFromEmbed(shortcode: string): Promise<string | null> {
-  const unescape = (u: string) => u
-    .replace(/\\u0026/gi, "&").replace(/\\u002F/gi, "/").replace(/\\\//g, "/").replace(/&amp;/g, "&");
-  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36";
-  for (const path of ["embed/captioned/", "embed/"]) {
-    try {
-      const res = await fetch(`https://www.instagram.com/reel/${shortcode}/${path}`, {
-        headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" },
-      });
-      if (!res.ok) continue;
-      const html = await res.text();
-      // Prefer the explicit video_url / video_versions field, else any .mp4 CDN link.
-      let m = html.match(/"video_url":\s*"([^"]+?\.mp4[^"]*)"/)
-        || html.match(/"video_versions":\s*\[\s*{\s*[^}]*?"url":\s*"([^"]+?\.mp4[^"]*)"/)
-        || html.match(/(https:\/\/[^"'\\\s]+?\.mp4[^"'\\\s]*)/);
-      if (m && m[1]) return unescape(m[1]);
-    } catch { /* try next path */ }
-  }
-  return null;
-}
-
 // Hit the RapidAPI single-media endpoint for one reel and pull its fresh .mp4 CDN url.
 // The endpoint wants `type=post` for most reels (some only resolve under `type=reel`), so we
 // try both. Returns null on any provider error so the caller can fall back.
@@ -105,17 +81,15 @@ async function apiMediaUrl(shortcode: string): Promise<string | null> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) return null;
   const url = `https://www.instagram.com/reel/${shortcode}/`;
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  // The endpoint is flaky: it intermittently returns "post/reel data not found" for a valid
-  // reel, and some reels only resolve under type=post vs type=reel. So we retry across both
-  // types with a small backoff — a reel that fails one call almost always succeeds on a retry.
-  const plan: Array<[string, number]> = [["post", 0], ["reel", 0], ["post", 300], ["reel", 300], ["post", 700], ["reel", 700]];
-  for (const [type, delay] of plan) {
-    if (delay) await sleep(delay);
+  // This is only the FALLBACK now (the backup provider is primary), and it oscillates, so keep
+  // it cheap: two quick attempts (post, then reel) with a hard timeout so a bad window can't
+  // stall a whole capture batch.
+  for (const type of ["post", "reel"]) {
     try {
       const qs = new URLSearchParams({ reel_post_code_or_url: url, type });
       const res = await fetch(`https://${SCRAPER_HOST}/get_media_data.php?${qs.toString()}`, {
         headers: { "x-rapidapi-host": SCRAPER_HOST, "x-rapidapi-key": apiKey },
+        signal: AbortSignal.timeout(10000),
       });
       const data = await res.json();
       if (data?.detail || data?.error || data?.message) continue; // e.g. "not found" — retry
@@ -136,6 +110,7 @@ async function apiMediaUrlBackup(shortcode: string): Promise<string | null> {
       method: "POST",
       headers: { "x-rapidapi-host": BACKUP_HOST, "x-rapidapi-key": apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({ shortcode }),
+      signal: AbortSignal.timeout(12000),
     });
     const data = await res.json();
     const arr = Array.isArray(data) ? data : data ? [data] : [];
@@ -159,9 +134,7 @@ export async function freshReelMediaUrl(handle: string, shortcode: string): Prom
   if (!shortcode) return null;
   const fromBackup = await apiMediaUrlBackup(shortcode);
   if (fromBackup) return fromBackup;
-  const fromApi = await apiMediaUrl(shortcode);
-  if (fromApi) return fromApi;
-  return await videoUrlFromEmbed(shortcode);
+  return await apiMediaUrl(shortcode);
 }
 
 // Fetch reels (newest first), following pagination tokens up to `maxPages`

@@ -30,7 +30,7 @@ const MAX_VIDEO_BYTES = 80 * 1024 * 1024; // guardrail: don't buffer a huge file
 // Download an IG CDN video (browser UA — IG 403s plain server fetches) and push to R2.
 async function downloadToR2(srcUrl: string, key: string): Promise<{ url: string; bytes: Buffer } | null> {
   try {
-    const res = await fetch(srcUrl, { headers: { "User-Agent": UA, Accept: "video/*,*/*", Referer: "https://www.instagram.com/" } });
+    const res = await fetch(srcUrl, { headers: { "User-Agent": UA, Accept: "video/*,*/*", Referer: "https://www.instagram.com/" }, signal: AbortSignal.timeout(45000) });
     if (!res.ok) return null;
     const len = parseInt(res.headers.get("content-length") || "0");
     if (len && len > MAX_VIDEO_BYTES) return null; // too big to buffer safely — skip
@@ -98,7 +98,7 @@ export async function ensureReelTranscript(reelId: number): Promise<string | nul
   let bytes = v.bytes;
   if (!bytes) {
     try {
-      const r = await fetch(v.url, { headers: { "User-Agent": UA, Referer: "https://www.instagram.com/" } });
+      const r = await fetch(v.url, { headers: { "User-Agent": UA, Referer: "https://www.instagram.com/" }, signal: AbortSignal.timeout(45000) });
       if (!r.ok) return null;
       bytes = Buffer.from(await r.arrayBuffer());
     } catch { return null; }
@@ -116,6 +116,7 @@ export async function ensureReelTranscript(reelId: number): Promise<string | nul
     fd.append("model", "whisper-1");
     const wr = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST", headers: { Authorization: `Bearer ${apiKey}` }, body: fd,
+      signal: AbortSignal.timeout(90000),
     });
     const result = await wr.json();
     if (!wr.ok) return null; // transient (rate limit etc.) — retry later, don't persist
