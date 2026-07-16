@@ -10,6 +10,35 @@ export async function GET(req: NextRequest) {
 
   // ?reeltest — diagnose why competitor reel videos won't play: call get_media_data with the
   // runtime RapidAPI key and show the raw response.
+  // ?txtdiag=1 — find a reel with a stored video but no transcript and show exactly why the
+  // Whisper step is failing (size, R2 fetch status, OpenAI response).
+  if (req.nextUrl.searchParams.get("txtdiag")) {
+    try {
+      const reel = await (prisma as any).competitorReel.findFirst({
+        where: { AND: [{ cachedVideoUrl: { not: null } }, { transcript: null }, { OR: [{ captureStatus: null }, { captureStatus: { not: "unavailable" } }] }] },
+        orderBy: { id: "desc" }, select: { id: true, cachedVideoUrl: true, captureTries: true },
+      });
+      if (!reel) return NextResponse.json({ note: "no reel with video-but-no-transcript found" });
+      const r = await fetch(reel.cachedVideoUrl, { signal: AbortSignal.timeout(40000) });
+      const buf = Buffer.from(await r.arrayBuffer());
+      const mb = (buf.byteLength / (1024 * 1024)).toFixed(2);
+      let whisper: any = "skipped (>24MB)";
+      if (buf.byteLength <= 24 * 1024 * 1024 && buf.byteLength > 0) {
+        const fd = new FormData();
+        fd.append("file", new File([new Uint8Array(buf)], "reel.mp4", { type: "video/mp4" }));
+        fd.append("model", "whisper-1");
+        const wr = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+          method: "POST", headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, body: fd, signal: AbortSignal.timeout(90000),
+        });
+        const t = await wr.text();
+        whisper = { status: wr.status, body: t.slice(0, 300) };
+      }
+      return NextResponse.json({ reelId: reel.id, tries: reel.captureTries, r2Status: r.status, videoMB: mb, whisper });
+    } catch (e) {
+      return NextResponse.json({ error: "txtdiag crashed: " + (e instanceof Error ? e.message : String(e)) });
+    }
+  }
+
   // ?reelcols=1 — add the capture-once columns, one statement each (multi-statement raw
   // queries can fail on the Neon adapter), reporting per-column so nothing silently 500s.
   if (req.nextUrl.searchParams.get("reelcols")) {
