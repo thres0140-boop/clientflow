@@ -571,6 +571,9 @@ function CompetitorsTab({ client }: { client: Client }) {
   const [timeFilter, setTimeFilter] = useState<"7" | "14" | "30" | "90" | "all">("all");
   const [reelSort, setReelSort] = useState<"recent" | "best" | "trending">("recent");
   const [formatFilter, setFormatFilter] = useState<"all" | "talking_head" | "text_overlay" | "broll">("all");
+  const [creatorFilter, setCreatorFilter] = useState<string>(""); // handle, "" = all creators
+  const [creatorSearch, setCreatorSearch] = useState("");
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
   const [playingReelId, setPlayingReelId] = useState<number | null>(null);
 
@@ -665,7 +668,8 @@ function CompetitorsTab({ client }: { client: Client }) {
   const days = timeFilter === "all" ? Infinity : parseInt(timeFilter);
   const filteredReels = allReels.filter((r) =>
     (days === Infinity || now - new Date(r.timestamp).getTime() < days * 24 * 60 * 60 * 1000) &&
-    (formatFilter === "all" || r.format === formatFilter)
+    (formatFilter === "all" || r.format === formatFilter) &&
+    (creatorFilter === "" || (r.handle || "").toLowerCase() === creatorFilter.toLowerCase())
   );
   const sortedReels = reelSort === "best"
     ? [...filteredReels].sort((a, b) => (b.plays ?? b.like_count ?? 0) - (a.plays ?? a.like_count ?? 0))
@@ -798,8 +802,8 @@ function CompetitorsTab({ client }: { client: Client }) {
             </button>
           </div>
 
-          {/* Content-format filter (vision-classified) */}
-          <div className="flex gap-1.5 flex-wrap">
+          {/* Filters: content-format + a searchable single-creator filter */}
+          <div className="flex items-center gap-2 flex-wrap">
             {([["all", "All formats"], ["talking_head", "🎙 Talking-head"], ["text_overlay", "📝 Text-overlay"], ["broll", "🎞 B-roll"]] as ["all"|"talking_head"|"text_overlay"|"broll", string][]).map(([id, label]) => (
               <button key={id} onClick={() => setFormatFilter(id)}
                 className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
@@ -808,6 +812,43 @@ function CompetitorsTab({ client }: { client: Client }) {
                 {label}
               </button>
             ))}
+
+            {/* Creator filter — search a specific competitor from the list */}
+            <div className="relative ml-auto">
+              {creatorFilter ? (
+                <button onClick={() => { setCreatorFilter(""); setCreatorSearch(""); }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-indigo-500 bg-indigo-50 text-indigo-700">
+                  @{creatorFilter} <span className="text-indigo-400 hover:text-indigo-700">✕</span>
+                </button>
+              ) : (
+                <input
+                  value={creatorSearch}
+                  onChange={(e) => { setCreatorSearch(e.target.value); setCreatorOpen(true); }}
+                  onFocus={() => setCreatorOpen(true)}
+                  onBlur={() => setTimeout(() => setCreatorOpen(false), 150)}
+                  placeholder="🔍 Filter by creator…"
+                  className="w-44 border border-slate-200 rounded-full px-3 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              )}
+              {creatorOpen && !creatorFilter && (
+                <div className="absolute right-0 top-full mt-1 w-56 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1">
+                  {competitors
+                    .filter((c) => c.handle.toLowerCase().includes(creatorSearch.toLowerCase()))
+                    .sort((a, b) => a.handle.localeCompare(b.handle))
+                    .map((c) => (
+                      <button key={c.id} onMouseDown={() => { setCreatorFilter(c.handle); setCreatorOpen(false); }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        {c.profilePicUrl
+                          ? <img src={`/api/img?u=${encodeURIComponent(c.profilePicUrl)}`} alt="" className="w-5 h-5 rounded-full object-cover" />
+                          : <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400">{c.handle.slice(0, 2).toUpperCase()}</span>}
+                        @{c.handle}
+                      </button>
+                    ))}
+                  {competitors.filter((c) => c.handle.toLowerCase().includes(creatorSearch.toLowerCase())).length === 0 && (
+                    <p className="px-3 py-2 text-[11px] text-slate-400">No competitor matches.</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {sortedReels.length === 0 ? (
