@@ -929,6 +929,7 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
   const [goal, setGoal] = useState(100);
   const [gender, setGender] = useState("any");
   const [language, setLanguage] = useState("any");
+  const [followerSort, setFollowerSort] = useState<"none" | "desc" | "asc">("none");
   const [crawling, setCrawling] = useState(false);
   const [status, setStatus] = useState("");
   const [found, setFound] = useState(0);
@@ -967,9 +968,13 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
     if (!enrichRef.current && candidates.some((c) => !c.gender)) runEnrichment();
   }, [candidates, runEnrichment]);
 
-  const shown = candidates.filter((c) =>
-    (gender === "any" || c.gender === gender) && (language === "any" || c.language === language)
-  );
+  const shown = candidates
+    .filter((c) => (gender === "any" || c.gender === gender) && (language === "any" || c.language === language))
+    .sort((a, b) => {
+      if (followerSort === "none") return 0;
+      const av = a.followerCount ?? -1, bv = b.followerCount ?? -1;
+      return followerSort === "desc" ? bv - av : av - bv;
+    });
 
   async function startCrawl() {
     if (!seed.trim() || crawling) return;
@@ -1085,6 +1090,12 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
             <option value="de">German</option>
             <option value="es">Spanish</option>
             <option value="fr">French</option>
+          </select>
+          <select value={followerSort} onChange={(e) => setFollowerSort(e.target.value as "none" | "desc" | "asc")}
+            className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="none">Sort: default</option>
+            <option value="desc">Followers: high → low</option>
+            <option value="asc">Followers: low → high</option>
           </select>
           {enriching && <span className="text-[11px] text-indigo-500">classifying…</span>}
         </div>
