@@ -44,11 +44,24 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
   const [preview, setPreview] = useState<any | null>(null);
   const [sort, setSort] = useState<"recent" | "top">("recent");
 
+  // Instagram's cursor pagination overlaps pages, so the same reel can come back more than
+  // once. Dedupe by a stable key (the reel's permalink, which is also the selection key) so
+  // each reel appears exactly once and selecting one doesn't tick its duplicates.
+  function dedupe(arr: any[]): any[] {
+    const seen = new Set<string>();
+    return arr.filter((r) => {
+      const k = String(reelUrlOf(r) || r.id || r.shortcode || "");
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }
+
   async function loadPage(c: string | null): Promise<string | null> {
     const url = `/api/instagram/media?clientId=${clientId}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`;
     const d = await fetch(url).then((r) => r.json()).catch(() => ({}));
     const page = Array.isArray(d?.reels) ? d.reels : Array.isArray(d) ? d : [];
-    setReels((prev) => (c ? [...prev, ...page] : page));
+    setReels((prev) => dedupe(c ? [...prev, ...page] : page));
     const next = d?.nextCursor ?? null;
     setCursor(next);
     return next;
