@@ -412,11 +412,13 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
   const [generatingGuidelines, setGeneratingGuidelines] = useState(false);
   const [generatingStructure, setGeneratingStructure] = useState(false);
   const [playUrl, setPlayUrl] = useState<string | null>(null);
+  const [playPermalink, setPlayPermalink] = useState<string | null>(null);
   const [playLoading, setPlayLoading] = useState(true);
 
-  // The saved reel link's last segment is either the numeric media id (the client's OWN reel)
-  // or a shortcode. Resolve the fresh mp4 accordingly and play it inline. Auto-runs on open so
-  // the reel just shows, rather than making the user click out to Instagram.
+  // The saved reel link's last segment is either a stored reel's numeric id (the client's own
+  // feed reels live in the CompetitorReel table, each with a permanent R2 copy) or a shortcode.
+  // Resolve through the reel-media endpoint — it serves the cached R2 mp4 instantly and returns
+  // the real permalink. Auto-runs on open so the reel just plays, no click-out to Instagram.
   const reelSeg = (() => {
     const m = String(idea.exampleUrl || "").match(/\/(?:reel|reels|p|tv)\/([^/?#]+)/);
     return m ? m[1] : null;
@@ -425,12 +427,16 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
     let cancelled = false;
     if (!reelSeg) { setPlayLoading(false); return; }
     (async () => {
-      const isMediaId = /^\d+$/.test(reelSeg);
-      const endpoint = isMediaId
-        ? `/api/instagram/media-url?clientId=${idea.clientId}&mediaId=${encodeURIComponent(reelSeg)}`
-        : `/api/competitors/reel-media?shortcode=${encodeURIComponent(reelSeg)}`;
-      const d = await fetch(endpoint, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
-      if (!cancelled) { setPlayUrl(d?.url || null); setPlayLoading(false); }
+      const numeric = /^\d+$/.test(reelSeg);
+      let d: any = {};
+      if (numeric) {
+        d = await fetch(`/api/competitors/reel-media?id=${encodeURIComponent(reelSeg)}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
+        // Not a stored reel? Try the client's own Graph connection by media id.
+        if (!d?.url) d = await fetch(`/api/instagram/media-url?clientId=${idea.clientId}&mediaId=${encodeURIComponent(reelSeg)}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
+      } else {
+        d = await fetch(`/api/competitors/reel-media?shortcode=${encodeURIComponent(reelSeg)}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
+      }
+      if (!cancelled) { setPlayUrl(d?.url || null); setPlayPermalink(d?.permalink || null); setPlayLoading(false); }
     })();
     return () => { cancelled = true; };
   }, [reelSeg, idea.clientId]);
@@ -516,7 +522,7 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
                 ) : (
                   <p className="text-[11px] text-slate-400">Couldn&apos;t load the reel in-app — open it on Instagram below.</p>
                 )}
-                <a href={idea.exampleUrl} target="_blank" rel="noopener noreferrer"
+                <a href={playPermalink || idea.exampleUrl} target="_blank" rel="noopener noreferrer"
                   className="text-xs text-indigo-500 hover:underline inline-block">
                   View reel ↗
                 </a>
