@@ -411,6 +411,24 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
   const [promoting, setPromoting] = useState(false);
   const [generatingGuidelines, setGeneratingGuidelines] = useState(false);
   const [generatingStructure, setGeneratingStructure] = useState(false);
+  const [playUrl, setPlayUrl] = useState<string | null>(null);
+  const [playLoading, setPlayLoading] = useState(false);
+
+  // The saved reel link carries a shortcode; resolve its mp4 through the same endpoint the
+  // competitor player uses so the idea's reel plays inline instead of bouncing to Instagram.
+  const ideaShortcode = (() => {
+    const m = String(idea.exampleUrl || "").match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
+    return m ? m[1] : null;
+  })();
+  async function playInline() {
+    if (!ideaShortcode || playLoading) return;
+    setPlayLoading(true);
+    try {
+      const d = await fetch(`/api/competitors/reel-media?shortcode=${encodeURIComponent(ideaShortcode)}`, { cache: "no-store" })
+        .then((r) => r.json()).catch(() => ({}));
+      setPlayUrl(d?.url || null);
+    } finally { setPlayLoading(false); }
+  }
 
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -481,10 +499,25 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
             <p className="text-sm text-slate-700 font-medium line-clamp-2 mb-1">{idea.name}</p>
             {idea.notes && <p className="text-xs text-slate-400">{idea.notes}</p>}
             {idea.exampleUrl && (
-              <a href={idea.exampleUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-indigo-500 hover:underline mt-1 inline-block">
-                View reel ↗
-              </a>
+              <div className="mt-2 space-y-2">
+                {playUrl ? (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <video key={playUrl} src={`/api/vid?u=${encodeURIComponent(playUrl)}`} controls autoPlay playsInline
+                    className="w-full max-h-[46vh] rounded-lg bg-black object-contain" />
+                ) : ideaShortcode ? (
+                  <button type="button" onClick={playInline} disabled={playLoading}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-800 text-white text-xs font-semibold hover:bg-slate-900 disabled:opacity-60">
+                    {playLoading ? "Loading reel…" : "▶ Play reel here"}
+                  </button>
+                ) : null}
+                {playUrl === null && !playLoading && ideaShortcode && (
+                  <p className="text-[10px] text-slate-400">Plays in-app — no need to open Instagram.</p>
+                )}
+                <a href={idea.exampleUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-indigo-500 hover:underline inline-block">
+                  View reel ↗
+                </a>
+              </div>
             )}
           </div>
 
