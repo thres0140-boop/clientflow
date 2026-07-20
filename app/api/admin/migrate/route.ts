@@ -39,6 +39,30 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ?igmediatest=<clientId> — for each of a client's idea reels, show its stored exampleUrl and
+  // test resolving media_url via the Graph API (diagnoses the Concept Idea inline player).
+  if (req.nextUrl.searchParams.get("igmediatest")) {
+    const clientId = parseInt(req.nextUrl.searchParams.get("igmediatest")!);
+    const conn = await prisma.instagramConnection.findUnique({ where: { clientId } });
+    if (!conn) return NextResponse.json({ error: "no IG connection for client " + clientId });
+    const ideas = await (prisma as any).concept.findMany({ where: { clientId, isIdea: true }, select: { id: true, name: true, exampleUrl: true } });
+    const out = [];
+    for (const it of ideas) {
+      const m = String(it.exampleUrl || "").match(/\/(?:reel|reels|p|tv)\/([^/?#]+)/);
+      const seg = m ? m[1] : null;
+      let graph: any = "no seg";
+      if (seg) {
+        try {
+          const r = await fetch(`https://graph.instagram.com/v21.0/${seg}?fields=media_url,media_type,permalink&access_token=${conn.accessToken}`);
+          const gd = await r.json();
+          graph = { status: r.status, media_url: gd?.media_url ? "YES" : "NO", media_type: gd?.media_type, error: gd?.error?.message?.slice(0, 120) };
+        } catch (e) { graph = "fetch threw: " + String(e); }
+      }
+      out.push({ name: it.name, exampleUrl: it.exampleUrl, seg, numeric: seg ? /^\d+$/.test(seg) : null, graph });
+    }
+    return NextResponse.json({ clientId, tokenEnds: conn.accessToken.slice(-6), ideas: out });
+  }
+
   // ?reelcols=1 — add the capture-once columns, one statement each (multi-statement raw
   // queries can fail on the Neon adapter), reporting per-column so nothing silently 500s.
   if (req.nextUrl.searchParams.get("reelcols")) {
