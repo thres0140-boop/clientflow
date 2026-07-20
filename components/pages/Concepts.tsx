@@ -42,14 +42,30 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set(attached));
   const [preview, setPreview] = useState<any | null>(null);
+  const [sort, setSort] = useState<"recent" | "top">("recent");
 
-  async function loadPage(c: string | null) {
+  async function loadPage(c: string | null): Promise<string | null> {
     const url = `/api/instagram/media?clientId=${clientId}${c ? `&cursor=${encodeURIComponent(c)}` : ""}`;
     const d = await fetch(url).then((r) => r.json()).catch(() => ({}));
     const page = Array.isArray(d?.reels) ? d.reels : Array.isArray(d) ? d : [];
     setReels((prev) => (c ? [...prev, ...page] : page));
-    setCursor(d?.nextCursor ?? null);
+    const next = d?.nextCursor ?? null;
+    setCursor(next);
+    return next;
   }
+
+  // "Top" ranks by views across ALL reels, so pull every remaining page before sorting.
+  async function loadAllRemaining() {
+    let c = cursor;
+    if (!c) return;
+    setLoadingMore(true);
+    try { while (c) c = await loadPage(c); } finally { setLoadingMore(false); }
+  }
+
+  // Reels sorted for display — newest-first (as loaded) or by view count (best performers).
+  const displayReels = sort === "top"
+    ? [...reels].sort((a, b) => (b.plays ?? 0) - (a.plays ?? 0))
+    : reels;
 
   useEffect(() => {
     setLoading(true);
@@ -71,14 +87,22 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
   return (
     <Modal title="Attach reels" onClose={onClose} wide>
       <div className="space-y-3">
-        <p className="text-xs text-slate-500">Click a reel to select · tap ▶ to play it. {selected.size} selected.</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-slate-500">Click a reel to select · tap ▶ to play it. {selected.size} selected.</p>
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 flex-shrink-0">
+            <button type="button" onClick={() => setSort("recent")}
+              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${sort === "recent" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Recent</button>
+            <button type="button" onClick={() => { setSort("top"); loadAllRemaining(); }}
+              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${sort === "top" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>🏆 Top performers</button>
+          </div>
+        </div>
         {loading ? (
           <div className="py-16 text-center text-sm text-slate-400">Loading reels…</div>
         ) : reels.length === 0 ? (
           <div className="py-16 text-center text-sm text-slate-400">No reels found for this client.</div>
         ) : (
           <div className="grid grid-cols-4 gap-2 max-h-[55vh] overflow-y-auto" onScroll={onScroll}>
-            {reels.map((r) => {
+            {displayReels.map((r) => {
               const url = reelUrlOf(r);
               const isSel = selected.has(url);
               return (
