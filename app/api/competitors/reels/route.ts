@@ -83,6 +83,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
+  // force=1 bypasses the freshness cooldown — a manual click should always re-scrape.
+  const force = req.nextUrl.searchParams.get("force") === "1";
 
   const COOLDOWN_HOURS = 6;
   const cutoff = Date.now() - COOLDOWN_HOURS * 3600_000;
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
   // up by the twice-daily cron, or on the next manual refresh.
   const MAX_PER_REFRESH = 5;
   const eligible = competitors
-    .filter((c) => { const last = (c as any).lastScrapedAt ? new Date((c as any).lastScrapedAt).getTime() : 0; return !last || last <= cutoff; })
+    .filter((c) => { if (force) return true; const last = (c as any).lastScrapedAt ? new Date((c as any).lastScrapedAt).getTime() : 0; return !last || last <= cutoff; })
     .sort((a, b) => {
       const la = (a as any).lastScrapedAt ? new Date((a as any).lastScrapedAt).getTime() : 0;
       const lb = (b as any).lastScrapedAt ? new Date((b as any).lastScrapedAt).getTime() : 0;
