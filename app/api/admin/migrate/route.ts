@@ -58,7 +58,12 @@ export async function GET(req: NextRequest) {
           graph = { status: r.status, media_url: gd?.media_url ? "YES" : "NO", media_type: gd?.media_type, error: gd?.error?.message?.slice(0, 120) };
         } catch (e) { graph = "fetch threw: " + String(e); }
       }
-      out.push({ name: it.name, exampleUrl: it.exampleUrl, seg, numeric: seg ? /^\d+$/.test(seg) : null, graph });
+      // Is this numeric id actually a stored CompetitorReel row (the client's own feed reels)?
+      let compReel: any = null;
+      if (seg && /^\d+$/.test(seg)) {
+        compReel = await (prisma as any).competitorReel.findUnique({ where: { id: parseInt(seg) }, select: { id: true, shortcode: true, permalink: true, cachedVideoUrl: true } }).catch(() => null);
+      }
+      out.push({ name: it.name, exampleUrl: it.exampleUrl, seg, numeric: seg ? /^\d+$/.test(seg) : null, graph, compReel });
     }
     return NextResponse.json({ clientId, tokenEnds: conn.accessToken.slice(-6), ideas: out });
   }
