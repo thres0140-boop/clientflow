@@ -50,9 +50,10 @@ export async function POST(req: NextRequest) {
       caption: null,
       weekLabel: weekLabel(),
       exampleVideoUrl,
+      exampleLink: reel.permalink || (reel.shortcode ? `https://www.instagram.com/reel/${reel.shortcode}/` : null),
       status: "pending",   // → Ideas column
       isSavedIdea: false,
-    },
+    } as any,
   });
 
   return NextResponse.json({ ok: true, draftId: draft.id, exampleVideoUrl });

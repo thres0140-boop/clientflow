@@ -68,6 +68,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ clientId, tokenEnds: conn.accessToken.slice(-6), ideas: out });
   }
 
+  // ?fixexamplelinks=1 — backfill exampleLink on drafts whose example video is a cached
+  // competitor reel (comp-examples/<reelId>.mp4) but has no IG link yet.
+  if (req.nextUrl.searchParams.get("fixexamplelinks")) {
+    const drafts = await (prisma as any).scriptDraft.findMany({
+      where: { exampleVideoUrl: { contains: "comp-examples/" }, exampleLink: null },
+      select: { id: true, exampleVideoUrl: true },
+    });
+    let fixed = 0;
+    for (const d of drafts) {
+      const m = String(d.exampleVideoUrl || "").match(/comp-examples\/(\d+)\.mp4/);
+      if (!m) continue;
+      const reel = await (prisma as any).competitorReel.findUnique({ where: { id: parseInt(m[1]) }, select: { permalink: true, shortcode: true } });
+      const link = reel?.permalink || (reel?.shortcode ? `https://www.instagram.com/reel/${reel.shortcode}/` : null);
+      if (link) { await (prisma as any).scriptDraft.update({ where: { id: d.id }, data: { exampleLink: link } }); fixed++; }
+    }
+    return NextResponse.json({ candidates: drafts.length, fixed });
+  }
+
   // ?reelcols=1 — add the capture-once columns, one statement each (multi-statement raw
   // queries can fail on the Neon adapter), reporting per-column so nothing silently 500s.
   if (req.nextUrl.searchParams.get("reelcols")) {
