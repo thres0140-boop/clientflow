@@ -814,7 +814,7 @@ function CompetitorsTab({ client }: { client: Client }) {
             ))}
 
             {/* Creator filter — search a specific competitor from the list */}
-            <div className="relative ml-auto">
+            <div className="relative ml-auto z-30">
               {creatorFilter ? (
                 <button onClick={() => { setCreatorFilter(""); setCreatorSearch(""); }}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-indigo-500 bg-indigo-50 text-indigo-700">
@@ -830,7 +830,7 @@ function CompetitorsTab({ client }: { client: Client }) {
                   className="w-44 border border-slate-200 rounded-full px-3 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-400" />
               )}
               {creatorOpen && !creatorFilter && (
-                <div className="absolute right-0 top-full mt-1 w-56 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1">
+                <div className="absolute right-0 top-full mt-1 w-56 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-[100] py-1">
                   {competitors
                     .filter((c) => c.handle.toLowerCase().includes(creatorSearch.toLowerCase()))
                     .sort((a, b) => a.handle.localeCompare(b.handle))
