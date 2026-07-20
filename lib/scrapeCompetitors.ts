@@ -272,8 +272,9 @@ export async function scrapeCompetitor(
   const competitor = await prisma.competitor.findUnique({ where: { id: competitorId } });
   if (!competitor) return { ok: false, reels: 0, error: "not found" };
 
-    // full backfill paginates deep; incremental grabs the latest pages.
-  const maxPages = opts.full ? 12 : 2;
+    // full backfill paginates deep; incremental grabs the latest pages. The provider caps each
+    // page at ~12 reels, so 5 pages ≈ 60 reels per creator on a normal refresh.
+  const maxPages = opts.full ? 12 : 5;
 
   try {
     const recent = await fetchReelsFromProvider(competitor.handle, maxPages);
