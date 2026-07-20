@@ -412,23 +412,28 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
   const [generatingGuidelines, setGeneratingGuidelines] = useState(false);
   const [generatingStructure, setGeneratingStructure] = useState(false);
   const [playUrl, setPlayUrl] = useState<string | null>(null);
-  const [playLoading, setPlayLoading] = useState(false);
+  const [playLoading, setPlayLoading] = useState(true);
 
-  // The saved reel link carries a shortcode; resolve its mp4 through the same endpoint the
-  // competitor player uses so the idea's reel plays inline instead of bouncing to Instagram.
-  const ideaShortcode = (() => {
-    const m = String(idea.exampleUrl || "").match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
+  // The saved reel link's last segment is either the numeric media id (the client's OWN reel)
+  // or a shortcode. Resolve the fresh mp4 accordingly and play it inline. Auto-runs on open so
+  // the reel just shows, rather than making the user click out to Instagram.
+  const reelSeg = (() => {
+    const m = String(idea.exampleUrl || "").match(/\/(?:reel|reels|p|tv)\/([^/?#]+)/);
     return m ? m[1] : null;
   })();
-  async function playInline() {
-    if (!ideaShortcode || playLoading) return;
-    setPlayLoading(true);
-    try {
-      const d = await fetch(`/api/competitors/reel-media?shortcode=${encodeURIComponent(ideaShortcode)}`, { cache: "no-store" })
-        .then((r) => r.json()).catch(() => ({}));
-      setPlayUrl(d?.url || null);
-    } finally { setPlayLoading(false); }
-  }
+  useEffect(() => {
+    let cancelled = false;
+    if (!reelSeg) { setPlayLoading(false); return; }
+    (async () => {
+      const isMediaId = /^\d+$/.test(reelSeg);
+      const endpoint = isMediaId
+        ? `/api/instagram/media-url?clientId=${idea.clientId}&mediaId=${encodeURIComponent(reelSeg)}`
+        : `/api/competitors/reel-media?shortcode=${encodeURIComponent(reelSeg)}`;
+      const d = await fetch(endpoint, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
+      if (!cancelled) { setPlayUrl(d?.url || null); setPlayLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [reelSeg, idea.clientId]);
 
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -500,18 +505,16 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
             {idea.notes && <p className="text-xs text-slate-400">{idea.notes}</p>}
             {idea.exampleUrl && (
               <div className="mt-2 space-y-2">
-                {playUrl ? (
+                {playLoading ? (
+                  <div className="w-full aspect-[9/16] max-h-[46vh] rounded-lg bg-slate-900 flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : playUrl ? (
                   // eslint-disable-next-line jsx-a11y/media-has-caption
                   <video key={playUrl} src={`/api/vid?u=${encodeURIComponent(playUrl)}`} controls autoPlay playsInline
                     className="w-full max-h-[46vh] rounded-lg bg-black object-contain" />
-                ) : ideaShortcode ? (
-                  <button type="button" onClick={playInline} disabled={playLoading}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-800 text-white text-xs font-semibold hover:bg-slate-900 disabled:opacity-60">
-                    {playLoading ? "Loading reel…" : "▶ Play reel here"}
-                  </button>
-                ) : null}
-                {playUrl === null && !playLoading && ideaShortcode && (
-                  <p className="text-[10px] text-slate-400">Plays in-app — no need to open Instagram.</p>
+                ) : (
+                  <p className="text-[11px] text-slate-400">Couldn&apos;t load the reel in-app — open it on Instagram below.</p>
                 )}
                 <a href={idea.exampleUrl} target="_blank" rel="noopener noreferrer"
                   className="text-xs text-indigo-500 hover:underline inline-block">
