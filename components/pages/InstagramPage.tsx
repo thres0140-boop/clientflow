@@ -586,7 +586,17 @@ function CompetitorsTab({ client }: { client: Client }) {
 
   async function remove(id: number) {
     if (!confirm("Remove this competitor?")) return;
+    const removed = competitors.find((c) => c.id === id);
     await fetch(`/api/competitors/${id}`, { method: "DELETE" });
+    // Their reels are cascade-deleted server-side, but the Reels tab caches its list and only
+    // loads once — drop that cache so it refetches instead of still showing the removed
+    // competitor's reels. Also clear the creator filter if it pointed at them.
+    if (removed && creatorFilter.toLowerCase() === removed.handle.toLowerCase()) {
+      setCreatorFilter("");
+      setCreatorSearch("");
+    }
+    setAllReels([]);
+    setReelsFetched(false);
     reload();
   }
 
