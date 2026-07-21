@@ -8,6 +8,7 @@ import {
 import StatusBadge from "@/components/ui/StatusBadge";
 import ClientAvatar from "@/components/ui/ClientAvatar";
 import Modal from "@/components/ui/Modal";
+import { QRCodeSVG } from "qrcode.react";
 
 type Props = {
   clients: Client[];
@@ -1005,6 +1006,8 @@ function ConfirmScheduleModal({
   const [captionCopied, setCaptionCopied] = useState(false);
   const [trialReel, setTrialReel] = useState(false);
   const [genCaption, setGenCaption] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [showVideoQR, setShowVideoQR] = useState(false);
   const [scheduleTime, setScheduleTime] = useState(() => {
     const m = (draft.scheduledDate || "").match(/T(\d{2}:\d{2})/);
     return m ? m[1] : "09:00";
@@ -1092,6 +1095,26 @@ function ConfirmScheduleModal({
                 </div>
               ) : (
                 <img src={videoUrl} alt="" className="rounded-xl w-full object-cover max-h-64" />
+              )}
+
+              {/* Shareable link to the finished video — same as the Kanban schedule stage, so
+                  you can hand the file to whoever posts it (or scan it onto a phone). */}
+              <div className="flex items-center gap-2 mt-2">
+                <input readOnly value={videoUrl} onFocus={(e) => e.currentTarget.select()}
+                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-500 truncate" />
+                <button
+                  onClick={async () => { try { await navigator.clipboard.writeText(videoUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); } catch { /* ignore */ } }}
+                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">
+                  {linkCopied ? "✓" : "🔗 Video"}
+                </button>
+                <button onClick={() => setShowVideoQR((s) => !s)} title="Show QR to open on phone"
+                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱</button>
+              </div>
+              {showVideoQR && (
+                <div className="flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3 mt-2">
+                  <QRCodeSVG value={videoUrl} size={140} />
+                  <p className="text-[10px] text-slate-400">Scan to open the video on your phone</p>
+                </div>
               )}
             </div>
           )}
