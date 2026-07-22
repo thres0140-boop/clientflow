@@ -86,6 +86,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ candidates: drafts.length, fixed });
   }
 
+  // ?remixtest=1 — run a minimal keep-hook remix and show whether the model returns distinct
+  // bodies (diagnoses the "same script N times" remix bug).
+  if (req.nextUrl.searchParams.get("remixtest")) {
+    try {
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const ac = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const src = "The reason your biceps don't pop yet is you only do 2-3 sets a week and expect big arms. The one thing you need is to train all three heads: long head, short head, and brachialis, each with a specific angle.";
+      const sys = `You remix a proven reel into 3 DISTINCT scripts that make the SAME point different ways.
+Keep the hook identical; the "script" field is the BODY ONLY (no hook).
+Each of the 3 MUST use a different structural approach: 1) personal story, 2) common mistake→fix, 3) myth-bust. No two bodies may share a full sentence.
+Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
+      const msg = await ac.messages.create({
+        model: "claude-sonnet-4-6", max_tokens: 4000, temperature: 1,
+        system: sys,
+        messages: [{ role: "user", content: `Winner:\n"""${src}"""\nGenerate EXACTLY 3 variations, bodies only, genuinely different.` }],
+      });
+      const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
+      const m = raw.match(/\[[\s\S]*\]/);
+      let parsed: any[] = [];
+      try { parsed = m ? JSON.parse(m[0]) : []; } catch { /* ignore */ }
+      const scripts = parsed.map((p: any) => (p.script || "").slice(0, 140));
+      const allSame = scripts.length > 1 && scripts.every((s: string) => s === scripts[0]);
+      return NextResponse.json({ count: parsed.length, allIdentical: allSame, scripts });
+    } catch (e) {
+      return NextResponse.json({ error: "remixtest failed: " + (e instanceof Error ? e.message : String(e)) });
+    }
+  }
+
   // ?reelcols=1 — add the capture-once columns, one statement each (multi-statement raw
   // queries can fail on the Neon adapter), reporting per-column so nothing silently 500s.
   if (req.nextUrl.searchParams.get("reelcols")) {
