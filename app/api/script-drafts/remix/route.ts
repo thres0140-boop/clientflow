@@ -81,75 +81,68 @@ ${captionStyle}
 
 LANGUAGE: ${langInstruction}
 
-THE TASK — REMIX A PROVEN WINNER:
-You are given ONE reel that ALREADY PERFORMED. Keep only its core MESSAGE — the point it makes,
-the topic, the promise, the emotional payoff. Then write ${count} COMPLETELY FRESH scripts that
-make that SAME point in totally different words. Think "same idea, ${count} brand-new scripts
-written from scratch" — NOT "paraphrase the original ${count} times". The original is your brief,
-not your draft.
+THE TASK — REMIX A PROVEN WINNER (ONE variation at a time):
+You are given ONE reel that ALREADY PERFORMED, plus a specific ANGLE to write it in. Keep only its
+core MESSAGE — the point, the topic, the promise, the payoff. Then write ONE completely fresh
+${isTextOverlay ? "set of on-screen text cards" : "script"} that makes that SAME point in totally new
+words, fully committed to the assigned angle. The winner is your BRIEF, not your draft.
 
 HARD RULES:
-  • SAME point, BRAND-NEW script. Different sentences, different structure, different supporting
-    examples/analogies/metaphors, different rhythm. Each must read as an original script.
-  • NEVER copy the winner's wording. If a variation repeats a whole sentence — or more than ~5
-    consecutive words — from the original OR from another variation, rewrite it. This is the #1 rule:
-    a near-copy is a failure.
-  • Do NOT drift to a different topic or claim — the underlying point stays the same.
-  • Make the ${count} variations clearly distinct from EACH OTHER too, not just from the original.
-  • Keep this creator's voice and this concept's format.
-
+  • SAME point, BRAND-NEW ${isTextOverlay ? "cards" : "script"} — new sentences, new structure, new
+    examples/analogies. It must read as an original.
+  • NEVER copy the winner's wording. The winner may be long and detailed; your version is SHORT and
+    fresh — a re-transcription (repeating a whole sentence or >5 consecutive words) is a hard failure.
+  • ${isTextOverlay ? "4–8 short punchy on-screen lines, one thought per line." : "80–130 words, spoken the way this creator actually talks."}
+  • Do NOT drift off the underlying point. Keep this creator's voice, and commit fully to the angle.
 ${keepHook ? `\nHOOK RULE — KEEP THE PROVEN HOOK:
-The winner's opening hook is proven and gets re-attached automatically, so:
-  • DO NOT write the hook anywhere in your "script" field.
-  • Your "script" is ONLY the body that comes AFTER the hook — invented from a blank page, NOT a
-    continuation or paraphrase of the winner's body. Because you're not looking at the hook while
-    writing, do not try to "continue" the original — build a fresh body that makes the same point a
-    new way.
-  • Set the "hook" field to exactly: "${sourceHook}"` : `\nHOOK RULE — FRESH HOOK EACH TIME:
-Give every variation a different opening hook (different first line), all landing the same point.`}
-${hookAltCount > 0 ? `\nHOOK ALTERNATIVES:
-For each variation also provide "hookAlternatives": an array of ${hookAltCount} DIFFERENT alternative opening hooks that fit the same script (same promise, different wording). ${keepHook ? "These are extra options to test against the proven hook." : ""}` : ""}
-${count > 1 ? `\nVARIATION FRAMES — THIS IS WHAT MAKES THEM DIFFERENT:
-Returning the same body more than once is a hard failure. To guarantee the ${count} scripts are
-genuinely distinct, each MUST take a DIFFERENT structural approach. Assign these in order (cycle
-the list if you need more than 7):
-  1) Personal story / confession — "I used to…"
-  2) The common mistake → the fix
-  3) The hidden mechanism — "here's WHY this actually happens"
-  4) Straight step-by-step how-to
-  5) Myth-bust / contrarian take — "everyone says X, but…"
-  6) One vivid analogy or metaphor carried all the way through
-  7) Direct challenge to the viewer — "be honest, you…"
-No two variations may use the same approach, and none may reuse the winner's structure. Same point,
-${count} genuinely different scripts.` : ""}
+  • Your "script" is the BODY ONLY — do NOT write the hook anywhere in it (it's re-attached automatically).
+  • Set the "hook" field to exactly: "${sourceHook}"` : `\nHOOK RULE — FRESH HOOK:
+  • Give it a different opening hook (different first line) that lands the same point.`}
+${hookAltCount > 0 ? `\nAlso provide "hookAlternatives": an array of ${hookAltCount} different alternative opening hooks for this one script.` : ""}
 
-Output ONLY a valid JSON array, nothing else:
-[
-  { "title": "short title", "hook": "${isTextOverlay ? "first on-screen text line" : "opening hook line"}", "script": "${keepHook ? "the fresh BODY only — do NOT include the hook" : isTextOverlay ? "on-screen text cards (short punchy lines)" : "full spoken script"}", "caption": "caption (different angle from the script)"${hookAltCount > 0 ? `, "hookAlternatives": ["alt hook 1", "alt hook 2"${hookAltCount > 2 ? ", …" : ""}]` : ""} }
-]`;
+Output ONLY one valid JSON object, nothing else:
+{ "title": "short title", "hook": "${isTextOverlay ? "first on-screen text line" : "opening hook line"}", "script": "${keepHook ? "the fresh BODY only — no hook" : isTextOverlay ? "on-screen text cards" : "full spoken script"}", "caption": "caption (different angle from the script)"${hookAltCount > 0 ? `, "hookAlternatives": ["alt 1", "alt 2"]` : ""} }`;
 
-  const userMessage = `Here is the PROVEN WINNING reel${sourceTitle ? ` ("${sourceTitle}")` : ""} to remix:
+  // Distinct angles so each variation is structurally different. Generating ONE variation per
+  // API call (each blind to the others, each locked to one angle) is what stops the model from
+  // echoing a long detailed winner into every "variation".
+  const FRAMES = [
+    'a personal STORY / confession — open with "I used to…" and tell a short story',
+    "the COMMON MISTAKE people make, then the fix",
+    "the HIDDEN MECHANISM — explain WHY this actually happens under the hood",
+    "a straight STEP-BY-STEP how-to",
+    'a MYTH-BUST / contrarian take — "everyone says X, but the truth is…"',
+    "one vivid ANALOGY or metaphor carried all the way through",
+    'a direct CHALLENGE to the viewer — "be honest, you…"',
+  ];
 
+  async function generateOne(frameIdx: number) {
+    const frame = FRAMES[frameIdx % FRAMES.length];
+    const userMessage = `PROVEN WINNING reel${sourceTitle ? ` ("${sourceTitle}")` : ""}:
 """
 ${String(source).trim()}
 """
 
-Generate EXACTLY ${count} variations for ${weekLabel || "this batch"}${dayLabel ? `, ${dayLabel}` : ""}. Same POINT as this reel, but ${count} scripts written FROM SCRATCH — new sentences, new structure, new examples. Do NOT paraphrase or copy the wording above; only the underlying message carries over.${keepHook ? " Each opens with the exact proven hook, then a fresh body." : ""} If any two scripts (or a script and the original) share a full sentence, they are wrong — rewrite them.`;
+Write ONE fresh variation that makes the SAME core point as this winner, written completely from scratch using THIS angle: ${frame}.
+${isTextOverlay ? "4–8 short on-screen lines." : "80–130 words."} Only the underlying point carries over — do NOT reuse the winner's sentences, order, or structure. Commit hard to the angle so it unmistakably reads as that kind of script.${keepHook ? ` The "script" field is the BODY only (no hook).` : ""}`;
+    try {
+      const message = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 2000,
+        temperature: 1,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      });
+      const raw = message.content[0].type === "text" ? message.content[0].text : "{}";
+      const m = raw.match(/\{[\s\S]*\}/);
+      return m ? JSON.parse(m[0]) : null;
+    } catch { return null; }
+  }
 
-  let drafts: { title: string; hook: string; script: string; caption?: string; hookAlternatives?: string[] }[] = [];
-  try {
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 12000,
-      temperature: 1,   // maximise diversity between the variations
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    });
-    const raw = message.content[0].type === "text" ? message.content[0].text : "[]";
-    const jsonMatch = raw.match(/\[[\s\S]*\]/);
-    drafts = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
-  } catch (e) {
-    return NextResponse.json({ error: "Generation failed: " + (e instanceof Error ? e.message : String(e)) }, { status: 500 });
+  const results = await Promise.all(Array.from({ length: count }, (_, i) => generateOne(i)));
+  const drafts: { title: string; hook: string; script: string; caption?: string; hookAlternatives?: string[] }[] = results.filter(Boolean);
+  if (!drafts.length) {
+    return NextResponse.json({ error: "Generation failed — try again." }, { status: 500 });
   }
 
   const created = [];

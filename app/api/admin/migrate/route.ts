@@ -132,15 +132,20 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
       const blueprintLines = [concept.hookType && `Hook Type: ${concept.hookType}`, concept.videoType && `Video Type: ${concept.videoType}`, concept.angle && `Angle: ${concept.angle}`, concept.structure && `Structure: ${concept.structure}`, concept.guidelines && `Guidelines:\n${concept.guidelines}`].filter(Boolean).join("\n");
       let examplesSection = await buildExamplesBlock(concept);
       if (!examplesSection && concept.scriptExamples) examplesSection = `\n\nVOICE REFERENCE:\n` + splitExamples(concept.scriptExamples).map((ex: string, i: number) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n");
-      const sys = `You are a script writer for ${clientData.name}, "${concept.name}" concept.\nBLUEPRINT:\n${blueprintLines}\n${examplesSection}\nLANGUAGE: Write in Dutch.\nREMIX: keep the winner's MESSAGE, write ${count} BRAND-NEW scripts. keepHook: script field is BODY ONLY. Each variation MUST use a different frame (story / mistake→fix / myth-bust). No two bodies share a full sentence.\nOutput ONLY JSON: [{"title":"..","script":"body only"}]`;
-      const msg = await ac.messages.create({ model: "claude-sonnet-4-6", max_tokens: 8000, temperature: 1, system: sys, messages: [{ role: "user", content: `Winner:\n"""${source}"""\nGenerate EXACTLY ${count} bodies, genuinely different.` }] });
-      const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
-      const mm = raw.match(/\[[\s\S]*\]/);
-      let parsed: any[] = [];
-      try { parsed = mm ? JSON.parse(mm[0]) : []; } catch { /* ignore */ }
-      const scripts = parsed.map((p: any) => (p.script || "").slice(0, 140));
-      const allSame = scripts.length > 1 && scripts.every((s: string) => s === scripts[0]);
-      return NextResponse.json({ concept: concept.name, hasExamples: !!examplesSection, count: parsed.length, allIdentical: allSame, scripts });
+      // Long, detailed winner (like a real 440-word script) — this is what triggered the copy bug.
+      const longSource = source + " De brachialis train je met een hamercurl, duim omhoog, en die duw je bicep letterlijk omhoog waardoor je arm dikker oogt. De meeste mensen doen alleen maar standaard curls met de dumbbells recht voor zich, en dan drie sets, klaar. Maar zo raak je alleen de buik van de spier en laat je de long head en de brachialis links liggen. Wil je echt groei? Dan train je alle drie de koppen los, elk met de juiste hoek, en verhoog je je volume naar minstens tien sets per week verdeeld over twee sessies. Begin met de long head als je fris bent, dan de short head, en sluit af met de brachialis. Rustig zakken, twee seconden negatief, en knijp bovenin.";
+      const sys = `You are a script writer for ${clientData.name}, "${concept.name}" concept.\nBLUEPRINT:\n${blueprintLines}\n${examplesSection}\nLANGUAGE: Write in Dutch.\nREMIX one variation: keep the winner's MESSAGE, write ONE BRAND-NEW body (80-130 words) in the assigned angle. BODY ONLY. The winner is long — your body is short and fresh, never a re-transcription.\nOutput ONLY one JSON object: {"title":"..","script":"body only"}`;
+      const FR = ["a personal STORY / confession", "the COMMON MISTAKE then the fix", "a MYTH-BUST / contrarian take"];
+      const one = async (frame: string) => {
+        const msg = await ac.messages.create({ model: "claude-sonnet-4-6", max_tokens: 1500, temperature: 1, system: sys, messages: [{ role: "user", content: `Winner:\n"""${longSource}"""\nWrite ONE fresh body (80-130 words) using THIS angle: ${frame}. Only the point carries over — no copied sentences.` }] });
+        const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
+        const mm = raw.match(/\{[\s\S]*\}/);
+        try { return mm ? JSON.parse(mm[0]) : null; } catch { return null; }
+      };
+      const parsed = (await Promise.all(FR.map(one))).filter(Boolean);
+      const scripts = parsed.map((p: any) => (p.script || "").slice(0, 130));
+      const allSame = scripts.length > 1 && scripts.every((s: string) => s.slice(0, 60) === scripts[0].slice(0, 60));
+      return NextResponse.json({ concept: concept.name, srcWords: longSource.split(/\s+/).length, count: parsed.length, allIdentical: allSame, scripts });
     } catch (e) {
       return NextResponse.json({ error: "remixtest failed: " + (e instanceof Error ? e.message : String(e)) });
     }
