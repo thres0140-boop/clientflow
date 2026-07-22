@@ -3501,6 +3501,19 @@ function RejectModal({
     onConfirm(selected, selected === "custom" ? customText : "");
   }
 
+  // Keyboard: Enter = "just delete, don't teach the AI" (the quick path), Escape = cancel.
+  // Skipped while typing a custom reason so Enter still adds newlines there.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = document.activeElement;
+      const typing = !!el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT");
+      if (e.key === "Enter" && !typing) { e.preventDefault(); onDeleteOnly(); }
+      else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onDeleteOnly, onCancel]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -3563,6 +3576,7 @@ function RejectModal({
           className="w-full text-center text-xs font-medium text-slate-400 hover:text-red-500 pt-1"
         >
           {replace ? "🔄 Just replace — don't teach the AI" : `🗑 Just delete — don't teach the AI${draft.clientAuthored ? " or notify the client" : ""}`}
+          <span className="ml-1.5 text-[10px] text-slate-300 border border-slate-200 rounded px-1 py-0.5">⏎ Enter</span>
         </button>
       </div>
     </div>
