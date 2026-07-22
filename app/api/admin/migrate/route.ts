@@ -114,6 +114,38 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     }
   }
 
+  // ?remixtest2=<conceptId> — replicate the FULL production remix prompt (real concept +
+  // examples + long Dutch source) to see if the elaborate prompt is what causes copies.
+  if (req.nextUrl.searchParams.get("remixtest2")) {
+    try {
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const { buildExamplesBlock, splitExamples } = await import("@/lib/conceptExamples");
+      const ac = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const cid = parseInt(req.nextUrl.searchParams.get("remixtest2")!);
+      // param is a clientId; grab that client's most-populated concept (has examples/blueprint).
+      const concept = await (prisma as any).concept.findFirst({ where: { clientId: cid, isIdea: false }, orderBy: { id: "desc" } });
+      if (!concept) return NextResponse.json({ error: "no concept for client " + cid });
+      const clientData = await (prisma as any).client.findUnique({ where: { id: concept.clientId } });
+      const source = "De reden waarom jouw biceps nog niet uit je shirt klappen, dat komt omdat jij 2 tot 3 sets per week doet. En dan verwacht dat jij grote biceps gaat krijgen. Het enige wat je nodig hebt om echt die biceps uit je shirt te laten klappen is deze en deze. Als eerste de long head. Die spreek je aan door midden van je bicep achter het lichaam te houden.";
+      const sourceHook = source.split("\n").map((l) => l.trim()).find(Boolean) || "";
+      const count = 3, keepHook = true;
+      const blueprintLines = [concept.hookType && `Hook Type: ${concept.hookType}`, concept.videoType && `Video Type: ${concept.videoType}`, concept.angle && `Angle: ${concept.angle}`, concept.structure && `Structure: ${concept.structure}`, concept.guidelines && `Guidelines:\n${concept.guidelines}`].filter(Boolean).join("\n");
+      let examplesSection = await buildExamplesBlock(concept);
+      if (!examplesSection && concept.scriptExamples) examplesSection = `\n\nVOICE REFERENCE:\n` + splitExamples(concept.scriptExamples).map((ex: string, i: number) => `Example ${i + 1}:\n${ex.trim()}`).join("\n\n");
+      const sys = `You are a script writer for ${clientData.name}, "${concept.name}" concept.\nBLUEPRINT:\n${blueprintLines}\n${examplesSection}\nLANGUAGE: Write in Dutch.\nREMIX: keep the winner's MESSAGE, write ${count} BRAND-NEW scripts. keepHook: script field is BODY ONLY. Each variation MUST use a different frame (story / mistake→fix / myth-bust). No two bodies share a full sentence.\nOutput ONLY JSON: [{"title":"..","script":"body only"}]`;
+      const msg = await ac.messages.create({ model: "claude-sonnet-4-6", max_tokens: 8000, temperature: 1, system: sys, messages: [{ role: "user", content: `Winner:\n"""${source}"""\nGenerate EXACTLY ${count} bodies, genuinely different.` }] });
+      const raw = msg.content[0].type === "text" ? msg.content[0].text : "";
+      const mm = raw.match(/\[[\s\S]*\]/);
+      let parsed: any[] = [];
+      try { parsed = mm ? JSON.parse(mm[0]) : []; } catch { /* ignore */ }
+      const scripts = parsed.map((p: any) => (p.script || "").slice(0, 140));
+      const allSame = scripts.length > 1 && scripts.every((s: string) => s === scripts[0]);
+      return NextResponse.json({ concept: concept.name, hasExamples: !!examplesSection, count: parsed.length, allIdentical: allSame, scripts });
+    } catch (e) {
+      return NextResponse.json({ error: "remixtest failed: " + (e instanceof Error ? e.message : String(e)) });
+    }
+  }
+
   // ?reelcols=1 — add the capture-once columns, one statement each (multi-statement raw
   // queries can fail on the Neon adapter), reporting per-column so nothing silently 500s.
   if (req.nextUrl.searchParams.get("reelcols")) {
