@@ -109,6 +109,19 @@ The winner's opening hook is proven and gets re-attached automatically, so:
 Give every variation a different opening hook (different first line), all landing the same point.`}
 ${hookAltCount > 0 ? `\nHOOK ALTERNATIVES:
 For each variation also provide "hookAlternatives": an array of ${hookAltCount} DIFFERENT alternative opening hooks that fit the same script (same promise, different wording). ${keepHook ? "These are extra options to test against the proven hook." : ""}` : ""}
+${count > 1 ? `\nVARIATION FRAMES — THIS IS WHAT MAKES THEM DIFFERENT:
+Returning the same body more than once is a hard failure. To guarantee the ${count} scripts are
+genuinely distinct, each MUST take a DIFFERENT structural approach. Assign these in order (cycle
+the list if you need more than 7):
+  1) Personal story / confession — "I used to…"
+  2) The common mistake → the fix
+  3) The hidden mechanism — "here's WHY this actually happens"
+  4) Straight step-by-step how-to
+  5) Myth-bust / contrarian take — "everyone says X, but…"
+  6) One vivid analogy or metaphor carried all the way through
+  7) Direct challenge to the viewer — "be honest, you…"
+No two variations may use the same approach, and none may reuse the winner's structure. Same point,
+${count} genuinely different scripts.` : ""}
 
 Output ONLY a valid JSON array, nothing else:
 [
@@ -128,6 +141,7 @@ Generate EXACTLY ${count} variations for ${weekLabel || "this batch"}${dayLabel 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 12000,
+      temperature: 1,   // maximise diversity between the variations
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     });
