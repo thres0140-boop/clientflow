@@ -1,4 +1,5 @@
 "use client";
+import { videoSrc } from "@/lib/videoSrc";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
@@ -1280,7 +1281,7 @@ function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUplo
       <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">🎬 Example to copy</label>
       {draft.exampleVideoUrl ? (
         <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video mb-1.5">
-          <video src={draft.exampleVideoUrl} controls className="w-full h-full object-contain" />
+          <video src={videoSrc(draft.exampleVideoUrl)} controls className="w-full h-full object-contain" />
         </div>
       ) : (
         <p className="text-xs text-slate-400 italic mb-1.5">No example yet — add a reference recording for whoever films this.</p>
@@ -1681,7 +1682,7 @@ function DraftDetailPanel({
                       <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
                     ) : draft.editedVideoUrl ? (
                       <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
-                        <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+                        <video src={videoSrc(draft.editedVideoUrl)} controls className="w-full h-full object-contain" />
                       </div>
                     ) : (
                       <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
@@ -2199,7 +2200,7 @@ function FinishedVideoUpload({ draft, onUploaded }: { draft: ScriptDraft; onUplo
 
       {expanded && draft.editedVideoUrl && (
         <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
-          <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+          <video src={videoSrc(draft.editedVideoUrl)} controls className="w-full h-full object-contain" />
         </div>
       )}
 
@@ -2438,7 +2439,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
                   <div key={i} className="relative group rounded-lg overflow-hidden bg-slate-900 aspect-square">
                     {isImage(url)
                       ? <img src={url} alt="" className="w-full h-full object-cover" />
-                      : <video src={url} preload="metadata" muted playsInline className="w-full h-full object-cover" />}
+                      : <video src={videoSrc(url)} preload="metadata" muted playsInline className="w-full h-full object-cover" />}
                     {/* Tap anywhere on the tile to view/play it in-app (lightbox) */}
                     <button
                       onClick={() => setPlayUrl(url)}

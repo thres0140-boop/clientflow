@@ -8,6 +8,7 @@ import {
 import StatusBadge from "@/components/ui/StatusBadge";
 import ClientAvatar from "@/components/ui/ClientAvatar";
 import Modal from "@/components/ui/Modal";
+import { videoSrc } from "@/lib/videoSrc";
 import { QRCodeSVG } from "qrcode.react";
 
 type Props = {
@@ -909,7 +910,7 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
           <div>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Finished Video</p>
             <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
-              <video src={draft.editedVideoUrl} controls className="w-full h-full object-contain" />
+              <video src={videoSrc(draft.editedVideoUrl)} controls className="w-full h-full object-contain" />
             </div>
           </div>
         )}
@@ -1091,7 +1092,7 @@ function ConfirmScheduleModal({
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Video</p>
               {isVideo ? (
                 <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
-                  <video src={videoUrl} controls className="w-full h-full object-contain" />
+                  <video src={videoSrc(videoUrl)} controls className="w-full h-full object-contain" />
                 </div>
               ) : (
                 <img src={videoUrl} alt="" className="rounded-xl w-full object-cover max-h-64" />
