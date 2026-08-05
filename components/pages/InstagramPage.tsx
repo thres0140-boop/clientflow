@@ -1,4 +1,5 @@
 "use client";
+import { imgSrc } from "@/lib/videoSrc";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Client, Competitor } from "@/lib/types";
@@ -394,7 +395,7 @@ function FeedPreview({ client, reels, profile }: { client: Client; reels: IGReel
                 <video src={it.videoUrl} muted playsInline preload="metadata" className="w-full h-full object-cover" />
               ) : it.reel.thumbnail_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={it.reel.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img src={imgSrc(it.reel.thumbnail_url)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">▶</div>
               )}
@@ -431,7 +432,7 @@ function FeedViewer({ item, onClose }: { item: FeedItem; onClose: () => void }) 
               onError={(e) => { const v = e.currentTarget; if (!v.src.includes("/api/vid")) v.src = `${window.location.origin}/api/vid?u=${encodeURIComponent(videoUrl)}`; }} />
           ) : item.kind === "posted" && item.reel.thumbnail_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.reel.thumbnail_url} alt="" className="w-full object-contain" />
+            <img src={imgSrc(item.reel.thumbnail_url)} alt="" className="w-full object-contain" />
           ) : <div className="p-10 text-white/40">No preview</div>}
         </div>
         <div className="sm:w-[40%] bg-white p-4 overflow-y-auto">
@@ -506,7 +507,7 @@ function ReelsGrid({ reels, onSelect }: { reels: IGReel[]; onSelect: (r: IGReel)
           <button key={reel.id} onClick={() => onSelect(reel)}
             className="relative aspect-[9/16] bg-slate-900 rounded-xl overflow-hidden group">
             {reel.thumbnail_url
-              ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              ? <img src={imgSrc(reel.thumbnail_url)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
               : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
                   <span className="text-3xl opacity-30">▶</span>
                 </div>
@@ -884,7 +885,7 @@ function CompetitorsTab({ client }: { client: Client }) {
                   ) : (
                   <>
                     {reel.thumbnail_url
-                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ? <img src={imgSrc(reel.thumbnail_url)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
                           <span className="text-3xl opacity-30">▶</span>
                         </div>
@@ -1233,7 +1234,7 @@ function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose:
     <div className="absolute inset-0 z-30 bg-black flex items-center justify-center">
       {url ? (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video key={url} src={`/api/vid?u=${encodeURIComponent(url)}`} poster={reel.thumbnail_url} controls autoPlay playsInline onError={refresh} className="w-full h-full object-contain" />
+        <video key={url} src={`/api/vid?u=${encodeURIComponent(url)}`} poster={imgSrc(reel.thumbnail_url)} controls autoPlay playsInline onError={refresh} className="w-full h-full object-contain" />
       ) : loading ? (
         <div className="flex flex-col items-center gap-2">
           <div className="w-7 h-7 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
@@ -1328,7 +1329,7 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
                       <button type="button" onClick={() => setPlaying(r)} className="w-full h-full block">
                         {r.thumbnailUrl
                           // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={r.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                          ? <img src={imgSrc(r.thumbnailUrl)} alt="" className="w-full h-full object-cover" />
                           : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">▶</div>}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
                           <span className="w-9 h-9 rounded-full bg-white/90 text-slate-900 flex items-center justify-center text-sm shadow">▶</span>
@@ -1820,7 +1821,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
               // can't be scraped (IG hides it behind login now), fall back to IG's embed.
               if (isCompetitor && reel.id) {
                 if (compUrl) {
-                  return <video key={compUrl} src={`/api/vid?u=${encodeURIComponent(compUrl)}`} poster={reel.thumbnail_url} controls autoPlay playsInline
+                  return <video key={compUrl} src={`/api/vid?u=${encodeURIComponent(compUrl)}`} poster={imgSrc(reel.thumbnail_url)} controls autoPlay playsInline
                     onError={refreshCompUrl}
                     className="w-full h-full object-contain" />;
                 }
@@ -1828,7 +1829,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
                 return (
                   <div className="relative w-full h-full">
                     {reel.thumbnail_url
-                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover opacity-60" />
+                      ? <img src={imgSrc(reel.thumbnail_url)} alt="" className="w-full h-full object-cover opacity-60" />
                       : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 text-white">
                       {compLoading
@@ -1845,13 +1846,13 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
                 );
               }
               if (reel.media_url) {
-                return <video src={reel.media_url} poster={reel.thumbnail_url} controls className="w-full h-full object-contain" />;
+                return <video src={reel.media_url} poster={imgSrc(reel.thumbnail_url)} controls className="w-full h-full object-contain" />;
               }
               if (igLink) {
                 return (
                   <a href={igLink} target="_blank" rel="noopener noreferrer" className="relative w-full h-full flex items-center justify-center group">
                     {reel.thumbnail_url
-                      ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                      ? <img src={imgSrc(reel.thumbnail_url)} alt="" className="w-full h-full object-cover" />
                       : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
                       <div className="flex flex-col items-center gap-1.5">
@@ -1863,7 +1864,7 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
                 );
               }
               return reel.thumbnail_url
-                ? <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                ? <img src={imgSrc(reel.thumbnail_url)} alt="" className="w-full h-full object-cover" />
                 : <div className="flex flex-col items-center gap-2 text-slate-600">
                     <span className="text-4xl opacity-20">▶</span>
                     <p className="text-xs opacity-40">No preview available</p>
