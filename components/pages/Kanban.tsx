@@ -3300,6 +3300,7 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
   const [loadingMore, setLoadingMore] = useState(false);
   const [sort, setSort] = useState<"recent" | "views">("recent");
   const [ranking, setRanking] = useState(false);
+  const [preview, setPreview] = useState<any | null>(null);
 
   // Returns the next cursor so we can chain pages for the "top performers" ranking.
   async function loadPage(c: string | null): Promise<string | null> {
@@ -3378,7 +3379,11 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
                   {r.plays != null && <span className="absolute bottom-1 left-1 text-[10px] font-bold text-white">▶ {r.plays >= 1000 ? (r.plays / 1000).toFixed(1) + "K" : r.plays}</span>}
-                  <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Play the reel inline to watch it before deciding — does NOT pick/remix it. */}
+                  <span role="button" tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setPreview(r); }}
+                    className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-black/85 text-white text-[11px] flex items-center justify-center backdrop-blur-sm cursor-pointer z-10">▶</span>
+                  <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <span className="px-2 py-1 rounded-md bg-purple-600 text-white text-[10px] font-bold">♻️ Remix this</span>
                   </span>
                 </button>
@@ -3387,6 +3392,27 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
             </div>
           )}
         </div>
+
+        {/* Inline preview — watch the reel before choosing to remix it. */}
+        {preview && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" onClick={() => setPreview(null)}>
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              {preview.media_url ? (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video src={videoSrc(preview.media_url)} poster={imgSrc(preview.thumbnail_url)} controls autoPlay playsInline
+                  className="max-h-[80vh] w-auto rounded-xl shadow-2xl bg-black" />
+              ) : (
+                <div className="bg-white rounded-xl p-8 text-center text-sm text-slate-500">No preview available for this reel.</div>
+              )}
+              <button onClick={() => setPreview(null)}
+                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 shadow-lg flex items-center justify-center text-lg">×</button>
+              {preview.media_url && (
+                <button onClick={() => { onPick(preview); setPreview(null); }}
+                  className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 whitespace-nowrap">♻️ Remix this one</button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
