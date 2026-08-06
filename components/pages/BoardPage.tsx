@@ -1,4 +1,5 @@
 "use client";
+import { videoSrc, imgSrc } from "@/lib/videoSrc";
 
 import { useCallback, useEffect, useRef, useState, Component, ReactNode } from "react";
 import dynamic from "next/dynamic";
@@ -103,7 +104,9 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         permanent = !!d?.permanent || !!d?.cached;
       } catch { /* ignore */ }
       if (!resolved) { alert("Couldn't load this reel's video (Instagram link may have expired). Try again."); return; }
-      url = permanent ? resolved : `${window.location.origin}/api/vid?u=${encodeURIComponent(resolved)}`;
+      // Always proxy — even "permanent" R2 (r2.dev) urls are rate-limited by Cloudflare for
+      // direct browser hits, so serve them through our proxy too.
+      url = videoSrc(resolved).startsWith("/api/") ? `${window.location.origin}${videoSrc(resolved)}` : resolved;
     } else if (item.src) {
       url = item.src;
     } else {
@@ -351,7 +354,7 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
                   <div className="aspect-[9/16] bg-slate-900 flex items-center justify-center">
                     {it.thumb
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={it.thumb.includes("/api/img") || it.thumb.includes("r2.dev") ? it.thumb : `/api/img?u=${encodeURIComponent(it.thumb)}`} alt="" className="w-full h-full object-cover" />
+                      ? <img src={imgSrc(it.thumb)} alt="" className="w-full h-full object-cover" />
                       : <span className="text-2xl opacity-40">🎬</span>}
                   </div>
                   <div className="p-2">
