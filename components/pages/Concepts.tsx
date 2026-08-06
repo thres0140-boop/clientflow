@@ -1,4 +1,5 @@
 "use client";
+import { videoSrc, imgSrc } from "@/lib/videoSrc";
 
 import { useEffect, useState } from "react";
 import { Client, Concept, HOOK_TYPE_SUGGESTIONS, VIDEO_TYPE_SUGGESTIONS } from "@/lib/types";
@@ -122,7 +123,7 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
                 <button key={r.id} type="button" onClick={() => toggle(url)}
                   className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all ${isSel ? "border-indigo-500 ring-2 ring-indigo-300" : "border-transparent hover:border-slate-300"}`}>
                   {r.thumbnail_url
-                    ? <img src={r.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    ? <img src={imgSrc(r.thumbnail_url)} alt="" className="w-full h-full object-cover" />
                     : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">▶</div>}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
@@ -144,7 +145,7 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={() => setPreview(null)}>
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               {preview.media_url ? (
-                <video src={preview.media_url} poster={preview.thumbnail_url} controls autoPlay
+                <video src={videoSrc(preview.media_url)} poster={imgSrc(preview.thumbnail_url)} controls autoPlay
                   className="max-h-[80vh] w-auto rounded-xl shadow-2xl" />
               ) : (
                 <div className="bg-white rounded-xl p-8 text-center text-sm text-slate-500">No playable video for this reel.</div>

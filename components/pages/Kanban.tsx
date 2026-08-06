@@ -1,5 +1,5 @@
 "use client";
-import { videoSrc } from "@/lib/videoSrc";
+import { videoSrc, imgSrc } from "@/lib/videoSrc";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
@@ -1741,7 +1741,7 @@ function DraftDetailPanel({
                   {n.content && <p className="text-xs text-slate-700 whitespace-pre-wrap">{n.content}</p>}
                   {n.imageUrl && (
                     <a href={n.imageUrl} target="_blank" rel="noopener noreferrer" className={n.content ? "block mt-1.5" : "block"}>
-                      <img src={n.imageUrl} alt="note attachment" className="rounded-lg max-h-48 border border-amber-200" />
+                      <img src={imgSrc(n.imageUrl)} alt="note attachment" className="rounded-lg max-h-48 border border-amber-200" />
                     </a>
                   )}
                   <p className="text-[10px] text-slate-400 mt-1">{n.author} · {new Date(n.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
@@ -1756,7 +1756,7 @@ function DraftDetailPanel({
                   <span className="text-xs text-slate-400">Uploading image…</span>
                 ) : (
                   <div className="relative inline-block">
-                    <img src={noteImg!} alt="" className="h-16 rounded-lg border border-slate-200" />
+                    <img src={imgSrc(noteImg)} alt="" className="h-16 rounded-lg border border-slate-200" />
                     <button onClick={() => setNoteImg(null)}
                       className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black/60 text-white text-[9px] flex items-center justify-center">✕</button>
                   </div>
@@ -2438,7 +2438,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
                 {urls.map((url, i) => (
                   <div key={i} className="relative group rounded-lg overflow-hidden bg-slate-900 aspect-square">
                     {isImage(url)
-                      ? <img src={url} alt="" className="w-full h-full object-cover" />
+                      ? <img src={imgSrc(url)} alt="" className="w-full h-full object-cover" />
                       : <video src={videoSrc(url)} preload="metadata" muted playsInline className="w-full h-full object-cover" />}
                     {/* Tap anywhere on the tile to view/play it in-app (lightbox) */}
                     <button
@@ -3373,7 +3373,7 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
                 <button key={r.id} type="button" onClick={() => onPick(r)}
                   className="relative aspect-[9/16] rounded-lg overflow-hidden border-2 border-transparent hover:border-purple-400 transition-all group">
                   {r.thumbnail_url
-                    ? <img src={r.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    ? <img src={imgSrc(r.thumbnail_url)} alt="" className="w-full h-full object-cover" />
                     : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">▶</div>}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
