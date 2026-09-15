@@ -1563,7 +1563,8 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
     try {
       const d = await fetch("/api/competitors/to-kanban", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reelId: reel.id, clientId: client.id, conceptId: c.id, script: transcript }),
+        body: JSON.stringify({ reelId: reel.id, clientId: client.id, conceptId: c.id, script: transcript,
+          mediaUrl: reel.media_url || null, permalink: reel.permalink || (reel as any).instagramUrl || null, caption: reel.caption || null }),
       }).then((r) => r.json());
       if (d.ok) {
         setSentToKanban(c.conceptType ? `${c.conceptType} · ${c.name}` : c.name);
@@ -1946,9 +1947,9 @@ function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel: IGRee
           </div>
         </div>
         <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 space-y-2.5">
-          {/* Competitor reel → send straight into Script Kanban as an idea, with the
-              IG video attached as the example to copy. */}
-          {reel.handle && (
+          {/* Any reel (competitor OR the client's own feed) → send into Script Kanban as an
+              idea, with the video attached as the example to copy. */}
+          {(reel.handle || reel.media_url) && (
             sentToKanban ? (
               <div className="w-full py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">
                 ✓ Added to Kanban ideas · {sentToKanban}

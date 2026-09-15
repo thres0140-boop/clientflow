@@ -13,33 +13,56 @@ function weekLabel(): string {
   return `Week ${week}`;
 }
 
-// POST /api/competitors/to-kanban
-// Body: { reelId, clientId, conceptId, script, title? }
-// Creates a Script Kanban IDEA from a competitor reel: the (translated) script becomes
-// the idea's script, and the competitor's actual IG video is cached to R2 and attached
-// as the example-to-copy for whoever films it.
-export async function POST(req: NextRequest) {
-  const { reelId, clientId, conceptId, script, title } = await req.json();
-  if (!reelId || !clientId || !conceptId) {
-    return NextResponse.json({ error: "reelId, clientId and conceptId are required" }, { status: 400 });
-  }
-  const reel = await (prisma as any).competitorReel.findUnique({
-    where: { id: parseInt(String(reelId)) },
-    include: { competitor: { select: { handle: true } } },
-  });
-  if (!reel) return NextResponse.json({ error: "reel not found" }, { status: 404 });
+function shortcodeFrom(url?: string | null): string | null {
+  const m = String(url || "").match(/\/(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
+  return m ? m[1] : null;
+}
 
-  // Resolve a fresh, playable video URL (stored ones expire) and cache it to R2 so the
-  // example stays playable forever. Falls back to the permalink if anything fails.
+// POST /api/competitors/to-kanban
+// Body: { reelId?, clientId, conceptId, script?, title?, mediaUrl?, permalink?, caption? }
+// Creates a Script Kanban IDEA from a reel — a tracked COMPETITOR reel (by reelId) OR the
+// client's OWN feed reel (by mediaUrl/permalink). The reel's video is cached to R2 and
+// attached as the example-to-copy for whoever films it.
+export async function POST(req: NextRequest) {
+  const { reelId, clientId, conceptId, script, title, mediaUrl, permalink, caption } = await req.json();
+  if (!clientId || !conceptId) {
+    return NextResponse.json({ error: "clientId and conceptId are required" }, { status: 400 });
+  }
+
+  // Is this a tracked competitor reel? (own feed reels won't match — their id is an IG media id)
+  const reel = reelId
+    ? await (prisma as any).competitorReel.findUnique({
+        where: { id: parseInt(String(reelId)) },
+        include: { competitor: { select: { handle: true } } },
+      }).catch(() => null)
+    : null;
+
+  // Resolve a fresh, playable video URL and cache it to R2 so the example stays playable
+  // forever (IG CDN links expire). Falls back to the permalink if caching fails.
   let exampleVideoUrl: string | null = null;
-  try {
-    const fresh = await freshReelMediaUrl(reel.competitor?.handle || "", reel.shortcode);
-    if (fresh) exampleVideoUrl = await cacheImageToR2(fresh, `comp-examples/${reel.id}.mp4`);
-  } catch { /* fall through */ }
-  if (!exampleVideoUrl) exampleVideoUrl = reel.permalink || null;
+  let exampleLink: string | null = null;
+  let fallbackTitle = "Content idea";
+
+  if (reel) {
+    try {
+      const fresh = await freshReelMediaUrl(reel.competitor?.handle || "", reel.shortcode);
+      if (fresh) exampleVideoUrl = await cacheImageToR2(fresh, `comp-examples/${reel.id}.mp4`);
+    } catch { /* fall through */ }
+    if (!exampleVideoUrl) exampleVideoUrl = reel.permalink || null;
+    exampleLink = reel.permalink || (reel.shortcode ? `https://www.instagram.com/reel/${reel.shortcode}/` : null);
+    fallbackTitle = reel.caption || fallbackTitle;
+  } else {
+    // Client's OWN feed reel — cache the media_url we were handed (fresh from the Graph API).
+    if (!mediaUrl) return NextResponse.json({ error: "reel not found (no reelId match and no mediaUrl provided)" }, { status: 404 });
+    const code = shortcodeFrom(permalink) || `own-${Date.now()}`;
+    try { exampleVideoUrl = await cacheImageToR2(mediaUrl, `own-examples/${clientId}/${code}.mp4`); } catch { /* fall through */ }
+    if (!exampleVideoUrl) exampleVideoUrl = mediaUrl;
+    exampleLink = permalink || null;
+    fallbackTitle = caption || fallbackTitle;
+  }
 
   const scriptText = String(script || "").trim();
-  const autoTitle = (scriptText.split(/\n/)[0] || reel.caption || "Competitor idea").split(/\s+/).slice(0, 8).join(" ");
+  const autoTitle = (scriptText.split(/\n/)[0] || fallbackTitle).split(/\s+/).slice(0, 8).join(" ");
 
   const draft = await prisma.scriptDraft.create({
     data: {
@@ -50,7 +73,7 @@ export async function POST(req: NextRequest) {
       caption: null,
       weekLabel: weekLabel(),
       exampleVideoUrl,
-      exampleLink: reel.permalink || (reel.shortcode ? `https://www.instagram.com/reel/${reel.shortcode}/` : null),
+      exampleLink,
       status: "pending",   // → Ideas column
       isSavedIdea: false,
     } as any,
