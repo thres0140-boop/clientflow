@@ -87,8 +87,8 @@ function DraggableCard({ draft, onClick, selected = false, notify = false, days,
 // ─── Card content ────────────────────────────────────────────────────────────
 function CardContent({ draft, selected = false, notify = false, days, highlight = false }: { draft: ScriptDraft; selected?: boolean; notify?: boolean; days?: string[]; highlight?: boolean }) {
   return (
-    <div className={`relative bg-white rounded-xl border p-3 shadow-sm hover:shadow-md transition-all select-none ${
-      highlight ? "ring-4 ring-indigo-400 border-indigo-400 animate-pulse shadow-lg" : notify ? "ring-2 ring-red-400 border-red-400" : selected ? "ring-2 ring-indigo-500 border-indigo-500" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/30" : "border-slate-200"
+    <div className={`relative bg-white rounded-2xl border p-3.5 o-elev hover:o-elev-lift transition-all duration-200 select-none ${
+      highlight ? "ring-2 ring-accent border-accent o-elev-lift" : notify ? "ring-2 ring-red-400 border-red-400" : selected ? "ring-2 ring-accent border-accent" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/40" : "border-line"
     }`}>
       {notify && (
         <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow ring-2 ring-white" title="Sent back — needs changes">
@@ -105,9 +105,9 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
           ✍️ Client-written
         </span>
       )}
-      <p className="text-xs font-semibold text-slate-800 truncate">{draft.title}</p>
+      <p className="text-[13px] font-semibold text-ink truncate">{draft.title}</p>
       {draft.concept && (
-        <p className="text-sm text-indigo-500 font-semibold mt-1 flex items-center gap-1.5 flex-wrap">
+        <p className="text-[13px] text-accent font-semibold mt-1 flex items-center gap-1.5 flex-wrap">
           <span>
             {draft.concept.conceptType ? <span className="opacity-70">{draft.concept.conceptType} · </span> : null}
             {draft.concept.name}
@@ -117,7 +117,7 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
           )}
         </p>
       )}
-      <p className="text-[10px] text-slate-400 mt-1 truncate flex items-center gap-1 flex-wrap">
+      <p className="text-[10px] text-faint mt-1 truncate flex items-center gap-1 flex-wrap">
         {fmtSchedule(draft.scheduledDate) ? (
           // Scheduled → show the real posting date (weekday + day of month), not "Week 23".
           <>
@@ -551,13 +551,13 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       {/* Header */}
       <div className="flex items-center justify-between mb-5 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl text-sm font-bold text-white flex items-center justify-center"
+          <div className="w-9 h-9 rounded-xl text-sm font-semibold text-white flex items-center justify-center ring-1 ring-black/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(17,17,19,0.12)]"
             style={{ backgroundColor: client.color }}>
             {client.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">{client.name}</h1>
-            <p className="text-xs text-slate-400">Script Kanban · Week {WEEK_NUMBER}</p>
+            <h1 className="text-xl font-semibold text-ink">{client.name}</h1>
+            <p className="text-xs text-faint">Script Kanban · Week {WEEK_NUMBER}</p>
           </div>
           {/* Production goal — how many scripts you want in production; fills as you drag
               Ideas → Record. Owner only. */}
@@ -568,12 +568,12 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             return (
               <div className="relative ml-2">
                 <button onClick={() => setGoalOpen((o) => !o)}
-                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-line bg-white hover:bg-black/[0.02] o-elev">
                   <span className="text-sm">🎯</span>
                   <div className="text-left">
                     <p className="text-[11px] font-bold text-slate-700 leading-none">{produced} / {goal} <span className="font-normal text-slate-400">in production</span></p>
                     <div className="w-28 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                      <div className={`h-full rounded-full ${remaining === 0 ? "bg-emerald-500" : "bg-indigo-500"}`} style={{ width: `${pct}%` }} />
+                      <div className={`h-full rounded-full ${remaining === 0 ? "bg-emerald-500" : "bg-accent"}`} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                   <span className={`text-[11px] font-bold ${remaining > 0 ? "text-amber-600" : "text-emerald-600"}`}>{remaining > 0 ? `${remaining} left` : "✓ done"}</span>
@@ -600,7 +600,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Needed per concept</p>
                         <div className="space-y-1.5 max-h-56 overflow-y-auto">
                           {concepts.length === 0 ? (
-                            <p className="text-[10px] text-slate-400">No concepts yet.</p>
+                            <p className="text-[10px] text-faint">No concepts yet.</p>
                           ) : concepts.map((c) => {
                             const inProd = drafts.filter((d) => d.conceptId === c.id && (d as any).stageId != null).length;
                             const target = goalMap[c.id] || 0;
@@ -620,10 +620,10 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                           })}
                         </div>
                         {Object.values(goalMap).some((v) => v > 0) && (
-                          <p className="text-[10px] text-slate-400 mt-1.5">Per-concept targets total {Object.values(goalMap).reduce((s, v) => s + (v || 0), 0)}.</p>
+                          <p className="text-[10px] text-faint mt-1.5">Per-concept targets total {Object.values(goalMap).reduce((s, v) => s + (v || 0), 0)}.</p>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-400">Counts cards in Record or further. Drag from Ideas to fill it.</p>
+                      <p className="text-[10px] text-faint">Counts cards in Record or further. Drag from Ideas to fill it.</p>
                     </div>
                   </>
                 )}
@@ -636,7 +636,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             <select
               value={conceptFilter}
               onChange={(e) => setConceptFilter(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-              className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 max-w-[200px]"
+              className="px-3 py-2 text-xs font-medium text-ink-2 bg-white border border-line rounded-lg hover:bg-black/[0.02] focus:outline-none focus:ring-2 focus:ring-accent/40 max-w-[200px]"
             >
               <option value="all">All concepts</option>
               {concepts.map((c) => (
@@ -648,7 +648,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
             <select
               value={dayFilter}
               onChange={(e) => setDayFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="px-3 py-2 text-xs font-medium text-ink-2 bg-white border border-line rounded-lg hover:bg-black/[0.02] focus:outline-none focus:ring-2 focus:ring-accent/40"
             >
               <option value="all">All days</option>
               {availableDays.map((d) => (
@@ -658,31 +658,31 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           )}
           {!activeProfile && (
             <button onClick={() => setShowStageManager(true)}
-              className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+              className="o-btn o-btn-ghost">
               ⚙ Assign Stages
             </button>
           )}
           {!activeProfile && (
             <button onClick={() => setShowImport(true)}
-              className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+              className="o-btn o-btn-ghost">
               ⬇ Import script
             </button>
           )}
           {!activeProfile && (
             <button onClick={() => setShowRemix(true)}
-              className="px-3 py-2 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 flex items-center gap-1.5">
+              className="o-btn o-btn-ghost">
               ♻️ Remix Winner
             </button>
           )}
           {!activeProfile && (
             <button onClick={() => setShowBatch(true)}
-              className="px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 flex items-center gap-1.5">
+              className="o-btn o-btn-ghost">
               📦 Generate Batch
             </button>
           )}
           {!activeProfile && (
             <button onClick={() => setShowGenerate(true)}
-              className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-1.5">
+              className="o-btn o-btn-accent">
               ✨ Generate Scripts
             </button>
           )}
@@ -696,13 +696,13 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
           {/* Idea column — hidden for assignees */}
           {!activeProfile && (
             <DroppableColumn id="idea-column"
-              className="flex-shrink-0 w-64 bg-white border border-slate-200 rounded-2xl flex flex-col">
-              <div className="px-4 py-3 border-b border-slate-100">
+              className="flex-shrink-0 w-64 bg-white border border-line rounded-2xl o-elev flex flex-col">
+              <div className="px-4 py-3 border-b border-line">
                 <div className="flex items-center gap-2">
                   <span className="text-base">💡</span>
-                  <span className="text-sm font-semibold text-slate-700">Ideas</span>
+                  <span className="text-sm font-semibold text-ink-2">Ideas</span>
                   {ideaColumn.length > 0 && (
-                    <span className="ml-auto text-xs font-semibold bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
+                    <span className="ml-auto text-xs font-semibold bg-accent-tint text-accent px-2 py-0.5 rounded-full">
                       {ideaColumn.length}
                     </span>
                   )}
@@ -710,7 +710,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
                 {ideaColumn.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-6">
+                  <p className="text-xs text-faint text-center py-6">
                     No ideas yet.<br />Click ✨ Generate Scripts to start.
                   </p>
                 ) : (
@@ -757,15 +757,15 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
               const nextStage = stageIdx < stages.length - 1 ? stages[stageIdx + 1] : null;
               return (
                 <DroppableColumn key={stage.id} id={String(stage.id)}
-                  className="flex-shrink-0 w-64 bg-white border border-slate-200 rounded-2xl flex flex-col">
-                  <div className="px-4 py-3 border-b border-slate-100"
-                    style={{ borderTopWidth: 3, borderTopColor: stage.color }}>
+                  className="flex-shrink-0 w-64 bg-white border border-line rounded-2xl o-elev flex flex-col">
+                  <div className="px-4 py-3 border-b border-line"
+                    style={{ borderTopWidth: 2, borderTopColor: stage.color }}>
                     <div className="flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: stage.color }}>
                         {stageIdx + 1}
                       </span>
-                      <span className="text-sm font-semibold text-slate-700 truncate">{stage.name}</span>
+                      <span className="text-sm font-semibold text-ink-2 truncate">{stage.name}</span>
                       {stageDrafts.length > 0 && (
                         <span className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full text-white flex-shrink-0"
                           style={{ backgroundColor: stage.color }}>
@@ -787,10 +787,10 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
                                 style={{ backgroundColor: p.color }}>
                                 {p.name[0]}
                               </div>
-                              <span className="text-[10px] text-slate-400">{p.name}</span>
+                              <span className="text-[10px] text-faint">{p.name}</span>
                             </div>
                           ))}
-                          {people.length > 4 && <span className="text-[10px] text-slate-400">+{people.length - 4}</span>}
+                          {people.length > 4 && <span className="text-[10px] text-faint">+{people.length - 4}</span>}
                         </div>
                       );
                     })()}
@@ -1187,7 +1187,7 @@ function VideoShareLink({ url, draftId }: { url: string; draftId?: number }) {
       {showQR && (
         <div className="flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3">
           <QRCodeSVG value={url} size={140} />
-          <p className="text-[10px] text-slate-400">Scan to open the raw video</p>
+          <p className="text-[10px] text-faint">Scan to open the raw video</p>
         </div>
       )}
 
@@ -1206,7 +1206,7 @@ function VideoShareLink({ url, draftId }: { url: string; draftId?: number }) {
       {reviewQR && reviewUrl && (
         <div className="flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3">
           <QRCodeSVG value={reviewUrl} size={140} />
-          <p className="text-[10px] text-slate-400">Scan to review + approve on your phone</p>
+          <p className="text-[10px] text-faint">Scan to review + approve on your phone</p>
         </div>
       )}
     </div>
@@ -1336,7 +1336,7 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
       </button>
       {open && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={(e) => { e.stopPropagation(); setOpen(false); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl o-elev-pop w-full max-w-xs p-5" onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-bold text-slate-800 mb-1">💡 Save as idea</p>
             <p className="text-xs text-slate-500 mb-4 line-clamp-1">{draft.title}</p>
             <label className="text-xs font-semibold text-slate-600">Resurface in how many weeks?</label>
@@ -1516,15 +1516,15 @@ function DraftDetailPanel({
       <div className="flex-1 bg-black/30" onClick={onClose} />
       <div className="w-[680px] max-w-[92vw] bg-white shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between flex-shrink-0">
+        <div className="px-6 py-4 border-b border-line flex items-start justify-between flex-shrink-0">
           <div>
             <p className="text-xs font-semibold text-indigo-500 mb-0.5">{draft.concept ? ((draft.concept as any).conceptType ? `${(draft.concept as any).conceptType} · ${draft.concept.name}` : draft.concept.name) : ""}</p>
             <h3 className="text-sm font-bold text-slate-800">{draft.title}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}{draft.dayLabel ? ` · ${draft.dayLabel}` : ""}</p>
+            <p className="text-[10px] text-faint mt-0.5">{draft.weekLabel}{draft.dayLabel ? ` · ${draft.dayLabel}` : ""}</p>
           </div>
           <div className="flex items-center gap-3 ml-4">
             {navList && navList.length > 1 && navList.indexOf(draft.id) !== -1 && (
-              <span className="text-[10px] text-slate-400 whitespace-nowrap" title="Use ← → arrow keys to move between cards">
+              <span className="text-[10px] text-faint whitespace-nowrap" title="Use ← → arrow keys to move between cards">
                 {navList.indexOf(draft.id) + 1} / {navList.length} · ◄ ►
               </span>
             )}
@@ -1580,7 +1580,7 @@ function DraftDetailPanel({
                   }
                 }}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-              <p className="text-[10px] text-slate-400 mt-1">on-screen text cards · {script.split(" ").filter(Boolean).length} words</p>
+              <p className="text-[10px] text-faint mt-1">on-screen text cards · {script.split(" ").filter(Boolean).length} words</p>
             </div>
           ) : (
             <>
@@ -1614,7 +1614,7 @@ function DraftDetailPanel({
                     }
                   }}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-                <p className="text-[10px] text-slate-400 mt-1">{script.split(" ").filter(Boolean).length} words</p>
+                <p className="text-[10px] text-faint mt-1">{script.split(" ").filter(Boolean).length} words</p>
               </div>
             </>
           )}
@@ -1744,7 +1744,7 @@ function DraftDetailPanel({
                       <img src={imgSrc(n.imageUrl)} alt="note attachment" className="rounded-lg max-h-48 border border-amber-200" />
                     </a>
                   )}
-                  <p className="text-[10px] text-slate-400 mt-1">{n.author} · {new Date(n.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                  <p className="text-[10px] text-faint mt-1">{n.author} · {new Date(n.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
               ))}
             </div>
@@ -1831,7 +1831,7 @@ function DraftDetailPanel({
               </button>
               {showChatPicker && (
                 <div className="absolute bottom-full mb-2 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                  <div className="px-3 py-2 border-b border-slate-100">
+                  <div className="px-3 py-2 border-b border-line">
                     <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Talk to...</p>
                   </div>
                   {(() => {
@@ -1851,7 +1851,7 @@ function DraftDetailPanel({
                           </div>
                           <div>
                             <span className="text-sm text-slate-700">{ownerName}</span>
-                            <span className="text-[10px] text-slate-400 ml-1.5">owner</span>
+                            <span className="text-[10px] text-faint ml-1.5">owner</span>
                           </div>
                         </button>
                       );
@@ -1868,7 +1868,7 @@ function DraftDetailPanel({
                           </div>
                           <div>
                             <span className="text-sm text-slate-700">{clientData?.name ?? "Client"}</span>
-                            <span className="text-[10px] text-slate-400 ml-1.5">client</span>
+                            <span className="text-[10px] text-faint ml-1.5">client</span>
                           </div>
                         </button>
                         {/* Team members */}
@@ -2066,7 +2066,7 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
     <div className="space-y-3">
       {/* Reviewer selector */}
       <div>
-        <p className="text-[10px] text-slate-400 mb-2">Select who needs to approve:</p>
+        <p className="text-[10px] text-faint mb-2">Select who needs to approve:</p>
         <div className="flex flex-wrap gap-1.5">
           {allReviewers.map((r) => {
             const selected = reviewerIds.includes(r.id);
@@ -2099,7 +2099,7 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
                 {rv?.status === "bad" && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-red-600 font-semibold">✗ Rejected</span>
-                    {rv.comment && <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{rv.comment}</span>}
+                    {rv.comment && <span className="text-[10px] text-faint truncate max-w-[120px]">{rv.comment}</span>}
                   </div>
                 )}
                 {(!rv || rv.status === "pending") && (
@@ -2116,7 +2116,7 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
                 )}
                 {rv && rv.status !== "pending" && (
                   <button onClick={() => submitReview(r, rv.status === "good" ? "bad" : "good")} disabled={saving}
-                    className="text-[10px] text-slate-400 hover:text-slate-600 ml-1">
+                    className="text-[10px] text-faint hover:text-slate-600 ml-1">
                     Change
                   </button>
                 )}
@@ -2135,7 +2135,7 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
       {/* Bad review modal */}
       {badTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-80 space-y-4">
+          <div className="bg-white rounded-2xl o-elev-pop p-6 w-80 space-y-4">
             <h3 className="text-sm font-bold text-slate-800">Why is this not good?</h3>
             <p className="text-xs text-slate-500">Leave feedback for the editor:</p>
             <textarea value={badComment} onChange={(e) => setBadComment(e.target.value)}
@@ -2280,7 +2280,7 @@ function QRUploadModal({ draft, onClose, onUploaded }: { draft: ScriptDraft; onC
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-sm mx-4 p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-slate-800">Upload from Phone</h3>
@@ -2685,8 +2685,8 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">⬇ Import content</h2>
             <p className="text-xs text-slate-400 mt-0.5">Transfer existing content — script + finished video — into a concept. The AI learns from the script.</p>
@@ -2788,7 +2788,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
               <option value="">💡 Ideas (needs review)</option>
               {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <p className="text-[10px] text-slate-400 mt-1">Transferring already-finished content? Drop it straight into a later stage (e.g. Schedule).</p>
+            <p className="text-[10px] text-faint mt-1">Transferring already-finished content? Drop it straight into a later stage (e.g. Schedule).</p>
           </div>
           <label className="flex items-start gap-2.5 cursor-pointer select-none">
             <input type="checkbox" checked={seedAsExample} onChange={(e) => setSeedAsExample(e.target.checked)}
@@ -2853,8 +2853,8 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-[480px] max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl o-elev-pop w-[480px] max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-800">✨ Generate Scripts</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
@@ -3006,8 +3006,8 @@ function BatchModal({ client, concepts, drafts, onClose, onGenerated }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl o-elev-pop w-[520px] max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">📦 Generate Batch</h2>
             <p className="text-[11px] text-slate-400 mt-0.5">Counts from your Content Scheduling day template — how many days each concept is assigned × the period, minus what you have.</p>
@@ -3049,7 +3049,7 @@ function BatchModal({ client, concepts, drafts, onClose, onGenerated }: {
                         {on && <span className="text-white text-[9px] font-bold">✓</span>}
                       </button>
                       <span className="flex-1 font-medium text-slate-700 truncate" title={label}>{label}</span>
-                      <span className="text-[10px] text-slate-400 flex-shrink-0">{perWeekOf(c)}/wk · have {have}</span>
+                      <span className="text-[10px] text-faint flex-shrink-0">{perWeekOf(c)}/wk · have {have}</span>
                       <input type="number" min={0} value={counts[c.id] ?? 0} disabled={!on}
                         onChange={(e) => setCounts((p) => ({ ...p, [c.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
                         className="w-12 border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40" />
@@ -3156,8 +3156,8 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-[520px] max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl o-elev-pop w-[520px] max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">♻️ Remix a Winner</h2>
             <p className="text-[11px] text-slate-400 mt-0.5">Take one reel that performed → market that same message {count} different ways.</p>
@@ -3225,7 +3225,7 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
                 </button>
               ))}
             </div>
-            <p className="mt-1 text-[10px] text-slate-400">
+            <p className="mt-1 text-[10px] text-faint">
               {format === "spoken" ? "Full talking-head script (~80–130 words)." : format === "text" ? "Short on-screen text cards (4–8 lines)." : "Auto-picks based on the concept's format."}
             </p>
           </div>
@@ -3242,7 +3242,7 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
                 ✍️ Rewrite the hook
               </button>
             </div>
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[10px] text-faint">
               {keepHook ? "Every variation opens with the proven hook — only the body changes." : "Each variation gets a fresh hook."}
             </p>
             <div className="flex items-center gap-2 pt-0.5">
@@ -3254,7 +3254,7 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-slate-400">Extra hook options you can pick from on each idea card before recording.</p>
+            <p className="text-[10px] text-faint">Extra hook options you can pick from on each idea card before recording.</p>
           </div>
 
           <div>
@@ -3342,8 +3342,8 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-[620px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl o-elev-pop w-[620px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold text-slate-800">Pick a winning reel</h3>
             <p className="text-[11px] text-slate-400">Click the reel that performed — we'll pull its script automatically.</p>
@@ -3400,7 +3400,7 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
               {preview.media_url ? (
                 // eslint-disable-next-line jsx-a11y/media-has-caption
                 <video src={videoSrc(preview.media_url)} poster={imgSrc(preview.thumbnail_url)} controls autoPlay playsInline
-                  className="max-h-[80vh] w-auto rounded-xl shadow-2xl bg-black" />
+                  className="max-h-[80vh] w-auto rounded-2xl o-elev-pop bg-black" />
               ) : (
                 <div className="bg-white rounded-xl p-8 text-center text-sm text-slate-500">No preview available for this reel.</div>
               )}
@@ -3450,8 +3450,8 @@ function StageManagerModal({ client, stages, team, creators, ownerName, onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-[500px] max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl o-elev-pop w-[500px] max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">Assign Stages · {client.name}</h2>
             <p className="text-xs text-slate-400 mt-0.5">Select everyone responsible for each stage</p>
@@ -3543,7 +3543,7 @@ function RejectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
           <h2 className="text-base font-bold text-slate-800">{replace ? "Why replace this one?" : draft.clientAuthored ? "Send back for changes" : "Why are you rejecting this?"}</h2>
           <p className="text-xs text-slate-400 mt-0.5 truncate">"{draft.title}"</p>
