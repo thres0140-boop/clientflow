@@ -1,18 +1,119 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   ORDO design system — owner app
+   A calm, luxurious foundation: warm neutrals, one restrained accent, hairline
+   borders, soft layered depth, refined type. Tokens below are adopted across
+   the app page-by-page; the base layer lifts every screen immediately.
+   ========================================================================== */
+
 :root {
-  --background: #f8fafc;
-  --foreground: #1e293b;
+  --background: #f6f6f4;   /* warm near-white canvas (was clinical slate-50) */
+  --foreground: #1c1c1e;   /* warm near-black label */
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* neutral ramp — warm graphite, not cool slate */
+  --color-ink: #1c1c1e;
+  --color-ink-2: #3c3c43;
+  --color-muted: #6c6c72;
+  --color-faint: #9b9ba1;
+  --color-surface: #ffffff;
+  --color-canvas: #f6f6f4;
+  --color-line: rgba(17, 17, 19, 0.08);
+  --color-line-2: rgba(17, 17, 19, 0.14);
+
+  /* single restrained accent (refined indigo-navy, pairs with the nav) */
+  --color-accent: #3d4aa3;
+  --color-accent-strong: #2f3a86;
+  --color-accent-tint: #eef0fb;
+
+  /* radii — generous & consistent */
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+
+  /* soft, layered depth (low opacity, large blur — the Apple cue) */
+  --shadow-soft: 0 1px 2px rgba(17, 17, 19, 0.04), 0 4px 14px rgba(17, 17, 19, 0.05);
+  --shadow-lift: 0 2px 6px rgba(17, 17, 19, 0.06), 0 14px 38px rgba(17, 17, 19, 0.09);
+  --shadow-pop: 0 8px 24px rgba(17, 17, 19, 0.10), 0 30px 70px rgba(17, 17, 19, 0.14);
 }
+
+/* ---------- base ---------- */
+html { -webkit-text-size-adjust: 100%; }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.006em;
 }
+
+h1, h2, h3, h4 { letter-spacing: -0.02em; }
+
+::selection { background: rgba(61, 74, 163, 0.18); }
+
+:focus-visible {
+  outline: 2px solid rgba(61, 74, 163, 0.55);
+  outline-offset: 2px;
+}
+
+/* thin, quiet scrollbars — a small luxury cue, app-wide */
+* { scrollbar-width: thin; scrollbar-color: rgba(17, 17, 19, 0.18) transparent; }
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(17, 17, 19, 0.16);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(17, 17, 19, 0.30); background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- reusable surfaces (opt-in; adopted page-by-page) ---------- */
+.o-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft);
+}
+.o-card-flat {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+}
+.o-hairline { border: 1px solid var(--color-line); }
+.o-elev { box-shadow: var(--shadow-soft); }
+.o-elev-lift { box-shadow: var(--shadow-lift); }
+.o-elev-pop { box-shadow: var(--shadow-pop); }
+
+/* buttons — restrained, tactile */
+.o-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 600; font-size: 0.8125rem; line-height: 1;
+  padding: 0.625rem 0.9rem;
+  transition: background-color .15s ease, box-shadow .15s ease, transform .06s ease, border-color .15s ease;
+}
+.o-btn:active { transform: translateY(0.5px); }
+.o-btn-primary { background: var(--color-ink); color: #fff; box-shadow: 0 1px 2px rgba(17,17,19,0.18); }
+.o-btn-primary:hover { background: #000; }
+.o-btn-accent { background: var(--color-accent); color: #fff; box-shadow: 0 1px 2px rgba(47,58,134,0.28); }
+.o-btn-accent:hover { background: var(--color-accent-strong); }
+.o-btn-ghost { background: var(--color-surface); color: var(--color-ink-2); border: 1px solid var(--color-line-2); }
+.o-btn-ghost:hover { background: #fafafa; border-color: rgba(17,17,19,0.2); }
+
+/* ---------- motion (gentle, spring-ish) ---------- */
+@keyframes oModalIn { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes oFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.o-modal-in { animation: oModalIn 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.o-fade-in { animation: oFadeIn 0.18s ease; }
+@media (prefers-reduced-motion: reduce) { .o-modal-in, .o-fade-in { animation: none; } }
