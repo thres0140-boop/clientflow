@@ -10,9 +10,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Carried over to the owner login so ?embed=1 / ?next= survive that hop too.
+  const [ownerHref, setOwnerHref] = useState("/owner");
 
   // Remember embedded mode (Cenks Dashboard iframe) across the login round trip.
-  useEffect(() => { readEmbedFlag(); }, []);
+  useEffect(() => {
+    readEmbedFlag();
+    setOwnerHref(`/owner${window.location.search}`);
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +87,7 @@ export default function LoginPage() {
         </div>
         <p className="text-center text-xs text-slate-600 mt-4">
           Owner?{" "}
-          <a href="/owner" className="text-indigo-400 hover:text-indigo-300 transition-colors">Sign in here →</a>
+          <a href={ownerHref} className="text-indigo-400 hover:text-indigo-300 transition-colors">Sign in here →</a>
         </p>
       </div>
     </div>
