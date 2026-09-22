@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { readEmbedFlag, safeNextPath } from "@/shared/embed";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -9,6 +10,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Remember embedded mode (Cenks Dashboard iframe) across the login round trip.
+  useEffect(() => { readEmbedFlag(); }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +26,8 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Login failed"); return; }
-      router.push("/");
+      const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+      router.push(next ?? "/");
       router.refresh();
     } finally {
       setLoading(false);

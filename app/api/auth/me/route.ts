@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, createSessionToken } from "@/shared/auth/session";
 import { prisma } from "@/shared/db/prisma";
+import { SESSION_COOKIE, sessionCookieOptions } from "@/shared/auth/cookie";
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get("cf_session")?.value;
@@ -46,10 +47,7 @@ export async function GET(req: NextRequest) {
         type: "member", memberId: session.memberId, name: session.name,
         clientId: session.clientId ?? null, clientIds: freshIds,
       });
-      res.cookies.set("cf_session", fresh, {
-        httpOnly: true, secure: process.env.NODE_ENV === "production",
-        sameSite: "lax", maxAge: 60 * 60 * 24 * 30, path: "/",
-      });
+      res.cookies.set(SESSION_COOKIE, fresh, sessionCookieOptions());
     }
   }
   return res;

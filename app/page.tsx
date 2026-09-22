@@ -22,6 +22,7 @@ import TranscribePage from "@/features/content/pages/TranscribePage";
 import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { countUnseenSentBack } from "@/features/scripts/sentBackSeen";
+import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
 
 export type Page =
   | "headquarters"
@@ -53,8 +54,16 @@ const PAGE_LABELS: Record<Page, string> = {
 
 export type Platform = "instagram" | "tiktok";
 
+const isPage = (p: string): p is Page => p in PAGE_LABELS;
+
 export default function App() {
+  // Deep link (?page=&clientId=&draft=) — used by the Cenks Dashboard embed and by refreshes.
+  const [deepLink] = useState(() => parseDeepLink(isPage));
+  // Embedded inside the Cenks Dashboard iframe: no own sidebar, navigation mirrored to parent.
+  const [embedded] = useState(() => readEmbedFlag());
+
   const [page, setPage] = useState<Page>(() => {
+    if (deepLink.page) return deepLink.page as Page;
     try { return (localStorage.getItem("cf_active_page") as Page) ?? "pipeline"; } catch { return "pipeline"; }
   });
   // Which platform's pipeline the content pages operate on (Instagram vs TikTok). Persisted so a
@@ -66,7 +75,7 @@ export default function App() {
   const [splitPage, setSplitPage] = useState<Page | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.5);
   const [clients, setClients] = useState<Client[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(deepLink.clientId);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<number | null>(() => {
     try { const v = localStorage.getItem("cf_active_workspace"); return v ? parseInt(v) : null; } catch { return null; }
@@ -74,7 +83,7 @@ export default function App() {
   const [chatContext, setChatContext] = useState<{ id?: number; title: string; hook?: string | null; script: string; caption?: string | null; channel?: string } | null>(null);
   // When set, the Instagram reels view enters "attach mode" — clicking reels adds them to this concept
   const [attachConcept, setAttachConcept] = useState<{ id: number; name: string } | null>(null);
-  const [kanbanHighlightId, setKanbanHighlightId] = useState<number | null>(null);
+  const [kanbanHighlightId, setKanbanHighlightId] = useState<number | null>(deepLink.draft);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
@@ -291,6 +300,34 @@ export default function App() {
     try { localStorage.setItem("cf_active_platform", platform); } catch { /* */ }
   }, [platform]);
 
+  // Mirror the active screen into the URL (?page=&clientId=) so a refresh or a deep link lands
+  // on the same screen, and — when embedded — tell the Cenks Dashboard so it can keep its own
+  // URL in sync. Only the root path is touched; OAuth callbacks etc. keep their own URLs.
+  useEffect(() => {
+    if (window.location.pathname !== "/") return;
+    const search = buildDeepLinkSearch({ page, clientId: selectedClientId, embedded });
+    if (window.location.search !== search) window.history.replaceState(window.history.state, "", `/${search}`);
+    if (embedded && window.parent !== window) {
+      const msg: OrdoNavigateMessage = { type: "ordo:navigate", page, clientId: selectedClientId, path: `/${search}` };
+      window.parent.postMessage(msg, "*");
+    }
+  }, [page, selectedClientId, embedded]);
+
+  // Embedded: the dashboard can switch screens without reloading the iframe.
+  useEffect(() => {
+    if (!embedded) return;
+    function onMessage(e: MessageEvent) {
+      if (e.source !== window.parent) return;
+      const d = e.data as ParentNavigateMessage | null;
+      if (!d || d.type !== "ordo:navigate") return;
+      if (typeof d.clientId === "number") setSelectedClientId(d.clientId);
+      if (typeof d.draft === "number") setKanbanHighlightId(d.draft);
+      if (typeof d.page === "string" && isPage(d.page)) setPage(d.page);
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [embedded]);
+
   // Brief loading flash when switching client or page
   useEffect(() => {
     if (!appReady) return;
@@ -438,11 +475,11 @@ export default function App() {
     </div>
   );
 
-  const sidebarWidth = sidebarCollapsed ? 0 : 280;
+  const sidebarWidth = embedded || sidebarCollapsed ? 0 : 280;
 
   return (
     <div className="flex h-full min-h-screen bg-slate-50">
-      <Sidebar
+      {!embedded && <Sidebar
         currentPage={page}
         onNavigate={(p) => setPage(p as Page)}
         splitPage={session?.type === "owner" ? splitPage : null}
@@ -488,7 +525,7 @@ export default function App() {
           });
           fetchNotifications();
         }}
-      />
+      />}
       {splitPage && session?.type === "owner" ? (
         <div ref={splitRef} className="fixed top-0 bottom-0 right-0 flex h-screen transition-[left] duration-200" style={{ left: sidebarWidth }}>
           <div className="relative h-screen overflow-hidden bg-slate-50" style={{ width: `${splitRatio * 100}%` }}>
@@ -509,7 +546,7 @@ export default function App() {
         </div>
       ) : page === "board"
         ? <>{transitioning ? null : renderPage()}</>
-        : <main className="flex-1 p-8 min-w-0 flex flex-col h-screen overflow-y-auto transition-[margin] duration-200" style={{ marginLeft: sidebarWidth }}>
+        : <main className={`flex-1 ${embedded ? "p-6" : "p-8"} min-w-0 flex flex-col h-screen overflow-y-auto transition-[margin] duration-200`} style={{ marginLeft: sidebarWidth }}>
             {transitioning
               ? <div className="flex items-center justify-center" style={{height: "calc(100vh - 4rem)"}}><div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
               : renderPage()

@@ -2,15 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import bcrypt from "bcryptjs";
 import { createSessionToken } from "@/shared/auth/session";
+import { SESSION_COOKIE, sessionCookieOptions } from "@/shared/auth/cookie";
 
 function setCookie(res: NextResponse, token: string) {
-  res.cookies.set("cf_session", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-    path: "/",
-  });
+  res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
 }
 
 export async function POST(req: NextRequest) {

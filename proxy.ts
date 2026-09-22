@@ -9,8 +9,35 @@ function getSecret() {
 
 const PUBLIC = ["/login", "/owner", "/invite", "/api/auth", "/api/unipile/webhook", "/api/unipile/callback", "/api/unipile/sync-followers", "/api/upload", "/upload", "/api/upload-tokens", "/api/upload-raw", "/api/blob/upload", "/api/zernio/callback", "/api/admin/migrate", "/api/admin/purge-cloudinary", "/api/cron/", "/api/webhooks/", "/manifest.webmanifest", "/icons/", "/favicon.png", "/logo.png", "/api/img", "/api/vid", "/api/r2/setup-cors", "/sw.js", "/review", "/play.html", "/tiktok"];
 
+// Origins allowed to make state-changing API calls with the session cookie. The cookie is
+// SameSite=None (so Ordo works inside the Cenks Dashboard iframe), which means the browser
+// attaches it to cross-site requests too — this check is what keeps other sites from
+// driving the API with it. Server-to-server callers (crons, webhooks) send no Origin.
+const SELF_ORIGINS = ["https://www.ordoagency.com", "https://ordoagency.com", "http://localhost:3000"];
+function allowedOrigins(req: NextRequest): string[] {
+  const extra = (process.env.EMBED_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return [req.nextUrl.origin, ...SELF_ORIGINS, ...extra];
+}
+
+// Unauthenticated → /login, carrying the embed flag and the requested screen so that the
+// dashboard's deep links (and embedded mode) survive the sign-in round trip.
+function loginRedirect(req: NextRequest) {
+  const url = new URL("/login", req.url);
+  const { pathname, search, searchParams } = req.nextUrl;
+  if (searchParams.get("embed") === "1") url.searchParams.set("embed", "1");
+  if (!pathname.startsWith("/api/") && (pathname !== "/" || search)) url.searchParams.set("next", pathname + search);
+  return url;
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    const origin = req.headers.get("origin");
+    if (origin && !allowedOrigins(req).includes(origin)) {
+      return NextResponse.json({ error: "forbidden origin" }, { status: 403 });
+    }
+  }
 
   // Canonical host. R2 only accepts browser uploads from ordoagency.com — anyone who
   // opened the app via the raw *.vercel.app deployment URL (or any other host) is on an
@@ -32,7 +59,7 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith("/_next") || pathname === "/favicon.ico") return NextResponse.next();
 
   const token = req.cookies.get("cf_session")?.value;
-  if (!token) return NextResponse.redirect(new URL("/login", req.url));
+  if (!token) return NextResponse.redirect(loginRedirect(req));
 
   try {
     const { payload } = await jwtVerify(token, getSecret());
@@ -58,7 +85,7 @@ export async function proxy(req: NextRequest) {
     }
     return NextResponse.next();
   } catch {
-    const res = NextResponse.redirect(new URL("/login", req.url));
+    const res = NextResponse.redirect(loginRedirect(req));
     res.cookies.delete("cf_session");
     return res;
   }
