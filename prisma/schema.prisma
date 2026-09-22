@@ -10,8 +10,20 @@ datasource db {
   directUrl = env("STORAGE2_POSTGRES_URL_NON_POOLING")
 }
 
+// A workspace groups clients (e.g. "OPT") so the owner can switch between separate sets of
+// clients. Owner-side organisation only — team/client logins are unaffected.
+model Workspace {
+  id        Int      @id @default(autoincrement())
+  name      String
+  color     String   @default("#3d4aa3")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  clients   Client[]
+}
+
 model Client {
   id                 Int      @id @default(autoincrement())
+  workspaceId        Int?
   name               String
   platform           String
   profileUrl         String?
@@ -30,7 +42,23 @@ model Client {
   ctaKeyword            String?  // e.g. "regie" — inbound DMs containing this are flagged as CTA leads
   isTestAccount         Boolean  @default(false)
   hideFromHq            Boolean  @default(false)
+  instagramEnabled      Boolean  @default(true)   // per-client Instagram toggle (on by default)
+  tiktokEnabled         Boolean  @default(false)  // per-client TikTok toggle
+  tiktokHandle          String?  // the client's own TikTok @handle (for own-profile analytics)
+  tiktokProfileData     String?  // cached JSON { profile, videos } of the last own-profile scrape (avoids re-scraping on every open)
+  tiktokProfileAt       DateTime? // when the own-profile cache was last refreshed
+  // Official TikTok Login Kit connection (OAuth) — first-party stats via the Display API.
+  tiktokAccessToken     String?
+  tiktokRefreshToken    String?
+  tiktokTokenExpiresAt  DateTime?
+  tiktokOpenId          String?
+  tiktokScope           String?
+  // TikTok via Zernio — the account connected in Zernio, linked for organic analytics.
+  tiktokZernioAccountId String?
+  tiktokZernioUsername  String?
+  tiktokZernioProfileId String?
 
+  workspace             Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   concepts              Concept[]
   contentPieces         ContentPiece[]
   trackedVideos         TrackedVideo[]
@@ -68,6 +96,7 @@ model InstagramConnection {
 model Creator {
   id              Int      @id @default(autoincrement())
   clientId        Int
+  platform        String   @default("instagram")
   name            String
   email           String?
   instagramHandle String?
@@ -125,6 +154,7 @@ model PushSubscription {
 model WorkflowStage {
   id                Int      @id @default(autoincrement())
   clientId          Int?
+  platform          String   @default("instagram")
   name              String
   order             Int
   color             String   @default("#6366f1")
@@ -173,9 +203,11 @@ model Notification {
 model Competitor {
   id            Int      @id @default(autoincrement())
   clientId      Int
+  platform      String   @default("instagram")
   handle        String
   name          String?
   niche         String?
+  tags          String?  // comma-separated custom tags for grouping + filtering reels
   followerCount Int?
   followingCount Int?
   postCount     Int?
@@ -198,19 +230,20 @@ model Competitor {
 model CompetitorCandidate {
   id            Int      @id @default(autoincrement())
   clientId      Int
+  platform      String   @default("instagram")
   handle        String
   name          String?
   followerCount Int?
   profilePicUrl String?
-  matched       String?  // why it matched (the keyword)
+  matched       String?  // why it matched (the keyword / seed it came from)
   bio           String?  // pulled during enrichment
   gender        String?  // male | female | unknown (AI-inferred)
   language      String?  // ISO code, e.g. nl | en (AI-inferred from bio)
   status        String   @default("pending") // pending | accepted | rejected
   createdAt     DateTime @default(now())
 
-  @@unique([clientId, handle])
-  @@index([clientId, status])
+  @@unique([clientId, platform, handle])
+  @@index([clientId, platform, status])
 }
 
 // Provenance-aware example pool the script generator studies. `scriptExamples`
@@ -237,6 +270,7 @@ model ConceptExample {
 model CompetitorReel {
   id            Int       @id @default(autoincrement())
   competitorId  Int
+  platform      String    @default("instagram")
   shortcode     String
   caption       String?
   thumbnailUrl  String?
@@ -273,10 +307,49 @@ model CompetitorReelSnapshot {
   @@index([reelId, capturedAt])
 }
 
+// Daily snapshot of a client's own OFFICIAL TikTok stats (via the connected Display API), so we can
+// chart follower/likes/views growth over time. One row per client per day.
+// Cached output of the TikTok Instructions engine (the daily views-maximizing playbook) per client.
+model TikTokInstructions {
+  id          Int      @id @default(autoincrement())
+  clientId    Int      @unique
+  data        String   // JSON: { keep, test, copy, stop, summary, stats }
+  generatedAt DateTime @default(now())
+}
+
+// Links a TikTok video (by its Zernio/TikTok post id) to a Concept — the basis for per-concept
+// performance rollups and the Instructions recommendation engine.
+model TikTokVideoConcept {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  videoId   String   // the Zernio post id (or TikTok video id) shown in the analytics table
+  conceptId Int
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, videoId])
+  @@index([clientId, conceptId])
+}
+
+model TikTokDailySnapshot {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  day            String   // YYYY-MM-DD
+  followerCount  Int?
+  followingCount Int?
+  likesCount     Int?
+  videoCount     Int?
+  totalViews     Int?     // sum of recent videos' views (reach proxy; TikTok profile-views aren't API-accessible)
+  capturedAt     DateTime @default(now())
+
+  @@unique([clientId, day])
+  @@index([clientId, day])
+}
+
 model Board {
   id        Int      @id @default(autoincrement())
   clientId  Int      @unique
   snapshot  String   @default("{}")
+  pendingVideos String @default("[]")  // videos queued from elsewhere (e.g. the IG tab); the board materializes them client-side on open
   updatedAt DateTime @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -285,6 +358,7 @@ model Board {
 model Concept {
   id             Int      @id @default(autoincrement())
   clientId       Int?
+  platform       String   @default("instagram")
   name           String
   conceptType    String?
   hookType       String?
@@ -326,6 +400,7 @@ model Concept {
 model ScriptDraft {
   id          Int      @id @default(autoincrement())
   clientId    Int
+  platform    String   @default("instagram")
   conceptId   Int
   stageId     Int?
   title       String
@@ -351,6 +426,8 @@ model ScriptDraft {
   rejectionFeedback  String?
   exampleVideoUrl    String?  // reference recording for the person filming to copy
   exampleLink        String?  // Instagram (or other) link to the reference reel
+  exampleReelId      Int?     // source CompetitorReel id — lets the card re-resolve a fresh playable url + stats/transcript, like the IG tab
+  exampleThumbnail   String?  // poster image for the example preview
   generatedAt        DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

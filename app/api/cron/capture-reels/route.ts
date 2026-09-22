@@ -21,41 +21,56 @@ export async function GET(req: NextRequest) {
     if (!isCron && token !== "zernio-migrate-2024") {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-    // Small default batch — each reel buffers a video + runs Whisper, so large batches risk
-    // the function's memory/time ceiling. Callers loop for backfill.
-    const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") || String(BATCH)) || BATCH, 20);
+    const videoOnly = req.nextUrl.searchParams.get("videoOnly") === "1";
+    // Video-only passes skip Whisper, so each reel is ~3x faster → we can do more per window.
+    const cap = videoOnly ? 30 : 20;
+    const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") || String(videoOnly ? 24 : BATCH)) || BATCH, cap);
 
-    // Not-fully-captured (missing video or transcript) AND not given up on. The second OR is
-    // null-safe: `NOT (captureStatus = 'unavailable')` is NULL (falsy) for the null rows that
-    // are the whole backlog, so we must explicitly allow null.
-    const where = {
-      AND: [
-        { OR: [{ cachedVideoUrl: null }, { transcript: null }] },
-        { OR: [{ captureStatus: null }, { captureStatus: { not: "unavailable" } }] },
-      ],
-    };
-    const pending = await (prisma as any).competitorReel.findMany({
-      where,
+    const live = { OR: [{ captureStatus: null }, { captureStatus: { not: "unavailable" } }] };
+    // PLAYABILITY FIRST: a reel is only watchable once it has an R2 video copy, and that's the
+    // slow part users feel ("Not ready yet"). So we burn down every reel missing its video
+    // BEFORE spending any time on transcripts — each video-only reel skips the 90s Whisper call.
+    const videoWhere = { AND: [{ cachedVideoUrl: null }, live] };
+
+    let video = 0, transcript = 0, phase = "video";
+    const results: any[] = [];
+
+    const videoPending = await (prisma as any).competitorReel.findMany({
+      where: videoWhere,
       orderBy: [{ captureTries: "asc" }, { id: "desc" }],
       take: limit,
       select: { id: true },
     });
 
-    let video = 0, transcript = 0;
-    const results: any[] = [];
-    for (const r of pending) {
-      try {
-        const res = await captureReel(r.id);
-        if (res.video) video++;
-        if (res.transcript) transcript++;
-        results.push({ id: r.id, ...res });
-      } catch (e) {
-        results.push({ id: r.id, error: String(e).slice(0, 200) });
+    if (videoPending.length > 0) {
+      // Import lazily so a video-only pass never pulls in the transcription path.
+      const { ensureReelVideo } = await import("@/lib/reelCapture");
+      for (const r of videoPending) {
+        try {
+          const v = await ensureReelVideo(r.id);
+          if (v.permanent) video++;
+          results.push({ id: r.id, video: !!v.permanent });
+        } catch (e) { results.push({ id: r.id, error: String(e).slice(0, 200) }); }
+      }
+    } else if (!videoOnly) {
+      // Every reel that CAN have a video now does → fill in transcripts (video already cached).
+      phase = "transcript";
+      const tWhere = { AND: [{ cachedVideoUrl: { not: null } }, { transcript: null }, live] };
+      const tPending = await (prisma as any).competitorReel.findMany({
+        where: tWhere, orderBy: [{ captureTries: "asc" }, { id: "desc" }], take: BATCH, select: { id: true },
+      });
+      for (const r of tPending) {
+        try {
+          const res = await captureReel(r.id);
+          if (res.video) video++;
+          if (res.transcript) transcript++;
+          results.push({ id: r.id, ...res });
+        } catch (e) { results.push({ id: r.id, error: String(e).slice(0, 200) }); }
       }
     }
 
-    const remaining = await (prisma as any).competitorReel.count({ where });
-    return NextResponse.json({ processed: pending.length, videosCaptured: video, transcriptsCaptured: transcript, remaining, results });
+    const remainingVideo = await (prisma as any).competitorReel.count({ where: videoWhere });
+    return NextResponse.json({ phase, processed: results.length, videosCaptured: video, transcriptsCaptured: transcript, remainingVideo, results });
   } catch (e) {
     return NextResponse.json({ error: "handler crashed: " + (e instanceof Error ? e.message : String(e)) }, { status: 500 });
   }

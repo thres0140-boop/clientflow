@@ -1,10 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Client, Notification, TeamMember } from "@/lib/types";
+import { Client, Notification, TeamMember, Workspace } from "@/lib/types";
 import type { SessionPayload } from "@/lib/session";
+import { imgSrc } from "@/lib/videoSrc";
 
-type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe";
+// The client's connected TikTok profile pic, if their own-profile has been scraped (cached JSON).
+function tiktokAvatar(c: Client): string | undefined {
+  try { const d = JSON.parse((c as any).tiktokProfileData || "{}"); return d?.profile?.avatarUrl || undefined; } // eslint-disable-line @typescript-eslint/no-explicit-any
+  catch { return undefined; }
+}
+
+type Page = "headquarters" | "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe" | "clientsettings" | "tiktok" | "tiktokcompetitors" | "tiktokinstructions";
 
 function IconHQ({ active }: { active: boolean }) {
   const c = active ? "white" : "rgba(147,197,253,0.6)";
@@ -64,6 +71,19 @@ function IconTranscribe({ active }: { active: boolean }) {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="6" y="1.5" width="4" height="7.5" rx="2" stroke={c} strokeWidth="1.3"/><path d="M3.5 7.5a4.5 4.5 0 009 0" stroke={c} strokeWidth="1.3" strokeLinecap="round"/><path d="M8 12v2.5M5.5 14.5h5" stroke={c} strokeWidth="1.3" strokeLinecap="round"/></svg>;
 }
 
+function IconTikTok({ active }: { active: boolean }) {
+  const c = active ? "white" : "rgba(147,197,253,0.6)";
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M9.3 1.8v8.3a2.4 2.4 0 11-2.4-2.4c.2 0 .4 0 .55.05" stroke={c} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M9.3 1.8c.25 1.7 1.5 2.95 3.2 3.1" stroke={c} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
+function IconSearch({ active }: { active: boolean }) {
+  const c = active ? "white" : "rgba(147,197,253,0.6)";
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke={c} strokeWidth="1.3"/><path d="M10.5 10.5L14 14" stroke={c} strokeWidth="1.3" strokeLinecap="round"/></svg>;
+}
+function IconCompass({ active }: { active: boolean }) {
+  const c = active ? "white" : "rgba(147,197,253,0.6)";
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke={c} strokeWidth="1.3"/><path d="M10.8 5.2L9.3 9.3 5.2 10.8 6.7 6.7 10.8 5.2z" stroke={c} strokeWidth="1.3" strokeLinejoin="round"/></svg>;
+}
+
 const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   headquarters: (a) => <IconHQ active={a} />,
   pipeline: (a) => <IconCalendar active={a} />, kanban: (a) => <IconKanban active={a} />,
@@ -74,6 +94,10 @@ const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   tasks: (a) => <IconTasks active={a} />,
   transcribe: (a) => <IconTranscribe active={a} />,
   settings: (a) => <IconSettings active={a} />,
+  clientsettings: (a: boolean) => <IconSettings active={a} />,
+  tiktok: (a) => <IconTikTok active={a} />,
+  tiktokcompetitors: (a) => <IconSearch active={a} />,
+  tiktokinstructions: (a) => <IconCompass active={a} />,
 };
 
 const NAV_GROUPS = [
@@ -86,13 +110,16 @@ const NAV_GROUPS = [
     { id: "analytics" as Page, label: "Analytics" },
     { id: "dms" as Page, label: "DM Pipeline" },
     { id: "instagram" as Page, label: "Instagram" },
+    { id: "tiktok" as Page, label: "TikTok" },
+    { id: "tiktokinstructions" as Page, label: "Instructions" },
+    { id: "tiktokcompetitors" as Page, label: "Competitors" },
     { id: "board" as Page, label: "Strategy Board" },
     { id: "transcribe" as Page, label: "Transcribe" },
   ]},
   { label: "MANAGE", items: [
     { id: "team" as Page, label: "Team" },
     { id: "chat" as Page, label: "Messages" },
-    // Settings (client management) lives on the 👑 owner button in the left strip, not here.
+    { id: "clientsettings" as Page, label: "Settings" }, // this client's settings (incl. TikTok)
   ]},
 ];
 
@@ -104,13 +131,28 @@ type Props = {
   allowedPages: Page[]; activeProfile: TeamMember | null; session: SessionPayload | null; onSignOut: () => void;
   ownerEmail?: string | null;
   collapsed?: boolean; onToggleCollapsed?: () => void;
+  splitPage?: Page | null; onOpenSplit?: (page: Page) => void;
+  workspaces?: Workspace[]; activeWorkspaceId?: number | null;
+  onSelectWorkspace?: (id: number) => void; onCreateWorkspace?: (name: string) => void;
+  tiktokEnabled?: boolean; instagramEnabled?: boolean; platform?: "instagram" | "tiktok"; onSelectPlatform?: (p: "instagram" | "tiktok") => void;
+  onMoveClient?: (clientId: number, workspaceId: number) => void;
 };
+
+// Page lists for the per-platform folders (shown only when a client has TikTok enabled).
+const PAGE_NAV_LABEL: Record<string, string> = {
+  pipeline: "Content Scheduling", kanban: "Script Kanban", tasks: "Script Tasks",
+  concepts: "Concept Library", context: "AI Context", analytics: "Analytics",
+  dms: "DM Pipeline", instagram: "Instagram", tiktok: "TikTok", tiktokcompetitors: "Competitors", tiktokinstructions: "Instructions", board: "Strategy Board", transcribe: "Transcribe",
+};
+const IG_FOLDER: Page[] = ["pipeline", "kanban", "tasks", "concepts", "context", "analytics", "dms", "instagram"];
+const TT_FOLDER: Page[] = ["tiktok", "tiktokinstructions", "tiktokcompetitors", "concepts", "analytics"];
+const SHARED_WORK: Page[] = ["board", "transcribe"];
 
 const DIVIDER = { borderColor: "rgba(255,255,255,0.08)" };
 const STRIP_BG = "#0f1c34";
 const NAV_BG = "#1a2f52";
 
-export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed }: Props) {
+export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed, splitPage, onOpenSplit, workspaces, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, tiktokEnabled, instagramEnabled = true, platform = "instagram", onSelectPlatform, onMoveClient }: Props) {
   const [showAccount, setShowAccount] = useState(false);
   const [peeking, setPeeking] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
@@ -139,7 +181,21 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
     try { return JSON.parse(localStorage.getItem("cf_client_order") || "[]"); } catch { return []; }
   });
   const [dragId, setDragId] = useState<number | null>(null);
-  const orderedClients = [...clients].sort((a, b) => {
+  // Right-click a client avatar → move it to another workspace/project (owner only).
+  const [clientMenu, setClientMenu] = useState<{ x: number; y: number; client: Client } | null>(null);
+  const [wsMenu, setWsMenu] = useState(false);
+  const activeWs = (workspaces || []).find((w) => w.id === activeWorkspaceId) || (workspaces || [])[0] || null;
+  const [foldersClosed, setFoldersClosed] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem("cf_folders_closed") || "{}"); } catch { return {}; }
+  });
+  function toggleFolder(key: string) {
+    setFoldersClosed((prev) => { const n = { ...prev, [key]: !prev[key] }; try { localStorage.setItem("cf_folders_closed", JSON.stringify(n)); } catch { /* ignore */ } return n; });
+  }
+  // Owners with workspaces see only the active workspace's clients; members are unaffected.
+  const scopedClients = (session?.type === "owner" && activeWorkspaceId != null)
+    ? clients.filter((c) => c.workspaceId === activeWorkspaceId)
+    : clients;
+  const orderedClients = [...scopedClients].sort((a, b) => {
     const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
     if (ia === -1 && ib === -1) return 0;
     if (ia === -1) return 1;
@@ -206,14 +262,17 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
         {/* Client avatars + add button (Discord-style: add sits under the last project) */}
         <div className="flex flex-col items-center gap-2.5 py-3 flex-1 overflow-y-auto">
           {orderedClients.map((c) => {
-            const pic = (c.instagramConnection as any)?.profilePictureUrl;
+            const rawPic = (c.instagramConnection as any)?.profilePictureUrl || tiktokAvatar(c); // eslint-disable-line @typescript-eslint/no-explicit-any
+            const pic = rawPic ? imgSrc(rawPic) : undefined;
             return (
-              <button key={c.id} onClick={() => { onSelectClient(c.id); if (currentPage === "headquarters") onNavigate("kanban"); }} title={`${c.name} — drag to reorder`}
+              <button key={c.id} onClick={() => { onSelectClient(c.id); if (currentPage === "headquarters") onNavigate("kanban"); }}
+                title={`${c.name} — drag to reorder${session?.type === "owner" && workspaces && workspaces.length > 1 ? " · right-click to move project" : ""}`}
                 draggable
                 onDragStart={() => setDragId(c.id)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => reorderTo(c.id)}
                 onDragEnd={() => setDragId(null)}
+                onContextMenu={(e) => { if (session?.type === "owner" && workspaces && workspaces.length > 1) { e.preventDefault(); setClientMenu({ x: e.clientX, y: e.clientY, client: c }); } }}
                 className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-[10px] font-bold text-white transition-all flex-shrink-0 cursor-grab active:cursor-grabbing"
                 style={{
                   backgroundColor: c.color,
@@ -234,6 +293,58 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
             </button>
           )}
         </div>
+
+        {clientMenu && (
+          <>
+            <div className="fixed inset-0 z-[90]" onClick={() => setClientMenu(null)} onContextMenu={(e) => { e.preventDefault(); setClientMenu(null); }} />
+            <div className="fixed z-[91] w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1 max-h-72 overflow-auto text-slate-800"
+              style={{ left: Math.min(clientMenu.x, (typeof window !== "undefined" ? window.innerWidth : 1200) - 232), top: Math.min(clientMenu.y, (typeof window !== "undefined" ? window.innerHeight : 800) - 300) }}>
+              <p className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wide truncate">Move {clientMenu.client.name} to</p>
+              {(workspaces || []).filter((w) => w.id !== clientMenu.client.workspaceId).map((w) => (
+                <button key={w.id} onClick={() => { onMoveClient?.(clientMenu.client.id, w.id); setClientMenu(null); }}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-100 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: w.color }} />
+                  <span className="truncate">{w.name}</span>
+                </button>
+              ))}
+              {(workspaces || []).filter((w) => w.id !== clientMenu.client.workspaceId).length === 0 && (
+                <p className="px-3 py-2 text-xs text-slate-400">No other projects.</p>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Workspace switcher (owner only) — pinned at the bottom of the strip. */}
+        {session?.type === "owner" && workspaces && workspaces.length > 0 && activeWs && (
+          <div className="relative flex flex-col items-center pt-2.5 pb-2 flex-shrink-0" style={{ borderTop: `1px solid ${DIVIDER.borderColor}` }}>
+            <button onClick={() => setWsMenu((o) => !o)} title={`Workspace: ${activeWs.name}`}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-bold text-white transition-all flex-shrink-0"
+              style={{ backgroundColor: activeWs.color, boxShadow: "0 0 0 2px rgba(255,255,255,0.25)" }}>
+              {activeWs.name.slice(0, 2).toUpperCase()}
+            </button>
+            {wsMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setWsMenu(false)} />
+                <div className="absolute left-full bottom-0 ml-1 w-52 bg-white rounded-xl o-elev-lift z-50 p-1.5 text-ink">
+                  <p className="text-[10px] font-semibold text-faint uppercase tracking-wide px-2 py-1">Workspaces</p>
+                  {workspaces.map((w) => (
+                    <button key={w.id} onClick={() => { onSelectWorkspace?.(w.id); setWsMenu(false); }}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm ${w.id === activeWs.id ? "bg-accent-tint" : "hover:bg-slate-50"}`}>
+                      <span className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ backgroundColor: w.color }}>{w.name.slice(0, 2).toUpperCase()}</span>
+                      <span className="flex-1 truncate font-medium text-ink">{w.name}</span>
+                      <span className="text-[10px] text-faint">{w._count?.clients ?? ""}</span>
+                    </button>
+                  ))}
+                  <button onClick={() => { const n = prompt("New workspace name:"); if (n && n.trim()) onCreateWorkspace?.(n.trim()); setWsMenu(false); }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-accent hover:bg-accent-tint mt-0.5">
+                    <span className="w-5 h-5 rounded-md flex items-center justify-center text-sm flex-shrink-0 border border-dashed border-accent/40">＋</span>
+                    <span className="font-semibold">New workspace</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Collapse the strip */}
         <button onClick={toggleStrip} title="Hide client switcher"
@@ -277,32 +388,125 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
 
         {/* Nav items */}
         <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
-          {NAV_GROUPS.map((group) => {
-            const visibleItems = group.items.filter((item) => allowedPages.includes(item.id));
-            if (visibleItems.length === 0) return null;
-            return (
-              <div key={group.label}>
-                <p className="text-[10px] font-semibold px-3 mb-1.5 tracking-wider" style={{ color: "rgba(147,197,253,0.35)" }}>{group.label}</p>
-                <div className="space-y-0.5">
-                  {visibleItems.map((item) => (
-                    <button key={item.id} onClick={() => onNavigate(item.id)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left"
-                      style={{ backgroundColor: currentPage === item.id ? "rgba(255,255,255,0.12)" : "transparent", color: currentPage === item.id ? "white" : "rgba(147,197,253,0.65)" }}
-                      onMouseEnter={(e) => { if (currentPage !== item.id) (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.06)"; }}
-                      onMouseLeave={(e) => { if (currentPage !== item.id) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}>
-                      <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{PAGE_ICONS[item.id]?.(currentPage === item.id)}</span>
-                      <span className="flex-1">{item.label}</span>
-                      {!!badges?.[item.id] && (
-                        <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                          {badges[item.id]! > 9 ? "9+" : badges[item.id]}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+          {(() => {
+            const renderItem = (id: Page, label: string, active: boolean, onClick: () => void, keyPrefix = "") => (
+              <div key={`${keyPrefix}${id}`} className="group relative">
+                <button onClick={onClick}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 pr-9 rounded-lg text-sm font-medium transition-all text-left"
+                  style={{ backgroundColor: active ? "rgba(255,255,255,0.12)" : "transparent", color: active ? "white" : "rgba(147,197,253,0.65)" }}
+                  onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.06)"; }}
+                  onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}>
+                  <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{PAGE_ICONS[id]?.(active)}</span>
+                  <span className="flex-1 min-w-0 truncate whitespace-nowrap">{label}</span>
+                </button>
+                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {!!badges?.[id] && (
+                    <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {badges[id]! > 9 ? "9+" : badges[id]}
+                    </span>
+                  )}
+                  {onOpenSplit && (
+                    <button onClick={(e) => { e.stopPropagation(); onOpenSplit(id); }}
+                      title={splitPage === id ? "Showing in split" : "Open in split view →"}
+                      className={`w-6 h-6 rounded-md flex items-center justify-center text-[12px] transition-opacity ${splitPage === id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                      style={{ color: splitPage === id ? "white" : "rgba(147,197,253,0.85)", backgroundColor: splitPage === id ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.1)" }}>⇆</button>
+                  )}
                 </div>
               </div>
             );
-          })}
+            const groupHeader = (label: string) => (
+              <p className="text-[10px] font-semibold px-3 mb-1.5 tracking-wider" style={{ color: "rgba(147,197,253,0.35)" }}>{label}</p>
+            );
+            // Collapsible folder header (for the Instagram / TikTok platform folders).
+            const folderHeader = (label: string, key: string) => (
+              <button onClick={() => toggleFolder(key)}
+                className="w-full flex items-center gap-1 px-3 mb-1.5 text-[10px] font-semibold tracking-wider hover:text-white/70 transition-colors"
+                style={{ color: "rgba(147,197,253,0.45)" }}>
+                <span className="text-[8px] w-2 inline-block transition-transform" style={{ transform: foldersClosed[key] ? "rotate(-90deg)" : "none" }}>▼</span>
+                {label}
+              </button>
+            );
+
+            const igOn = instagramEnabled !== false;
+            const ttOn = !!tiktokEnabled;
+            const manage = NAV_GROUPS.find((g) => g.label === "MANAGE")?.items.filter((i) => allowedPages.includes(i.id)) || [];
+            const sharedItems = SHARED_WORK.filter((id) => allowedPages.includes(id));
+
+            // Only one platform on (owner) → flat nav for that platform (no folders needed).
+            if (session?.type === "owner" && ttOn && !igOn) {
+              const ttItems = TT_FOLDER.filter((id) => allowedPages.includes(id));
+              return (
+                <>
+                  <div>
+                    {groupHeader("🎵 TIKTOK")}
+                    <div className="space-y-0.5">
+                      {ttItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { onSelectPlatform?.("tiktok"); onNavigate(id); }, "tt-"))}
+                    </div>
+                  </div>
+                  {sharedItems.length > 0 && <div>{groupHeader("WORK")}<div className="space-y-0.5">{sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => onNavigate(id), "sh-"))}</div></div>}
+                  {manage.length > 0 && <div>{groupHeader("MANAGE")}<div className="space-y-0.5">{manage.map((item) => renderItem(item.id, item.label, currentPage === item.id, () => onNavigate(item.id), "mg-"))}</div></div>}
+                </>
+              );
+            }
+
+            // Both platforms on (owner) → split WORK into per-platform folders.
+            if (session?.type === "owner" && ttOn && igOn) {
+              const igItems = IG_FOLDER.filter((id) => allowedPages.includes(id));
+              const ttItems = TT_FOLDER.filter((id) => allowedPages.includes(id));
+              return (
+                <>
+                  <div>
+                    {folderHeader("📸 INSTAGRAM", "instagram")}
+                    {!foldersClosed["instagram"] && (
+                      <div className="space-y-0.5">
+                        {igItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "instagram", () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "ig-"))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    {folderHeader("🎵 TIKTOK", "tiktok")}
+                    {!foldersClosed["tiktok"] && (
+                      <div className="space-y-0.5">
+                        {ttItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "tiktok", () => { onSelectPlatform?.("tiktok"); onNavigate(id); }, "tt-"))}
+                      </div>
+                    )}
+                  </div>
+                  {sharedItems.length > 0 && (
+                    <div>
+                      {groupHeader("WORK")}
+                      <div className="space-y-0.5">
+                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
+                      </div>
+                    </div>
+                  )}
+                  {manage.length > 0 && (
+                    <div>
+                      {groupHeader("MANAGE")}
+                      <div className="space-y-0.5">
+                        {manage.map((item) => renderItem(item.id, item.label, currentPage === item.id, () => onNavigate(item.id), "mg-"))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            }
+
+            // Default flat nav. Hide platform-specific pages when that platform is off for the
+            // client — a TikTok-disabled client must never show the TikTok tab (to owner OR client).
+            const platformHidden = (id: Page) => ((id === "tiktok" || id === "tiktokcompetitors" || id === "tiktokinstructions") && !ttOn) || (id === "instagram" && !igOn);
+            return NAV_GROUPS.map((group) => {
+              const visibleItems = group.items.filter((item) => allowedPages.includes(item.id) && !platformHidden(item.id));
+              if (visibleItems.length === 0) return null;
+              return (
+                <div key={group.label}>
+                  {groupHeader(group.label)}
+                  <div className="space-y-0.5">
+                    {visibleItems.map((item) => renderItem(item.id, item.label, currentPage === item.id, () => onNavigate(item.id)))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </nav>
 
         {/* Footer: account + sign out */}

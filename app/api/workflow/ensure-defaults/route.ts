@@ -15,10 +15,11 @@ const RENAMES: Record<string, string> = { "check": "Check 1" };
 const STANDARD_NAMES = DEFAULT_STAGES.map((d) => d.name.toLowerCase());
 
 export async function POST(req: NextRequest) {
-  const { clientId } = await req.json();
-  const cid = parseInt(clientId);
+  const body = await req.json();
+  const cid = parseInt(body.clientId);
+  const platform = body.platform || "instagram";
 
-  const existing = await prisma.workflowStage.findMany({ where: { clientId: cid } });
+  const existing = await prisma.workflowStage.findMany({ where: { clientId: cid, platform } as any });
 
   // Migrate legacy renames (e.g. "Check" → "Check 1") before the non-standard check
   for (const s of existing) {
@@ -47,13 +48,13 @@ export async function POST(req: NextRequest) {
       });
     } else {
       await prisma.workflowStage.create({
-        data: { clientId: cid, name: def.name, color: def.color, order: def.order },
+        data: { clientId: cid, platform, name: def.name, color: def.color, order: def.order } as any,
       });
     }
   }
 
   const stages = await prisma.workflowStage.findMany({
-    where: { clientId: cid },
+    where: { clientId: cid, platform } as any,
     orderBy: { order: "asc" },
     include: { assignedTo: true, assignedCreator: true },
   });

@@ -272,7 +272,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
         const [, label, ref] = match;
         const isVideo = ref.startsWith("video:");
         return (
-          <span key={i} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${isVideo ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
+          <span key={i} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${isVideo ? "bg-amber-100 text-amber-700" : "bg-accent-tint text-accent-strong"}`}>
             {isVideo ? "🎬" : "💡"} {label}
           </span>
         );
@@ -285,13 +285,13 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
         {reelRef && (
           <button
             onClick={() => setReelModal(reelRef)}
-            className={`w-full text-left rounded-xl mb-2 p-2.5 flex items-start gap-2 transition-opacity hover:opacity-80 ${isOwnerBubble ? "bg-indigo-700/60" : "bg-indigo-50 border border-indigo-100"}`}
+            className={`w-full text-left rounded-xl mb-2 p-2.5 flex items-start gap-2 transition-opacity hover:opacity-80 ${isOwnerBubble ? "bg-accent-strong/60" : "bg-accent-tint border border-accent-tint"}`}
           >
             <span className="text-base flex-shrink-0">🎬</span>
             <div className="min-w-0">
-              <p className={`text-[10px] font-bold uppercase tracking-wide leading-none mb-1 ${isOwnerBubble ? "text-indigo-200" : "text-indigo-400"}`}>Reel</p>
-              <p className={`text-xs font-semibold truncate ${isOwnerBubble ? "text-white" : "text-slate-700"}`}>{reelRef.title}</p>
-              {reelRef.hook && <p className={`text-[11px] truncate mt-0.5 ${isOwnerBubble ? "text-indigo-200" : "text-indigo-500"}`}>{reelRef.hook}</p>}
+              <p className={`text-[10px] font-bold uppercase tracking-wide leading-none mb-1 ${isOwnerBubble ? "text-accent-tint" : "text-accent"}`}>Reel</p>
+              <p className={`text-xs font-semibold truncate ${isOwnerBubble ? "text-white" : "text-ink-2"}`}>{reelRef.title}</p>
+              {reelRef.hook && <p className={`text-[11px] truncate mt-0.5 ${isOwnerBubble ? "text-accent-tint" : "text-accent"}`}>{reelRef.hook}</p>}
             </div>
           </button>
         )}
@@ -306,12 +306,12 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     return (
       <>
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-200 p-4 space-y-3 min-h-0">
+        <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-line p-4 space-y-3 min-h-0">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="text-3xl mb-2">💬</div>
-              <p className="text-sm text-slate-400">No messages yet. Start the conversation.</p>
-              <p className="text-xs text-slate-300 mt-1">Type @ to tag a concept or video</p>
+              <p className="text-sm text-faint">No messages yet. Start the conversation.</p>
+              <p className="text-xs text-faint mt-1">Type @ to tag a concept or video</p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -335,26 +335,26 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                   )}
                   <div className={`max-w-[72%] ${isMe ? "items-start" : "items-end"} flex flex-col gap-0.5`}>
                     {!isMe && (
-                      <span className="text-[10px] text-slate-400 px-1">{displayName}</span>
+                      <span className="text-[10px] text-faint px-1">{displayName}</span>
                     )}
-                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "text-white rounded-bl-sm" : "bg-slate-100 text-slate-800 rounded-br-sm"}`}
+                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "text-white rounded-bl-sm" : "bg-slate-100 text-ink rounded-br-sm"}`}
                       style={isMe ? { backgroundColor: "#6366f1" } : {}}>
                       {renderContent(msg.content, isOwnerMsg)}
                     </div>
                     <div className={`flex items-center gap-2 px-1 ${!isMe ? "flex-row-reverse" : ""}`}>
-                      <span className="text-[10px] text-slate-300">
+                      <span className="text-[10px] text-faint">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       <button
                         onClick={() => deleteMessage(msg.id)}
-                        className="text-[10px] text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="text-[10px] text-faint hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         delete
                       </button>
                     </div>
                   </div>
                   {!isMe && (
-                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0 mt-0.5">
+                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-muted flex-shrink-0 mt-0.5">
                       {initial}
                     </div>
                   )}
@@ -368,37 +368,37 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
         {/* Input */}
         <div className="mt-3 flex-shrink-0 relative">
           {mention && filteredMentions.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50 max-h-52 overflow-y-auto">
-              <div className="px-3 py-1.5 border-b border-slate-100">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tag a concept or video</p>
+            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-line rounded-xl o-elev-lift overflow-hidden z-50 max-h-52 overflow-y-auto">
+              <div className="px-3 py-1.5 border-b border-line">
+                <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">Tag a concept or video</p>
               </div>
               {filteredMentions.map((item, i) => (
                 <button
                   key={`${item.type}-${item.id}`}
                   onMouseDown={(e) => { e.preventDefault(); applyMention(item); }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 transition-colors ${i === mentionIndex ? "bg-indigo-50" : ""}`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 transition-colors ${i === mentionIndex ? "bg-accent-tint" : ""}`}
                 >
                   <span className="text-base">{item.type === "video" ? "🎬" : "💡"}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 font-medium truncate">{item.label}</p>
-                    <p className="text-[10px] text-slate-400 capitalize">{item.sub}</p>
+                    <p className="text-sm text-ink-2 font-medium truncate">{item.label}</p>
+                    <p className="text-[10px] text-faint capitalize">{item.sub}</p>
                   </div>
                 </button>
               ))}
             </div>
           )}
-          <div className="bg-white border border-slate-200 rounded-2xl focus-within:ring-2 focus-within:ring-indigo-400 focus-within:border-transparent overflow-hidden">
+          <div className="bg-white border border-line rounded-2xl focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent overflow-hidden">
             {activeReel && (
-              <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-slate-100">
-                <div className="w-0.5 h-8 bg-indigo-400 rounded-full flex-shrink-0" />
+              <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-line">
+                <div className="w-0.5 h-8 bg-accent rounded-full flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide leading-none mb-0.5">Replying to reel</p>
-                  <p className="text-xs text-slate-600 font-medium truncate">{activeReel.title}</p>
-                  {activeReel.hook && <p className="text-[11px] text-slate-400 truncate">{activeReel.hook}</p>}
+                  <p className="text-[10px] font-semibold text-accent uppercase tracking-wide leading-none mb-0.5">Replying to reel</p>
+                  <p className="text-xs text-ink-2 font-medium truncate">{activeReel.title}</p>
+                  {activeReel.hook && <p className="text-[11px] text-faint truncate">{activeReel.hook}</p>}
                 </div>
                 <button
                   onMouseDown={(e) => { e.preventDefault(); setActiveReel(null); onContextUsed?.(); }}
-                  className="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0 p-0.5"
+                  className="text-faint hover:text-muted transition-colors flex-shrink-0 p-0.5"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M18 6L6 18M6 6l12 12" />
@@ -414,7 +414,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                 onKeyDown={handleKeyDown}
                 placeholder={memberChannel ? `Message ${ownerName}…` : `Message ${activeConv?.label ?? ""}… (@ to tag, Enter to send)`}
                 rows={1}
-                className="flex-1 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none bg-transparent leading-relaxed"
+                className="flex-1 text-sm text-ink placeholder-slate-400 resize-none focus:outline-none bg-transparent leading-relaxed"
                 style={{ maxHeight: "120px" }}
                 onInput={(e) => {
                   const el = e.currentTarget;
@@ -425,7 +425,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               <button
                 onClick={sendMessage}
                 disabled={!draft.trim()}
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-accent text-white hover:bg-accent-strong disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -440,7 +440,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
 
   if (!client) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
+      <div className="flex items-center justify-center h-64 text-faint text-sm">
         Select a client to view chat
       </div>
     );
@@ -453,19 +453,19 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setReelModal(null)}>
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-          <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
+        <div className="relative bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="px-5 py-4 border-b border-line flex-shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-0.5">
+                <p className="text-[10px] font-semibold text-accent uppercase tracking-wide mb-0.5">
                   {(reelModalFull as any)?.concept ? ((reelModalFull as any).concept.conceptType ? `${(reelModalFull as any).concept.conceptType} · ${(reelModalFull as any).concept.name}` : (reelModalFull as any).concept.name) : "Reel"}
                 </p>
-                <p className="text-base font-bold text-slate-800">{reelModal.title}</p>
+                <p className="text-base font-bold text-ink">{reelModal.title}</p>
                 {(reelModalFull as any)?.weekLabel && (
-                  <p className="text-xs text-slate-400 mt-0.5">{(reelModalFull as any).weekLabel}</p>
+                  <p className="text-xs text-faint mt-0.5">{(reelModalFull as any).weekLabel}</p>
                 )}
               </div>
-              <button onClick={() => setReelModal(null)} className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0 mt-0.5">
+              <button onClick={() => setReelModal(null)} className="text-faint hover:text-ink-2 transition-colors flex-shrink-0 mt-0.5">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M18 6L6 18M6 6l12 12" />
                 </svg>
@@ -474,7 +474,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
           </div>
           {!reelModalFull ? (
             <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <div className="overflow-y-auto p-5 space-y-5">
@@ -488,26 +488,26 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                   <>
                     {f.editedVideoUrl && (
                       <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Finished Video</p>
+                        <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Finished Video</p>
                         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                         <video src={f.editedVideoUrl} controls playsInline className="w-full max-h-[55vh] rounded-xl bg-black object-contain" />
-                        <a href={f.editedVideoUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-[11px] text-indigo-500 hover:text-indigo-700 mt-1.5">Open / download ↗</a>
+                        <a href={f.editedVideoUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-[11px] text-accent hover:text-accent-strong mt-1.5">Open / download ↗</a>
                       </div>
                     )}
                     {f.exampleVideoUrl && (
                       <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Example Video</p>
+                        <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Example Video</p>
                         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                         <video src={f.exampleVideoUrl} controls playsInline className="w-full max-h-[45vh] rounded-xl bg-black object-contain" />
                       </div>
                     )}
                     {raws.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Raw Content</p>
+                        <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Raw Content</p>
                         <button onClick={() => setRawExpanded((v) => !v)}
-                          className="w-full flex items-center justify-between gap-2 border border-slate-200 rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 transition-colors">
+                          className="w-full flex items-center justify-between gap-2 border border-line rounded-xl px-3.5 py-3 text-sm font-semibold text-ink-2 bg-slate-50 hover:bg-slate-100 transition-colors">
                           <span>📎 {raws.length} file{raws.length > 1 ? "s" : ""} uploaded</span>
-                          <span className="text-indigo-500 text-xs font-semibold">{rawExpanded ? "▲ Collapse" : "▼ Expand"}</span>
+                          <span className="text-accent text-xs font-semibold">{rawExpanded ? "▲ Collapse" : "▼ Expand"}</span>
                         </button>
                         {rawExpanded && (
                           <div className="space-y-2 mt-2">
@@ -524,27 +524,27 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               })()}
               {reelModalFull.hook && (
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Text Hook</p>
-                  <div className="border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-700 leading-relaxed bg-slate-50">
+                  <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Text Hook</p>
+                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-ink-2 leading-relaxed bg-slate-50">
                     {reelModalFull.hook}
                   </div>
                 </div>
               )}
               {reelModalFull.script && (
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Script</p>
-                  <div className="border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap bg-slate-50 font-mono">
+                  <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Script</p>
+                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-ink-2 leading-relaxed whitespace-pre-wrap bg-slate-50 font-mono">
                     {reelModalFull.script}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5">
+                  <p className="text-[10px] text-faint mt-1.5">
                     {reelModalFull.script.split(/\s+/).filter(Boolean).length} words
                   </p>
                 </div>
               )}
               {reelModalFull.caption && (
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Caption</p>
-                  <div className="border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-500 leading-relaxed bg-slate-50">
+                  <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Caption</p>
+                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-muted leading-relaxed bg-slate-50">
                     {reelModalFull.caption}
                   </div>
                 </div>
@@ -561,12 +561,12 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
         <div className="flex items-center gap-3 mb-4 flex-shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {ownerName[0]?.toUpperCase()}
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800">{ownerName}</h1>
-            <p className="text-xs text-slate-400">use @ to tag concepts or videos</p>
+            <h1 className="text-lg font-bold text-ink">{ownerName}</h1>
+            <p className="text-xs text-faint">use @ to tag concepts or videos</p>
           </div>
           <div className="ml-auto"><PushToggle /></div>
         </div>
@@ -579,9 +579,9 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   return (
     <div className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] gap-0 -mx-8 px-0">
       {/* Sidebar */}
-      <div className="w-56 flex-shrink-0 border-r border-slate-200 flex flex-col bg-slate-50 rounded-l-2xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-200">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Conversations</p>
+      <div className="w-56 flex-shrink-0 border-r border-line flex flex-col bg-slate-50 rounded-l-2xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-line">
+          <p className="text-[10px] font-semibold text-faint uppercase tracking-widest">Conversations</p>
         </div>
         <div className="flex-1 overflow-y-auto py-2">
           {[...conversations]
@@ -595,7 +595,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               <button
                 key={conv.channel}
                 onClick={() => setActiveChannel(conv.channel)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-indigo-50 border-r-2 border-indigo-500" : "hover:bg-slate-100"}`}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-accent-tint border-r-2 border-accent" : "hover:bg-slate-100"}`}
               >
                 <div
                   className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-bold text-white"
@@ -604,17 +604,17 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                   {conv.initial}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-xs truncate ${unread ? "font-bold text-slate-900" : isActive ? "font-medium text-indigo-700" : "font-medium text-slate-700"}`}>
+                  <p className={`text-xs truncate ${unread ? "font-bold text-ink" : isActive ? "font-medium text-accent-strong" : "font-medium text-ink-2"}`}>
                     {conv.label}
                   </p>
                   {conv.isClient && !unread && (
-                    <p className="text-[10px] text-slate-400">Client</p>
+                    <p className="text-[10px] text-faint">Client</p>
                   )}
                   {unread && (
-                    <p className="text-[10px] text-slate-500 truncate">{summary[conv.channel]?.lastContent?.replace(/^__REEL__.*__END__/, "🎬 ") || "New message"}</p>
+                    <p className="text-[10px] text-muted truncate">{summary[conv.channel]?.lastContent?.replace(/^__REEL__.*__END__/, "🎬 ") || "New message"}</p>
                   )}
                 </div>
-                {unread && <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 flex-shrink-0" />}
+                {unread && <span className="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0" />}
               </button>
             );
           })}
@@ -632,8 +632,8 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
             {activeConv?.initial}
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800">{activeConv?.label}</h1>
-            <p className="text-xs text-slate-400">use @ to tag concepts or videos</p>
+            <h1 className="text-lg font-bold text-ink">{activeConv?.label}</h1>
+            <p className="text-xs text-faint">use @ to tag concepts or videos</p>
           </div>
           <div className="ml-auto"><PushToggle /></div>
         </div>

@@ -111,22 +111,22 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
     }
   }
 
-  if (!client) return <div className="text-sm text-slate-400">Select a client.</div>;
+  if (!client) return <div className="text-sm text-faint">Select a client.</div>;
 
   return (
     <div className="flex flex-col h-full">
       <div className="mb-5 flex-shrink-0">
-        <h1 className="text-2xl font-bold text-slate-900">Script Tasks</h1>
-        <p className="text-slate-500 text-sm mt-0.5">
+        <h1 className="text-2xl font-bold text-ink">Script Tasks</h1>
+        <p className="text-muted text-sm mt-0.5">
           {canSubmit ? "Concepts you write the scripts for — submit them for the team to review." : `${client.name}'s self-written script tasks and progress.`}
         </p>
       </div>
 
       {concepts.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-16 text-center">
+        <div className="bg-white rounded-2xl border border-dashed border-line p-16 text-center">
           <div className="text-3xl mb-2">🧑‍💻</div>
-          <p className="text-sm font-semibold text-slate-700">No script tasks{canSubmit ? "" : ` for ${client.name}`}</p>
-          <p className="text-xs text-slate-400 mt-1">A task appears here when a concept is set to “Client writes the scripts”.</p>
+          <p className="text-sm font-semibold text-ink-2">No script tasks{canSubmit ? "" : ` for ${client.name}`}</p>
+          <p className="text-xs text-faint mt-1">A task appears here when a concept is set to “Client writes the scripts”.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -146,9 +146,9 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
             const dueStr = end.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
             const cat = (c as any).conceptType ? `${(c as any).conceptType} · ` : "";
             return (
-              <div key={c.id} className="bg-white border border-slate-200 rounded-2xl p-4">
+              <div key={c.id} className="bg-white border border-line rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-bold text-slate-800">{cat}{c.name}</p>
+                  <p className="text-sm font-bold text-ink">{cat}{c.name}</p>
                   <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${remaining === 0 ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
                     {remaining === 0 ? "✓ Done this cycle" : `${done}/${quota} written · due ${dueStr}`}
                   </span>
@@ -163,7 +163,7 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                         {d.rejectionFeedback && (
                           <p className="text-xs text-red-700 font-medium mb-1.5">Feedback: {d.rejectionFeedback}</p>
                         )}
-                        <p className="text-xs text-slate-500 whitespace-pre-line leading-relaxed mb-2 line-clamp-3">{d.script}</p>
+                        <p className="text-xs text-muted whitespace-pre-line leading-relaxed mb-2 line-clamp-3">{d.script}</p>
                         {canSubmit ? (
                           <div className="space-y-1.5">
                             <textarea rows={3} value={revise[d.id] ?? d.script}
@@ -188,13 +188,13 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                 {active.length > 0 && (
                   <div className="space-y-1.5 mb-3">
                     {active.map((d, i) => (
-                      <div key={d.id} className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                      <div key={d.id} className="flex items-start gap-2 bg-slate-50 border border-line rounded-lg px-3 py-2">
                         <span className="text-green-500 text-xs mt-0.5">✓</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
+                          <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-0.5">
                             Script {i + 1} · {d.stageId ? "in production" : "submitted for review"}
                           </p>
-                          <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{d.script}</p>
+                          <p className="text-xs text-ink-2 whitespace-pre-line leading-relaxed">{d.script}</p>
                         </div>
                       </div>
                     ))}
@@ -204,40 +204,40 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                 {/* Writer (client): writes ONE script at a time, up to the assigned quota. */}
                 {canSubmit && remaining > 0 && (
                   <div className="space-y-2">
-                    <p className="text-[11px] font-semibold text-slate-500">Write script {done + 1} of {quota}</p>
+                    <p className="text-[11px] font-semibold text-muted">Write script {done + 1} of {quota}</p>
                     <textarea rows={4} value={inputs[c.id] ?? ""}
                       onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
                       placeholder="Write the on-screen text / script here…"
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
+                      className="w-full border border-line rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
                     <div className="flex justify-end">
                       <button onClick={() => submit(c)} disabled={submitting === c.id || !(inputs[c.id] || "").trim()}
                         className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
                         {submitting === c.id ? "Submitting…" : "Submit this script for review"}
                       </button>
                     </div>
-                    {remaining > 1 && <p className="text-[11px] text-slate-400 text-right">{remaining - 1} more after this one.</p>}
+                    {remaining > 1 && <p className="text-[11px] text-faint text-right">{remaining - 1} more after this one.</p>}
                   </div>
                 )}
                 {canSubmit && remaining === 0 && (
-                  <p className="text-xs text-slate-400">All assigned scripts are in. Nothing to write right now 🎉</p>
+                  <p className="text-xs text-faint">All assigned scripts are in. Nothing to write right now 🎉</p>
                 )}
 
                 {/* Owner: re-assign a fresh round to the client anytime — defaults to the
                     same amount as the last run. Don then sees the writing tasks again. */}
                 {!canSubmit && (
                   addOpen[c.id] ? (
-                    <div className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
-                      <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <div className="flex items-center justify-between gap-3 bg-slate-50 border border-line rounded-lg px-3 py-2.5">
+                      <div className="flex items-center gap-2 text-xs text-ink-2">
                         <span className="font-semibold">Assign</span>
                         <input type="number" min={1}
                           value={assignQty[c.id] ?? (quota || 1)}
                           onChange={(e) => setAssignQty((p) => ({ ...p, [c.id]: parseInt(e.target.value) || 1 }))}
-                          className="w-16 border border-slate-300 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                          className="w-16 border border-line-2 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400" />
                         <span>new script{(assignQty[c.id] ?? quota) === 1 ? "" : "s"} to {client.name}</span>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => setAddOpen((p) => ({ ...p, [c.id]: false }))}
-                          className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">Cancel</button>
+                          className="px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink-2">Cancel</button>
                         <button onClick={() => assignRound(c)} disabled={submitting === c.id}
                           className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
                           {submitting === c.id ? "Assigning…" : "Assign"}
@@ -246,7 +246,7 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                     </div>
                   ) : (
                     <button onClick={() => { setAssignQty((p) => ({ ...p, [c.id]: quota || 1 })); setAddOpen((p) => ({ ...p, [c.id]: true })); }}
-                      className="w-full py-2 text-xs font-semibold text-slate-500 border border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors">
+                      className="w-full py-2 text-xs font-semibold text-muted border border-dashed border-line-2 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors">
                       ↻ Assign a new round{quota ? ` (${quota} script${quota > 1 ? "s" : ""})` : ""} to {client.name}
                     </button>
                   )
@@ -256,7 +256,7 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
           })}
         </div>
       )}
-      {loading && <p className="text-xs text-slate-400 mt-3">Loading…</p>}
+      {loading && <p className="text-xs text-faint mt-3">Loading…</p>}
     </div>
   );
 }

@@ -54,8 +54,8 @@ export default function AIScripts({ clients, selectedClientId }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">AI Script Generator</h1>
-        <p className="text-slate-500 mt-1">Turn concept blueprints into ready-to-use scripts using Claude</p>
+        <h1 className="text-2xl font-bold text-ink">AI Script Generator</h1>
+        <p className="text-muted mt-1">Turn concept blueprints into ready-to-use scripts using Claude</p>
       </div>
 
       {keyMissing && (
@@ -68,12 +68,12 @@ export default function AIScripts({ clients, selectedClientId }: Props) {
       )}
 
       {/* Concept selector */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h2 className="text-sm font-semibold text-slate-700 mb-3">Select Concept</h2>
+      <div className="bg-white rounded-xl border border-line p-5">
+        <h2 className="text-sm font-semibold text-ink-2 mb-3">Select Concept</h2>
         <select
           value={selectedConceptId}
           onChange={(e) => setSelectedConceptId(e.target.value)}
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <option value="">— Choose a concept —</option>
           {concepts.map((c) => (
@@ -83,18 +83,18 @@ export default function AIScripts({ clients, selectedClientId }: Props) {
 
         {selectedConcept && (
           <div className="mt-4 space-y-2 bg-slate-50 rounded-lg p-4 text-sm">
-            {selectedConcept.hookType && <p><span className="font-medium text-slate-600">Hook Type:</span> <span className="text-indigo-600">{selectedConcept.hookType}</span></p>}
-            {selectedConcept.textHook && <p><span className="font-medium text-slate-600">Text Hook:</span> {selectedConcept.textHook}</p>}
-            {selectedConcept.videoType && <p><span className="font-medium text-slate-600">Video Type:</span> {selectedConcept.videoType}</p>}
-            {selectedConcept.angle && <p><span className="font-medium text-slate-600">Angle:</span> {selectedConcept.angle}</p>}
-            {selectedConcept.structure && <p><span className="font-medium text-slate-600">Structure:</span> {selectedConcept.structure}</p>}
-            {selectedConcept.guidelines && <p><span className="font-medium text-slate-600">Guidelines:</span> {selectedConcept.guidelines}</p>}
+            {selectedConcept.hookType && <p><span className="font-medium text-ink-2">Hook Type:</span> <span className="text-accent">{selectedConcept.hookType}</span></p>}
+            {selectedConcept.textHook && <p><span className="font-medium text-ink-2">Text Hook:</span> {selectedConcept.textHook}</p>}
+            {selectedConcept.videoType && <p><span className="font-medium text-ink-2">Video Type:</span> {selectedConcept.videoType}</p>}
+            {selectedConcept.angle && <p><span className="font-medium text-ink-2">Angle:</span> {selectedConcept.angle}</p>}
+            {selectedConcept.structure && <p><span className="font-medium text-ink-2">Structure:</span> {selectedConcept.structure}</p>}
+            {selectedConcept.guidelines && <p><span className="font-medium text-ink-2">Guidelines:</span> {selectedConcept.guidelines}</p>}
           </div>
         )}
 
         {activeClient && (
-          <p className="mt-3 text-xs text-slate-400">
-            Generating in <span className="font-medium text-slate-600">{activeClient.language === "nl" ? "Dutch" : activeClient.language}</span> for {activeClient.name}
+          <p className="mt-3 text-xs text-faint">
+            Generating in <span className="font-medium text-ink-2">{activeClient.language === "nl" ? "Dutch" : activeClient.language}</span> for {activeClient.name}
           </p>
         )}
       </div>
@@ -102,7 +102,7 @@ export default function AIScripts({ clients, selectedClientId }: Props) {
       <button
         onClick={generate}
         disabled={loading || !selectedConcept}
-        className="w-full py-3 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full py-3 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent-strong disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? "✨ Generating with Claude..." : "✨ Generate Script"}
       </button>
@@ -112,14 +112,14 @@ export default function AIScripts({ clients, selectedClientId }: Props) {
       )}
 
       {generatedScript && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-xl border border-line p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-700">Generated Script</h2>
-            <button onClick={() => navigator.clipboard.writeText(generatedScript)} className="text-xs text-indigo-600 hover:underline">
+            <h2 className="text-sm font-semibold text-ink-2">Generated Script</h2>
+            <button onClick={() => navigator.clipboard.writeText(generatedScript)} className="text-xs text-accent hover:underline">
               Copy
             </button>
           </div>
-          <pre className="text-sm font-mono whitespace-pre-wrap text-slate-700 bg-slate-50 rounded-lg p-4 border border-slate-200">
+          <pre className="text-sm font-mono whitespace-pre-wrap text-ink-2 bg-slate-50 rounded-lg p-4 border border-line">
             {generatedScript}
           </pre>
         </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Client, AnalyticsEntry, ContentPiece, TrackedVideo } from "@/lib/types";
+import TikTokStudioAnalytics from "@/components/pages/TikTokStudioAnalytics";
 
 type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void };
 type MainTab = "general" | "concept";
@@ -104,6 +105,9 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   const [conceptReels, setConceptReels] = useState<string | null>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
+  // A TikTok-connected client with Instagram off gets only the TikTok dashboard — the IG-style
+  // per-day grid (views/likes/DMs/booking) is meaningless there.
+  const tiktokOnly = !!(client as any)?.tiktokZernioAccountId && !client?.instagramEnabled; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   useEffect(() => { setBookingLink(client?.bookingLink ?? ""); }, [client]);
 
@@ -349,30 +353,30 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     const ar   = answerRate(ds);
     const lr   = linkRate(ds);
     const br   = bookingRateFn(ds);
-    const ring = isCompare ? "border-indigo-100" : "border-slate-200";
-    const head = isCompare ? "bg-indigo-50/50 border-indigo-100" : "bg-slate-50 border-slate-200";
-    const foot = isCompare ? "bg-indigo-50/30 border-indigo-200" : "bg-slate-50 border-slate-200";
-    const stickyHead = isCompare ? "bg-indigo-50/50" : "bg-slate-50";
+    const ring = isCompare ? "border-accent-tint" : "border-line";
+    const head = isCompare ? "bg-accent-tint/50 border-accent-tint" : "bg-slate-50 border-line";
+    const foot = isCompare ? "bg-accent-tint/30 border-accent-tint" : "bg-slate-50 border-line";
+    const stickyHead = isCompare ? "bg-accent-tint/50" : "bg-slate-50";
 
     return (
       <div className={`bg-white rounded-xl border overflow-x-auto ${ring}`}>
         <table className="text-sm min-w-full">
           <thead>
             <tr className={`border-b ${head}`}>
-              <th className={`px-3 py-2.5 text-left text-xs font-semibold sticky left-0 z-10 min-w-[76px] ${stickyHead} ${isCompare ? "text-indigo-400" : "text-slate-500"}`}>Day</th>
-              <th className={`px-3 py-2.5 text-left text-xs font-semibold min-w-[130px] ${isCompare ? "text-indigo-400" : "text-slate-500"}`}>Concept</th>
-              <th className={`px-3 py-2.5 text-left text-xs font-semibold min-w-[100px] ${isCompare ? "text-indigo-400" : "text-slate-500"}`}>Link</th>
+              <th className={`px-3 py-2.5 text-left text-xs font-semibold sticky left-0 z-10 min-w-[76px] ${stickyHead} ${isCompare ? "text-accent" : "text-muted"}`}>Day</th>
+              <th className={`px-3 py-2.5 text-left text-xs font-semibold min-w-[130px] ${isCompare ? "text-accent" : "text-muted"}`}>Concept</th>
+              <th className={`px-3 py-2.5 text-left text-xs font-semibold min-w-[100px] ${isCompare ? "text-accent" : "text-muted"}`}>Link</th>
               {(["views","likes","shares"] as const).map((f) => (
-                <th key={f} className={`px-3 py-2.5 text-right text-xs font-semibold capitalize ${isCompare ? "text-indigo-300" : "text-slate-400"}`}>{f}</th>
+                <th key={f} className={`px-3 py-2.5 text-right text-xs font-semibold capitalize ${isCompare ? "text-accent" : "text-faint"}`}>{f}</th>
               ))}
               {visibleCols.map((c) => (
                 <th key={c.key} className={`px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap ${
-                  c.group === "dm" ? "text-blue-500" : c.group === "booking" ? "text-purple-500" : isCompare ? "text-indigo-400" : "text-slate-500"
+                  c.group === "dm" ? "text-blue-500" : c.group === "booking" ? "text-accent" : isCompare ? "text-accent" : "text-muted"
                 }`}>{c.label}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-line">
             {ds.map((date) => {
               const auto = autoMap[date] ?? { views: 0, likes: 0, shares: 0, concepts: [], videoUrl: null };
               const man  = manual[date] ?? {};
@@ -381,14 +385,14 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
 
               return (
                 <tr key={date} className="hover:bg-slate-50/50 group">
-                  <td className={`px-3 py-2 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 ${isCompare ? "text-indigo-400" : ""}`}>
-                    <span className="font-medium text-slate-700 text-xs whitespace-nowrap">{shortDay(date)}</span>
+                  <td className={`px-3 py-2 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 ${isCompare ? "text-accent" : ""}`}>
+                    <span className="font-medium text-ink-2 text-xs whitespace-nowrap">{shortDay(date)}</span>
                   </td>
                   {/* Concept (auto from scheduled content) + reel link */}
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
                       {conceptLabel ? (
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-600 font-medium max-w-[120px] truncate">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-accent-tint text-accent font-medium max-w-[120px] truncate">
                           {conceptLabel}
                         </span>
                       ) : (
@@ -407,11 +411,11 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                             value={man.videoLink ?? (auto.videoUrl || "")}
                             onChange={(e) => handleLinkChange(date, e.target.value)}
                             placeholder="paste reel link"
-                            className="w-full text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-300 rounded px-2 py-1 placeholder-slate-200 text-slate-600 min-w-[90px]"
+                            className="w-full text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-accent rounded px-2 py-1 placeholder-slate-200 text-ink-2 min-w-[90px]"
                           />
                           {linkVal && (
                             <a href={linkVal} target="_blank" rel="noopener noreferrer"
-                              title="Open reel" className="text-slate-400 hover:text-indigo-600 text-xs flex-shrink-0">↗</a>
+                              title="Open reel" className="text-faint hover:text-accent text-xs flex-shrink-0">↗</a>
                           )}
                         </div>
                       );
@@ -420,7 +424,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                   {/* Auto stats from TrackedVideo */}
                   {(["views","likes","shares"] as const).map((f) => (
                     <td key={f} className="px-3 py-2 text-right">
-                      <span className={`text-xs font-medium ${auto[f] > 0 ? (isCompare ? "text-indigo-500" : "text-slate-700") : "text-slate-200"}`}>
+                      <span className={`text-xs font-medium ${auto[f] > 0 ? (isCompare ? "text-accent" : "text-ink-2") : "text-slate-200"}`}>
                         {auto[f] > 0 ? fmtN(auto[f]) : "—"}
                       </span>
                     </td>
@@ -431,7 +435,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                       const v = dmCount(date, c.key);
                       return (
                         <td key={c.key} className="px-3 py-2 text-right">
-                          <span className={`text-xs font-medium ${v > 0 ? (c.group === "dm" ? "text-blue-600" : "text-purple-600") : "text-slate-200"}`}>
+                          <span className={`text-xs font-medium ${v > 0 ? (c.group === "dm" ? "text-blue-600" : "text-accent") : "text-slate-200"}`}>
                             {v > 0 ? v : "—"}
                           </span>
                         </td>
@@ -445,7 +449,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                           value={man[c.key] ?? ""}
                           onChange={(e) => handleManualChange(date, c.key, e.target.value)}
                           placeholder="—"
-                          className="w-full text-right text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-300 rounded px-2 py-1 placeholder-slate-200 min-w-[58px] text-slate-700"
+                          className="w-full text-right text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-accent rounded px-2 py-1 placeholder-slate-200 min-w-[58px] text-ink-2"
                         />
                       </td>
                     );
@@ -457,12 +461,12 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
           <tfoot>
             {/* Totals row */}
             <tr className={`border-t-2 ${foot}`}>
-              <td className={`px-3 py-2.5 text-xs font-semibold sticky left-0 z-10 ${foot} ${isCompare ? "text-indigo-400" : "text-slate-600"}`}>Total</td>
+              <td className={`px-3 py-2.5 text-xs font-semibold sticky left-0 z-10 ${foot} ${isCompare ? "text-accent" : "text-ink-2"}`}>Total</td>
               <td /><td />
               {(["views","likes","shares"] as const).map((f) => {
                 const t = autoSum(ds, f);
                 return (
-                  <td key={f} className={`px-3 py-2.5 text-right text-xs font-bold ${isCompare ? "text-indigo-500" : "text-slate-800"}`}>
+                  <td key={f} className={`px-3 py-2.5 text-right text-xs font-bold ${isCompare ? "text-accent" : "text-ink"}`}>
                     {t > 0 ? fmtN(t) : "—"}
                   </td>
                 );
@@ -471,15 +475,15 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                 const t = manualSum(ds, c.key);
                 return (
                   <td key={c.key} className={`px-3 py-2.5 text-right text-xs font-bold ${
-                    c.group === "dm" ? "text-blue-600" : c.group === "booking" ? "text-purple-600" : isCompare ? "text-indigo-500" : "text-slate-800"
+                    c.group === "dm" ? "text-blue-600" : c.group === "booking" ? "text-accent" : isCompare ? "text-accent" : "text-ink"
                   }`}>{t > 0 ? t : "—"}</td>
                 );
               })}
             </tr>
             {/* Rates row */}
             {(showDMs || showBooking) && (ar !== null || lr !== null || br !== null) && (
-              <tr className={`border-t border-dashed ${isCompare ? "border-indigo-100" : "border-slate-200"}`}>
-                <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 ${isCompare ? "text-indigo-300 bg-white" : "text-slate-400 bg-white"}`}>Rate</td>
+              <tr className={`border-t border-dashed ${isCompare ? "border-accent-tint" : "border-line"}`}>
+                <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 ${isCompare ? "text-accent bg-white" : "text-faint bg-white"}`}>Rate</td>
                 <td /><td /><td /><td /><td />
                 {visibleCols.map((c) => {
                   let rate: string | null = null;
@@ -488,7 +492,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                   if (c.key === "bookedCalls"      && br !== null) rate = `${br}% bkd.`;
                   return (
                     <td key={c.key} className="px-3 py-1.5 text-right text-xs">
-                      {rate && <span className={`font-medium ${isCompare ? "text-indigo-400" : "text-slate-500"}`}>{rate}</span>}
+                      {rate && <span className={`font-medium ${isCompare ? "text-accent" : "text-muted"}`}>{rate}</span>}
                     </td>
                   );
                 })}
@@ -532,22 +536,22 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Analytics</h1>
-          <p className="text-slate-500 mt-0.5 text-sm">Auto-populated from calendar · Adjust manually if needed</p>
+          <h1 className="text-2xl font-bold text-ink">Analytics</h1>
+          <p className="text-muted mt-0.5 text-sm">Auto-populated from calendar · Adjust manually if needed</p>
         </div>
-        {client && (
+        {client && !tiktokOnly && (
           <div className="flex items-center gap-2">
             {editingBL ? (
               <>
                 <input
                   autoFocus value={bookingLink} onChange={(e) => setBookingLink(e.target.value)}
-                  placeholder="https://cal.com/..." className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="https://cal.com/..." className="border border-line rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
-                <button onClick={saveBL} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700">Save</button>
-                <button onClick={() => setEditingBL(false)} className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 rounded-lg text-xs">Cancel</button>
+                <button onClick={saveBL} className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-medium hover:bg-accent-strong">Save</button>
+                <button onClick={() => setEditingBL(false)} className="px-3 py-1.5 text-muted hover:bg-slate-100 rounded-lg text-xs">Cancel</button>
               </>
             ) : (
-              <button onClick={() => setEditingBL(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 text-xs">
+              <button onClick={() => setEditingBL(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-line rounded-lg text-ink-2 hover:bg-slate-50 text-xs">
                 🔗 {bookingLink ? "Edit booking link" : "Add booking link"}
               </button>
             )}
@@ -559,7 +563,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
         {(["general", "concept"] as MainTab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === t ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === t ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
             {t === "general" ? "📊 General Analytics" : "💡 Concept Analytics"}
           </button>
         ))}
@@ -568,58 +572,66 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       {/* ── General tab ── */}
       {tab === "general" && (
         <div className="space-y-4">
+          {/* TikTok Studio-style analytics (Zernio) — shown for TikTok-connected clients */}
+          {client?.tiktokZernioAccountId && (
+            <>
+              <TikTokStudioAnalytics clientId={client.id} />
+              {!tiktokOnly && <div className="border-t border-line pt-1" />}
+            </>
+          )}
+          {!tiktokOnly && (<>
           {/* Controls */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Period */}
             <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
               {(["week","2weeks","month"] as Period[]).map((p) => (
                 <button key={p} onClick={() => { setPeriod(p); setStartDate(getMonday(new Date())); }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
                   {p === "week" ? "1 Week" : p === "2weeks" ? "2 Weeks" : "Month"}
                 </button>
               ))}
             </div>
 
             {/* Date nav */}
-            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <button onClick={() => setStartDate((d) => addDays(d, -days))} className="px-3 py-2 hover:bg-slate-50 text-slate-500 border-r border-slate-200">‹</button>
-              <span className="px-4 text-sm font-medium text-slate-700 whitespace-nowrap">{rangeLabel(startDate, days)}</span>
-              <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-slate-50 text-slate-500 border-l border-slate-200">›</button>
+            <div className="flex items-center bg-white border border-line rounded-lg overflow-hidden">
+              <button onClick={() => setStartDate((d) => addDays(d, -days))} className="px-3 py-2 hover:bg-slate-50 text-muted border-r border-line">‹</button>
+              <span className="px-4 text-sm font-medium text-ink-2 whitespace-nowrap">{rangeLabel(startDate, days)}</span>
+              <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-slate-50 text-muted border-l border-line">›</button>
             </div>
 
             <button onClick={() => setStartDate(getMonday(new Date()))}
-              className="px-3 py-2 text-xs border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 bg-white">
+              className="px-3 py-2 text-xs border border-line rounded-lg text-muted hover:bg-slate-50 bg-white">
               Now
             </button>
 
             <button onClick={() => setCompareMode((v) => !v)}
-              className={`px-3 py-2 text-xs rounded-lg border font-medium transition-colors ${compareMode ? "bg-indigo-600 text-white border-indigo-600" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+              className={`px-3 py-2 text-xs rounded-lg border font-medium transition-colors ${compareMode ? "bg-accent text-white border-accent" : "bg-white border-line text-ink-2 hover:bg-slate-50"}`}>
               ⇔ Compare prev period
             </button>
 
             <div className="ml-auto flex items-center gap-2">
               <button onClick={() => setShowDMs((v) => !v)}
-                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${showDMs ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-slate-200 text-slate-400"}`}>
+                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${showDMs ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-line text-faint"}`}>
                 💬 DMs
               </button>
               <button onClick={() => setShowBooking((v) => !v)}
-                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${showBooking ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-white border-slate-200 text-slate-400"}`}>
+                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${showBooking ? "bg-accent-tint border-accent-tint text-accent-strong" : "bg-white border-line text-faint"}`}>
                 📅 Booking
               </button>
             </div>
-            {saving && <span className="text-xs text-slate-400 animate-pulse">Saving…</span>}
+            {saving && <span className="text-xs text-faint animate-pulse">Saving…</span>}
           </div>
 
           {!selectedClientId ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400 text-sm">
+            <div className="bg-white rounded-xl border border-line p-12 text-center text-faint text-sm">
               Select a client to view analytics
             </div>
           ) : (
             <div className="space-y-3">
               {/* Legend */}
-              <div className="flex items-center gap-4 text-xs text-slate-400">
+              <div className="flex items-center gap-4 text-xs text-faint">
                 <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-slate-300 inline-block" /> Views/Likes/Shares auto-tracked from videos</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-indigo-300 inline-block" /> Concepts auto from scheduled content</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-accent inline-block" /> Concepts auto from scheduled content</span>
                 <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-blue-300 inline-block" /> DMs & Booking — enter manually</span>
               </div>
 
@@ -627,23 +639,24 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
 
               {compareMode && (
                 <div className="space-y-2 pt-2">
-                  <div className="flex items-center gap-3 text-xs text-indigo-500 font-medium">
-                    <span className="flex-1 h-px bg-indigo-100" />
+                  <div className="flex items-center gap-3 text-xs text-accent font-medium">
+                    <span className="flex-1 h-px bg-accent-tint" />
                     <span>⇔ Previous period: {rangeLabel(addDays(startDate, -days), days)}</span>
-                    <span className="flex-1 h-px bg-indigo-100" />
+                    <span className="flex-1 h-px bg-accent-tint" />
                   </div>
                   {renderTable(cmpDates, true)}
                 </div>
               )}
 
               {bookingLink && !editingBL && (
-                <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
+                <div className="flex items-center gap-2 text-xs text-faint pt-1">
                   <span>📅</span>
-                  <a href={bookingLink} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline truncate max-w-xs">{bookingLink}</a>
+                  <a href={bookingLink} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline truncate max-w-xs">{bookingLink}</a>
                 </div>
               )}
             </div>
           )}
+          </>)}
         </div>
       )}
 
@@ -651,22 +664,22 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       {tab === "concept" && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600">Show last</span>
+            <span className="text-sm text-ink-2">Show last</span>
             <select value={conceptWeeksBack} onChange={(e) => setConceptWeeks(parseInt(e.target.value))}
-              className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              className="border border-line rounded-lg px-3 py-1.5 text-sm font-medium text-ink-2 focus:outline-none focus:ring-2 focus:ring-accent">
               <option value={1}>1 week</option>
               <option value={2}>2 weeks</option>
               <option value={4}>4 weeks</option>
               <option value={8}>8 weeks</option>
               <option value={12}>12 weeks</option>
             </select>
-            <span className="text-xs text-slate-400">vs the previous {conceptWeeksBack === 1 ? "week" : `${conceptWeeksBack} weeks`}</span>
+            <span className="text-xs text-faint">vs the previous {conceptWeeksBack === 1 ? "week" : `${conceptWeeksBack} weeks`}</span>
           </div>
 
           {!selectedClientId ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400 text-sm">Select a client</div>
+            <div className="bg-white rounded-xl border border-line p-12 text-center text-faint text-sm">Select a client</div>
           ) : conceptLabels.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400 text-sm">
+            <div className="bg-white rounded-xl border border-line p-12 text-center text-faint text-sm">
               No concept-tagged posts yet in this window. Once posts go live with a concept, their performance shows here.
             </div>
           ) : (
@@ -682,23 +695,23 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                 })
                 .sort((a, b) => b.avg - a.avg)
                 .map(({ label, reels, total, avg, delta }) => (
-                  <div key={label} className="flex items-center gap-4 bg-white border border-slate-200 rounded-xl px-4 py-3">
+                  <div key={label} className="flex items-center gap-4 bg-white border border-line rounded-xl px-4 py-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{label}</p>
-                      <p className="text-[11px] text-slate-400">{reels.length} post{reels.length !== 1 ? "s" : ""} · {fmtN(total)} total views</p>
+                      <p className="text-sm font-semibold text-ink truncate">{label}</p>
+                      <p className="text-[11px] text-faint">{reels.length} post{reels.length !== 1 ? "s" : ""} · {fmtN(total)} total views</p>
                     </div>
                     {delta !== null && (
                       <div className={`text-right flex-shrink-0 ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                         <p className="text-sm font-bold">{delta >= 0 ? "▲" : "▼"} {Math.abs(delta * 100).toFixed(0)}%</p>
-                        <p className="text-[10px] text-slate-400">vs prev</p>
+                        <p className="text-[10px] text-faint">vs prev</p>
                       </div>
                     )}
                     <div className="text-right flex-shrink-0 w-16">
-                      <p className="text-lg font-bold text-slate-800">{fmtN(avg)}</p>
-                      <p className="text-[10px] text-slate-400">avg / post</p>
+                      <p className="text-lg font-bold text-ink">{fmtN(avg)}</p>
+                      <p className="text-[10px] text-faint">avg / post</p>
                     </div>
                     <button onClick={() => setConceptReels(label)} disabled={!reels.length}
-                      className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-40 flex-shrink-0">
+                      className="px-3 py-1.5 text-xs font-semibold text-accent bg-accent-tint rounded-lg hover:bg-accent-tint disabled:opacity-40 flex-shrink-0">
                       🎬 View reels
                     </button>
                   </div>
@@ -724,25 +737,25 @@ function ConceptReelsModal({ label, reels, onClose }: { label: string; reels: an
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-[640px] max-w-[94vw] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl o-elev-pop w-[640px] max-w-[94vw] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-800">🎬 {label}</h3>
-            <p className="text-[11px] text-slate-400">{sorted.length} posted reel{sorted.length !== 1 ? "s" : ""}</p>
+            <h3 className="text-sm font-bold text-ink">🎬 {label}</h3>
+            <p className="text-[11px] text-faint">{sorted.length} posted reel{sorted.length !== 1 ? "s" : ""}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-faint hover:text-ink-2 text-xl leading-none">×</button>
         </div>
         <div className="p-4 overflow-y-auto">
           {sorted.length === 0 ? (
-            <p className="py-12 text-center text-sm text-slate-400">No reels found for this concept.</p>
+            <p className="py-12 text-center text-sm text-faint">No reels found for this concept.</p>
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {sorted.map((r) => (
                 <button key={r.id} onClick={() => { setVidErr(false); setPlay(r); }}
-                  className="relative aspect-[9/16] rounded-lg overflow-hidden border border-slate-200 hover:border-indigo-400 transition-all group">
+                  className="relative aspect-[9/16] rounded-lg overflow-hidden border border-line hover:border-accent transition-all group">
                   {r.thumbnail_url
                     ? <img src={r.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">▶</div>}
+                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-muted">▶</div>}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
                   <span className="absolute bottom-1 left-1 text-[10px] font-bold text-white">▶ {fmtViews(r.plays)}</span>
@@ -764,7 +777,7 @@ function ConceptReelsModal({ label, reels, onClose }: { label: string; reels: an
               className="max-w-full max-h-full rounded-lg bg-black" />
           ) : (
             <a href={play.permalink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-              className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-slate-700">Open on Instagram ↗</a>
+              className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-ink-2">Open on Instagram ↗</a>
           )}
         </div>
       )}

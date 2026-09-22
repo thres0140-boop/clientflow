@@ -161,16 +161,16 @@ export default function TranscribePage() {
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold text-slate-900">Transcribe</h1>
-      <p className="text-sm text-slate-400 mt-0.5 mb-6">
+      <h1 className="text-2xl font-bold text-ink">Transcribe</h1>
+      <p className="text-sm text-faint mt-0.5 mb-6">
         Drop any video — any size — and get its transcript instantly. The audio is pulled out in your browser, so there's no upload limit.
       </p>
 
-      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 mb-4">
+      <div className="inline-flex rounded-lg border border-line bg-white p-0.5 mb-4">
         {([["transcribe", "🎙 Spoken transcript"], ["onscreen", "🔤 On-screen text"]] as [Mode, string][]).map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} disabled={busy}
             className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors disabled:opacity-50 ${
-              mode === m ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-700"
+              mode === m ? "bg-accent text-white" : "text-muted hover:text-ink-2"
             }`}>
             {label}
           </button>
@@ -181,19 +181,19 @@ export default function TranscribePage() {
       <button
         onClick={() => fileRef.current?.click()}
         disabled={busy}
-        className="w-full border-2 border-dashed border-slate-300 rounded-2xl py-14 flex flex-col items-center justify-center gap-2 hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full border-2 border-dashed border-line-2 rounded-2xl py-14 flex flex-col items-center justify-center gap-2 hover:border-accent hover:bg-accent-tint/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {busy ? (
           <>
-            <div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-semibold text-slate-700">{note || "Working…"}{pct > 0 ? ` ${pct}%` : ""}</span>
-            <span className="text-xs text-slate-400 truncate max-w-[80%]">{fileName}</span>
+            <div className="w-7 h-7 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-semibold text-ink-2">{note || "Working…"}{pct > 0 ? ` ${pct}%` : ""}</span>
+            <span className="text-xs text-faint truncate max-w-[80%]">{fileName}</span>
           </>
         ) : (
           <>
             <span className="text-3xl">⬆</span>
-            <span className="text-sm font-semibold text-slate-700">Click to choose a video</span>
-            <span className="text-xs text-slate-400">
+            <span className="text-sm font-semibold text-ink-2">Click to choose a video</span>
+            <span className="text-xs text-faint">
               {mode === "transcribe" ? "We'll pull the spoken words" : "We'll read the on-screen text from the first frame"}
             </span>
           </>
@@ -207,8 +207,8 @@ export default function TranscribePage() {
       {status === "done" && (
         <div className="mt-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Transcript · {wordCount} words</span>
-            <button onClick={copy} className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+            <span className="text-xs font-semibold text-muted uppercase tracking-wide">Transcript · {wordCount} words</span>
+            <button onClick={copy} className="px-3 py-1.5 text-xs font-semibold text-white bg-accent rounded-lg hover:bg-accent-strong">
               {copied ? "✓ Copied" : "📋 Copy"}
             </button>
           </div>
@@ -216,9 +216,9 @@ export default function TranscribePage() {
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
             rows={14}
-            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="w-full border border-line rounded-xl px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-accent"
           />
-          <button onClick={() => fileRef.current?.click()} className="mt-3 text-xs font-semibold text-indigo-600 hover:underline">
+          <button onClick={() => fileRef.current?.click()} className="mt-3 text-xs font-semibold text-accent hover:underline">
             ⬆ Transcribe another video
           </button>
         </div>

@@ -13,6 +13,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 type Props = {
   clients: Client[];
+  platform?: "instagram" | "tiktok";
   selectedClientId: number | null;
   refreshClients: () => void;
   refreshNotifications: () => void;
@@ -65,7 +66,7 @@ function parseDayTemplate(raw: string | null | undefined): Record<number, number
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-export default function Pipeline({ clients, selectedClientId, refreshNotifications, isClient, readOnly = false, onOpenInKanban }: Props) {
+export default function Pipeline({ clients, platform = "instagram", selectedClientId, refreshNotifications, isClient, readOnly = false, onOpenInKanban }: Props) {
   // Clients shouldn't open the editing modals from the calendar (it confuses them into
   // thinking they work from here). A click just takes them to the board, highlighted.
   const openDraft = (draft: ScriptDraft) => {
@@ -166,10 +167,10 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     const qs = selectedClientId ? `?clientId=${selectedClientId}` : "";
     const [c, co, s, t, allDrafts] = await Promise.all([
       fetch(`/api/content${qs}`).then((r) => r.json()),
-      fetch(`/api/concepts${selectedClientId ? `?clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
-      fetch(`/api/workflow${selectedClientId ? `?clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
+      fetch(`/api/concepts?platform=${platform}${selectedClientId ? `&clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
+      fetch(`/api/workflow?platform=${platform}${selectedClientId ? `&clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
       fetch(selectedClientId ? `/api/team?clientId=${selectedClientId}` : "/api/team").then((r) => r.json()),
-      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&all=true`).then((r) => r.json()) : Promise.resolve([]),
+      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&all=true&platform=${platform}`).then((r) => r.json()) : Promise.resolve([]),
     ]);
     // Guard against non-array responses (e.g. a transient 403 returns {error}) so a
     // failed fetch never white-screens the page.
@@ -180,7 +181,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
     const allStaged: ScriptDraft[] = Array.isArray(allDrafts) ? allDrafts : [];
     setStagedDrafts(allStaged);
     setScheduledDrafts(allStaged.filter((d: ScriptDraft) => d.scheduledDate));
-  }, [selectedClientId]);
+  }, [selectedClientId, platform]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -330,8 +331,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Content Pipeline</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
+          <h1 className="text-2xl font-bold text-ink">Content Pipeline</h1>
+          <p className="text-muted text-sm mt-0.5">
             {activeClient ? activeClient.name : "All clients"}
           </p>
         </div>
@@ -341,13 +342,13 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
             <>
               <button
                 onClick={() => setShowPostIG(true)}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                className="bg-gradient-to-r from-accent to-pink-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5"
               >
                 <span>📸</span> Post to Instagram
               </button>
               <button
                 onClick={() => setShowAdd(true)}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong transition-colors"
               >
                 + Add Content
               </button>
@@ -357,41 +358,41 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       </div>
 
       {/* ── CALENDAR (both modes share the same view) ────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-line overflow-hidden">
         {/* Calendar toolbar */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-line">
           <div className="flex items-center gap-3">
-            <h2 className="text-sm font-bold text-slate-800">{calendarHeader()}</h2>
+            <h2 className="text-sm font-bold text-ink">{calendarHeader()}</h2>
             <div className="flex items-center bg-slate-100 rounded-md p-0.5 text-xs">
               <button
                 onClick={() => { setCalView("month"); setOffset(0); }}
-                className={`px-2.5 py-1 rounded transition-all ${calView === "month" ? "bg-white text-slate-700 shadow-sm font-medium" : "text-slate-400"}`}
+                className={`px-2.5 py-1 rounded transition-all ${calView === "month" ? "bg-white text-ink-2 shadow-sm font-medium" : "text-faint"}`}
               >
                 Month
               </button>
               <button
                 onClick={() => { setCalView("week"); setOffset(0); }}
-                className={`px-2.5 py-1 rounded transition-all ${calView === "week" ? "bg-white text-slate-700 shadow-sm font-medium" : "text-slate-400"}`}
+                className={`px-2.5 py-1 rounded transition-all ${calView === "week" ? "bg-white text-ink-2 shadow-sm font-medium" : "text-faint"}`}
               >
                 Week
               </button>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={calendarPrev} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500">‹</button>
-            <button onClick={calendarToday} className="px-2.5 h-7 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-lg">Today</button>
-            <button onClick={calendarNext} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500">›</button>
+            <button onClick={calendarPrev} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-muted">‹</button>
+            <button onClick={calendarToday} className="px-2.5 h-7 text-xs font-medium text-muted hover:bg-slate-100 rounded-lg">Today</button>
+            <button onClick={calendarNext} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-muted">›</button>
           </div>
         </div>
 
         {/* Day headers — in template mode each header gets a concept picker */}
-        <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50">
+        <div className="grid grid-cols-7 border-b border-line bg-slate-50">
           {DAYS.map((d, i) => {
             const conceptId = dayTemplate[i] ?? null;
             return (
-              <div key={d} className="border-r border-slate-100 last:border-r-0 px-2 py-2">
+              <div key={d} className="border-r border-line last:border-r-0 px-2 py-2">
                 <div className="flex items-center justify-center gap-1.5">
-                  <span className="text-xs font-semibold text-slate-400">{d}</span>
+                  <span className="text-xs font-semibold text-faint">{d}</span>
                   {planMode === "template" && canEdit && (
                     conceptId ? (
                       <button
@@ -406,21 +407,21 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                     ) : (
                       <div className="relative">
                         <button onClick={() => setOpenTemplateDay(openTemplateDay === i ? null : i)}
-                          className="w-4 h-4 rounded-full bg-slate-200 hover:bg-indigo-500 text-slate-500 hover:text-white text-[10px] font-bold flex items-center justify-center transition-colors leading-none">
+                          className="w-4 h-4 rounded-full bg-slate-200 hover:bg-accent text-muted hover:text-white text-[10px] font-bold flex items-center justify-center transition-colors leading-none">
                           +
                         </button>
                         {openTemplateDay === i && (
                           <>
                             {/* click-away backdrop */}
                             <div className="fixed inset-0 z-10" onClick={() => setOpenTemplateDay(null)} />
-                            <div className="absolute top-5 left-0 z-20 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[160px] max-h-64 overflow-y-auto">
+                            <div className="absolute top-5 left-0 z-20 bg-white border border-line rounded-xl o-elev-lift py-1 min-w-[160px] max-h-64 overflow-y-auto">
                               {concepts.length === 0 ? (
-                                <p className="px-3 py-2 text-xs text-slate-400">No concepts yet</p>
+                                <p className="px-3 py-2 text-xs text-faint">No concepts yet</p>
                               ) : concepts.map((c) => (
                                 <button
                                   key={c.id}
                                   onClick={() => { saveDayTemplate({ ...dayTemplate, [i]: c.id }); setOpenTemplateDay(null); }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                                  className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-accent-tint hover:text-accent-strong"
                                 >
                                   {conceptLabel(c.id, c.name)}
                                 </button>
@@ -450,7 +451,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 return (
                   <div
                     key={idx}
-                    className={`min-h-[100px] border-r border-b border-slate-100 last:border-r-0 p-1.5 transition-colors ${isToday ? "bg-indigo-50/40" : ""} ${!date ? "bg-slate-50/50" : ""} ${isDragTarget ? "bg-indigo-100/60 ring-2 ring-inset ring-indigo-400" : ""}`}
+                    className={`min-h-[100px] border-r border-b border-line last:border-r-0 p-1.5 transition-colors ${isToday ? "bg-accent-tint/40" : ""} ${!date ? "bg-slate-50/50" : ""} ${isDragTarget ? "bg-accent-tint/60 ring-2 ring-inset ring-accent" : ""}`}
                     onDragOver={date && canEdit ? (e) => { e.preventDefault(); setDragOverDate(date); } : undefined}
                     onDragLeave={() => setDragOverDate(null)}
                     onDrop={date && canEdit ? () => handleCalendarDrop(date) : undefined}
@@ -458,7 +459,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                     {date && (
                       <>
                         <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-indigo-600 text-white" : "text-slate-500"}`}>
+                          <span className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-accent text-white" : "text-muted"}`}>
                             {date.slice(8).replace(/^0/, "")}
                           </span>
                           {/* Calendar mode: tag picker per individual date */}
@@ -478,19 +479,19 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                               <div className="relative">
                                 <button
                                   onClick={() => setOpenDatePicker(openDatePicker === date ? null : date)}
-                                  className="w-4 h-4 rounded-full bg-slate-100 hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 text-[10px] font-bold flex items-center justify-center transition-colors"
+                                  className="w-4 h-4 rounded-full bg-slate-100 hover:bg-accent-tint text-faint hover:text-accent text-[10px] font-bold flex items-center justify-center transition-colors"
                                 >
                                   +
                                 </button>
                                 {openDatePicker === date && (
-                                  <div className="absolute top-5 right-0 z-30 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[150px]">
+                                  <div className="absolute top-5 right-0 z-30 bg-white border border-line rounded-xl o-elev-lift py-1 min-w-[150px]">
                                     {concepts.length === 0 ? (
-                                      <p className="px-3 py-2 text-xs text-slate-400">No concepts yet</p>
+                                      <p className="px-3 py-2 text-xs text-faint">No concepts yet</p>
                                     ) : concepts.map((c) => (
                                       <button
                                         key={c.id}
                                         onClick={() => setDateTag(date, c.id)}
-                                        className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                                        className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-accent-tint hover:text-accent-strong"
                                       >
                                         {conceptLabel(c.id, c.name)}
                                       </button>
@@ -503,7 +504,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         </div>
                         {/* Template hint (faint, only in template mode) */}
                         {planMode === "template" && templateConcept && pieces.length === 0 && (
-                          <div className="mb-1 px-1.5 py-0.5 rounded text-[9px] text-slate-400 border border-dashed border-slate-200 truncate">
+                          <div className="mb-1 px-1.5 py-0.5 rounded text-[9px] text-faint border border-dashed border-line truncate">
                             💡 {conceptLabel(templateConcept.id, templateConcept.name)}
                           </div>
                         )}
@@ -531,7 +532,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             );
                           })}
                           {pieces.length > 3 && (
-                            <p className="text-[9px] text-slate-400 pl-1">+{pieces.length - 3} more</p>
+                            <p className="text-[9px] text-faint pl-1">+{pieces.length - 3} more</p>
                           )}
                           {draftsOnDay.map((draft) => {
                             const st = draftState(draft);
@@ -554,14 +555,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                                 <div className="truncate font-semibold pr-4">{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</div>
                                 {draft.concept && <div className={`truncate text-[9px] ${solid ? "text-white/80" : "opacity-70"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</div>}
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                  {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <span className={`rounded px-1 text-[9px] font-semibold ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>🕐 {t}</span> : null; })()}
+                                  {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <span className={`rounded px-1 text-[9px] font-semibold ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-ink-2"}`}>🕐 {t}</span> : null; })()}
                                   {!solid && <span className="rounded px-1 text-[9px]" style={{ backgroundColor: st.color + "22", color: st.color }}>{st.label}</span>}
-                                  {draft.stage && <span className={`rounded px-1 text-[9px] ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>📍 {draft.stage.name}</span>}
+                                  {draft.stage && <span className={`rounded px-1 text-[9px] ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-muted"}`}>📍 {draft.stage.name}</span>}
                                 </div>
                               </button>
                               <button
                                 onClick={() => unscheduleDraft(draft.id)}
-                                className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${solid ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
+                                className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${solid ? "text-white/70 hover:text-white" : "text-faint hover:text-red-500"}`}
                                 title="Remove from calendar"
                               >×</button>
                             </div>
@@ -575,7 +576,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
             </div>
           ) : (
             /* Week view */
-            <div className="grid grid-cols-7 divide-x divide-slate-100">
+            <div className="grid grid-cols-7 divide-x divide-line">
               {weekDays.map((date, i) => {
                 const pieces = content.filter((c) => c.scheduledDate?.startsWith(date));
                 const draftsOnDay = scheduledDrafts.filter((d) => d.scheduledDate?.startsWith(date));
@@ -587,20 +588,20 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                 return (
                   <div
                     key={date}
-                    className={`min-h-[420px] p-2 flex flex-col transition-colors ${isToday ? "bg-indigo-50/40" : ""} ${isDragTargetWeek ? "bg-indigo-100/60 ring-2 ring-inset ring-indigo-400" : ""}`}
+                    className={`min-h-[420px] p-2 flex flex-col transition-colors ${isToday ? "bg-accent-tint/40" : ""} ${isDragTargetWeek ? "bg-accent-tint/60 ring-2 ring-inset ring-accent" : ""}`}
                     onDragOver={canEdit ? (e) => { e.preventDefault(); setDragOverDate(date); } : undefined}
                     onDragLeave={() => setDragOverDate(null)}
                     onDrop={canEdit ? () => handleCalendarDrop(date) : undefined}
                   >
                     <div className={`text-center mb-2`}>
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase">{DAYS[i]}</p>
-                      <span className={`text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full mx-auto ${isToday ? "bg-indigo-600 text-white" : "text-slate-700"}`}>
+                      <p className="text-[10px] font-semibold text-faint uppercase">{DAYS[i]}</p>
+                      <span className={`text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full mx-auto ${isToday ? "bg-accent text-white" : "text-ink-2"}`}>
                         {d.getDate()}
                       </span>
                     </div>
                     {/* Template hint */}
                     {templateConcept && (
-                      <div className="mb-2 px-2 py-1 rounded-lg text-[10px] text-slate-500 bg-slate-50 border border-dashed border-slate-200 text-center truncate">
+                      <div className="mb-2 px-2 py-1 rounded-lg text-[10px] text-muted bg-slate-50 border border-dashed border-line text-center truncate">
                         💡 {conceptLabel(templateConcept.id, templateConcept.name)}
                       </div>
                     )}
@@ -620,8 +621,8 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                               borderLeft: `3px solid ${piece.client?.color || "#6366f1"}`,
                             }}
                           >
-                            <p className={`font-semibold truncate leading-snug ${isPosted ? "text-green-800" : "text-slate-800"}`}>{piece.title}</p>
-                            {piece.concept && <p className={`truncate text-[10px] mt-0.5 ${isPosted ? "text-green-600" : "text-slate-400"}`}>💡 {conceptLabel(piece.conceptId, piece.concept.name)}</p>}
+                            <p className={`font-semibold truncate leading-snug ${isPosted ? "text-green-800" : "text-ink"}`}>{piece.title}</p>
+                            {piece.concept && <p className={`truncate text-[10px] mt-0.5 ${isPosted ? "text-green-600" : "text-faint"}`}>💡 {conceptLabel(piece.conceptId, piece.concept.name)}</p>}
                             <div className="mt-1">
                               {isPosted
                                 ? <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-100 rounded px-1.5 py-0.5">✓ Posted</span>
@@ -648,14 +649,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         >
                           <button onClick={() => (!canEdit || solid) ? openDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
                             <p className="font-semibold truncate leading-snug pr-4" style={{ color: solid ? "#fff" : st.color }}>{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</p>
-                            {draft.concept && <p className={`truncate text-[10px] ${solid ? "text-white/80" : "text-slate-500"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>}
-                            {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <p className={`text-[10px] font-semibold ${solid ? "text-white/90" : "text-slate-600"}`}>🕐 {t}</p> : null; })()}
+                            {draft.concept && <p className={`truncate text-[10px] ${solid ? "text-white/80" : "text-muted"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>}
+                            {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <p className={`text-[10px] font-semibold ${solid ? "text-white/90" : "text-ink-2"}`}>🕐 {t}</p> : null; })()}
                             {!solid && <p className="text-[10px] mt-0.5" style={{ color: st.color }}>{st.label}</p>}
-                            {draft.stage && <p className={`truncate text-[10px] ${solid ? "text-white/70" : "text-slate-400"}`}>📍 {draft.stage.name}</p>}
+                            {draft.stage && <p className={`truncate text-[10px] ${solid ? "text-white/70" : "text-faint"}`}>📍 {draft.stage.name}</p>}
                           </button>
                           <button
                             onClick={() => unscheduleDraft(draft.id)}
-                            className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${solid ? "text-white/70 hover:text-white" : "text-slate-400 hover:text-red-500"}`}
+                            className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${solid ? "text-white/70 hover:text-white" : "text-faint hover:text-red-500"}`}
                             title="Remove from calendar"
                           >×</button>
                         </div>
@@ -664,7 +665,7 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                     {canEdit && (
                       <button
                         onClick={() => setShowAdd(true)}
-                        className="mt-2 w-full text-[10px] text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded py-1 transition-colors text-center"
+                        className="mt-2 w-full text-[10px] text-faint hover:text-accent hover:bg-accent-tint rounded py-1 transition-colors text-center"
                       >
                         + add
                       </button>
@@ -679,24 +680,24 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
       {/* ── Schedule Board: drag staged drafts onto the calendar ──
           Owner-only, and only when they can edit — view-only members never see it. */}
       {selectedClientId && !isClient && canEdit && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-white rounded-2xl border border-line overflow-hidden">
+          <div className="px-5 py-3 border-b border-line flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-slate-700">Schedule Board</h2>
-              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+              <h2 className="text-sm font-semibold text-ink-2">Schedule Board</h2>
+              <span className="text-[10px] text-faint bg-slate-100 px-2 py-0.5 rounded-full">
                 drag onto calendar to schedule
               </span>
             </div>
             <div className="flex items-center gap-3 relative">
               <button
                 onClick={() => setBoardColumnPicker((v) => !v)}
-                className="text-xs text-slate-500 hover:text-indigo-600 font-medium flex items-center gap-1"
+                className="text-xs text-muted hover:text-accent font-medium flex items-center gap-1"
               >
                 ⚙ Columns
               </button>
               {boardColumnPicker && (
-                <div className="absolute right-16 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 min-w-[180px]" onClick={(e) => e.stopPropagation()}>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Show columns</p>
+                <div className="absolute right-16 top-full mt-1 bg-white border border-line rounded-xl o-elev-lift z-50 p-3 min-w-[180px]" onClick={(e) => e.stopPropagation()}>
+                  <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2">Show columns</p>
                   {(["Ideas", ...stages.map((s) => s.name)]).map((col) => (
                     <label key={col} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-slate-50 rounded px-1">
                       <input
@@ -711,14 +712,14 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                         }}
                         className="rounded"
                       />
-                      <span className="text-xs text-slate-700">{col}</span>
+                      <span className="text-xs text-ink-2">{col}</span>
                     </label>
                   ))}
                 </div>
               )}
               <button
                 onClick={() => setShowScheduleBoard((v) => !v)}
-                className="text-xs text-slate-400 hover:text-slate-600"
+                className="text-xs text-faint hover:text-ink-2"
               >
                 {showScheduleBoard ? "Hide" : "Show"}
               </button>
@@ -727,10 +728,10 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
           {showScheduleBoard && (() => {
             const unscheduled = stagedDrafts.filter((d) => !d.scheduledDate);
             if (boardColumns.length === 0) {
-              return <p className="px-5 py-8 text-center text-sm text-slate-400">No columns selected — click ⚙ Columns to choose which to show.</p>;
+              return <p className="px-5 py-8 text-center text-sm text-faint">No columns selected — click ⚙ Columns to choose which to show.</p>;
             }
             if (stagedDrafts.length === 0) {
-              return <p className="px-5 py-8 text-center text-sm text-slate-400">No scripts yet — generate scripts in the Kanban first.</p>;
+              return <p className="px-5 py-8 text-center text-sm text-faint">No scripts yet — generate scripts in the Kanban first.</p>;
             }
             // Group by selected columns (show even if empty)
             const grouped: { label: string; color: string; drafts: ScriptDraft[] }[] = [];
@@ -744,11 +745,11 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
               <div className="overflow-x-auto">
                 <div className="flex gap-0 min-w-max">
                   {grouped.map((group) => (
-                    <div key={group.label} className="w-56 border-r border-slate-100 last:border-r-0 flex-shrink-0">
-                      <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
+                    <div key={group.label} className="w-56 border-r border-line last:border-r-0 flex-shrink-0">
+                      <div className="px-3 py-2 border-b border-line flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
-                        <span className="text-xs font-semibold text-slate-700 truncate">{group.label}</span>
-                        <span className="ml-auto text-[10px] text-slate-400">{group.drafts.length}</span>
+                        <span className="text-xs font-semibold text-ink-2 truncate">{group.label}</span>
+                        <span className="ml-auto text-[10px] text-faint">{group.drafts.length}</span>
                       </div>
                       <div className="p-2 space-y-1.5 max-h-56 overflow-y-auto">
                         {group.drafts.map((draft) => (
@@ -758,13 +759,13 @@ export default function Pipeline({ clients, selectedClientId, refreshNotificatio
                             onDragStart={canEdit ? () => handleDraftDragStart(draft.id) : undefined}
                             onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
                             onClick={() => setSelectedDraft(draft)}
-                            className={`rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 cursor-pointer ${canEdit ? "active:cursor-grabbing hover:border-indigo-300 hover:bg-indigo-50" : ""} transition-colors select-none`}
+                            className={`rounded-lg border border-line bg-slate-50 px-2.5 py-2 cursor-pointer ${canEdit ? "active:cursor-grabbing hover:border-accent hover:bg-accent-tint" : ""} transition-colors select-none`}
                           >
-                            <p className="text-xs font-semibold text-slate-800 truncate leading-snug">{draft.title}</p>
+                            <p className="text-xs font-semibold text-ink truncate leading-snug">{draft.title}</p>
                             {draft.concept && (
-                              <p className="text-[10px] text-indigo-500 truncate mt-0.5">💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>
+                              <p className="text-[10px] text-accent truncate mt-0.5">💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>
                             )}
-                            <p className="text-[10px] text-slate-400 mt-0.5">{draft.weekLabel}{(draft.editedVideoUrl ? " · 🎬" : "")}</p>
+                            <p className="text-[10px] text-faint mt-0.5">{draft.weekLabel}{(draft.editedVideoUrl ? " · 🎬" : "")}</p>
                           </div>
                         ))}
                       </div>
@@ -877,38 +878,38 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
   const [cancelling, setCancelling] = useState(false);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
-            {draft.concept && <p className="text-xs font-semibold text-indigo-500 mb-0.5">💡 {draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name}</p>}
-            <h2 className="text-base font-bold text-slate-800">{draft.title}</h2>
+            {draft.concept && <p className="text-xs font-semibold text-accent mb-0.5">💡 {draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name}</p>}
+            <h2 className="text-base font-bold text-ink">{draft.title}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {draft.stage && <span className="text-[10px] bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">📍 {draft.stage.name}</span>}
-              <span className="text-[10px] text-slate-400">{draft.weekLabel}</span>
+              {draft.stage && <span className="text-[10px] bg-slate-100 text-muted rounded-full px-2 py-0.5">📍 {draft.stage.name}</span>}
+              <span className="text-[10px] text-faint">{draft.weekLabel}</span>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none ml-4">×</button>
+          <button onClick={onClose} className="text-faint hover:text-ink-2 text-xl leading-none ml-4">×</button>
         </div>
         {draft.hook && (
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Text Hook</p>
-            <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
+            <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Text Hook</p>
+            <p className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
           </div>
         )}
         <div>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Script</p>
-          <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.script}</pre>
-          <p className="text-[10px] text-slate-400 mt-1">{draft.script.split(" ").filter(Boolean).length} words</p>
+          <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Script</p>
+          <pre className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.script}</pre>
+          <p className="text-[10px] text-faint mt-1">{draft.script.split(" ").filter(Boolean).length} words</p>
         </div>
         {draft.caption && (
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Caption</p>
-            <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.caption}</pre>
+            <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Caption</p>
+            <pre className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.caption}</pre>
           </div>
         )}
         {draft.editedVideoUrl && (
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Finished Video</p>
+            <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Finished Video</p>
             <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
               <video src={videoSrc(draft.editedVideoUrl)} controls className="w-full h-full object-contain" />
             </div>
@@ -924,12 +925,12 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
           if (raw.length === 0) return null;
           return (
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Raw Content ({raw.length})</p>
+              <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Raw Content ({raw.length})</p>
               <div className="space-y-2">
                 {raw.map((url, i) => (
                   /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url)
                     ? <video key={i} src={url} controls className="w-full rounded-lg bg-slate-900 max-h-60 object-contain" />
-                    : <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block text-xs text-indigo-600 hover:underline truncate bg-slate-50 rounded-lg px-3 py-2">📎 {url.split("/").pop()}</a>
+                    : <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block text-xs text-accent hover:underline truncate bg-slate-50 rounded-lg px-3 py-2">📎 {url.split("/").pop()}</a>
                 ))}
               </div>
             </div>
@@ -940,7 +941,7 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
           const hasTime = draft.scheduledDate.includes("T");
           const when = dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + (hasTime ? ` at ${dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "");
           return (
-          <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-muted bg-slate-50 rounded-lg px-3 py-2">
             <span>📅</span>
             <span>{draft.zernioBooked ? `Scheduled to auto-post · ${when}` : `Planned · ${when} (not yet confirmed)`}</span>
           </div>
@@ -964,20 +965,20 @@ function PlanTimeModal({ date, onClose, onPlan }: { date: string; onClose: () =>
   const pretty = new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
-          <h2 className="text-base font-bold text-slate-800">Plan for {pretty}</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Pick the time you want this to go out.</p>
+          <h2 className="text-base font-bold text-ink">Plan for {pretty}</h2>
+          <p className="text-xs text-faint mt-0.5">Pick the time you want this to go out.</p>
         </div>
         <div>
-          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Time (local)</label>
+          <label className="block text-[10px] font-semibold text-muted uppercase tracking-wide mb-1">Time (local)</label>
           <input type="time" value={time} autoFocus onChange={(e) => setTime(e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            className="w-full border border-line rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div className="flex gap-2 justify-end pt-1">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-muted hover:bg-slate-100 rounded-lg">Cancel</button>
           <button onClick={() => onPlan(time || "09:00")} disabled={!time}
-            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            className="px-4 py-2 text-sm font-semibold text-white bg-accent rounded-lg hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed">
             Plan it
           </button>
         </div>
@@ -1061,35 +1062,35 @@ function ConfirmScheduleModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between">
+      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-line flex items-start justify-between">
           <div>
-            {draft.concept && <p className="text-xs font-semibold text-indigo-500 mb-0.5">💡 {draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name}</p>}
-            <h2 className="text-base font-bold text-slate-800">{draft.title}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Scheduling for <span className="font-semibold text-slate-600">{date}</span></p>
+            {draft.concept && <p className="text-xs font-semibold text-accent mb-0.5">💡 {draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name}</p>}
+            <h2 className="text-base font-bold text-ink">{draft.title}</h2>
+            <p className="text-xs text-faint mt-0.5">Scheduling for <span className="font-semibold text-ink-2">{date}</span></p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none ml-4 mt-0.5">×</button>
+          <button onClick={onClose} className="text-faint hover:text-ink-2 text-xl leading-none ml-4 mt-0.5">×</button>
         </div>
 
         <div className="px-6 py-4 space-y-4">
           {/* Hook (read-only) */}
           {draft.hook && (
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Hook</p>
-              <p className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
+              <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Hook</p>
+              <p className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
             </div>
           )}
 
           {/* Script (read-only, collapsed) */}
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Script</p>
-            <pre className="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">{draft.script}</pre>
+            <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Script</p>
+            <pre className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">{draft.script}</pre>
           </div>
 
           {/* Finished video preview */}
           {videoUrl && (
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Video</p>
+              <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Video</p>
               {isVideo ? (
                 <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video">
                   <video src={videoSrc(videoUrl)} controls className="w-full h-full object-contain" />
@@ -1102,19 +1103,19 @@ function ConfirmScheduleModal({
                   you can hand the file to whoever posts it (or scan it onto a phone). */}
               <div className="flex items-center gap-2 mt-2">
                 <input readOnly value={videoUrl} onFocus={(e) => e.currentTarget.select()}
-                  className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-500 truncate" />
+                  className="flex-1 min-w-0 border border-line rounded-lg px-2 py-1.5 text-[11px] text-muted truncate" />
                 <button
                   onClick={async () => { try { await navigator.clipboard.writeText(videoUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); } catch { /* ignore */ } }}
-                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">
+                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200 whitespace-nowrap">
                   {linkCopied ? "✓" : "🔗 Video"}
                 </button>
                 <button onClick={() => setShowVideoQR((s) => !s)} title="Show QR to open on phone"
-                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱</button>
+                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱</button>
               </div>
               {showVideoQR && (
-                <div className="flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3 mt-2">
+                <div className="flex flex-col items-center gap-1 bg-white border border-line rounded-xl p-3 mt-2">
                   <QRCodeSVG value={videoUrl} size={140} />
-                  <p className="text-[10px] text-slate-400">Scan to open the video on your phone</p>
+                  <p className="text-[10px] text-faint">Scan to open the video on your phone</p>
                 </div>
               )}
             </div>
@@ -1123,9 +1124,9 @@ function ConfirmScheduleModal({
           {/* Caption — editable, with AI auto-generate */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Caption</p>
+              <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">Caption</p>
               <div className="flex items-center gap-3">
-                <span className="text-[10px] text-slate-400">{caption.length} chars</span>
+                <span className="text-[10px] text-faint">{caption.length} chars</span>
                 <button
                   onClick={async () => {
                     try {
@@ -1138,11 +1139,11 @@ function ConfirmScheduleModal({
                     } catch { /* ignore */ }
                   }}
                   disabled={!caption}
-                  className="text-[10px] font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-40">
+                  className="text-[10px] font-semibold text-ink-2 hover:text-ink disabled:opacity-40">
                   {captionCopied ? "✓ Copied" : "📋 Copy"}
                 </button>
                 <button onClick={() => autoGenerateCaption()} disabled={genCaption}
-                  className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50">
+                  className="text-[10px] font-semibold text-accent hover:text-accent-strong disabled:opacity-50">
                   {genCaption ? "Generating…" : "✨ Auto-generate caption"}
                 </button>
               </div>
@@ -1152,7 +1153,7 @@ function ConfirmScheduleModal({
               onChange={(e) => setCaption(e.target.value)}
               rows={4}
               placeholder={genCaption ? "✨ Generating caption…" : "Write your Instagram caption here…"}
-              className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full text-sm text-ink-2 bg-slate-50 border border-line rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
 
@@ -1160,9 +1161,9 @@ function ConfirmScheduleModal({
           {hasMedia && (
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <input type="checkbox" checked={trialReel} onChange={(e) => setTrialReel(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400" />
-              <span className="text-xs text-slate-600 leading-relaxed">
-                <span className="font-semibold text-slate-700">🧪 Post as trial reel</span> — shown only to non-followers first;
+                className="mt-0.5 w-4 h-4 rounded border-line-2 text-accent focus:ring-accent" />
+              <span className="text-xs text-ink-2 leading-relaxed">
+                <span className="font-semibold text-ink-2">🧪 Post as trial reel</span> — shown only to non-followers first;
                 auto-shares to followers if it performs well.
               </span>
             </label>
@@ -1172,37 +1173,37 @@ function ConfirmScheduleModal({
           {hasMedia && (
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Date</label>
-                <div className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{date}</div>
+                <label className="block text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Date</label>
+                <div className="text-sm text-ink-2 bg-slate-50 border border-line rounded-lg px-3 py-2">{date}</div>
               </div>
               <div className="w-32">
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Time (local)</label>
+                <label className="block text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Time (local)</label>
                 <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)}
-                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                  className="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent" />
               </div>
             </div>
           )}
 
           {/* Zernio posting indicator */}
           {hasMedia && canPost && (
-            <div className="flex items-start gap-2 bg-indigo-50 rounded-xl px-4 py-3">
-              <span className="text-indigo-400 mt-0.5">📡</span>
-              <p className="text-[11px] text-indigo-700">Hit <span className="font-semibold">Confirm &amp; Schedule</span> to book this auto-post via Zernio for {scheduleTime} on {date}.</p>
+            <div className="flex items-start gap-2 bg-accent-tint rounded-xl px-4 py-3">
+              <span className="text-accent mt-0.5">📡</span>
+              <p className="text-[11px] text-accent-strong">Hit <span className="font-semibold">Confirm &amp; Schedule</span> to book this auto-post via Zernio for {scheduleTime} on {date}.</p>
             </div>
           )}
 
           {igStatus && (
-            <p className={`text-sm font-medium text-center ${igStatus.includes("✓") ? "text-green-600" : igStatus.includes("Failed") ? "text-red-500" : "text-indigo-500"}`}>
+            <p className={`text-sm font-medium text-center ${igStatus.includes("✓") ? "text-green-600" : igStatus.includes("Failed") ? "text-red-500" : "text-accent"}`}>
               {igStatus}
             </p>
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
+        <div className="px-6 py-4 border-t border-line flex gap-3">
           <button
             onClick={() => handle(false)}
             disabled={loading}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            className="flex-1 px-4 py-2.5 rounded-xl border border-line text-sm font-semibold text-ink-2 hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
             Save to Calendar
           </button>
@@ -1213,7 +1214,7 @@ function ConfirmScheduleModal({
               onClick={() => handle(true)}
               disabled={loading || !hasMedia || !canPost}
               title={!canPost ? `Move this to the "${lastStageName}" stage first` : !hasMedia ? "Upload a video/photo in the Kanban first to enable Instagram posting" : ""}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-accent to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
             >
               {loading ? (isFuture ? "Scheduling…" : "Posting…") : (isFuture ? "🗓 Confirm & Schedule" : "📸 Post now")}
             </button>
@@ -1226,7 +1227,7 @@ function ConfirmScheduleModal({
           </p>
         )}
         {canPost && !hasMedia && (
-          <p className="px-6 pb-4 text-[11px] text-slate-400 text-center">
+          <p className="px-6 pb-4 text-[11px] text-faint text-center">
             Upload a video or photo in the Kanban stage to enable direct Instagram posting.
           </p>
         )}
@@ -1350,22 +1351,22 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto"
+        className="bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">📸</span>
-            <h2 className="text-base font-bold text-slate-800">Post to Instagram</h2>
+            <h2 className="text-base font-bold text-ink">Post to Instagram</h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-faint hover:text-ink-2 text-xl leading-none">×</button>
         </div>
 
         <div className="px-6 py-5 space-y-5">
           {/* Media upload */}
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Video / Photo</p>
+            <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2">Video / Photo</p>
             <input ref={fileRef} type="file" accept="video/*,image/*" className="hidden" onChange={handleFile} />
             {mediaUrl ? (
               <div className="flex items-center gap-3 bg-green-50 rounded-xl px-4 py-3">
@@ -1376,7 +1377,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
                 </div>
                 <button
                   onClick={() => { setMediaUrl(null); setMediaName(""); }}
-                  className="text-xs text-slate-400 hover:text-slate-600 shrink-0"
+                  className="text-xs text-faint hover:text-ink-2 shrink-0"
                 >
                   Remove
                 </button>
@@ -1385,7 +1386,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={isLoading}
-                className="w-full border-2 border-dashed border-slate-200 rounded-xl py-8 flex flex-col items-center gap-2 text-slate-400 hover:border-indigo-300 hover:text-indigo-400 transition-colors"
+                className="w-full border-2 border-dashed border-line rounded-xl py-8 flex flex-col items-center gap-2 text-faint hover:border-accent hover:text-accent transition-colors"
               >
                 <span className="text-2xl">
                   {status === "uploading" ? `${uploadProgress}%` : "⬆️"}
@@ -1401,39 +1402,39 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
           {/* Caption */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Caption</p>
-              <span className="text-[10px] text-slate-400">{caption.length} chars</span>
+              <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">Caption</p>
+              <span className="text-[10px] text-faint">{caption.length} chars</span>
             </div>
             <textarea
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               rows={5}
               placeholder="Write your caption, add hashtags…"
-              className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full text-sm text-ink-2 bg-slate-50 border border-line rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
 
           {/* Schedule date + time */}
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Schedule</p>
+            <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2">Schedule</p>
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-xs text-slate-500 mb-1">Date</label>
+                <label className="block text-xs text-muted mb-1">Date</label>
                 <input
                   type="date"
                   value={scheduleDate}
                   min={today}
                   onChange={(e) => setScheduleDate(e.target.value)}
-                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
               <div className="w-32">
-                <label className="block text-xs text-slate-500 mb-1">Time (local)</label>
+                <label className="block text-xs text-muted mb-1">Time (local)</label>
                 <input
                   type="time"
                   value={scheduleTime}
                   onChange={(e) => setScheduleTime(e.target.value)}
-                  className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
             </div>
@@ -1441,9 +1442,9 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
             {/* Trial reel toggle */}
             <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
               <input type="checkbox" checked={trialReel} onChange={(e) => setTrialReel(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400" />
-              <span className="text-xs text-slate-600 leading-relaxed">
-                <span className="font-semibold text-slate-700">🧪 Post as trial reel</span> — shown only to non-followers first;
+                className="mt-0.5 w-4 h-4 rounded border-line-2 text-accent focus:ring-accent" />
+              <span className="text-xs text-ink-2 leading-relaxed">
+                <span className="font-semibold text-ink-2">🧪 Post as trial reel</span> — shown only to non-followers first;
                 Instagram auto-shares it to your followers if it performs well. (Video reels only.)
               </span>
             </label>
@@ -1465,12 +1466,12 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
 
         {/* Actions */}
         {status !== "done" && (
-          <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
+          <div className="px-6 py-4 border-t border-line flex gap-3">
             <button
               onClick={() => handlePost(false)}
               disabled={isLoading || !mediaUrl}
               title={!mediaUrl ? "Upload media first" : ""}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-line text-sm font-semibold text-ink-2 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {status === "posting" ? "Scheduling…" : "🗓 Schedule"}
             </button>
@@ -1478,17 +1479,17 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
               onClick={() => handlePost(true)}
               disabled={isLoading || !mediaUrl}
               title={!mediaUrl ? "Upload media first" : ""}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-accent to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
             >
               {status === "posting" ? "Posting…" : "📸 Post Now"}
             </button>
           </div>
         )}
         {status === "done" && (
-          <div className="px-6 py-4 border-t border-slate-100">
+          <div className="px-6 py-4 border-t border-line">
             <button
               onClick={onClose}
-              className="w-full px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+              className="w-full px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent-strong transition-colors"
             >
               Done
             </button>
@@ -1521,45 +1522,45 @@ function PlanModeSelector({ current, onChange }: { current: PlanningMode; onChan
     <div className="relative">
       <button
         onClick={() => { setPending(current); setOpen((o) => !o); }}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-white hover:bg-slate-50 text-sm font-medium text-ink-2 transition-colors"
       >
         <span>{currentMode.icon}</span>
         <span>{currentMode.label}</span>
-        <span className="text-slate-400 text-xs ml-1">{open ? "▲" : "▼"}</span>
+        <span className="text-faint text-xs ml-1">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-40 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Planning Mode</p>
+        <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-line rounded-2xl o-elev-lift z-40 overflow-hidden">
+          <div className="px-4 py-3 border-b border-line">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wide">Planning Mode</p>
           </div>
           <div className="p-2 space-y-1">
             {MODES.map((m) => (
               <button
                 key={m.value}
                 onClick={() => setPending(m.value)}
-                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${pending === m.value ? "bg-indigo-50 border border-indigo-200" : "hover:bg-slate-50 border border-transparent"}`}
+                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${pending === m.value ? "bg-accent-tint border border-accent-tint" : "hover:bg-slate-50 border border-transparent"}`}
               >
                 <span className="text-lg mt-0.5">{m.icon}</span>
                 <div>
-                  <p className={`text-sm font-semibold ${pending === m.value ? "text-indigo-700" : "text-slate-700"}`}>{m.label}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{m.desc}</p>
+                  <p className={`text-sm font-semibold ${pending === m.value ? "text-accent-strong" : "text-ink-2"}`}>{m.label}</p>
+                  <p className="text-xs text-faint mt-0.5">{m.desc}</p>
                 </div>
-                {pending === m.value && <span className="ml-auto text-indigo-500 mt-1">✓</span>}
+                {pending === m.value && <span className="ml-auto text-accent mt-1">✓</span>}
               </button>
             ))}
           </div>
           <div className="px-3 pb-3 flex gap-2">
             <button
               onClick={() => setOpen(false)}
-              className="flex-1 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+              className="flex-1 py-2 text-sm text-muted hover:bg-slate-100 rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={confirm}
               disabled={pending === current}
-              className="flex-1 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-2 text-sm font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Apply
             </button>
@@ -1632,21 +1633,21 @@ function AddContentModal({
               {activeClient.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-800">{activeClient.name}</p>
-              <p className="text-xs text-slate-500 capitalize">{activeClient.platform}</p>
+              <p className="text-sm font-semibold text-ink">{activeClient.name}</p>
+              <p className="text-xs text-muted capitalize">{activeClient.platform}</p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Title *</label>
+              <label className="block text-xs font-medium text-ink-2 mb-1">Title *</label>
               <input required value={form.title} onChange={(e) => set("title", e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Client *</label>
+              <label className="block text-xs font-medium text-ink-2 mb-1">Client *</label>
               <select required value={form.clientId} onChange={(e) => set("clientId", e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
                 <option value="">Select client</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -1656,31 +1657,31 @@ function AddContentModal({
 
         {activeClient && (
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Title *</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Title *</label>
             <input required value={form.title} onChange={(e) => set("title", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
         )}
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Type</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Type</label>
             <select value={form.contentType} onChange={(e) => set("contentType", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
               {CONTENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Platform</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Platform</label>
             <select value={form.platform} onChange={(e) => set("platform", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
               {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Status</label>
             <select value={form.status} onChange={(e) => set("status", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
               {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
@@ -1688,14 +1689,14 @@ function AddContentModal({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Scheduled Date</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Scheduled Date</label>
             <input type="date" value={form.scheduledDate} onChange={(e) => set("scheduledDate", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Concept</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Concept</label>
             <select value={form.conceptId} onChange={(e) => set("conceptId", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
               <option value="">No concept</option>
               {concepts.map((c) => <option key={c.id} value={c.id}>{(c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name}</option>)}
             </select>
@@ -1703,36 +1704,36 @@ function AddContentModal({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Text Hook</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Text Hook</label>
           <input value={form.hook} onChange={(e) => set("hook", e.target.value)}
             placeholder="The opening hook text..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Script</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Script</label>
           <textarea rows={5} value={form.script} onChange={(e) => set("script", e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent font-mono" />
         </div>
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-medium text-slate-600">Caption</label>
+            <label className="block text-xs font-medium text-ink-2">Caption</label>
             <button type="button" onClick={generateCaption} disabled={generatingCaption || (!form.script && !form.hook)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-accent-tint text-accent hover:bg-accent-tint disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               {generatingCaption ? <><span className="animate-spin">⟳</span> Generating…</> : <>✨ Auto Generate</>}
             </button>
           </div>
           <textarea rows={4} value={form.caption} onChange={(e) => set("caption", e.target.value)}
             placeholder="Caption for the post… or click Auto Generate after writing your script."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Notes</label>
           <textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700">Save</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-xl hover:bg-accent-strong">Save</button>
         </div>
       </form>
     </Modal>
@@ -1848,7 +1849,7 @@ function ContentDetailModal({
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
           <StatusBadge status={piece.status} />
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-ink-2">
             {CONTENT_ICONS[piece.contentType]} {piece.contentType}
           </span>
           {piece.client && (
@@ -1857,7 +1858,7 @@ function ContentDetailModal({
             </span>
           )}
           {piece.concept && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-tint text-accent-strong">
               💡 {(piece.concept as any).conceptType ? `${(piece.concept as any).conceptType} · ${piece.concept.name}` : piece.concept.name}
             </span>
           )}
@@ -1867,8 +1868,8 @@ function ContentDetailModal({
             const dateStr = dt.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
             const timeStr = hasTime ? dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : null;
             return (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                📅 {dateStr}{timeStr && <><span className="text-slate-300">·</span><span className="font-semibold text-indigo-600">🕐 {timeStr}</span></>}
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-ink-2">
+                📅 {dateStr}{timeStr && <><span className="text-faint">·</span><span className="font-semibold text-accent">🕐 {timeStr}</span></>}
               </span>
             );
           })()}
@@ -1876,7 +1877,7 @@ function ContentDetailModal({
 
         {stages.length > 0 && (
           <div className="bg-slate-50 rounded-xl p-4">
-            <p className="text-xs font-semibold text-slate-500 mb-3">WORKFLOW PROGRESS</p>
+            <p className="text-xs font-semibold text-muted mb-3">WORKFLOW PROGRESS</p>
             <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
               {stages.map((stage, i) => {
                 const isDone = currentStageIndex > i || (piece.status === "posted" && !piece.currentStageId);
@@ -1885,12 +1886,12 @@ function ContentDetailModal({
                   <div key={stage.id} className="flex items-center gap-1.5 flex-shrink-0">
                     <div className="flex flex-col items-center">
                       <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${isDone ? "bg-green-500 border-green-500 text-white" : isCurrent ? "border-2 text-white" : "bg-white border-slate-300 text-slate-400"}`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${isDone ? "bg-green-500 border-green-500 text-white" : isCurrent ? "border-2 text-white" : "bg-white border-line-2 text-faint"}`}
                         style={isCurrent ? { backgroundColor: stage.color, borderColor: stage.color } : {}}
                       >
                         {isDone ? "✓" : i + 1}
                       </div>
-                      <span className={`text-[10px] mt-1 font-medium max-w-[56px] text-center leading-tight ${isCurrent ? "text-slate-800" : isDone ? "text-green-600" : "text-slate-400"}`}>
+                      <span className={`text-[10px] mt-1 font-medium max-w-[56px] text-center leading-tight ${isCurrent ? "text-ink" : isDone ? "text-green-600" : "text-faint"}`}>
                         {stage.name}
                       </span>
                     </div>
@@ -1903,33 +1904,33 @@ function ContentDetailModal({
             </div>
 
             {currentStage && (
-              <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+              <div className="border border-line rounded-lg p-3 bg-white space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: currentStage.color }}>
                     {currentStageIndex + 1}
                   </span>
-                  <span className="text-sm font-semibold text-slate-800">Currently: {currentStage.name}</span>
-                  {currentStage.assignedTo && <span className="text-xs text-slate-500">→ {currentStage.assignedTo.name}</span>}
+                  <span className="text-sm font-semibold text-ink">Currently: {currentStage.name}</span>
+                  {currentStage.assignedTo && <span className="text-xs text-muted">→ {currentStage.assignedTo.name}</span>}
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Raw Content URL (optional)</label>
+                  <label className="block text-xs text-muted mb-1">Raw Content URL (optional)</label>
                   <input value={rawContentUrl} onChange={(e) => setRawContentUrl(e.target.value)}
                     placeholder="Link to uploaded raw footage / file..."
-                    className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    className="w-full border border-line rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Completed by</label>
+                  <label className="block text-xs text-muted mb-1">Completed by</label>
                   <select value={selectedMember} onChange={(e) => setSelectedMember(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    className="w-full border border-line rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent">
                     <option value="">— Select team member —</option>
                     {team.map((m) => <option key={m.id} value={m.id}>{m.name}{m.role ? ` (${m.role})` : ""}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Notes</label>
+                  <label className="block text-xs text-muted mb-1">Notes</label>
                   <input value={advanceNotes} onChange={(e) => setAdvanceNotes(e.target.value)}
                     placeholder="Any notes for next stage..."
-                    className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    className="w-full border border-line rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
                 <button
                   onClick={() => onAdvanceStage(currentStage.id, selectedMember ? parseInt(selectedMember) : undefined, advanceNotes, rawContentUrl)}
@@ -1948,19 +1949,19 @@ function ContentDetailModal({
           const isVideo = /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url) || url.includes("/video/upload/");
           return (
             <div>
-              <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Media</p>
+              <p className="text-xs font-semibold text-faint mb-2 uppercase tracking-wide">Media</p>
               {isVideo ? (
                 <video
                   src={url}
                   controls
-                  className="w-full rounded-xl border border-slate-200 max-h-72 bg-black"
+                  className="w-full rounded-xl border border-line max-h-72 bg-black"
                   preload="metadata"
                 />
               ) : (
                 <img
                   src={url}
                   alt="Post media"
-                  className="w-full rounded-xl border border-slate-200 max-h-72 object-cover"
+                  className="w-full rounded-xl border border-line max-h-72 object-cover"
                 />
               )}
             </div>
@@ -1969,46 +1970,46 @@ function ContentDetailModal({
 
         {piece.hook && (
           <div>
-            <p className="text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Text Hook</p>
-            <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 text-sm font-medium text-indigo-800">{piece.hook}</div>
+            <p className="text-xs font-semibold text-faint mb-1 uppercase tracking-wide">Text Hook</p>
+            <div className="bg-accent-tint border border-accent-tint rounded-xl px-4 py-3 text-sm font-medium text-indigo-800">{piece.hook}</div>
           </div>
         )}
 
         {piece.script && (
           <div>
-            <p className="text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Script</p>
-            <pre className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono whitespace-pre-wrap text-slate-700">{piece.script}</pre>
+            <p className="text-xs font-semibold text-faint mb-1 uppercase tracking-wide">Script</p>
+            <pre className="bg-slate-50 border border-line rounded-xl px-4 py-3 text-sm font-mono whitespace-pre-wrap text-ink-2">{piece.script}</pre>
           </div>
         )}
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Caption</p>
+            <p className="text-xs font-semibold text-faint uppercase tracking-wide">Caption</p>
             <div className="flex items-center gap-2">
               {caption && (
-                <button onClick={copyCaption} className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+                <button onClick={copyCaption} className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-ink-2 hover:bg-slate-200 transition-colors">
                   {copied ? "✓ Copied!" : "Copy"}
                 </button>
               )}
               <button onClick={generateCaption} disabled={generatingCaption}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-accent-tint text-accent hover:bg-accent-tint disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 {generatingCaption ? <><span className="animate-spin inline-block">⟳</span> Generating…</> : <>✨ {caption ? "Regenerate" : "Auto Generate"}</>}
               </button>
             </div>
           </div>
           <textarea rows={4} value={caption} onChange={(e) => setCaption(e.target.value)} onBlur={saveCaption}
             placeholder="Caption for the post… click Auto Generate to create one from your script."
-            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+            className="w-full border border-line rounded-xl px-4 py-3 text-sm text-ink-2 focus:outline-none focus:ring-2 focus:ring-accent resize-none" />
         </div>
 
         {/* Post to Instagram directly */}
         {piece.status !== "posted" && (piece.rawContentUrl || rawContentUrl) && (
-          <div className="rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 space-y-2">
-            <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide">Instagram</p>
+          <div className="rounded-xl border border-accent-tint bg-accent-tint px-4 py-3 space-y-2">
+            <p className="text-[10px] font-semibold text-accent uppercase tracking-wide">Instagram</p>
             <button
               onClick={postToInstagramNow}
               disabled={igPosting}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-accent to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {igPosting ? <><span className="animate-spin inline-block">⟳</span> Posting…</> : "📸 Post to Instagram Now"}
             </button>
@@ -2021,20 +2022,20 @@ function ContentDetailModal({
         )}
 
         <div>
-          <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Update Status</p>
+          <p className="text-xs font-semibold text-faint mb-2 uppercase tracking-wide">Update Status</p>
           <div className="flex flex-wrap gap-2">
             {STATUSES.map((s) => (
               <button key={s.value} onClick={() => onStatusChange(s.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${piece.status === s.value ? `${s.bg} ${s.text} border-transparent` : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${piece.status === s.value ? `${s.bg} ${s.text} border-transparent` : "bg-white text-ink-2 border-line hover:bg-slate-50"}`}>
                 {s.label}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="flex justify-between pt-2 border-t border-slate-100">
+        <div className="flex justify-between pt-2 border-t border-line">
           <button onClick={onDelete} className="text-sm text-red-500 hover:text-red-700">Delete</button>
-          <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Close</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200">Close</button>
         </div>
       </div>
     </Modal>

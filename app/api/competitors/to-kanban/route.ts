@@ -41,14 +41,26 @@ export async function POST(req: NextRequest) {
   // forever (IG CDN links expire). Falls back to the permalink if caching fails.
   let exampleVideoUrl: string | null = null;
   let exampleLink: string | null = null;
+  let exampleReelId: number | null = null;
+  let exampleThumbnail: string | null = null;
   let fallbackTitle = "Content idea";
 
   if (reel) {
-    try {
-      const fresh = await freshReelMediaUrl(reel.competitor?.handle || "", reel.shortcode);
-      if (fresh) exampleVideoUrl = await cacheImageToR2(fresh, `comp-examples/${reel.id}.mp4`);
-    } catch { /* fall through */ }
-    if (!exampleVideoUrl) exampleVideoUrl = reel.permalink || null;
+    // Keep the reel id + thumbnail on the draft so the Kanban card can re-resolve a fresh
+    // playable url (and pull stats/transcript) on demand — exactly like the Instagram tab.
+    exampleReelId = reel.id;
+    exampleThumbnail = reel.thumbnailUrl || null;
+    // Prefer a permanent R2 copy we already own; else capture one now. Crucially, NEVER store
+    // a bare Instagram permalink as the video src — it's an HTML page, not a file, so <video>
+    // just shows black. If capture fails we leave the url null and the card resolves live.
+    if (reel.cachedVideoUrl) {
+      exampleVideoUrl = reel.cachedVideoUrl;
+    } else {
+      try {
+        const fresh = await freshReelMediaUrl(reel.competitor?.handle || "", reel.shortcode);
+        if (fresh) exampleVideoUrl = await cacheImageToR2(fresh, `comp-examples/${reel.id}.mp4`);
+      } catch { /* leave null — card re-resolves via reel-media */ }
+    }
     exampleLink = reel.permalink || (reel.shortcode ? `https://www.instagram.com/reel/${reel.shortcode}/` : null);
     fallbackTitle = reel.caption || fallbackTitle;
   } else {
@@ -74,6 +86,8 @@ export async function POST(req: NextRequest) {
       weekLabel: weekLabel(),
       exampleVideoUrl,
       exampleLink,
+      exampleReelId,
+      exampleThumbnail,
       status: "pending",   // → Ideas column
       isSavedIdea: false,
     } as any,

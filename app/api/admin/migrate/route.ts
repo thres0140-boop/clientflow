@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fetchProfileInfo, freshReelMediaUrl } from "@/lib/scrapeCompetitors";
+import { fetchProfileInfo, freshReelMediaUrl, scrapeCompetitor } from "@/lib/scrapeCompetitors";
 import { joinExamples } from "@/lib/conceptExamples";
 
 // GET — debug: show all instagram connections + lead counts
@@ -166,6 +166,394 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
       catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
     }
     return NextResponse.json({ reelcols: out });
+  }
+
+  // ?draftexamplecols=1 — add the Kanban example link-back columns, isolated so nothing
+  // in the big default block can block them.
+  if (req.nextUrl.searchParams.get("draftexamplecols")) {
+    const stmts: Array<[string, string]> = [
+      ["exampleLink", `ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "exampleLink" TEXT`],
+      ["exampleReelId", `ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "exampleReelId" INTEGER`],
+      ["exampleThumbnail", `ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "exampleThumbnail" TEXT`],
+    ];
+    const out: any = {};
+    for (const [name, sql] of stmts) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ draftexamplecols: out });
+  }
+
+  // ?scrapezeros=<clientId> — force-scrape competitors that have 0 reels (up to 3 per call,
+  // newest-added first), to fix coverage gaps. Reports the result per handle.
+  if (req.nextUrl.searchParams.get("scrapezeros")) {
+    const cid = parseInt(req.nextUrl.searchParams.get("scrapezeros") || "0");
+    const comps = await (prisma as any).competitor.findMany({ where: { clientId: cid }, select: { id: true, handle: true } });
+    const zeros: { id: number; handle: string }[] = [];
+    for (const c of comps) {
+      const n = await (prisma as any).competitorReel.count({ where: { competitorId: c.id } });
+      if (n === 0) zeros.push({ id: c.id, handle: c.handle });
+    }
+    const out: any[] = [];
+    for (const z of zeros.slice(0, 3)) {
+      try { const r = await scrapeCompetitor(z.id, { full: false }); out.push({ handle: z.handle, ...r }); }
+      catch (e) { out.push({ handle: z.handle, ok: false, error: String(e).slice(0, 200) }); }
+    }
+    return NextResponse.json({ zerosFound: zeros.length, scraped: out });
+  }
+
+  // ?capturetest=<reelId> — trace each step of capturing one reel's video.
+  if (req.nextUrl.searchParams.get("capturetest")) {
+    const rid = parseInt(req.nextUrl.searchParams.get("capturetest") || "0");
+    const reel = await (prisma as any).competitorReel.findUnique({ where: { id: rid }, include: { competitor: { select: { handle: true } } } });
+    if (!reel) return NextResponse.json({ error: "reel not found" });
+    const { cacheImageToR2 } = await import("@/lib/r2");
+    const out: any = { handle: reel.competitor?.handle, shortcode: reel.shortcode, hadCached: reel.cachedVideoUrl || null, listMediaUrl: reel.mediaUrl ? reel.mediaUrl.slice(0, 60) : null };
+    let fresh: string | null = null;
+    try { fresh = await freshReelMediaUrl(reel.competitor?.handle || "", reel.shortcode); } catch (e) { out.freshError = String(e).slice(0, 120); }
+    out.freshResolved = !!fresh;
+    out.freshSample = fresh ? fresh.slice(0, 80) : null;
+    if (fresh) {
+      try {
+        const r2 = await cacheImageToR2(fresh, `comp-videos/${rid}.mp4`);
+        out.r2Url = r2;
+        if (r2) await (prisma as any).competitorReel.update({ where: { id: rid }, data: { cachedVideoUrl: r2, captureStatus: "pending" } }).catch(() => {});
+      } catch (e) { out.downloadError = String(e).slice(0, 160); }
+    }
+    return NextResponse.json(out);
+  }
+
+  // ?scrapeclient=<clientId> — capture the newest uncaptured reels for each of a client's
+  // competitors, sequentially (paced to dodge the vendor rate limit). Fixes recent "Saving".
+  if (req.nextUrl.searchParams.get("scrapeclient")) {
+    const cid = parseInt(req.nextUrl.searchParams.get("scrapeclient") || "0");
+    const per = Math.min(parseInt(req.nextUrl.searchParams.get("per") || "8") || 8, 15);
+    const comps = await (prisma as any).competitor.findMany({ where: { clientId: cid }, select: { id: true, handle: true } });
+    const { cacheImageToR2 } = await import("@/lib/r2");
+    const out: any[] = [];
+    for (const c of comps) {
+      const reels = await (prisma as any).competitorReel.findMany({ where: { competitorId: c.id, cachedVideoUrl: null }, orderBy: { postedAt: "desc" }, take: per, select: { id: true, shortcode: true } });
+      let saved = 0;
+      for (const r of reels) {
+        try {
+          const fresh = await freshReelMediaUrl(c.handle, r.shortcode);
+          if (fresh) {
+            const url = await cacheImageToR2(fresh, `comp-videos/${r.id}.mp4`);
+            if (url) { await (prisma as any).competitorReel.update({ where: { id: r.id }, data: { cachedVideoUrl: url, captureStatus: "pending" } }); saved++; }
+          }
+        } catch { /* skip */ }
+        await new Promise((res) => setTimeout(res, 250)); // gentle pacing
+      }
+      out.push({ handle: c.handle, targeted: reels.length, saved });
+    }
+    return NextResponse.json({ results: out });
+  }
+
+  // ?reelstats=<clientId> — per-competitor reel counts + date range, to diagnose scrape coverage.
+  if (req.nextUrl.searchParams.get("reelstats")) {
+    const cid = parseInt(req.nextUrl.searchParams.get("reelstats") || "0");
+    const comps = await (prisma as any).competitor.findMany({ where: { clientId: cid }, select: { id: true, handle: true, lastScrapedAt: true, lastScrapeError: true } });
+    const rows: any[] = [];
+    for (const c of comps) {
+      const count = await (prisma as any).competitorReel.count({ where: { competitorId: c.id } });
+      const newest = await (prisma as any).competitorReel.findFirst({ where: { competitorId: c.id }, orderBy: { postedAt: "desc" }, select: { postedAt: true } });
+      const oldest = await (prisma as any).competitorReel.findFirst({ where: { competitorId: c.id }, orderBy: { postedAt: "asc" }, select: { postedAt: true } });
+      rows.push({ handle: c.handle, reels: count, newest: newest?.postedAt || null, oldest: oldest?.postedAt || null, lastScrapedAt: c.lastScrapedAt || null, err: c.lastScrapeError || null });
+    }
+    rows.sort((a, b) => b.reels - a.reels);
+    return NextResponse.json({ total: rows.reduce((s, r) => s + r.reels, 0), competitors: rows.length, rows });
+  }
+
+  if (req.nextUrl.searchParams.get("platformcols")) {
+    const out: any = {};
+    for (const [name, sql] of [
+      ["Concept", `ALTER TABLE "Concept" ADD COLUMN IF NOT EXISTS "platform" TEXT NOT NULL DEFAULT 'instagram'`],
+      ["ScriptDraft", `ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "platform" TEXT NOT NULL DEFAULT 'instagram'`],
+      ["WorkflowStage", `ALTER TABLE "WorkflowStage" ADD COLUMN IF NOT EXISTS "platform" TEXT NOT NULL DEFAULT 'instagram'`],
+      ["Creator", `ALTER TABLE "Creator" ADD COLUMN IF NOT EXISTS "platform" TEXT NOT NULL DEFAULT 'instagram'`],
+    ] as [string, string][]) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ platformcols: out });
+  }
+
+  // ?ttprobe=<handle> — inspect the raw apibox TikTok API responses so we can verify field
+  // mapping after subscribing. Returns the raw info JSON + first raw post item.
+  if (req.nextUrl.searchParams.get("ttprobe")) {
+    const handle = String(req.nextUrl.searchParams.get("ttprobe")).replace(/^@/, "").trim();
+    const HOST = "tiktok-api23.p.rapidapi.com";
+    const h = { "x-rapidapi-host": HOST, "x-rapidapi-key": process.env.RAPIDAPI_KEY || "" };
+    const out: any = { handle };
+    try {
+      const infoRes = await fetch(`https://${HOST}/api/user/info?uniqueId=${encodeURIComponent(handle)}`, { headers: h });
+      out.infoStatus = infoRes.status;
+      const info = await infoRes.json().catch(() => null);
+      out.infoKeys = info ? Object.keys(info) : null;
+      const user = info?.userInfo?.user ?? info?.data?.user ?? info?.user ?? null;
+      out.secUid = user?.secUid ?? null;
+      out.userKeys = user ? Object.keys(user) : null;
+      out.stats = info?.userInfo?.stats ?? info?.stats ?? null;
+      if (out.secUid) {
+        const postsRes = await fetch(`https://${HOST}/api/user/posts?secUid=${encodeURIComponent(out.secUid)}&count=5&cursor=0`, { headers: h });
+        out.postsStatus = postsRes.status;
+        const posts = await postsRes.json().catch(() => null);
+        out.postsKeys = posts ? Object.keys(posts) : null;
+        const items = posts?.data?.itemList ?? posts?.itemList ?? posts?.data?.videos ?? [];
+        out.postCount = items.length;
+        out.firstItem = items[0] ?? null;
+      }
+    } catch (e) { out.error = e instanceof Error ? e.message : String(e); }
+    return NextResponse.json(out);
+  }
+
+  // Daily snapshot table for official TikTok stats (follower/likes/views growth charts).
+  if (req.nextUrl.searchParams.get("ttsnapshots")) {
+    const out: any = {};
+    for (const [name, sql] of [
+      ["table", `CREATE TABLE IF NOT EXISTS "TikTokDailySnapshot" ("id" SERIAL PRIMARY KEY, "clientId" INTEGER NOT NULL, "day" TEXT NOT NULL, "followerCount" INTEGER, "followingCount" INTEGER, "likesCount" INTEGER, "videoCount" INTEGER, "totalViews" INTEGER, "capturedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`],
+      ["unique", `CREATE UNIQUE INDEX IF NOT EXISTS "TikTokDailySnapshot_clientId_day_key" ON "TikTokDailySnapshot"("clientId","day")`],
+      ["index", `CREATE INDEX IF NOT EXISTS "TikTokDailySnapshot_clientId_day_idx" ON "TikTokDailySnapshot"("clientId","day")`],
+    ] as [string, string][]) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ ttsnapshots: out });
+  }
+
+  // Official TikTok OAuth (Login Kit) token columns on Client.
+  if (req.nextUrl.searchParams.get("ttoauth")) {
+    const out: any = {};
+    for (const [name, sql] of [
+      ["tiktokAccessToken", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokAccessToken" TEXT`],
+      ["tiktokRefreshToken", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokRefreshToken" TEXT`],
+      ["tiktokTokenExpiresAt", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokTokenExpiresAt" TIMESTAMP(3)`],
+      ["tiktokOpenId", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokOpenId" TEXT`],
+      ["tiktokScope", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokScope" TEXT`],
+    ] as [string, string][]) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ ttoauth: out });
+  }
+
+  // Diagnostic: what does Zernio return for accounts? Shows every account (platform + username)
+  // across a few query variants so we can see if/where the TikTok account is.
+  if (req.nextUrl.searchParams.get("zerniottdiag")) {
+    const KEY = process.env.ZERNIO_API_KEY || "";
+    const PID = process.env.ZERNIO_PROFILE_ID || "";
+    const h = { Authorization: `Bearer ${KEY}`, Accept: "application/json" };
+    const variants: [string, string][] = [
+      ["all_no_params", "https://zernio.com/api/v1/accounts"],
+      ["default_profile", `https://zernio.com/api/v1/accounts?profileId=${PID}`],
+      ["default_profile_tiktok", `https://zernio.com/api/v1/accounts?profileId=${PID}&platform=tiktok`],
+    ];
+    const out: any = { keySet: !!KEY, profileIdSet: !!PID, results: {} };
+    for (const [name, url] of variants) {
+      try {
+        const r = await fetch(url, { headers: h });
+        const j: any = await r.json().catch(() => null);
+        const accts: any[] = j?.accounts ?? j?.data ?? [];
+        out.results[name] = {
+          status: r.status,
+          count: Array.isArray(accts) ? accts.length : "n/a",
+          accounts: (Array.isArray(accts) ? accts : []).map((a) => ({ platform: a.platform, username: a.username ?? a.displayName ?? a.name, id: a._id ?? a.id, profileId: a.profileId })),
+          error: j?.error ?? j?.message,
+        };
+      } catch (e) { out.results[name] = { error: e instanceof Error ? e.message : String(e) }; }
+    }
+    return NextResponse.json(out);
+  }
+
+  // Diagnostic: TikTok competitor scrape freshness (is the every-4h cron actually running?).
+  if (req.nextUrl.searchParams.get("ttcronhealth")) {
+    const now = Date.now();
+    const comps: any[] = await (prisma as any).competitor.findMany({
+      where: { platform: "tiktok" }, select: { handle: true, lastScrapedAt: true, lastScrapeError: true },
+    }).catch(() => []);
+    const withTs = comps.filter((c) => c.lastScrapedAt).map((c) => new Date(c.lastScrapedAt).getTime());
+    const staleBefore = now - 20 * 3600 * 1000;
+    const errors = comps.filter((c) => c.lastScrapeError).slice(0, 8).map((c) => ({ handle: c.handle, err: String(c.lastScrapeError).slice(0, 80) }));
+    return NextResponse.json({
+      totalTikTokCompetitors: comps.length,
+      neverScraped: comps.filter((c) => !c.lastScrapedAt).length,
+      staleOver20h: comps.filter((c) => !c.lastScrapedAt || new Date(c.lastScrapedAt).getTime() < staleBefore).length,
+      mostRecentScrapeAgoHours: withTs.length ? +(((now - Math.max(...withTs)) / 3600000).toFixed(1)) : null,
+      oldestScrapeAgoHours: withTs.length ? +(((now - Math.min(...withTs)) / 3600000).toFixed(1)) : null,
+      recentErrors: errors,
+    });
+  }
+
+  // Diagnostic: Zernio daily-metrics (attribution=received) for the first TikTok-linked client.
+  if (req.nextUrl.searchParams.get("zerniodaily")) {
+    const KEY = process.env.ZERNIO_API_KEY || "";
+    const c = await (prisma as any).client.findFirst({ where: { tiktokZernioAccountId: { not: null } }, select: { id: true, name: true, tiktokZernioAccountId: true, tiktokZernioProfileId: true } });
+    if (!c) return NextResponse.json({ note: "no tiktok-linked client" });
+    const out: any = { client: c.name, accountId: c.tiktokZernioAccountId };
+    for (const attribution of ["received", "publish"]) {
+      const u = new URL("https://zernio.com/api/v1/analytics/daily-metrics");
+      u.searchParams.set("platform", "tiktok");
+      u.searchParams.set("accountId", c.tiktokZernioAccountId);
+      if (c.tiktokZernioProfileId) u.searchParams.set("profileId", c.tiktokZernioProfileId);
+      u.searchParams.set("attribution", attribution);
+      u.searchParams.set("fromDate", new Date(Date.now() - 8 * 86400_000).toISOString());
+      u.searchParams.set("toDate", new Date().toISOString());
+      try {
+        const r = await fetch(u.toString(), { headers: { Authorization: `Bearer ${KEY}`, Accept: "application/json" } });
+        const j: any = await r.json().catch(() => null);
+        const rows: any[] = j?.dailyData ?? [];
+        out[attribution] = {
+          status: r.status,
+          error: j?.error ?? j?.message,
+          days: rows.length,
+          sumViews: rows.reduce((s, d) => s + (d?.metrics?.views || 0), 0),
+          sample: rows.map((d) => ({ date: String(d.date).slice(0, 10), views: d?.metrics?.views })),
+        };
+      } catch (e) { out[attribution] = { error: e instanceof Error ? e.message : String(e) }; }
+    }
+    return NextResponse.json(out);
+  }
+
+  // Diagnostic: run the Instructions engine for the first TikTok-linked client.
+  if (req.nextUrl.searchParams.get("ttinstrtest")) {
+    const { generateInstructions } = await import("@/lib/tiktokInstructions");
+    const c = await (prisma as any).client.findFirst({ where: { tiktokZernioAccountId: { not: null } }, select: { id: true, name: true } });
+    if (!c) return NextResponse.json({ note: "no tiktok-linked client" });
+    const r = await generateInstructions(c.id).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+    return NextResponse.json({ client: c.name, connected: (r as any).connected, note: (r as any).note, stats: (r as any).stats, summary: (r as any).summary,
+      counts: { keep: (r as any).keep?.length, test: (r as any).test?.length, copy: (r as any).copy?.length, stop: (r as any).stop?.length },
+      sampleKeep: (r as any).keep?.slice(0, 2), sampleCopy: (r as any).copy?.slice(0, 2) });
+  }
+
+  // TikTok Instructions engine cache table.
+  if (req.nextUrl.searchParams.get("ttinstructions")) {
+    const out: any = {};
+    try {
+      await (prisma as any).$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "TikTokInstructions" ("id" SERIAL PRIMARY KEY, "clientId" INTEGER NOT NULL, "data" TEXT NOT NULL, "generatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+      await (prisma as any).$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "TikTokInstructions_clientId_key" ON "TikTokInstructions"("clientId")`);
+      out.table = "ok";
+    } catch (e) { out.error = e instanceof Error ? e.message : String(e); }
+    return NextResponse.json({ ttinstructions: out });
+  }
+
+  // TikTok video → concept mapping table.
+  if (req.nextUrl.searchParams.get("ttvideoconcept")) {
+    const out: any = {};
+    try {
+      await (prisma as any).$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "TikTokVideoConcept" ("id" SERIAL PRIMARY KEY, "clientId" INTEGER NOT NULL, "videoId" TEXT NOT NULL, "conceptId" INTEGER NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+      await (prisma as any).$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "TikTokVideoConcept_clientId_videoId_key" ON "TikTokVideoConcept"("clientId", "videoId")`);
+      await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "TikTokVideoConcept_clientId_conceptId_idx" ON "TikTokVideoConcept"("clientId", "conceptId")`);
+      out.table = "ok";
+    } catch (e) { out.error = e instanceof Error ? e.message : String(e); }
+    return NextResponse.json({ ttvideoconcept: out });
+  }
+
+  // TikTok via Zernio — link the client's TikTok account (connected in Zernio) for analytics.
+  if (req.nextUrl.searchParams.get("ttzernio")) {
+    const out: any = {};
+    for (const [name, sql] of [
+      ["tiktokZernioAccountId", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokZernioAccountId" TEXT`],
+      ["tiktokZernioUsername", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokZernioUsername" TEXT`],
+      ["tiktokZernioProfileId", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokZernioProfileId" TEXT`],
+    ] as [string, string][]) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ ttzernio: out });
+  }
+
+  // TikTok Competitor Finder: add platform to candidates + widen the unique key to include platform.
+  if (req.nextUrl.searchParams.get("ttfinder")) {
+    const out: any = {};
+    for (const [name, sql] of [
+      ["candidate.platform", `ALTER TABLE "CompetitorCandidate" ADD COLUMN IF NOT EXISTS "platform" TEXT NOT NULL DEFAULT 'instagram'`],
+      ["drop old unique", `DROP INDEX IF EXISTS "CompetitorCandidate_clientId_handle_key"`],
+      ["new unique", `CREATE UNIQUE INDEX IF NOT EXISTS "CompetitorCandidate_clientId_platform_handle_key" ON "CompetitorCandidate"("clientId","platform","handle")`],
+    ] as [string, string][]) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ ttfinder: out });
+  }
+
+  if (req.nextUrl.searchParams.get("tiktokstudio")) {
+    const out: any = {};
+    for (const [name, sql] of [
+      ["Competitor.platform", `ALTER TABLE "Competitor" ADD COLUMN IF NOT EXISTS "platform" TEXT NOT NULL DEFAULT 'instagram'`],
+      ["CompetitorReel.platform", `ALTER TABLE "CompetitorReel" ADD COLUMN IF NOT EXISTS "platform" TEXT NOT NULL DEFAULT 'instagram'`],
+      ["Client.tiktokHandle", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokHandle" TEXT`],
+      ["Client.tiktokProfileData", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokProfileData" TEXT`],
+      ["Client.tiktokProfileAt", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokProfileAt" TIMESTAMP(3)`],
+    ] as [string, string][]) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ tiktokstudio: out });
+  }
+
+  if (req.nextUrl.searchParams.get("igcol")) {
+    const out: any = {};
+    try { await (prisma as any).$executeRawUnsafe(`ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "instagramEnabled" BOOLEAN NOT NULL DEFAULT true`); out.instagramEnabled = "ok"; }
+    catch (e) { out.instagramEnabled = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    return NextResponse.json({ igcol: out });
+  }
+
+  if (req.nextUrl.searchParams.get("tiktokcol")) {
+    const out: any = {};
+    try { await (prisma as any).$executeRawUnsafe(`ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "tiktokEnabled" BOOLEAN NOT NULL DEFAULT false`); out.tiktokEnabled = "ok"; }
+    catch (e) { out.tiktokEnabled = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    return NextResponse.json({ tiktokcol: out });
+  }
+
+  if (req.nextUrl.searchParams.get("workspaces")) {
+    const out: any = {};
+    try {
+      await (prisma as any).$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "Workspace" ("id" SERIAL PRIMARY KEY, "name" TEXT NOT NULL, "color" TEXT NOT NULL DEFAULT '#3d4aa3', "order" INTEGER NOT NULL DEFAULT 0, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+      out.table = "ok";
+      await (prisma as any).$executeRawUnsafe(`ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "workspaceId" INTEGER`);
+      out.column = "ok";
+      // Seed a default "OPT" workspace and put every existing client in it.
+      await (prisma as any).$executeRawUnsafe(`INSERT INTO "Workspace" ("name","color","order","createdAt") SELECT 'OPT','#3d4aa3',0,CURRENT_TIMESTAMP WHERE NOT EXISTS (SELECT 1 FROM "Workspace")`);
+      await (prisma as any).$executeRawUnsafe(`UPDATE "Client" SET "workspaceId" = (SELECT id FROM "Workspace" ORDER BY id ASC LIMIT 1) WHERE "workspaceId" IS NULL`);
+      out.seeded = "ok";
+      const ws = await (prisma as any).workspace.findMany({ select: { id: true, name: true, _count: { select: { clients: true } } } });
+      out.workspaces = ws;
+    } catch (e) { out.error = e instanceof Error ? e.message : String(e); }
+    return NextResponse.json({ workspaces: out });
+  }
+
+  if (req.nextUrl.searchParams.get("competitortags")) {
+    const out: any = {};
+    try { await (prisma as any).$executeRawUnsafe(`ALTER TABLE "Competitor" ADD COLUMN IF NOT EXISTS "tags" TEXT`); out.tags = "ok"; }
+    catch (e) { out.tags = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    return NextResponse.json({ competitortags: out });
+  }
+
+  if (req.nextUrl.searchParams.get("boardpending")) {
+    const out: any = {};
+    try { await (prisma as any).$executeRawUnsafe(`ALTER TABLE "Board" ADD COLUMN IF NOT EXISTS "pendingVideos" TEXT NOT NULL DEFAULT '[]'`); out.pendingVideos = "ok"; }
+    catch (e) { out.pendingVideos = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    return NextResponse.json({ boardpending: out });
+  }
+
+  // ?fixboards=1 — undo the bad server-appended video tiles (their url is a RELATIVE
+  // "/api/vid…", client-added ones are absolute). Removing them restores the board.
+  if (req.nextUrl.searchParams.get("fixboards")) {
+    const boards = await (prisma as any).board.findMany();
+    const report: any[] = [];
+    for (const b of boards) {
+      let snap: any = {};
+      try { snap = b.snapshot ? JSON.parse(b.snapshot) : {}; } catch { report.push({ clientId: b.clientId, error: "unparseable" }); continue; }
+      const els: any[] = Array.isArray(snap.elements) ? snap.elements : [];
+      const before = els.length;
+      const kept = els.filter((e) => !(e && typeof e.customData?.video?.url === "string" && e.customData.video.url.startsWith("/api/vid")));
+      if (kept.length !== before) {
+        snap.elements = kept;
+        await (prisma as any).board.update({ where: { clientId: b.clientId }, data: { snapshot: JSON.stringify(snap) } });
+        report.push({ clientId: b.clientId, removed: before - kept.length });
+      }
+    }
+    return NextResponse.json({ fixboards: report });
   }
 
   // ?reelhandle=imredelouw — test EVERY stored reel for one competitor through the real
@@ -1114,6 +1502,14 @@ export async function POST(req: NextRequest) {
     await (prisma as any).$executeRaw`
       ALTER TABLE "ScriptDraft"
       ADD COLUMN IF NOT EXISTS "exampleLink" TEXT;
+    `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "ScriptDraft"
+      ADD COLUMN IF NOT EXISTS "exampleReelId" INTEGER;
+    `;
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "ScriptDraft"
+      ADD COLUMN IF NOT EXISTS "exampleThumbnail" TEXT;
     `;
     await (prisma as any).$executeRaw`
       ALTER TABLE "Client"

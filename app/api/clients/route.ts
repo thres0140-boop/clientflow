@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
       notes: body.notes || null,
       captionStyle: body.captionStyle || null,
       isTestAccount: body.isTestAccount === true,
-    },
+      ...(body.workspaceId != null ? { workspaceId: parseInt(String(body.workspaceId)) } : {}),
+    } as any,
   });
   return NextResponse.json(client, { status: 201 });
 }

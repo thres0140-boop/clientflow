@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   if (!clientId) return NextResponse.json({ reels: [] });
 
-  const competitors = await prisma.competitor.findMany({ where: { clientId: parseInt(clientId) } });
+  // Optional &handle= → only that competitor's reels (fast path for the profile view).
+  const handleFilter = (req.nextUrl.searchParams.get("handle") || "").replace(/^@/, "").trim().toLowerCase();
+  const allCompetitors = await prisma.competitor.findMany({ where: { clientId: parseInt(clientId) } });
+  const competitors = handleFilter ? allCompetitors.filter((c) => c.handle.replace(/^@/, "").trim().toLowerCase() === handleFilter) : allCompetitors;
   if (!competitors.length) return NextResponse.json({ reels: [], competitors: 0 });
 
   const reels = await (prisma as any).competitorReel.findMany({
@@ -68,6 +71,8 @@ export async function GET(req: NextRequest) {
       isOutlier,
       format: r.format || null,
       snapshotCount: snaps.length,
+      // true once we own a permanent copy of the video (plays instantly); false = still saving.
+      ready: !!r.cachedVideoUrl,
     };
   });
 

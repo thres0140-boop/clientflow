@@ -10,8 +10,16 @@ export const dynamic = "force-dynamic";
 // scraped < TTL ago). Sequential + per-handle try/catch so one failure can't
 // kill the run. UI never scrapes — it only reads what this writes.
 export async function GET(req: NextRequest) {
-  const TTL_HOURS = parseInt(req.nextUrl.searchParams.get("ttlHours") || "20");
+  // Low default so the once-daily morning run always actually scrapes (it only skips a
+  // competitor scraped within the last few hours — e.g. a manual "Refresh now" just before).
+  const TTL_HOURS = parseInt(req.nextUrl.searchParams.get("ttlHours") || "6");
   const full = req.nextUrl.searchParams.get("full") === "1";
+  // Cost control: the scheduled daily run is a LIGHT top-up — 1 page (newest ~12 reels) per
+  // competitor, which catches new posts + refreshes stats on the recent/trending reels for ~1
+  // API call each. Pass ?pages=5 (or ?full=1) for a deep pull. Profile (followers) only
+  // refreshes on a deep pass, since it barely changes and costs an extra call each.
+  const pages = full ? undefined : parseInt(req.nextUrl.searchParams.get("pages") || "1") || 1;
+  const refreshProfile = full || req.nextUrl.searchParams.get("profile") === "1";
   const cutoff = Date.now() - TTL_HOURS * 3600_000;
 
   const competitors = await prisma.competitor.findMany({ orderBy: { id: "asc" } });
@@ -27,8 +35,8 @@ export async function GET(req: NextRequest) {
       continue;
     }
     try {
-      await scrapeCompetitorProfile(c.id).catch(() => {}); // refresh follower/post stats
-      const r = await scrapeCompetitor(c.id, { full });
+      if (refreshProfile) await scrapeCompetitorProfile(c.id).catch(() => {}); // follower/post stats (deep passes only)
+      const r = await scrapeCompetitor(c.id, { full, pages });
       results.push({ id: c.id, handle: c.handle, ...r });
     } catch (err) {
       results.push({ id: c.id, handle: c.handle, ok: false, reels: 0, error: String(err).slice(0, 200) });

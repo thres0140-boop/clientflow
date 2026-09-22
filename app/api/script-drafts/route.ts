@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
   const scheduled = req.nextUrl.searchParams.get("scheduled");
   const today = new Date().toISOString().slice(0, 10);
 
-  const where: Record<string, unknown> = clientId ? { clientId: parseInt(clientId) } : {};
+  const platform = req.nextUrl.searchParams.get("platform") || "instagram";
+  const where: Record<string, unknown> = clientId ? { clientId: parseInt(clientId), platform } : { platform };
 
   const staged = req.nextUrl.searchParams.get("staged");
   const all = req.nextUrl.searchParams.get("all");
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
   const draft = await prisma.scriptDraft.create({
     data: {
       clientId: parseInt(body.clientId),
+      platform: body.platform || "instagram",
       conceptId: parseInt(body.conceptId),
       title: body.title,
       hook: body.hook || null,

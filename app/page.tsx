@@ -13,10 +13,13 @@ import Kanban from "@/components/pages/Kanban";
 import ScriptTasksPage from "@/components/pages/ScriptTasksPage";
 import InstagramPage from "@/components/pages/InstagramPage";
 import BoardPage from "@/components/pages/BoardPage";
+import ClientSettingsPage from "@/components/pages/ClientSettingsPage";
+import TikTokPage from "@/components/pages/TikTokPage";
+import TikTokInstructionsPage from "@/components/pages/TikTokInstructionsPage";
 import DmsPage from "@/components/pages/DmsPage";
 import ContextPage from "@/components/pages/ContextPage";
 import TranscribePage from "@/components/pages/TranscribePage";
-import { Client, Notification, TeamMember } from "@/lib/types";
+import { Client, Notification, TeamMember, Workspace } from "@/lib/types";
 import type { SessionPayload } from "@/lib/session";
 import { countUnseenSentBack } from "@/lib/sentBackSeen";
 
@@ -34,14 +37,40 @@ export type Page =
   | "chat"
   | "settings"
   | "context"
-  | "transcribe";
+  | "transcribe"
+  | "clientsettings"
+  | "tiktok"
+  | "tiktokcompetitors"
+  | "tiktokinstructions";
+
+const PAGE_LABELS: Record<Page, string> = {
+  headquarters: "Headquarters", pipeline: "Content Scheduling", kanban: "Script Kanban",
+  tasks: "Script Tasks", concepts: "Concept Library", analytics: "Analytics", dms: "DM Pipeline",
+  instagram: "Instagram", board: "Strategy Board", team: "Team", chat: "Messages",
+  settings: "Settings", context: "AI Context", transcribe: "Transcribe", clientsettings: "Settings",
+  tiktok: "TikTok", tiktokcompetitors: "Competitors", tiktokinstructions: "Instructions",
+};
+
+export type Platform = "instagram" | "tiktok";
 
 export default function App() {
   const [page, setPage] = useState<Page>(() => {
     try { return (localStorage.getItem("cf_active_page") as Page) ?? "pipeline"; } catch { return "pipeline"; }
   });
+  // Which platform's pipeline the content pages operate on (Instagram vs TikTok). Persisted so a
+  // refresh keeps you on the platform you were viewing.
+  const [platform, setPlatform] = useState<Platform>(() => {
+    try { return (localStorage.getItem("cf_active_platform") as Platform) || "instagram"; } catch { return "instagram"; }
+  });
+  // Split view: when set, a second page renders in a resizable right pane next to `page`.
+  const [splitPage, setSplitPage] = useState<Page | null>(null);
+  const [splitRatio, setSplitRatio] = useState(0.5);
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<number | null>(() => {
+    try { const v = localStorage.getItem("cf_active_workspace"); return v ? parseInt(v) : null; } catch { return null; }
+  });
   const [chatContext, setChatContext] = useState<{ id?: number; title: string; hook?: string | null; script: string; caption?: string | null; channel?: string } | null>(null);
   // When set, the Instagram reels view enters "attach mode" — clicking reels adds them to this concept
   const [attachConcept, setAttachConcept] = useState<{ id: number; name: string } | null>(null);
@@ -74,6 +103,62 @@ export default function App() {
       return data[0]?.id ?? null;
     });
   }, []);
+
+  const fetchWorkspaces = useCallback(async () => {
+    try {
+      const data: Workspace[] = await fetch("/api/workspaces").then((r) => r.json());
+      if (!Array.isArray(data)) return;
+      setWorkspaces(data);
+      setActiveWorkspaceId((prev) => (prev && data.find((w) => w.id === prev)) ? prev : (data[0]?.id ?? null));
+    } catch { /* ignore */ }
+  }, []);
+
+  async function createWorkspace(name: string) {
+    const ws = await fetch("/api/workspaces", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).then((r) => r.json());
+    await fetchWorkspaces();
+    if (ws?.id) selectWorkspace(ws.id);
+  }
+
+  function selectWorkspace(id: number) {
+    setActiveWorkspaceId(id);
+    try { localStorage.setItem("cf_active_workspace", String(id)); } catch { /* ignore */ }
+    // Keep a valid client selected: if the current one isn't in this workspace, jump to its first.
+    setSelectedClientId((prev) => {
+      const inWs = clients.filter((c) => c.workspaceId === id);
+      if (prev != null && inWs.some((c) => c.id === prev)) return prev;
+      return inWs[0]?.id ?? null;
+    });
+  }
+
+  // Keep platform valid for the selected client's enabled channels (Instagram defaults on), and
+  // keep the active page inside the active platform's folder — so e.g. a TikTok view never lands
+  // on the Instagram-only Script Kanban. Pages not tied to a platform (WORK/MANAGE) are left alone.
+  useEffect(() => {
+    const c = clients.find((cl) => cl.id === selectedClientId);
+    const igOn = c ? (c as { instagramEnabled?: boolean }).instagramEnabled !== false : true;
+    const ttOn = !!c?.tiktokEnabled;
+
+    // Pages that only exist on one platform's folder.
+    const IG_ONLY: Page[] = ["instagram", "kanban", "tasks", "context", "dms"];
+    const TT_ONLY: Page[] = ["tiktok", "tiktokcompetitors", "tiktokinstructions"];
+
+    // Resolve the effective platform first.
+    const nextPlatform: Platform =
+      (platform === "instagram" && !igOn) ? (ttOn ? "tiktok" : "instagram")
+      : (platform === "tiktok" && !ttOn) ? (igOn ? "instagram" : "tiktok")
+      : (!igOn && ttOn) ? "tiktok"
+      : platform;
+    if (nextPlatform !== platform) setPlatform(nextPlatform);
+
+    // Bounce the page off the wrong platform's pages, always to a page that exists in the target
+    // folder ("instagram" for IG, "pipeline" for TikTok — never "kanban", which TikTok doesn't have).
+    setPage((p) => {
+      // TikTok no longer has Content Scheduling, so bounce off IG-only pages to the TikTok profile.
+      if (nextPlatform === "tiktok" && (IG_ONLY.includes(p) || p === "pipeline")) return "tiktok";
+      if (nextPlatform === "instagram" && TT_ONLY.includes(p)) return igOn ? "instagram" : "pipeline";
+      return p;
+    });
+  }, [selectedClientId, clients, platform]);
 
   const fetchNotifications = useCallback(async () => {
     const data = await fetch("/api/notifications").then((r) => r.json());
@@ -163,7 +248,7 @@ export default function App() {
       const initClientId = (savedId && clientList.find((c) => c.id === savedId)) ? savedId
         : (memberDefault && clientList.find((c) => c.id === memberDefault)) ? memberDefault
         : clientList[0]?.id ?? null;
-      await Promise.all([fetchClients(), fetchNotifications(), fetchTeam(initClientId)]);
+      await Promise.all([fetchClients(), fetchNotifications(), fetchTeam(initClientId), fetchWorkspaces()]);
       setAppReady(true);
     }
     init().catch((e) => { console.error("Init failed", e); setAppReady(true); });
@@ -202,6 +287,11 @@ export default function App() {
     try { localStorage.setItem("cf_active_page", page); } catch { /* */ }
   }, [page]);
 
+  // Persist the active platform too, so a refresh reopens on the same platform's folder.
+  useEffect(() => {
+    try { localStorage.setItem("cf_active_platform", platform); } catch { /* */ }
+  }, [platform]);
+
   // Brief loading flash when switching client or page
   useEffect(() => {
     if (!appReady) return;
@@ -225,7 +315,7 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["headquarters","pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe"];
+    const all: Page[] = ["headquarters","pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe","clientsettings","tiktok","tiktokcompetitors","tiktokinstructions"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
@@ -234,8 +324,14 @@ export default function App() {
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
     // Clients always get their Script Tasks; team members only if the owner granted it.
     if (activeProfile?.isClientAccount && !base.includes("tasks")) base.push("tasks");
+    // TikTok Competitors + Instructions are sub-pages of TikTok — anyone with TikTok access gets
+    // them (they used to be in-page tabs, so existing members were never granted them separately).
+    if (base.includes("tiktok")) {
+      if (!base.includes("tiktokcompetitors")) base.push("tiktokcompetitors");
+      if (!base.includes("tiktokinstructions")) base.push("tiktokinstructions");
+    }
     // Headquarters is owner-only — never expose it to a member login.
-    return base.filter((p) => p !== "headquarters" || session?.type === "owner");
+    return base.filter((p) => (p !== "headquarters" && p !== "clientsettings") || session?.type === "owner");
   })();
 
   // Pages this member may VIEW but not edit (view-only). Empty for the owner.
@@ -265,30 +361,63 @@ export default function App() {
     else nav.clearAppBadge?.().catch(() => {});
   }, [unreadCount, badges.chat]);
 
-  function renderPage() {
+  function renderPage(which: Page = page, embedded = false) {
     // Redirect to first allowed page if current page isn't allowed
-    if (!allowedPages.includes(page)) {
-      const first = allowedPages[0];
-      if (first) setTimeout(() => setPage(first), 0);
-      return null;
+    if (!allowedPages.includes(which)) {
+      if (which === page) {
+        const first = allowedPages[0];
+        if (first) setTimeout(() => setPage(first), 0);
+      }
+      return <div className="flex items-center justify-center h-full text-slate-400 text-sm">This page isn&apos;t available here.</div>;
     }
     const props = { clients, selectedClientId, refreshClients: fetchClients };
-    switch (page) {
+    switch (which) {
       case "headquarters": return <HeadquartersPage clients={clients} refreshClients={fetchClients} onOpenKanban={(clientId, draftId) => { setSelectedClientId(clientId); if (draftId) setKanbanHighlightId(draftId); setPage("kanban"); }} />;
-      case "pipeline": return <Pipeline {...props} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} onOpenInKanban={(session?.type === "member" && activeProfile?.isClientAccount) ? (id) => { setKanbanHighlightId(id); setPage("kanban"); } : undefined} />;
-      case "concepts": return <Concepts {...props} onAttachReels={(c) => { setAttachConcept(c); setPage("instagram"); }} />;
+      case "pipeline": return <Pipeline {...props} platform={platform} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} onOpenInKanban={(session?.type === "member" && activeProfile?.isClientAccount) ? (id) => { setKanbanHighlightId(id); setPage("kanban"); } : undefined} />;
+      case "concepts": return <Concepts {...props} platform={platform} onAttachReels={(c) => { setAttachConcept(c); setPage("instagram"); }} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
       case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} reelContext={chatContext} onContextUsed={() => setChatContext(null)} team={team} initialChannel={chatContext?.channel} activeProfile={activeProfile} />;
-      case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} />;
-      case "kanban": return <Kanban clients={clients} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} highlightDraftId={kanbanHighlightId} onHighlightConsumed={() => setKanbanHighlightId(null)} />;
+      case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} defaultWorkspaceId={activeWorkspaceId} />;
+      case "kanban": return <Kanban clients={clients} platform={platform} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} highlightDraftId={kanbanHighlightId} onHighlightConsumed={() => setKanbanHighlightId(null)} />;
       case "tasks": return <ScriptTasksPage clients={clients} selectedClientId={selectedClientId} canSubmit={session?.type === "member"} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} />;
-      case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} />;
-      case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed} />;
+      case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} embedded={embedded} />;
+      case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed} embedded={embedded} />;
       case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
       case "transcribe": return <TranscribePage />;
+      case "tiktok": return <TikTokPage clients={clients} selectedClientId={selectedClientId} refreshClients={fetchClients} embedded={embedded} view="profile" />;
+      case "tiktokcompetitors": return <TikTokPage clients={clients} selectedClientId={selectedClientId} refreshClients={fetchClients} embedded={embedded} view="competitors" />;
+      case "tiktokinstructions": return <TikTokInstructionsPage clients={clients} selectedClientId={selectedClientId} />;
+      case "clientsettings": return <ClientSettingsPage client={clients.find((c) => c.id === selectedClientId) ?? null} refreshClients={fetchClients} onManageAll={() => setPage("settings")} />;
     }
+  }
+
+  // ── Split view helpers ──────────────────────────────────────────────────────
+  const splitRef = useRef<HTMLDivElement | null>(null);
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const el = splitRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    function onMove(ev: MouseEvent) {
+      const r = Math.min(0.8, Math.max(0.2, (ev.clientX - rect.left) / rect.width));
+      setSplitRatio(r);
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+    }
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+  // One page inside a split pane. The Strategy Board fills the pane itself; other pages get a
+  // scroll container with padding.
+  function paneEl(p: Page) {
+    if (p === "board") return renderPage(p, true);
+    return <div className="absolute inset-0 overflow-y-auto p-6">{renderPage(p, true)}</div>;
   }
 
   if (!appReady) return (
@@ -300,11 +429,27 @@ export default function App() {
     </div>
   );
 
+  const sidebarWidth = sidebarCollapsed ? 0 : 280;
+
   return (
     <div className="flex h-full min-h-screen bg-slate-50">
       <Sidebar
         currentPage={page}
         onNavigate={(p) => setPage(p as Page)}
+        splitPage={session?.type === "owner" ? splitPage : null}
+        onOpenSplit={session?.type === "owner" ? ((p) => setSplitPage((cur) => cur === p ? null : (p as Page))) : undefined}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onSelectWorkspace={selectWorkspace}
+        onCreateWorkspace={createWorkspace}
+        tiktokEnabled={!!clients.find((c) => c.id === selectedClientId)?.tiktokEnabled}
+        instagramEnabled={(clients.find((c) => c.id === selectedClientId) as { instagramEnabled?: boolean } | undefined)?.instagramEnabled !== false}
+        platform={platform}
+        onSelectPlatform={setPlatform}
+        onMoveClient={async (clientId, workspaceId) => {
+          await fetch(`/api/clients/${clientId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspaceId }) }).catch(() => {});
+          fetchClients();
+        }}
         clients={clients}
         selectedClientId={selectedClientId}
         onSelectClient={setSelectedClientId}
@@ -335,9 +480,27 @@ export default function App() {
           fetchNotifications();
         }}
       />
-      {page === "board"
+      {splitPage && session?.type === "owner" ? (
+        <div ref={splitRef} className="fixed top-0 bottom-0 right-0 flex h-screen transition-[left] duration-200" style={{ left: sidebarWidth }}>
+          <div className="relative h-screen overflow-hidden bg-slate-50" style={{ width: `${splitRatio * 100}%` }}>
+            {paneEl(page)}
+          </div>
+          <div onMouseDown={startResize} title="Drag to resize"
+            className="w-1.5 h-screen flex-shrink-0 bg-slate-200 hover:bg-indigo-400 cursor-col-resize transition-colors" />
+          <div className="flex flex-col flex-1 h-screen overflow-hidden bg-slate-50">
+            <div className="flex items-center justify-between px-3 h-8 flex-shrink-0 border-b border-line bg-white">
+              <span className="text-[11px] font-semibold text-faint">◨ {PAGE_LABELS[splitPage]}</span>
+              <button onClick={() => setSplitPage(null)} title="Close split view"
+                className="w-6 h-6 rounded-full text-faint hover:text-ink hover:bg-black/[0.06] flex items-center justify-center">✕</button>
+            </div>
+            <div className="relative flex-1 overflow-hidden">
+              {paneEl(splitPage)}
+            </div>
+          </div>
+        </div>
+      ) : page === "board"
         ? <>{transitioning ? null : renderPage()}</>
-        : <main className="flex-1 p-8 min-w-0 flex flex-col h-screen overflow-y-auto transition-[margin] duration-200" style={{ marginLeft: sidebarCollapsed ? 0 : 280 }}>
+        : <main className="flex-1 p-8 min-w-0 flex flex-col h-screen overflow-y-auto transition-[margin] duration-200" style={{ marginLeft: sidebarWidth }}>
             {transitioning
               ? <div className="flex items-center justify-center" style={{height: "calc(100vh - 4rem)"}}><div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
               : renderPage()

@@ -14,6 +14,7 @@ import { markSeen as markSentBackSeen, getSeen as getSentBackSeen } from "@/lib/
 
 type Props = {
   clients: Client[];
+  platform?: "instagram" | "tiktok";
   selectedClientId: number | null;
   onSelectClient: (id: number | null) => void;
   activeProfileId: number | null;
@@ -194,7 +195,7 @@ function resolvePersonLabel(v: PersonValue, client: Client | null, team: TeamMem
 }
 
 // ─── Main Kanban ────────────────────────────────────────────────────────────
-export default function Kanban({ clients, selectedClientId, onSelectClient, activeProfileId, activeProfile, team, ownerName = "Owner", isClient = false, onOpenChat, onBadgesChanged, highlightDraftId, onHighlightConsumed }: Props) {
+export default function Kanban({ clients, platform = "instagram", selectedClientId, onSelectClient, activeProfileId, activeProfile, team, ownerName = "Owner", isClient = false, onOpenChat, onBadgesChanged, highlightDraftId, onHighlightConsumed }: Props) {
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
   const [flashId, setFlashId] = useState<number | null>(null);
   const [stages, setStages] = useState<WorkflowStage[]>([]);
@@ -258,19 +259,27 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       fetch("/api/workflow/ensure-defaults", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: selectedClientId }),
+        body: JSON.stringify({ clientId: selectedClientId, platform }),
       }).then((r) => r.json()),
-      fetch(`/api/concepts?clientId=${selectedClientId}&isIdea=false`).then((r) => r.json()),
-      fetch(`/api/script-drafts?clientId=${selectedClientId}`).then((r) => r.json()),
+      fetch(`/api/concepts?clientId=${selectedClientId}&isIdea=false&platform=${platform}`).then((r) => r.json()),
+      fetch(`/api/script-drafts?clientId=${selectedClientId}&platform=${platform}`).then((r) => r.json()),
       fetch(`/api/creators?clientId=${selectedClientId}`).then((r) => r.json()),
     ]);
     setStages(s);
     setConcepts(co);
     setDrafts(d);
     setCreators(Array.isArray(cr) ? cr : []);
-  }, [selectedClientId]);
+  }, [selectedClientId, platform]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Refetch instantly when a reel is sent to the Kanban from elsewhere (e.g. the Instagram
+  // tab, including side-by-side in split view) — no manual refresh needed.
+  useEffect(() => {
+    const onAdded = () => reload();
+    window.addEventListener("ordo:draft-added", onAdded);
+    return () => window.removeEventListener("ordo:draft-added", onAdded);
+  }, [reload]);
 
   // Everyone except the owner sees ONLY the stages assigned to them. A client login
   // sees stages assigned to the "client" role (or to them specifically); a team
@@ -394,7 +403,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
     try {
       await fetch("/api/script-drafts/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: draft.clientId, conceptIds: [draft.conceptId], count: 1, weekLabel: draft.weekLabel, dayLabel: (draft as any).dayLabel || null }),
+        body: JSON.stringify({ clientId: draft.clientId, platform, conceptIds: [draft.conceptId], count: 1, weekLabel: draft.weekLabel, dayLabel: (draft as any).dayLabel || null }),
       });
     } catch { /* non-fatal */ }
     finally { setReplacingBusy(false); }
@@ -964,6 +973,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       {showGenerate && (
         <GenerateModal
           client={client}
+          platform={platform}
           concepts={concepts}
           onClose={() => setShowGenerate(false)}
           onGenerated={() => { setShowGenerate(false); reload(); }}
@@ -974,6 +984,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       {showBatch && (
         <BatchModal
           client={client}
+          platform={platform}
           concepts={concepts}
           drafts={drafts}
           onClose={() => setShowBatch(false)}
@@ -995,6 +1006,7 @@ export default function Kanban({ clients, selectedClientId, onSelectClient, acti
       {showImport && (
         <ImportScriptModal
           client={client}
+          platform={platform}
           concepts={concepts}
           stages={stages}
           onClose={() => setShowImport(false)}
@@ -1254,8 +1266,184 @@ function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; on
   );
 }
 
+function fmtNum(n?: number | null): string {
+  if (n == null) return "—";
+  return n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "K" : String(n);
+}
+
+// Self-resolving example player — mirrors the Instagram tab: shows a poster, and on play
+// resolves a fresh, permanent video url (re-capturing via reel-media if needed) and streams
+// it through our own /api/vid proxy so it always plays. Falls back to "Watch on Instagram"
+// only when the file genuinely can't be fetched — never a black box.
+function ExampleReelPlayer({ reelId, storedUrl, thumbnail, igLink, onDetails }:
+  { reelId: number | null; storedUrl: string | null; thumbnail: string | null; igLink: string | null; onDetails?: () => void }) {
+  const [playing, setPlaying] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const triedRefresh = useRef(false);
+
+  // A stored url that's an instagram.com permalink is NOT a playable file — ignore it.
+  const stored = storedUrl && !/instagram\.com/i.test(storedUrl) ? storedUrl : null;
+
+  async function resolve(refresh = false) {
+    setLoading(true); setFailed(false);
+    try {
+      if (reelId) {
+        const d = await fetch(`/api/competitors/reel-media?id=${reelId}${refresh ? "&refresh=1" : ""}`, { cache: "no-store" }).then((r) => r.json());
+        setUrl(d?.url || stored || null);
+        if (!d?.url && !stored) setFailed(true);
+      } else if (stored) {
+        setUrl(stored);
+      } else { setFailed(true); }
+    } catch { if (stored) setUrl(stored); else setFailed(true); }
+    finally { setLoading(false); }
+  }
+
+  function play() { setPlaying(true); resolve(false); }
+  function onErr() {
+    if (!triedRefresh.current && reelId) { triedRefresh.current = true; resolve(true); }
+    else setFailed(true);
+  }
+
+  return (
+    <div className="relative rounded-xl overflow-hidden bg-slate-900 aspect-video mb-1.5 group">
+      {!playing ? (
+        <button type="button" onClick={play} className="w-full h-full block">
+          {thumbnail
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={imgSrc(thumbnail)} alt="" className="w-full h-full object-cover" />
+            : stored
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              ? <video src={videoSrc(stored)} preload="metadata" muted playsInline className="w-full h-full object-cover" />
+              : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/35 transition-colors">
+            <span className="w-12 h-12 rounded-full bg-white/90 text-ink flex items-center justify-center text-lg shadow-lg">▶</span>
+          </div>
+        </button>
+      ) : loading ? (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+          <div className="w-7 h-7 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+          <p className="text-white/50 text-[11px]">Preparing reel…</p>
+        </div>
+      ) : url && !failed ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video key={url} src={`/api/vid?u=${encodeURIComponent(url)}`} poster={thumbnail ? imgSrc(thumbnail) : undefined}
+          controls autoPlay playsInline onError={onErr} className="w-full h-full object-contain bg-black" />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-4 text-center">
+          <p className="text-white/60 text-[11px]">Couldn&apos;t load the video here.</p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { triedRefresh.current = false; resolve(true); }} className="bg-white/90 text-ink text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
+            {igLink && <a href={igLink} target="_blank" rel="noopener noreferrer" className="text-white/70 text-[11px] font-medium px-3 py-1 rounded-full border border-white/20">Watch on Instagram ↗</a>}
+          </div>
+        </div>
+      )}
+      {onDetails && (
+        <button onClick={onDetails} className="absolute bottom-2 right-2 z-10 text-[11px] font-semibold text-white bg-black/55 hover:bg-black/75 px-2.5 py-1 rounded-full backdrop-blur-sm">ⓘ Details</button>
+      )}
+    </div>
+  );
+}
+
+// The "more info" sidebar for a Kanban example — same shape as the Instagram reel detail:
+// player, watch-on-IG, analytics, and a Whisper transcript.
+function ExampleDetailPanel({ reelId, storedUrl, thumbnail, igLink, onClose }:
+  { reelId: number | null; storedUrl: string | null; thumbnail: string | null; igLink: string | null; onClose: () => void }) {
+  const [info, setInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(!!reelId);
+  const storageKey = `reel_transcript_${reelId}`;
+  const [transcript, setTranscript] = useState<string | null>(() => { try { return reelId ? localStorage.getItem(storageKey) : null; } catch { return null; } });
+  const [transcribing, setTranscribing] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), 10); return () => clearTimeout(t); }, []);
+
+  useEffect(() => {
+    if (!reelId) { setLoading(false); return; }
+    let cancelled = false;
+    fetch(`/api/script-drafts/reel-info?id=${reelId}`).then((r) => r.json())
+      .then((d) => { if (!cancelled) { setInfo(d); setTranscript((prev) => prev || d?.transcript || null); } })
+      .catch(() => {}).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [reelId]);
+
+  async function transcribe() {
+    if (!reelId) return;
+    setTranscribing(true);
+    try {
+      const d = await fetch("/api/instagram/transcribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reelId }) }).then((r) => r.json());
+      const text = d.error ? `Error: ${d.error}` : (d.transcript || "No speech detected.");
+      setTranscript(text);
+      if (!d.error) { try { localStorage.setItem(storageKey, text); } catch {} }
+    } catch { setTranscript("Transcription failed. Please try again."); }
+    setTranscribing(false);
+  }
+
+  const stats = [
+    { label: "Views", value: info?.views, icon: "▶", color: "bg-accent-tint text-accent-strong" },
+    { label: "Likes", value: info?.likes, icon: "♥", color: "bg-pink-50 text-pink-700" },
+    { label: "Comments", value: info?.comments, icon: "💬", color: "bg-slate-50 text-ink-2" },
+  ].filter((s) => s.value != null);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-end bg-black/40" onClick={onClose}>
+      <div className={`w-[460px] max-w-full h-full bg-white flex flex-col o-elev-pop overflow-hidden transform transition-transform duration-300 ease-out ${mounted ? "translate-x-0" : "translate-x-full"}`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line flex-shrink-0">
+          <div>
+            <p className="text-sm font-semibold text-ink">{info?.handle ? `@${info.handle}` : "Reference reel"}</p>
+            {info?.postedAt && <p className="text-[10px] text-faint">{new Date(info.postedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>}
+          </div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-faint">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 pb-0">
+            <ExampleReelPlayer reelId={reelId} storedUrl={storedUrl} thumbnail={thumbnail} igLink={igLink} />
+          </div>
+          {igLink && (
+            <a href={igLink} target="_blank" rel="noopener noreferrer" className="block text-center text-[11px] text-accent hover:text-accent-strong pb-2">Doesn&apos;t play? Watch on Instagram ↗</a>
+          )}
+          <div className="px-5 pb-5 space-y-5">
+            {info?.caption && (<div><p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1.5">Caption</p><p className="text-sm text-ink-2 leading-relaxed">{info.caption}</p></div>)}
+            {stats.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2.5">Analytics</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {stats.map(({ label, value, icon, color }) => (
+                    <div key={label} className={`rounded-xl p-2.5 text-center ${color}`}>
+                      <p className="text-[10px] font-medium opacity-70 mb-0.5">{icon} {label}</p>
+                      <p className="text-sm font-bold">{fmtNum(value as number)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">Transcript</p>
+                {reelId && <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-accent hover:text-accent-strong disabled:opacity-50">{transcribing ? "Transcribing…" : transcript ? "↻ Redo" : "↯ Auto-transcribe"}</button>}
+              </div>
+              {transcript
+                ? <div className="bg-accent-tint border border-accent-tint rounded-xl p-3.5 text-sm text-ink-2 leading-relaxed max-h-52 overflow-y-auto">{transcript}</div>
+                : <div className="bg-slate-50 border border-dashed border-line rounded-xl p-4 text-center">
+                    {transcribing
+                      ? <div className="flex flex-col items-center gap-2"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /><p className="text-xs text-faint">Transcribing audio…</p></div>
+                      : <p className="text-xs text-faint">{reelId ? "Click to auto-transcribe via Whisper" : "No transcript available for this example."}</p>}
+                  </div>}
+            </div>
+            {loading && <div className="flex justify-center py-4"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Example/reference video the recorder copies ──────────────────────────────
 function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUploaded: (url: string | null) => void }) {
+  const [showDetails, setShowDetails] = useState(false);
+  const d0 = draft as any;
+  const igFallback: string | null = d0.exampleLink || (draft.exampleVideoUrl && /instagram\.com/i.test(draft.exampleVideoUrl) ? draft.exampleVideoUrl : null);
+  const hasExample = !!(draft.exampleVideoUrl || d0.exampleReelId || d0.exampleThumbnail);
   const inputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
@@ -1279,12 +1467,25 @@ function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUplo
   return (
     <div>
       <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">🎬 Example to copy</label>
-      {draft.exampleVideoUrl ? (
-        <div className="rounded-xl overflow-hidden bg-slate-900 aspect-video mb-1.5">
-          <video src={videoSrc(draft.exampleVideoUrl)} controls className="w-full h-full object-contain" />
-        </div>
+      {hasExample ? (
+        <ExampleReelPlayer
+          reelId={d0.exampleReelId ?? null}
+          storedUrl={draft.exampleVideoUrl ?? null}
+          thumbnail={d0.exampleThumbnail ?? null}
+          igLink={igFallback}
+          onDetails={d0.exampleReelId ? () => setShowDetails(true) : undefined}
+        />
       ) : (
         <p className="text-xs text-slate-400 italic mb-1.5">No example yet — add a reference recording for whoever films this.</p>
+      )}
+      {showDetails && (
+        <ExampleDetailPanel
+          reelId={d0.exampleReelId ?? null}
+          storedUrl={draft.exampleVideoUrl ?? null}
+          thumbnail={d0.exampleThumbnail ?? null}
+          igLink={igFallback}
+          onClose={() => setShowDetails(false)}
+        />
       )}
       <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
 
@@ -1662,7 +1863,7 @@ function DraftDetailPanel({
                 {/* Example to copy — reference recording. Shown whenever one is attached
                     (including Ideas, e.g. a competitor reel sent here), and during
                     record/edit so an example can be uploaded. */}
-                {(!!draft.exampleVideoUrl || (inStage && !isCheckStage && !afterEdit)) && (
+                {(!!draft.exampleVideoUrl || !!(draft as any).exampleReelId || !!(draft as any).exampleThumbnail || (inStage && !isCheckStage && !afterEdit)) && (
                   <ExampleVideoSection draft={draft} onUploaded={onExampleUploaded} />
                 )}
 
@@ -2561,8 +2762,8 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 
 // ─── Generate scripts modal ─────────────────────────────────────────────────
 // ─── Import an existing script (from Google Docs etc.) as an Idea ────────────
-function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
-  client: Client; concepts: Concept[]; stages: WorkflowStage[]; onClose: () => void; onImported: () => void;
+function ImportScriptModal({ client, platform = "instagram", concepts, stages, onClose, onImported }: {
+  client: Client; platform?: "instagram" | "tiktok"; concepts: Concept[]; stages: WorkflowStage[]; onClose: () => void; onImported: () => void;
 }) {
   const [conceptId, setConceptId] = useState<number | "">(concepts[0]?.id ?? "");
   const [title, setTitle] = useState("");
@@ -2657,6 +2858,7 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId: client.id,
+          platform,
           conceptId,
           title: title.trim() || autoTitle,
           hook: hook.trim() || null,
@@ -2811,8 +3013,8 @@ function ImportScriptModal({ client, concepts, stages, onClose, onImported }: {
   );
 }
 
-function GenerateModal({ client, concepts, onClose, onGenerated }: {
-  client: Client; concepts: Concept[]; onClose: () => void; onGenerated: () => void;
+function GenerateModal({ client, platform = "instagram", concepts, onClose, onGenerated }: {
+  client: Client; platform?: "instagram" | "tiktok"; concepts: Concept[]; onClose: () => void; onGenerated: () => void;
 }) {
   // Client-owned concepts are written by the client themselves (assigned in Script
   // Tasks) — the AI must not generate scripts for them, so they're excluded here.
@@ -2837,7 +3039,7 @@ function GenerateModal({ client, concepts, onClose, onGenerated }: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: client.id, conceptIds: selectedConcepts,
+          clientId: client.id, platform, conceptIds: selectedConcepts,
           weekLabel, dayLabel: dayLabel || null, count,
         }),
       });
@@ -2949,8 +3151,8 @@ function postsPerWeekOf(c: Concept): number {
   const days = ((c as any).postDays || "").split(/[,;/]+|\s+/).filter(Boolean).length;
   return days > 0 ? days : 1;
 }
-function BatchModal({ client, concepts, drafts, onClose, onGenerated }: {
-  client: Client; concepts: Concept[]; drafts: ScriptDraft[]; onClose: () => void; onGenerated: () => void;
+function BatchModal({ client, platform = "instagram", concepts, drafts, onClose, onGenerated }: {
+  client: Client; platform?: "instagram" | "tiktok"; concepts: Concept[]; drafts: ScriptDraft[]; onClose: () => void; onGenerated: () => void;
 }) {
   const genConcepts = concepts.filter((c) => !(c as any).clientOwned);
   const [weeks, setWeeks] = useState(1);
@@ -2995,7 +3197,7 @@ function BatchModal({ client, concepts, drafts, onClose, onGenerated }: {
       for (const id of active) countsPayload[id] = counts[id];
       const res = await fetch("/api/script-drafts/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: client.id, conceptIds: active, counts: countsPayload, weekLabel, dayLabel: null }),
+        body: JSON.stringify({ clientId: client.id, platform, conceptIds: active, counts: countsPayload, weekLabel, dayLabel: null }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Generation failed."); return; }

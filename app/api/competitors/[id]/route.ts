@@ -7,13 +7,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const competitor = await prisma.competitor.update({
     where: { id: parseInt(id) },
     data: {
-      handle: body.handle,
-      name: body.name || null,
-      niche: body.niche || null,
-      followerCount: body.followerCount ? parseInt(body.followerCount) : null,
-      notes: body.notes || null,
-      profileUrl: body.profileUrl || null,
-    },
+      ...(body.handle !== undefined ? { handle: body.handle } : {}),
+      ...(body.name !== undefined ? { name: body.name || null } : {}),
+      ...(body.niche !== undefined ? { niche: body.niche || null } : {}),
+      ...(body.tags !== undefined ? { tags: body.tags || null } : {}),
+      ...(body.followerCount !== undefined ? { followerCount: body.followerCount ? parseInt(body.followerCount) : null } : {}),
+      ...(body.notes !== undefined ? { notes: body.notes || null } : {}),
+      ...(body.profileUrl !== undefined ? { profileUrl: body.profileUrl || null } : {}),
+    } as any,
   });
   return NextResponse.json(competitor);
 }

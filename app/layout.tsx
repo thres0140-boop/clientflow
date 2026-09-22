@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   applicationName: "ORDO",
   appleWebApp: { capable: true, title: "ORDO", statusBarStyle: "black-translucent" },
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/icons/180", // square icon for iOS home screen
+    icon: "/icons/64",      // ORDO wordmark — browser tab
+    shortcut: "/icons/64",
+    apple: "/icons/180",    // square icon for iOS home screen
   },
 };
 

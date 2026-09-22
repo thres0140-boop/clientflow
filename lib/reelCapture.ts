@@ -15,13 +15,14 @@ const GIVE_UP_AFTER = 25; // capture passes before we flag a reel unavailable fo
 type ReelRow = {
   id: number; shortcode: string; cachedVideoUrl: string | null;
   transcript: string | null; captureTries: number;
+  mediaUrl: string | null; mediaUrlAt: Date | null;
   competitor?: { handle: string | null } | null;
 };
 
 async function loadReel(reelId: number): Promise<ReelRow | null> {
   return (prisma as any).competitorReel.findUnique({
     where: { id: reelId },
-    select: { id: true, shortcode: true, cachedVideoUrl: true, transcript: true, captureTries: true, competitor: { select: { handle: true } } },
+    select: { id: true, shortcode: true, cachedVideoUrl: true, transcript: true, captureTries: true, mediaUrl: true, mediaUrlAt: true, competitor: { select: { handle: true } } },
   });
 }
 
@@ -48,6 +49,22 @@ export async function ensureReelVideo(reelId: number): Promise<{ url: string | n
   const reel = await loadReel(reelId);
   if (!reel) return { url: null, permanent: false };
   if (reel.cachedVideoUrl && isR2Url(reel.cachedVideoUrl)) return { url: reel.cachedVideoUrl, permanent: true };
+
+  // FAST PATH: the scrape usually already grabbed a fresh video URL. If it's recent (< 55 min,
+  // safely inside Instagram's signed-URL lifetime) download THAT straight to R2 — no vendor
+  // call, no rate limit. This is what makes freshly-scraped reels cache almost immediately.
+  const FRESH_MS = 55 * 60_000;
+  if (reel.mediaUrl && reel.mediaUrlAt && Date.now() - new Date(reel.mediaUrlAt).getTime() < FRESH_MS) {
+    const dl = await downloadToR2(reel.mediaUrl, `comp-videos/${reelId}.mp4`);
+    if (dl) {
+      await (prisma as any).competitorReel.update({
+        where: { id: reelId },
+        data: { cachedVideoUrl: dl.url, captureStatus: reel.transcript ? "done" : "pending" },
+      }).catch(() => {});
+      return { url: dl.url, permanent: true, bytes: dl.bytes };
+    }
+    // else fall through to a fresh vendor resolve below
+  }
 
   const handle = reel.competitor?.handle || "";
   const fresh = handle ? await freshReelMediaUrl(handle, reel.shortcode) : null;

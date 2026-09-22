@@ -4,7 +4,9 @@
 // Routing through our /api/vid and /api/img proxies sidesteps that (Vercel's egress isn't
 // throttled the same way) and also covers expired Instagram CDN links and the dead Cloudinary.
 function shouldProxy(url: string): boolean {
-  return /\.r2\.dev\//.test(url) || /res\.cloudinary\.com/.test(url) || /cdninstagram\.com|fbcdn\.net/.test(url);
+  return /\.r2\.dev\//.test(url) || /res\.cloudinary\.com/.test(url) || /cdninstagram\.com|fbcdn\.net/.test(url)
+    // TikTok CDN avatars/covers block cross-origin hotlinking + use expiring signed URLs, so proxy them.
+    || /tiktokcdn|ttwstatic|tiktokv\.com|ibyteimg|muscdn|bytecdn/.test(url);
 }
 
 export function videoSrc(url?: string | null): string {

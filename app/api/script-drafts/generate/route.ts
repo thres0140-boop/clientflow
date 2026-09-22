@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
   // `count` = a single number applied to every concept. `counts` = an optional per-concept
   // map { conceptId: n } used by Batch mode to generate exactly as many as each concept needs.
   const { clientId, conceptIds, weekLabel, dayLabel, count: defaultCount = 5, counts } = body;
+  const platform = body.platform || "instagram";
 
   const clientData = await prisma.client.findUnique({ where: { id: parseInt(clientId) } });
   if (!clientData) return NextResponse.json({ error: "Client not found" }, { status: 404 });
@@ -281,6 +282,7 @@ Steps: (1) read the example scripts and lock onto their single shared message + 
       const draft = await prisma.scriptDraft.create({
         data: {
           clientId: clientData.id,
+          platform,
           conceptId: concept.id,
           title: d.title || `${concept.name} — ${weekLabel}`,
           hook: d.hook || null,

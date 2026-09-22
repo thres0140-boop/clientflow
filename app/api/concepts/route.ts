@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   const isIdea = req.nextUrl.searchParams.get("isIdea");
+  const platform = req.nextUrl.searchParams.get("platform") || "instagram";
   const where: Record<string, unknown> = clientId
-    ? { OR: [{ clientId: parseInt(clientId) }, { clientId: null }] }
-    : {};
+    ? { OR: [{ clientId: parseInt(clientId) }, { clientId: null }], platform }
+    : { platform };
   if (isIdea !== null) where.isIdea = isIdea === "true";
   const concepts = await prisma.concept.findMany({
     where,
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
   const concept = await prisma.concept.create({
     data: {
       clientId: body.clientId ? parseInt(body.clientId) : null,
+      platform: body.platform || "instagram",
       name: body.name,
       conceptType: body.conceptType || null,
       reelUrls: body.reelUrls ? (typeof body.reelUrls === "string" ? body.reelUrls : JSON.stringify(body.reelUrls)) : null,

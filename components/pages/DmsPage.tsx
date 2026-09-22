@@ -369,7 +369,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
   );
 
   if (!selectedClientId) {
-    return <div className="flex items-center justify-center h-64 text-slate-400 text-sm">Select a client</div>;
+    return <div className="flex items-center justify-center h-64 text-faint text-sm">Select a client</div>;
   }
 
   return (
@@ -377,24 +377,24 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">DM Pipeline</h1>
-          <p className="text-slate-500 mt-0.5 text-sm">{client?.name}</p>
+          <h1 className="text-2xl font-bold text-ink">DM Pipeline</h1>
+          <p className="text-muted mt-0.5 text-sm">{client?.name}</p>
         </div>
         <div className="flex items-center gap-3">
           {/* View toggle */}
           <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1">
             <button onClick={() => setView("pipeline")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "pipeline" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "pipeline" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
               📊 Pipeline
             </button>
             <button onClick={() => setView("inbox")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "inbox" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "inbox" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
               💬 Instagram Inbox
             </button>
           </div>
           {view === "pipeline" && (
             <button onClick={() => { setEditLead(null); setShowAdd(true); }}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+              className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong">
               + Add Lead
             </button>
           )}
@@ -413,26 +413,26 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                   if (p === "day") { const t = new Date(); t.setHours(0,0,0,0); setStartDate(t); }
                   else if (p !== "all") setStartDate(getMonday(new Date()));
                 }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
                   {p === "day" ? "Day" : p === "week" ? "1 Week" : p === "2weeks" ? "2 Weeks" : p === "month" ? "Month" : "All time"}
                 </button>
               ))}
             </div>
             {period !== "all" && (
               <>
-                <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden">
-                  <button onClick={() => setStartDate((d) => addDays(d, -days))} className="px-3 py-2 hover:bg-slate-50 text-slate-500 border-r border-slate-200">‹</button>
-                  <span className="px-4 text-sm font-medium text-slate-700 whitespace-nowrap">{rangeLabel(startDate, days)}</span>
-                  <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-slate-50 text-slate-500 border-l border-slate-200">›</button>
+                <div className="flex items-center bg-white border border-line rounded-lg overflow-hidden">
+                  <button onClick={() => setStartDate((d) => addDays(d, -days))} className="px-3 py-2 hover:bg-slate-50 text-muted border-r border-line">‹</button>
+                  <span className="px-4 text-sm font-medium text-ink-2 whitespace-nowrap">{rangeLabel(startDate, days)}</span>
+                  <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-slate-50 text-muted border-l border-line">›</button>
                 </div>
                 <button onClick={() => {
                   if (period === "day") { const t = new Date(); t.setHours(0,0,0,0); setStartDate(t); }
                   else setStartDate(getMonday(new Date()));
                 }}
-                  className="px-3 py-2 text-xs border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 bg-white">Now</button>
+                  className="px-3 py-2 text-xs border border-line rounded-lg text-muted hover:bg-slate-50 bg-white">Now</button>
               </>
             )}
-            <span className="text-xs text-slate-400">{filtered.length} lead{filtered.length !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-faint">{filtered.length} lead{filtered.length !== 1 ? "s" : ""}</span>
           </div>
 
           {/* Stats + Kanban — horizontal scroll wrapper, fills remaining height */}
@@ -446,7 +446,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                     <div key={s.value} className={`flex-1 rounded-xl border px-3 py-3 ${s.bg} ${s.border}`}>
                       <p className={`text-[11px] font-semibold truncate ${s.text}`}>{s.label}</p>
                       <p className={`text-2xl font-bold mt-0.5 ${s.text}`}>{count}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">lead{count !== 1 ? "s" : ""}</p>
+                      <p className="text-[10px] text-faint mt-0.5">lead{count !== 1 ? "s" : ""}</p>
                     </div>
                   );
                 })}
@@ -491,19 +491,19 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
 
       {/* ── INBOX VIEW ─────────────────────────────────────────────────── */}
       {view === "inbox" && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex-1 min-h-0">
+        <div className="bg-white rounded-2xl border border-line overflow-hidden flex-1 min-h-0">
           <div className="flex h-full">
             {/* Left: conversation list */}
-            <div className="w-80 flex-shrink-0 border-r border-slate-200 flex flex-col">
+            <div className="w-80 flex-shrink-0 border-r border-line flex flex-col">
               {/* Search + refresh */}
-              <div className="px-3 py-3 border-b border-slate-100 flex items-center gap-2">
+              <div className="px-3 py-3 border-b border-line flex items-center gap-2">
                 <input
                   value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search conversations…"
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="flex-1 text-sm border border-line rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
                 <button onClick={loadInbox} disabled={inboxLoading}
-                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-40 text-sm">
+                  className="p-1.5 text-faint hover:text-accent hover:bg-accent-tint rounded-lg transition-colors disabled:opacity-40 text-sm">
                   {inboxLoading ? "…" : "↻"}
                 </button>
               </div>
@@ -515,13 +515,13 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                     {inboxError === "no_zernio_account" ? (
                       <>
                         <p className="text-3xl mb-2">🔌</p>
-                        <p className="text-sm font-semibold text-slate-700">Instagram DMs not connected</p>
-                        <p className="text-[11px] text-slate-400 leading-relaxed max-w-[200px] mx-auto mt-1">
+                        <p className="text-sm font-semibold text-ink-2">Instagram DMs not connected</p>
+                        <p className="text-[11px] text-faint leading-relaxed max-w-[200px] mx-auto mt-1">
                           Connect this client's Instagram account in Settings to enable the DM inbox.
                         </p>
                         <button
                           onClick={onGoToSettings}
-                          className="mt-3 px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                          className="mt-3 px-4 py-2 text-xs font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong"
                         >
                           Go to Settings →
                         </button>
@@ -529,35 +529,35 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                     ) : (
                       <>
                         <p className="text-xs font-semibold text-red-500">Could not load inbox</p>
-                        <p className="text-[11px] text-slate-400 leading-relaxed">{inboxError}</p>
+                        <p className="text-[11px] text-faint leading-relaxed">{inboxError}</p>
                       </>
                     )}
-                    <button onClick={loadInbox} className="mt-2 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Retry</button>
+                    <button onClick={loadInbox} className="mt-2 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-strong">Retry</button>
                   </div>
                 ) : inboxLoading && conversations.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400 text-xs">Loading conversations…</div>
+                  <div className="p-8 text-center text-faint text-xs">Loading conversations…</div>
                 ) : filteredConvs.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400 text-xs">
+                  <div className="p-8 text-center text-faint text-xs">
                     {search ? "No matches" : "No conversations yet"}
                   </div>
                 ) : (
                   filteredConvs.map((conv) => (
                     <button key={conv.id} onClick={() => setSelectedConv(conv)}
-                      className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-slate-50 hover:bg-slate-50 transition-colors ${selectedConv?.id === conv.id ? "bg-indigo-50 border-l-2 border-l-indigo-500" : ""}`}>
+                      className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-slate-50 hover:bg-slate-50 transition-colors ${selectedConv?.id === conv.id ? "bg-accent-tint border-l-2 border-l-accent" : ""}`}>
                       {/* Avatar */}
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden">
                         {conv.avatar ? <img src={conv.avatar} alt={conv.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} /> : (conv.name?.[0]?.toUpperCase() ?? "?")}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <p className="text-sm font-semibold text-slate-800 truncate">{conv.name}</p>
-                          <span className="text-[10px] text-slate-400 flex-shrink-0">{timeAgo(conv.updatedTime)}</span>
+                          <p className="text-sm font-semibold text-ink truncate">{conv.name}</p>
+                          <span className="text-[10px] text-faint flex-shrink-0">{timeAgo(conv.updatedTime)}</span>
                         </div>
-                        {conv.handle && <p className="text-[11px] text-slate-400">@{conv.handle}</p>}
-                        {conv.snippet && <p className="text-xs text-slate-400 mt-0.5 truncate">{conv.snippet}</p>}
+                        {conv.handle && <p className="text-[11px] text-faint">@{conv.handle}</p>}
+                        {conv.snippet && <p className="text-xs text-faint mt-0.5 truncate">{conv.snippet}</p>}
                       </div>
                       {conv.unreadCount != null && conv.unreadCount > 0 && (
-                        <div className="w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 mt-1">
+                        <div className="w-5 h-5 bg-accent rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 mt-1">
                           {conv.unreadCount}
                         </div>
                       )}
@@ -569,28 +569,28 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
 
             {/* Right: message thread */}
             {!selectedConv ? (
-              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+              <div className="flex-1 flex items-center justify-center text-faint text-sm">
                 <div className="text-center space-y-2">
                   <div className="text-4xl">💬</div>
-                  <p className="font-medium text-slate-600">Select a conversation</p>
-                  <p className="text-xs text-slate-400">Click any conversation on the left to open it</p>
+                  <p className="font-medium text-ink-2">Select a conversation</p>
+                  <p className="text-xs text-faint">Click any conversation on the left to open it</p>
                 </div>
               </div>
             ) : (
               <div className="flex-1 flex flex-col min-w-0">
                 {/* Thread header */}
-                <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between flex-shrink-0 bg-white">
+                <div className="px-5 py-3.5 border-b border-line flex items-center justify-between flex-shrink-0 bg-white">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-white text-sm font-bold overflow-hidden">
                       {selectedConv.avatar ? <img src={selectedConv.avatar} alt={selectedConv.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} /> : selectedConv.name?.[0]?.toUpperCase()}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">{selectedConv.name}</p>
-                      {selectedConv.handle && <p className="text-xs text-slate-400">@{selectedConv.handle}</p>}
+                      <p className="text-sm font-semibold text-ink">{selectedConv.name}</p>
+                      {selectedConv.handle && <p className="text-xs text-faint">@{selectedConv.handle}</p>}
                     </div>
                   </div>
                   <button onClick={() => addToPipeline(selectedConv)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-semibold rounded-lg hover:bg-indigo-100 border border-indigo-200">
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-tint text-accent text-xs font-semibold rounded-lg hover:bg-accent-tint border border-accent-tint">
                     + Add to Pipeline
                   </button>
                 </div>
@@ -599,19 +599,19 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                 <div className="flex-1 overflow-y-auto px-5 py-4">
                   <div className="flex flex-col min-h-full justify-end gap-3">
                   {messagesLoading && messages.length === 0 ? (
-                    <div className="text-center text-slate-400 text-xs">Loading messages…</div>
+                    <div className="text-center text-faint text-xs">Loading messages…</div>
                   ) : messages.length === 0 ? (
-                    <div className="text-center text-slate-400 text-xs">No messages yet</div>
+                    <div className="text-center text-faint text-xs">No messages yet</div>
                   ) : (
                     messages.map((msg) => (
                       <div key={msg.id} className={`flex ${msg.isOwn ? "justify-end" : "justify-start"}`}>
                         <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                           msg.isOwn
-                            ? "bg-indigo-600 text-white rounded-br-sm"
-                            : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                            ? "bg-accent text-white rounded-br-sm"
+                            : "bg-slate-100 text-ink rounded-bl-sm"
                         }`}>
                           <p>{msg.text}</p>
-                          <p className={`text-[10px] mt-1 ${msg.isOwn ? "text-indigo-200" : "text-slate-400"}`}>
+                          <p className={`text-[10px] mt-1 ${msg.isOwn ? "text-accent-tint" : "text-faint"}`}>
                             {timeAgo(msg.createdTime)}
                           </p>
                         </div>
@@ -623,7 +623,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                 </div>
 
                 {/* Reply input */}
-                <div className="px-4 py-3 border-t border-slate-200 flex-shrink-0 bg-white">
+                <div className="px-4 py-3 border-t border-line flex-shrink-0 bg-white">
                   <div className="flex items-end gap-2">
                     <textarea
                       value={replyText}
@@ -631,12 +631,12 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
                       placeholder="Type a message… (Enter to send)"
                       rows={2}
-                      className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="flex-1 border border-line rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                     <button
                       onClick={sendReply}
                       disabled={!replyText.trim() || sending}
-                      className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                      className="px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded-xl hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
                     >
                       {sending ? "…" : "Send"}
                     </button>
@@ -677,7 +677,7 @@ function KanbanCol({ statusVal, meta, col, activeDragId, onEdit, onDelete }: {
       </div>
       <div
         ref={setNodeRef}
-        className={`flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto rounded-xl transition-colors pb-2 ${isOver && activeDragId ? "bg-indigo-50/60 ring-2 ring-inset ring-indigo-300" : ""}`}
+        className={`flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto rounded-xl transition-colors pb-2 ${isOver && activeDragId ? "bg-accent-tint/60 ring-2 ring-inset ring-accent" : ""}`}
       >
         {col.map((lead) => (
           <DraggableLeadCard key={lead.id} lead={lead}
@@ -686,7 +686,7 @@ function KanbanCol({ statusVal, meta, col, activeDragId, onEdit, onDelete }: {
           />
         ))}
         {col.length === 0 && (
-          <div className={`border-2 border-dashed rounded-xl h-16 flex items-center justify-center text-xs transition-colors ${isOver && activeDragId ? "border-indigo-300 text-indigo-300" : "border-slate-100 text-slate-300"}`}>
+          <div className={`border-2 border-dashed rounded-xl h-16 flex items-center justify-center text-xs transition-colors ${isOver && activeDragId ? "border-accent text-accent" : "border-line text-faint"}`}>
             drop here
           </div>
         )}
@@ -725,27 +725,27 @@ function LeadCardInner({ lead, onEdit, onDelete }: {
   lead: DmLead; onEdit?: () => void; onDelete?: () => void;
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm select-none group">
+    <div className="bg-white border border-line rounded-xl p-3 shadow-sm select-none group">
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-slate-800 truncate">{lead.name}</p>
-          {lead.handle && <p className="text-[10px] text-slate-400 truncate">@{lead.handle.replace(/^@/, "")}</p>}
-          {lead.date && <p className="text-[10px] text-slate-300 mt-0.5">{lead.date.slice(5).replace("-", "/")}</p>}
+          <p className="text-xs font-semibold text-ink truncate">{lead.name}</p>
+          {lead.handle && <p className="text-[10px] text-faint truncate">@{lead.handle.replace(/^@/, "")}</p>}
+          {lead.date && <p className="text-[10px] text-faint mt-0.5">{lead.date.slice(5).replace("-", "/")}</p>}
           {(lead as any).source === "cta" && (
             <p className="text-[10px] font-medium text-orange-500 mt-1">⚡ CTA inbound</p>
           )}
           {lead.status === "link_sent" && (lead as any).linkSentAt && (
-            <p className="text-[10px] font-medium text-purple-500 mt-1">🔗 Link sent {timeAgoShort((lead as any).linkSentAt)}</p>
+            <p className="text-[10px] font-medium text-accent mt-1">🔗 Link sent {timeAgoShort((lead as any).linkSentAt)}</p>
           )}
         </div>
         {(onEdit || onDelete) && (
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-            {onEdit   && <button onPointerDown={(e) => e.stopPropagation()} onClick={onEdit}   className="p-0.5 text-slate-300 hover:text-slate-600 rounded text-xs">✏</button>}
-            {onDelete && <button onPointerDown={(e) => e.stopPropagation()} onClick={onDelete} className="p-0.5 text-slate-300 hover:text-red-500 rounded text-xs">✕</button>}
+            {onEdit   && <button onPointerDown={(e) => e.stopPropagation()} onClick={onEdit}   className="p-0.5 text-faint hover:text-ink-2 rounded text-xs">✏</button>}
+            {onDelete && <button onPointerDown={(e) => e.stopPropagation()} onClick={onDelete} className="p-0.5 text-faint hover:text-red-500 rounded text-xs">✕</button>}
           </div>
         )}
       </div>
-      {lead.notes && <p className="text-[10px] text-slate-400 mt-1.5 line-clamp-2">{lead.notes}</p>}
+      {lead.notes && <p className="text-[10px] text-faint mt-1.5 line-clamp-2">{lead.notes}</p>}
     </div>
   );
 }
@@ -776,48 +776,48 @@ function LeadModal({ selectedClientId, lead, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-800">{lead ? "Edit Lead" : "Add Lead"}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+          <h2 className="text-base font-semibold text-ink">{lead ? "Edit Lead" : "Add Lead"}</h2>
+          <button onClick={onClose} className="text-faint hover:text-ink-2">✕</button>
         </div>
         <form onSubmit={submit} className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Name *</label>
+              <label className="block text-xs font-medium text-ink-2 mb-1">Name *</label>
               <input required value={form.name} onChange={(e) => set("name", e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Instagram</label>
+              <label className="block text-xs font-medium text-ink-2 mb-1">Instagram</label>
               <input value={form.handle} onChange={(e) => set("handle", e.target.value)} placeholder="@handle"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Date messaged</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Date messaged</label>
             <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-2">Status</label>
+            <label className="block text-xs font-medium text-ink-2 mb-2">Status</label>
             <div className="flex flex-wrap gap-1.5">
               {DM_STATUSES.map((s) => (
                 <button key={s.value} type="button" onClick={() => set("status", s.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${form.status === s.value ? `${s.bg} ${s.text} ${s.border}` : "bg-white text-slate-400 border-slate-200"}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${form.status === s.value ? `${s.bg} ${s.text} ${s.border}` : "bg-white text-faint border-line"}`}>
                   {s.label}
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Notes</label>
             <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none" />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">{lead ? "Save" : "Add Lead"}</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-strong">{lead ? "Save" : "Add Lead"}</button>
           </div>
         </form>
       </div>

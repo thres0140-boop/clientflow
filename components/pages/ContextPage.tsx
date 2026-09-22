@@ -28,8 +28,8 @@ const REASON_LABELS: Record<string, { label: string; emoji: string; color: strin
   hook_bad:      { label: "Hook doesn't land",   emoji: "🪝", color: "bg-red-100 text-red-700" },
   too_long:      { label: "Too long",            emoji: "📏", color: "bg-blue-100 text-blue-700" },
   too_short:     { label: "Too short",           emoji: "✂️", color: "bg-cyan-100 text-cyan-700" },
-  off_brand:     { label: "Off-brand",           emoji: "🚫", color: "bg-slate-100 text-slate-700" },
-  custom:        { label: "Custom feedback",     emoji: "✏️", color: "bg-purple-100 text-purple-700" },
+  off_brand:     { label: "Off-brand",           emoji: "🚫", color: "bg-slate-100 text-ink-2" },
+  custom:        { label: "Custom feedback",     emoji: "✏️", color: "bg-accent-tint text-accent-strong" },
 };
 
 const DEFAULT_RULES = `1. VOICE IS EVERYTHING
@@ -313,7 +313,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
   if (!client) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <p className="text-slate-400 text-sm">Select a client to view their AI context.</p>
+        <p className="text-faint text-sm">Select a client to view their AI context.</p>
       </div>
     );
   }
@@ -367,14 +367,14 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
     const isEditingBlueprint = blueprintEditing === concept.id;
 
     return (
-      <div className="border-t border-slate-100">
+      <div className="border-t border-line">
         {/* Pipeline header */}
         <div className="px-5 pt-4 pb-2">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">How Claude generates scripts for this concept</p>
-          <div className="flex items-center gap-1.5 mt-2 text-[10px] text-slate-400">
-            <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold">1 Blueprint</span>
+          <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">How Claude generates scripts for this concept</p>
+          <div className="flex items-center gap-1.5 mt-2 text-[10px] text-faint">
+            <span className="px-2 py-0.5 rounded-full bg-accent-tint text-accent font-semibold">1 Blueprint</span>
             <span>→</span>
-            <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold">2 Example Scripts</span>
+            <span className="px-2 py-0.5 rounded-full bg-accent-tint text-accent font-semibold">2 Example Scripts</span>
             <span>→</span>
             <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 font-semibold">3 Rejection Training</span>
             <span>→</span>
@@ -383,18 +383,18 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
         </div>
 
         {/* Posting days — fed to the generator so day-referencing scripts use the right day(s) */}
-        <div className="mx-5 mb-3 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+        <div className="mx-5 mb-3 rounded-xl border border-line bg-slate-50/60 px-4 py-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">📆 Posting days</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Which day(s) this concept posts on — Claude uses these when a script mentions the day.</p>
+              <p className="text-[10px] font-bold text-muted uppercase tracking-wide">📆 Posting days</p>
+              <p className="text-[10px] text-faint mt-0.5">Which day(s) this concept posts on — Claude uses these when a script mentions the day.</p>
             </div>
             <div className="flex items-center gap-1">
               {DOW.map((day) => {
                 const on = postDays.includes(day);
                 return (
                   <button key={day} onClick={() => togglePostDay(day)}
-                    className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${on ? "bg-indigo-600 text-white" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-100"}`}>
+                    className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${on ? "bg-accent text-white" : "bg-white border border-line text-muted hover:bg-slate-100"}`}>
                     {day}
                   </button>
                 );
@@ -404,17 +404,17 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
         </div>
 
         {/* Step 1: Blueprint */}
-        <div className="mx-5 mb-3 rounded-xl border border-indigo-200 bg-indigo-50/40 overflow-hidden">
-          <button onClick={() => toggle("blueprint")} className="w-full px-4 py-2 bg-indigo-100/60 border-b border-indigo-200 flex items-center justify-between hover:bg-indigo-100/80 transition-colors">
-            <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">① Blueprint — the concept template Claude always follows</p>
+        <div className="mx-5 mb-3 rounded-xl border border-accent-tint bg-accent-tint/40 overflow-hidden">
+          <button onClick={() => toggle("blueprint")} className="w-full px-4 py-2 bg-accent-tint/60 border-b border-accent-tint flex items-center justify-between hover:bg-accent-tint/80 transition-colors">
+            <p className="text-[10px] font-bold text-accent uppercase tracking-wide">① Blueprint — the concept template Claude always follows</p>
             <div className="flex items-center gap-2">
               {!isEditingBlueprint && openSections.blueprint && (
                 <span onClick={(e) => { e.stopPropagation(); startBlueprintEdit(concept); }}
-                  className="text-[9px] text-indigo-500 hover:text-indigo-700 font-semibold px-2 py-0.5 rounded border border-indigo-200 hover:bg-indigo-100 transition-colors">
+                  className="text-[9px] text-accent hover:text-accent-strong font-semibold px-2 py-0.5 rounded border border-accent-tint hover:bg-accent-tint transition-colors">
                   Edit
                 </span>
               )}
-              <span className={`text-indigo-400 text-xs transition-transform ${openSections.blueprint ? "rotate-180" : ""}`}>▾</span>
+              <span className={`text-accent text-xs transition-transform ${openSections.blueprint ? "rotate-180" : ""}`}>▾</span>
             </div>
           </button>
 
@@ -422,47 +422,47 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-1">Hook Type</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Hook Type</p>
                   <input value={d.hookType} onChange={(e) => patchDraft(concept.id, "hookType", e.target.value)}
                     placeholder="e.g. curiosity_gap"
-                    className="w-full text-xs border border-indigo-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-white" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-1">Video Type</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Video Type</p>
                   <input value={d.videoType} onChange={(e) => patchDraft(concept.id, "videoType", e.target.value)}
                     placeholder="e.g. talking_head"
-                    className="w-full text-xs border border-indigo-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-white" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-1">Text Hook</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Text Hook</p>
                   <input value={d.textHook} onChange={(e) => patchDraft(concept.id, "textHook", e.target.value)}
                     placeholder="Opening text overlay"
-                    className="w-full text-xs border border-indigo-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-white" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-1">Angle</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Angle</p>
                   <input value={d.angle} onChange={(e) => patchDraft(concept.id, "angle", e.target.value)}
                     placeholder="e.g. Beginner mistakes"
-                    className="w-full text-xs border border-indigo-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-white" />
                 </div>
                 <div className="col-span-2">
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-1">Structure</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Structure</p>
                   <input value={d.structure} onChange={(e) => patchDraft(concept.id, "structure", e.target.value)}
                     placeholder="Hook (3s) → Problem (6s) → Solution (10s) → CTA (3s)"
-                    className="w-full text-xs border border-indigo-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-white" />
                 </div>
                 <div className="col-span-2">
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-1">Guidelines</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Guidelines</p>
                   <textarea value={d.guidelines} onChange={(e) => patchDraft(concept.id, "guidelines", e.target.value)}
                     rows={3} placeholder="Extra instructions for Claude..."
-                    className="w-full text-xs border border-indigo-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-accent bg-white" />
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setBlueprintEditing(null)}
-                  className="text-[10px] text-slate-400 hover:text-slate-600 px-2.5 py-1 rounded border border-slate-200 transition-colors">Cancel</button>
+                  className="text-[10px] text-faint hover:text-ink-2 px-2.5 py-1 rounded border border-line transition-colors">Cancel</button>
                 <button onClick={() => saveBlueprint(concept.id)} disabled={savingBlueprint === concept.id}
-                  className="text-[10px] font-semibold text-white bg-indigo-500 hover:bg-indigo-600 px-3 py-1 rounded transition-colors disabled:opacity-50">
+                  className="text-[10px] font-semibold text-white bg-accent hover:bg-accent px-3 py-1 rounded transition-colors disabled:opacity-50">
                   {savingBlueprint === concept.id ? "Saving…" : "Save Blueprint"}
                 </button>
               </div>
@@ -471,45 +471,45 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             <div className="p-4 grid grid-cols-2 gap-3">
               {concept.hookType && (
                 <div>
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Hook Type</p>
-                  <p className="text-xs text-slate-700 capitalize">{concept.hookType.replace(/_/g, " ")}</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Hook Type</p>
+                  <p className="text-xs text-ink-2 capitalize">{concept.hookType.replace(/_/g, " ")}</p>
                 </div>
               )}
               {concept.textHook && (
                 <div>
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Text Hook</p>
-                  <p className="text-xs text-slate-700 italic">&ldquo;{concept.textHook}&rdquo;</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Text Hook</p>
+                  <p className="text-xs text-ink-2 italic">&ldquo;{concept.textHook}&rdquo;</p>
                 </div>
               )}
               {concept.videoType && (
                 <div>
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Video Type</p>
-                  <p className="text-xs text-slate-700 capitalize">{concept.videoType.replace(/_/g, " ")}</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Video Type</p>
+                  <p className="text-xs text-ink-2 capitalize">{concept.videoType.replace(/_/g, " ")}</p>
                 </div>
               )}
               {concept.angle && (
                 <div>
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Angle</p>
-                  <p className="text-xs text-slate-700">{concept.angle}</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Angle</p>
+                  <p className="text-xs text-ink-2">{concept.angle}</p>
                 </div>
               )}
               {concept.structure && (
                 <div className="col-span-2">
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Structure</p>
-                  <p className="text-xs text-slate-700 whitespace-pre-line">{concept.structure}</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Structure</p>
+                  <p className="text-xs text-ink-2 whitespace-pre-line">{concept.structure}</p>
                 </div>
               )}
               {concept.guidelines && (
                 <div className="col-span-2">
-                  <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-0.5">Guidelines</p>
-                  <p className="text-xs text-slate-700 whitespace-pre-line">{concept.guidelines}</p>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Guidelines</p>
+                  <p className="text-xs text-ink-2 whitespace-pre-line">{concept.guidelines}</p>
                 </div>
               )}
               {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
-                <p className="col-span-2 text-xs text-slate-400 italic">No blueprint set — click Edit to add details.</p>
+                <p className="col-span-2 text-xs text-faint italic">No blueprint set — click Edit to add details.</p>
               )}
               {/* Writing rules — collapsible */}
-              <div className="col-span-2 mt-1 border-t border-indigo-100 pt-1">
+              <div className="col-span-2 mt-1 border-t border-accent-tint pt-1">
                 <button onClick={() => toggle("rules")}
                   className="w-full flex items-center justify-between py-1.5 hover:opacity-80 transition-opacity">
                   <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide">📐 Writing Rules</p>
@@ -522,7 +522,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                         <>
                           <span onClick={(e) => { e.stopPropagation(); if (!isTalking && !saving) applyRuleSet(concept.id, DEFAULT_RULES); }}
                             title="Spoken talking-head script rules"
-                            className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${isTalking ? "bg-indigo-500 text-white border-indigo-500 cursor-default" : "text-indigo-500 border-indigo-200 hover:bg-indigo-50 cursor-pointer"}`}>
+                            className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${isTalking ? "bg-accent text-white border-accent cursor-default" : "text-accent border-accent-tint hover:bg-accent-tint cursor-pointer"}`}>
                             🎙 Talking-head
                           </span>
                           <span onClick={(e) => { e.stopPropagation(); if (!isTextHook && !saving) applyRuleSet(concept.id, TEXT_HOOK_RULES); }}
@@ -548,11 +548,11 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                       value={conceptRulesText[concept.id] ?? ""}
                       onChange={(e) => setConceptRulesText((prev) => ({ ...prev, [concept.id]: e.target.value }))}
                       rows={10}
-                      className="w-full text-xs text-slate-700 border border-amber-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-amber-300 bg-amber-50/30 font-mono leading-relaxed"
+                      className="w-full text-xs text-ink-2 border border-amber-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-amber-300 bg-amber-50/30 font-mono leading-relaxed"
                     />
                     <div className="flex gap-2 justify-end">
                       <button onClick={() => setConceptRulesEditing(null)}
-                        className="text-[10px] text-slate-400 hover:text-slate-600 px-2.5 py-1 rounded border border-slate-200 transition-colors">Cancel</button>
+                        className="text-[10px] text-faint hover:text-ink-2 px-2.5 py-1 rounded border border-line transition-colors">Cancel</button>
                       <button onClick={() => saveConceptRules(concept.id)} disabled={savingConceptRules === concept.id}
                         className="text-[10px] font-semibold text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded transition-colors disabled:opacity-50">
                         {savingConceptRules === concept.id ? "Saving…" : "Save"}
@@ -560,7 +560,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                     </div>
                   </div>
                 ) : (
-                  <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed mt-1">{concept.scriptRules ?? DEFAULT_RULES}</pre>
+                  <pre className="text-xs text-ink-2 whitespace-pre-wrap font-sans leading-relaxed mt-1">{concept.scriptRules ?? DEFAULT_RULES}</pre>
                 ))}
               </div>
             </div>
@@ -568,9 +568,9 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
         </div>
 
         {/* Step 2: Example Scripts */}
-        <div className="mx-5 mb-3 rounded-xl border border-violet-200 bg-violet-50/40 overflow-hidden">
-          <button onClick={() => toggle("examples")} className="w-full px-4 py-2 bg-violet-100/60 border-b border-violet-200 flex items-center justify-between hover:bg-violet-100/80 transition-colors">
-            <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wide">② Example Scripts — reference scripts Claude studied for this concept</p>
+        <div className="mx-5 mb-3 rounded-xl border border-accent-tint bg-accent-tint/40 overflow-hidden">
+          <button onClick={() => toggle("examples")} className="w-full px-4 py-2 bg-accent-tint/60 border-b border-accent-tint flex items-center justify-between hover:bg-accent-tint/80 transition-colors">
+            <p className="text-[10px] font-bold text-accent uppercase tracking-wide">② Example Scripts — reference scripts Claude studied for this concept</p>
             <div className="flex items-center gap-2">
               {openSections.examples && (() => {
                 let n = 0; try { n = JSON.parse((concept as any).reelUrls || "[]").length; } catch { n = 0; }
@@ -579,29 +579,29 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                 return (
                   <span onClick={(e) => { e.stopPropagation(); if (!busy) pullFromReels(concept.id); }}
                     title="Read the on-screen text from all attached reels and add them as examples"
-                    className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${busy ? "text-slate-400 border-slate-200 cursor-wait" : "text-pink-600 border-pink-200 hover:bg-pink-50 cursor-pointer"}`}>
+                    className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${busy ? "text-faint border-line cursor-wait" : "text-pink-600 border-pink-200 hover:bg-pink-50 cursor-pointer"}`}>
                     {busy ? "Reading reels…" : `✨ Pull text from ${n} attached reel${n !== 1 ? "s" : ""}`}
                   </span>
                 );
               })()}
               {openSections.examples && addingExample !== concept.id && (
                 <span onClick={(e) => { e.stopPropagation(); setAddingExample(concept.id); setNewExampleText((p) => ({ ...p, [concept.id]: "" })); }}
-                  className="text-[9px] text-violet-500 hover:text-violet-700 font-semibold px-2 py-0.5 rounded border border-violet-200 hover:bg-violet-100 transition-colors">
+                  className="text-[9px] text-accent hover:text-accent-strong font-semibold px-2 py-0.5 rounded border border-accent-tint hover:bg-accent-tint transition-colors">
                   + Add
                 </span>
               )}
-              <span className={`text-violet-400 text-xs transition-transform ${openSections.examples ? "rotate-180" : ""}`}>▾</span>
+              <span className={`text-accent text-xs transition-transform ${openSections.examples ? "rotate-180" : ""}`}>▾</span>
             </div>
           </button>
           {openSections.examples && (
             <div className="p-4 space-y-2">
               {concept.scriptExamples
                 ? splitExamples(concept.scriptExamples).map((ex, i) => (
-                    <div key={i} className="group bg-white rounded-lg border border-violet-100 px-3 py-2 relative">
+                    <div key={i} className="group bg-white rounded-lg border border-accent-tint px-3 py-2 relative">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-[9px] font-bold text-violet-400 uppercase">Example {i + 1}</p>
+                        <p className="text-[9px] font-bold text-accent uppercase">Example {i + 1}</p>
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-slate-400">{ex.trim().split(/\s+/).filter(Boolean).length} words</span>
+                          <span className="text-[9px] text-faint">{ex.trim().split(/\s+/).filter(Boolean).length} words</span>
                           <button
                             onClick={() => deleteExample(concept, i)}
                             title="Delete this example"
@@ -609,17 +609,17 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                           >🗑 Delete</button>
                         </div>
                       </div>
-                      <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
+                      <p className="text-xs text-ink-2 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
                     </div>
                   ))
                 : addingExample !== concept.id && (
-                    <p className="text-xs text-slate-400 italic">No example scripts yet — click + Add to paste one.</p>
+                    <p className="text-xs text-faint italic">No example scripts yet — click + Add to paste one.</p>
                   )
               }
               {addingExample === concept.id && (
                 <div className="space-y-2 pt-1">
                   <div>
-                    <p className="text-[9px] font-bold text-violet-400 uppercase tracking-wide mb-1">
+                    <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">
                       Example {splitExamples(concept.scriptExamples).length + 1}
                     </p>
                     <textarea
@@ -628,14 +628,14 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                       value={newExampleText[concept.id] ?? ""}
                       onChange={(e) => setNewExampleText((p) => ({ ...p, [concept.id]: e.target.value }))}
                       placeholder="Paste a script that performed well for this concept..."
-                      className="w-full text-xs text-slate-700 border border-violet-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white font-mono leading-relaxed"
+                      className="w-full text-xs text-ink-2 border border-accent-tint rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-accent bg-white font-mono leading-relaxed"
                     />
                   </div>
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => setAddingExample(null)}
-                      className="text-[10px] text-slate-400 hover:text-slate-600 px-2.5 py-1 rounded border border-slate-200 transition-colors">Cancel</button>
+                      className="text-[10px] text-faint hover:text-ink-2 px-2.5 py-1 rounded border border-line transition-colors">Cancel</button>
                     <button onClick={() => saveExample(concept)} disabled={savingExample === concept.id || !(newExampleText[concept.id] ?? "").trim()}
-                      className="text-[10px] font-semibold text-white bg-violet-500 hover:bg-violet-600 px-3 py-1 rounded transition-colors disabled:opacity-50">
+                      className="text-[10px] font-semibold text-white bg-accent hover:bg-accent px-3 py-1 rounded transition-colors disabled:opacity-50">
                       {savingExample === concept.id ? "Saving…" : "Save Example"}
                     </button>
                   </div>
@@ -656,7 +656,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
           {openSections.edits && (
             <div className="p-4 space-y-2">
               {edits.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No edits yet. When you tweak a script in the Kanban (e.g. swap a word), the change is logged here and fed into future generations.</p>
+                <p className="text-xs text-faint italic">No edits yet. When you tweak a script in the Kanban (e.g. swap a word), the change is logged here and fed into future generations.</p>
               ) : edits.slice(0, 12).map((c) => (
                 <div key={c.id} className="bg-white rounded-lg border border-sky-100 px-3 py-2 text-xs">
                   <p className="text-[9px] font-bold text-sky-400 uppercase mb-1">{c.field} · {c.author}</p>
@@ -687,7 +687,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                       <div className="w-16 h-1.5 bg-rose-200 rounded-full overflow-hidden">
                         <div className="h-full bg-rose-400 rounded-full" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${meta?.color || "bg-slate-100 text-slate-500"}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${meta?.color || "bg-slate-100 text-muted"}`}>
                         {meta?.emoji} {pct}%
                       </span>
                     </div>
@@ -699,20 +699,20 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                   const meta = REASON_LABELS[fb.reasonType];
                   return (
                     <div key={fb.id} className="px-4 py-2.5 flex items-start gap-3 group/fb hover:bg-rose-50/50">
-                      <span className={`mt-0.5 text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0 ${meta?.color || "bg-slate-100 text-slate-500"}`}>
+                      <span className={`mt-0.5 text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0 ${meta?.color || "bg-slate-100 text-muted"}`}>
                         {meta?.emoji} {meta?.label}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-700 truncate">{fb.title}</p>
-                        {fb.hook && <p className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1">Hook: &ldquo;{fb.hook}&rdquo;</p>}
+                        <p className="text-xs font-medium text-ink-2 truncate">{fb.title}</p>
+                        {fb.hook && <p className="text-[11px] text-faint italic mt-0.5 line-clamp-1">Hook: &ldquo;{fb.hook}&rdquo;</p>}
                         {fb.reason && <p className="text-[11px] text-rose-600 mt-0.5 font-medium">💬 &ldquo;{fb.reason}&rdquo;</p>}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-[10px] text-slate-300">
+                        <span className="text-[10px] text-faint">
                           {new Date(fb.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                         </span>
                         <button onClick={() => deleteFeedback(fb.id)} disabled={deletingId === fb.id}
-                          className="opacity-0 group-hover/fb:opacity-100 text-slate-300 hover:text-red-400 transition-all text-sm">×</button>
+                          className="opacity-0 group-hover/fb:opacity-100 text-faint hover:text-red-400 transition-all text-sm">×</button>
                       </div>
                     </div>
                   );
@@ -721,7 +721,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             </>
           ) : (
             <div className="px-4 py-3">
-              <p className="text-xs text-slate-400 italic">No rejections logged yet. Reject scripts with a reason in the Kanban to start training Claude on what to avoid.</p>
+              <p className="text-xs text-faint italic">No rejections logged yet. Reject scripts with a reason in the Kanban to start training Claude on what to avoid.</p>
             </div>
           ))}
         </div>
@@ -748,8 +748,8 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
               <div className="p-4">
                 {turns === 0 ? (
                   <div className="text-center py-3 space-y-1">
-                    <p className="text-xs text-slate-400 font-medium">No conversation yet.</p>
-                    <p className="text-[11px] text-slate-400">Generate scripts for this concept and Claude will start building memory. Every generation and rejection adds to his context — the more you use it, the sharper he gets.</p>
+                    <p className="text-xs text-faint font-medium">No conversation yet.</p>
+                    <p className="text-[11px] text-faint">Generate scripts for this concept and Claude will start building memory. Every generation and rejection adds to his context — the more you use it, the sharper he gets.</p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -762,7 +762,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                             ? "bg-emerald-50 border border-emerald-100 text-emerald-800"
                             : isRejection
                               ? "bg-rose-50 border border-rose-100 text-rose-700"
-                              : "bg-slate-50 border border-slate-100 text-slate-600"
+                              : "bg-slate-50 border border-line text-ink-2"
                         }`}>
                           <p className="font-semibold mb-0.5 text-[9px] uppercase tracking-wide opacity-60">
                             {turn.role === "assistant" ? "📝 Claude generated" : isRejection ? "❌ Rejection fed back" : "🎬 Request"}
@@ -790,71 +790,71 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">AI Context</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
+          <h1 className="text-2xl font-bold text-ink">AI Context</h1>
+          <p className="text-muted text-sm mt-0.5">
             What Claude has learned per concept for {client.name}
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
-          <span className="text-indigo-500 text-sm">🧠</span>
+        <div className="flex items-center gap-2 bg-accent-tint border border-accent-tint rounded-xl px-4 py-2">
+          <span className="text-accent text-sm">🧠</span>
           <div>
-            <p className="text-xs font-semibold text-indigo-700">{feedbacks.length} rejection signals</p>
-            <p className="text-[10px] text-indigo-400">across {conceptsWithFeedback.length} concepts</p>
+            <p className="text-xs font-semibold text-accent-strong">{feedbacks.length} rejection signals</p>
+            <p className="text-[10px] text-accent">across {conceptsWithFeedback.length} concepts</p>
           </div>
         </div>
       </div>
 
       {/* Legend */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">How it works</p>
+      <div className="bg-white rounded-2xl border border-line p-4">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">How it works</p>
         <div className="grid grid-cols-3 gap-3">
           <div className="flex items-start gap-2.5">
             <span className="text-lg mt-0.5">🪝</span>
             <div>
-              <p className="text-xs font-semibold text-slate-700">Rejection Tracking</p>
-              <p className="text-[11px] text-slate-400">Every rejected script stores why it failed for that concept</p>
+              <p className="text-xs font-semibold text-ink-2">Rejection Tracking</p>
+              <p className="text-[11px] text-faint">Every rejected script stores why it failed for that concept</p>
             </div>
           </div>
           <div className="flex items-start gap-2.5">
             <span className="text-lg mt-0.5">🧠</span>
             <div>
-              <p className="text-xs font-semibold text-slate-700">Automatic Learning</p>
-              <p className="text-[11px] text-slate-400">Claude reads this history before generating new scripts</p>
+              <p className="text-xs font-semibold text-ink-2">Automatic Learning</p>
+              <p className="text-[11px] text-faint">Claude reads this history before generating new scripts</p>
             </div>
           </div>
           <div className="flex items-start gap-2.5">
             <span className="text-lg mt-0.5">📈</span>
             <div>
-              <p className="text-xs font-semibold text-slate-700">Gets Better Over Time</p>
-              <p className="text-[11px] text-slate-400">The more you reject with reasons, the better the outputs</p>
+              <p className="text-xs font-semibold text-ink-2">Gets Better Over Time</p>
+              <p className="text-[11px] text-faint">The more you reject with reasons, the better the outputs</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Captions — learned from the client's real reel captions */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-line overflow-hidden">
+        <div className="px-5 py-4 border-b border-line flex items-center justify-between">
           <div>
-            <p className="text-sm font-bold text-slate-800">📝 Captions</p>
-            <p className="text-xs text-slate-400 mt-0.5">Learn {client.name}'s caption style from their own reels, then write new captions in that style</p>
+            <p className="text-sm font-bold text-ink">📝 Captions</p>
+            <p className="text-xs text-faint mt-0.5">Learn {client.name}'s caption style from their own reels, then write new captions in that style</p>
           </div>
           <button onClick={generateCaptionGuidelines} disabled={genCapGl}
-            className="px-3 py-2 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+            className="px-3 py-2 text-xs font-semibold text-white bg-accent rounded-lg hover:bg-accent-strong disabled:opacity-50">
             {genCapGl ? "Reading reels…" : "✨ Learn from 15 reels"}
           </button>
         </div>
         <div className="p-4 space-y-2">
-          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Caption playbook</label>
+          <label className="block text-[10px] font-semibold text-muted uppercase tracking-wide">Caption playbook</label>
           <textarea
             value={capGl}
             onChange={(e) => setCapGl(e.target.value)}
             rows={capGl ? 14 : 4}
             placeholder="Click “✨ Learn from 15 reels” to pull this client's recent reel captions and auto-build their caption playbook (opening style, CTA, emoji, length…). You can edit it after."
-            className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="w-full text-sm text-ink-2 bg-slate-50 border border-line rounded-lg px-3 py-2 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-accent"
           />
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-400">Used when generating reel captions for this client.</p>
+            <p className="text-[11px] text-faint">Used when generating reel captions for this client.</p>
             <button onClick={saveCaptionGuidelines} disabled={savingCapGl}
               className="px-4 py-1.5 text-xs font-semibold text-white bg-slate-700 rounded-lg hover:bg-slate-800 disabled:opacity-50">
               {savingCapGl ? "Saving…" : "Save"}
@@ -872,24 +872,24 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
             const topReasons = Object.entries(byType).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
             return (
-              <div key={concept.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div key={concept.id} className="bg-white rounded-2xl border border-line overflow-hidden">
                 <button
                   onClick={() => setOpenConceptId(isOpen ? null : concept.id)}
                   className="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-indigo-600 text-sm font-bold">{concept.name[0]}</span>
+                  <div className="w-9 h-9 rounded-xl bg-accent-tint flex items-center justify-center flex-shrink-0">
+                    <span className="text-accent text-sm font-bold">{concept.name[0]}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800">
-                      {concept.conceptType && <span className="text-slate-400 font-normal">{concept.conceptType} · </span>}
+                    <p className="text-sm font-semibold text-ink">
+                      {concept.conceptType && <span className="text-faint font-normal">{concept.conceptType} · </span>}
                       {concept.name}
                     </p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {topReasons.map(([type, count]) => {
                         const meta = REASON_LABELS[type];
                         return (
-                          <span key={type} className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${meta?.color || "bg-slate-100 text-slate-500"}`}>
+                          <span key={type} className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${meta?.color || "bg-slate-100 text-muted"}`}>
                             {meta?.emoji} {meta?.label} ({count})
                           </span>
                         );
@@ -897,10 +897,10 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-lg font-bold text-slate-800">{total}</p>
-                    <p className="text-[10px] text-slate-400">rejections</p>
+                    <p className="text-lg font-bold text-ink">{total}</p>
+                    <p className="text-[10px] text-faint">rejections</p>
                   </div>
-                  <span className={`text-slate-400 ml-2 transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
+                  <span className={`text-faint ml-2 transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
                 </button>
                 {isOpen && (
                   <ConceptPipeline concept={concept} total={total} byType={byType} items={items} />
@@ -913,9 +913,9 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
 
       {/* Concepts without any feedback yet */}
       {conceptsWithoutFeedback.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-500">No feedback yet</h3>
+        <div className="bg-white rounded-2xl border border-line overflow-hidden">
+          <div className="px-5 py-3 border-b border-line">
+            <h3 className="text-sm font-semibold text-muted">No feedback yet</h3>
           </div>
           <div className="divide-y divide-slate-50">
             {conceptsWithoutFeedback.map((concept) => {
@@ -927,14 +927,14 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
                     className="w-full px-5 py-3 flex items-center gap-3 text-left hover:bg-slate-50 cursor-pointer"
                   >
                     <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-slate-400 text-xs font-bold">{concept.name[0]}</span>
+                      <span className="text-faint text-xs font-bold">{concept.name[0]}</span>
                     </div>
-                    <p className="text-sm text-slate-500">
-                      {concept.conceptType && <span className="text-slate-400">{concept.conceptType} · </span>}
+                    <p className="text-sm text-muted">
+                      {concept.conceptType && <span className="text-faint">{concept.conceptType} · </span>}
                       {concept.name}
                     </p>
-                    <span className="ml-auto text-[10px] text-slate-300">View pipeline</span>
-                    <span className={`text-slate-300 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
+                    <span className="ml-auto text-[10px] text-faint">View pipeline</span>
+                    <span className={`text-faint text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
                   </button>
                   {isOpen && <ConceptPipeline concept={concept} />}
                 </div>
@@ -946,7 +946,7 @@ export default function ContextPage({ clients, selectedClientId }: Props) {
 
       {concepts.length === 0 && (
         <div className="text-center py-20">
-          <p className="text-slate-400 text-sm">No concepts found for {client.name}.</p>
+          <p className="text-faint text-sm">No concepts found for {client.name}.</p>
         </div>
       )}
     </div>

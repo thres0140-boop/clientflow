@@ -19,10 +19,11 @@ export async function POST(req: NextRequest) {
       handle: body.handle,
       name: body.name || null,
       niche: body.niche || null,
+      tags: body.tags || null,
       followerCount: body.followerCount ? parseInt(body.followerCount) : null,
       notes: body.notes || null,
       profileUrl: body.profileUrl || null,
-    },
+    } as any,
   });
   // Return immediately — never block the Add button on a scrape + thumbnail caching
   // crawl (that made the button appear to hang). The actual data pull happens

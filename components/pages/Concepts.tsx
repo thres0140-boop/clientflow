@@ -6,7 +6,7 @@ import { Client, Concept, HOOK_TYPE_SUGGESTIONS, VIDEO_TYPE_SUGGESTIONS } from "
 import Modal from "@/components/ui/Modal";
 import { splitExamples } from "@/lib/exampleScripts";
 
-type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void };
+type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void; platform?: "instagram" | "tiktok" };
 type Tab = "ideas" | "concepts";
 
 // Distinct color per concept category (falls back to a stable hashed palette).
@@ -14,14 +14,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   Viral:        "bg-pink-100 text-pink-700",
   Value:        "bg-emerald-100 text-emerald-700",
   Authentic:    "bg-amber-100 text-amber-700",
-  Authority:    "bg-purple-100 text-purple-700",
+  Authority:    "bg-accent-tint text-accent-strong",
   Trust:        "bg-blue-100 text-blue-700",
-  Uncategorised:"bg-slate-100 text-slate-500",
+  Uncategorised:"bg-slate-100 text-muted",
 };
 const CATEGORY_PALETTE = [
   "bg-pink-100 text-pink-700", "bg-emerald-100 text-emerald-700", "bg-amber-100 text-amber-700",
-  "bg-purple-100 text-purple-700", "bg-blue-100 text-blue-700", "bg-cyan-100 text-cyan-700",
-  "bg-rose-100 text-rose-700", "bg-indigo-100 text-indigo-700",
+  "bg-accent-tint text-accent-strong", "bg-blue-100 text-blue-700", "bg-cyan-100 text-cyan-700",
+  "bg-rose-100 text-rose-700", "bg-accent-tint text-accent-strong",
 ];
 function categoryColor(cat: string): string {
   if (CATEGORY_COLORS[cat]) return CATEGORY_COLORS[cat];
@@ -102,18 +102,18 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
     <Modal title="Attach reels" onClose={onClose} wide>
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-slate-500">Click a reel to select · tap ▶ to play it. {selected.size} selected.</p>
+          <p className="text-xs text-muted">Click a reel to select · tap ▶ to play it. {selected.size} selected.</p>
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 flex-shrink-0">
             <button type="button" onClick={() => setSort("recent")}
-              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${sort === "recent" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Recent</button>
+              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${sort === "recent" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>Recent</button>
             <button type="button" onClick={() => { setSort("top"); loadAllRemaining(); }}
-              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${sort === "top" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>🏆 Top performers</button>
+              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${sort === "top" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>🏆 Top performers</button>
           </div>
         </div>
         {loading ? (
-          <div className="py-16 text-center text-sm text-slate-400">Loading reels…</div>
+          <div className="py-16 text-center text-sm text-faint">Loading reels…</div>
         ) : reels.length === 0 ? (
-          <div className="py-16 text-center text-sm text-slate-400">No reels found for this client.</div>
+          <div className="py-16 text-center text-sm text-faint">No reels found for this client.</div>
         ) : (
           <div className="grid grid-cols-4 gap-2 max-h-[55vh] overflow-y-auto" onScroll={onScroll}>
             {displayReels.map((r) => {
@@ -121,10 +121,10 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
               const isSel = selected.has(url);
               return (
                 <button key={r.id} type="button" onClick={() => toggle(url)}
-                  className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all ${isSel ? "border-indigo-500 ring-2 ring-indigo-300" : "border-transparent hover:border-slate-300"}`}>
+                  className={`relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all ${isSel ? "border-accent ring-2 ring-accent" : "border-transparent hover:border-line-2"}`}>
                   {r.thumbnail_url
                     ? <img src={imgSrc(r.thumbnail_url)} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">▶</div>}
+                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-muted">▶</div>}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
                   {r.plays != null && <span className="absolute bottom-1 left-1 text-[9px] font-bold text-white">▶ {r.plays >= 1000 ? (r.plays/1000).toFixed(1)+"K" : r.plays}</span>}
@@ -132,11 +132,11 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
                   <span role="button" tabIndex={0}
                     onClick={(e) => { e.stopPropagation(); setPreview(r); }}
                     className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/55 hover:bg-black/80 text-white text-[10px] flex items-center justify-center backdrop-blur-sm cursor-pointer">▶</span>
-                  {isSel && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] flex items-center justify-center">✓</span>}
+                  {isSel && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-accent text-white text-[9px] flex items-center justify-center">✓</span>}
                 </button>
               );
             })}
-            {loadingMore && <div className="col-span-4 py-3 text-center text-xs text-slate-400">Loading more…</div>}
+            {loadingMore && <div className="col-span-4 py-3 text-center text-xs text-faint">Loading more…</div>}
           </div>
         )}
 
@@ -146,37 +146,39 @@ export function ReelPickerModal({ clientId, attached, onClose, onConfirm }: {
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               {preview.media_url ? (
                 <video src={videoSrc(preview.media_url)} poster={imgSrc(preview.thumbnail_url)} controls autoPlay
-                  className="max-h-[80vh] w-auto rounded-xl shadow-2xl" />
+                  className="max-h-[80vh] w-auto rounded-xl o-elev-pop" />
               ) : (
-                <div className="bg-white rounded-xl p-8 text-center text-sm text-slate-500">No playable video for this reel.</div>
+                <div className="bg-white rounded-xl p-8 text-center text-sm text-muted">No playable video for this reel.</div>
               )}
               <button onClick={() => setPreview(null)}
-                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 shadow-lg flex items-center justify-center text-lg">×</button>
+                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-ink-2 o-elev-lift flex items-center justify-center text-lg">×</button>
             </div>
           </div>
         )}
         <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
           <button type="button" onClick={() => { onConfirm(Array.from(selected)); onClose(); }}
-            className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Attach {selected.size} reel{selected.size !== 1 ? "s" : ""}</button>
+            className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-strong">Attach {selected.size} reel{selected.size !== 1 ? "s" : ""}</button>
         </div>
       </div>
     </Modal>
   );
 }
 
-export default function Concepts({ clients, selectedClientId, onAttachReels }: Props & { onAttachReels?: (c: { id: number; name: string }) => void }) {
-  const [tab, setTab] = useState<Tab>("ideas");
+export default function Concepts({ clients, selectedClientId, platform = "instagram", onAttachReels }: Props & { onAttachReels?: (c: { id: number; name: string }) => void }) {
+  const [tab, setTab] = useState<Tab>(platform === "tiktok" ? "concepts" : "ideas");
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddIdea, setShowAddIdea] = useState(false);
   const [selected, setSelected] = useState<Concept | null>(null);
   const [promotingIdea, setPromotingIdea] = useState<Concept | null>(null);
 
-  useEffect(() => { reload(); }, [selectedClientId]);
+  useEffect(() => { reload(); }, [selectedClientId, platform]); // eslint-disable-line react-hooks/exhaustive-deps
+  // TikTok has no Ideas — always stay on Concepts.
+  useEffect(() => { if (platform === "tiktok") setTab("concepts"); }, [platform]);
 
   async function reload() {
-    const qs = selectedClientId ? `?clientId=${selectedClientId}` : "";
+    const qs = selectedClientId ? `?clientId=${selectedClientId}&platform=${platform}` : `?platform=${platform}`;
     const data = await fetch(`/api/concepts${qs}`).then((r) => r.json());
     setConcepts(Array.isArray(data) ? data : []);
   }
@@ -196,50 +198,52 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Concept Library</h1>
-          <p className="text-slate-500 mt-1">The viral playbook — your winning content DNA</p>
+          <h1 className="text-2xl font-bold text-ink">Concept Library</h1>
+          <p className="text-muted mt-1">The viral playbook — your winning content DNA</p>
         </div>
         {tab === "ideas" && (
-          <button onClick={() => setShowAddIdea(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+          <button onClick={() => setShowAddIdea(true)} className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong">
             + New Idea
           </button>
         )}
         {tab === "concepts" && (
-          <button onClick={() => setShowAdd(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+          <button onClick={() => setShowAdd(true)} className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong">
             + New Concept
           </button>
         )}
       </div>
 
-      <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
-        {([
-          ["ideas", `💡 Ideas${ideas.length > 0 ? ` (${ideas.length})` : ""}`],
-          ["concepts", `🧠 Concepts${realConcepts.length > 0 ? ` (${realConcepts.length})` : ""}`],
-        ] as [Tab, string][]).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === id ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {platform !== "tiktok" && (
+        <div className="flex gap-1 bg-white border border-line rounded-xl p-1 w-fit">
+          {([
+            ["ideas", `💡 Ideas${ideas.length > 0 ? ` (${ideas.length})` : ""}`],
+            ["concepts", `🧠 Concepts${realConcepts.length > 0 ? ` (${realConcepts.length})` : ""}`],
+          ] as [Tab, string][]).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                tab === id ? "bg-accent text-white" : "text-muted hover:text-ink-2"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === "ideas" && (
         <>
           {ideas.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+            <div className="bg-white rounded-xl border border-line p-12 text-center">
               <div className="text-4xl mb-3">💡</div>
-              <p className="text-slate-500 font-medium">No concept ideas yet.</p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-muted font-medium">No concept ideas yet.</p>
+              <p className="text-xs text-faint mt-1">
                 Click "+ New Idea" or go to Instagram → open a reel → click "Save as Concept Idea"
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+            <div className="bg-white rounded-2xl border border-line divide-y divide-line overflow-hidden">
               {ideas.map((idea) => (
                 <IdeaCard key={idea.id} idea={idea} onClick={() => setPromotingIdea(idea)} />
               ))}
@@ -251,9 +255,9 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
       {tab === "concepts" && (
         <>
           {realConcepts.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+            <div className="bg-white rounded-xl border border-line p-12 text-center">
               <div className="text-4xl mb-3">🧠</div>
-              <p className="text-slate-500">No concepts yet. Promote an idea or create one manually.</p>
+              <p className="text-muted">No concepts yet. Promote an idea or create one manually.</p>
             </div>
           ) : (
             <div className="space-y-5">
@@ -274,9 +278,9 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
                   <div key={cat}>
                     <div className="flex items-center gap-2 mb-2 px-1">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${categoryColor(cat)}`}>{cat}</span>
-                      <span className="text-xs text-slate-400">{list.length} concept{list.length !== 1 ? "s" : ""}</span>
+                      <span className="text-xs text-faint">{list.length} concept{list.length !== 1 ? "s" : ""}</span>
                     </div>
-                    <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                    <div className="bg-white rounded-2xl border border-line divide-y divide-line overflow-hidden">
                       {list.map((concept) => (
                         <button key={concept.id} onClick={() => setSelected(concept)}
                           className="w-full flex items-center gap-4 px-5 py-3.5 text-left hover:bg-slate-50 transition-colors group">
@@ -285,16 +289,16 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
                             {concept.name[0]}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 truncate">{concept.name}</p>
-                            {concept.textHook && <p className="text-xs text-slate-400 italic truncate mt-0.5">"{concept.textHook}"</p>}
+                            <p className="text-sm font-semibold text-ink truncate">{concept.name}</p>
+                            {concept.textHook && <p className="text-xs text-faint italic truncate mt-0.5">"{concept.textHook}"</p>}
                           </div>
                           <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
-                            {(() => { try { const r = JSON.parse((concept as any).reelUrls || "[]"); return r.length ? <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">📎 {r.length}</span> : null; } catch { return null; } })()}
-                            {concept.hookType && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">{concept.hookType}</span>}
-                            {concept.videoType && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">{concept.videoType}</span>}
+                            {(() => { try { const r = JSON.parse((concept as any).reelUrls || "[]"); return r.length ? <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-muted">📎 {r.length}</span> : null; } catch { return null; } })()}
+                            {concept.hookType && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-accent-tint text-accent">{concept.hookType}</span>}
+                            {concept.videoType && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-accent-tint text-accent">{concept.videoType}</span>}
                           </div>
-                          <span className="text-xs text-slate-300 flex-shrink-0 ml-2">×{concept.timesUsed}</span>
-                          <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                          <span className="text-xs text-faint flex-shrink-0 ml-2">×{concept.timesUsed}</span>
+                          <svg className="w-3.5 h-3.5 text-faint group-hover:text-faint flex-shrink-0" viewBox="0 0 16 16" fill="none">
                             <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         </button>
@@ -312,6 +316,7 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
         <IdeaModal
           clients={clients}
           selectedClientId={selectedClientId}
+          platform={platform}
           onClose={() => setShowAddIdea(false)}
           onSaved={() => { setShowAddIdea(false); reload(); }}
         />
@@ -321,6 +326,7 @@ export default function Concepts({ clients, selectedClientId, onAttachReels }: P
         <ConceptModal
           clients={clients}
           selectedClientId={selectedClientId}
+          platform={platform}
           existingConcepts={concepts.map((c) => ({ conceptType: (c as any).conceptType, name: c.name }))}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); reload(); }}
@@ -366,9 +372,9 @@ function IdeaCard({ idea, onClick }: { idea: Concept; onClick: () => void }) {
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate">{idea.name}</p>
+        <p className="text-sm font-semibold text-ink truncate">{idea.name}</p>
         {idea.notes && (
-          <p className="text-xs text-slate-400 truncate mt-0.5">{idea.notes}</p>
+          <p className="text-xs text-faint truncate mt-0.5">{idea.notes}</p>
         )}
       </div>
 
@@ -380,11 +386,11 @@ function IdeaCard({ idea, onClick }: { idea: Concept; onClick: () => void }) {
           </span>
         )}
         {hasTranscript && (
-          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">transcript</span>
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-accent-tint text-accent">transcript</span>
         )}
       </div>
 
-      <svg className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-400 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+      <svg className="w-3.5 h-3.5 text-faint group-hover:text-faint flex-shrink-0" viewBox="0 0 16 16" fill="none">
         <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     </button>
@@ -495,21 +501,21 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/40" onClick={onClose}>
-      <div className="w-[560px] h-full bg-white flex flex-col shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
+      <div className="w-[560px] h-full bg-white flex flex-col o-elev-pop overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line flex-shrink-0">
           <div>
-            <p className="text-sm font-bold text-slate-800">Concept Idea</p>
-            <p className="text-[11px] text-slate-400">Fill in the details to promote to a full concept</p>
+            <p className="text-sm font-bold text-ink">Concept Idea</p>
+            <p className="text-[11px] text-faint">Fill in the details to promote to a full concept</p>
           </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-faint">✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {/* Source info */}
-          <div className="px-5 pt-4 pb-3 bg-slate-50 border-b border-slate-100">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">From Instagram</p>
-            <p className="text-sm text-slate-700 font-medium line-clamp-2 mb-1">{idea.name}</p>
-            {idea.notes && <p className="text-xs text-slate-400">{idea.notes}</p>}
+          <div className="px-5 pt-4 pb-3 bg-slate-50 border-b border-line">
+            <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2">From Instagram</p>
+            <p className="text-sm text-ink-2 font-medium line-clamp-2 mb-1">{idea.name}</p>
+            {idea.notes && <p className="text-xs text-faint">{idea.notes}</p>}
             {idea.exampleUrl && (
               <div className="mt-2 space-y-2">
                 {playLoading ? (
@@ -521,10 +527,10 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
                   <video key={playUrl} src={`/api/vid?u=${encodeURIComponent(playUrl)}`} controls autoPlay playsInline
                     className="w-full max-h-[46vh] rounded-lg bg-black object-contain" />
                 ) : (
-                  <p className="text-[11px] text-slate-400">Couldn&apos;t load the reel in-app — open it on Instagram below.</p>
+                  <p className="text-[11px] text-faint">Couldn&apos;t load the reel in-app — open it on Instagram below.</p>
                 )}
                 <a href={playPermalink || idea.exampleUrl} target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-indigo-500 hover:underline inline-block">
+                  className="text-xs text-accent hover:underline inline-block">
                   View reel ↗
                 </a>
               </div>
@@ -532,25 +538,25 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
           </div>
 
           {idea.scriptExamples && (
-            <div className="px-5 py-4 border-b border-slate-100">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Transcript</p>
-              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm text-slate-700 leading-relaxed max-h-36 overflow-y-auto">
+            <div className="px-5 py-4 border-b border-line">
+              <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2">Transcript</p>
+              <div className="bg-accent-tint border border-accent-tint rounded-xl p-3 text-sm text-ink-2 leading-relaxed max-h-36 overflow-y-auto">
                 {idea.scriptExamples}
               </div>
             </div>
           )}
 
           <form id="promoteForm" onSubmit={promote} className="px-5 py-4 space-y-4">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Concept Details</p>
+            <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">Concept Details</p>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Concept Name *</label>
+              <label className="block text-xs font-medium text-ink-2 mb-1">Concept Name *</label>
               <input required value={form.name} onChange={(e) => set("name", e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-2">Concept Type</label>
+              <label className="block text-xs font-medium text-ink-2 mb-2">Concept Type</label>
               <div className="flex gap-2 flex-wrap">
                 {["Viral", "Trust", "Authentic", "Value"].map((t) => (
                   <button key={t} type="button" onClick={() => set("conceptType", form.conceptType === t ? "" : t)}
@@ -560,7 +566,7 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
                           : t === "Trust" ? "bg-blue-500 text-white border-blue-500"
                           : t === "Authentic" ? "bg-amber-500 text-white border-amber-500"
                           : "bg-green-500 text-white border-green-500"
-                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                        : "bg-white text-muted border-line hover:border-line-2"
                     }`}>
                     {t}
                   </button>
@@ -570,19 +576,19 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Hook Type</label>
+                <label className="block text-xs font-medium text-ink-2 mb-1">Hook Type</label>
                 <input list="hookTypeListIdea" value={form.hookType} onChange={(e) => set("hookType", e.target.value)}
                   placeholder="e.g. curiosity_gap"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
                 <datalist id="hookTypeListIdea">
                   {HOOK_TYPE_SUGGESTIONS.map((s) => <option key={s} value={s} />)}
                 </datalist>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Video Type</label>
+                <label className="block text-xs font-medium text-ink-2 mb-1">Video Type</label>
                 <input list="videoTypeListIdea" value={form.videoType} onChange={(e) => set("videoType", e.target.value)}
                   placeholder="e.g. talking_head"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
                 <datalist id="videoTypeListIdea">
                   {VIDEO_TYPE_SUGGESTIONS.map((s) => <option key={s} value={s} />)}
                 </datalist>
@@ -590,61 +596,61 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Text Hook Template</label>
+              <label className="block text-xs font-medium text-ink-2 mb-1">Text Hook Template</label>
               <input value={form.textHook} onChange={(e) => set("textHook", e.target.value)}
                 placeholder='e.g. "Did you know that [fact]..."'
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Audio Hook</label>
+                <label className="block text-xs font-medium text-ink-2 mb-1">Audio Hook</label>
                 <input value={form.audioHook} onChange={(e) => set("audioHook", e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Angle</label>
+                <label className="block text-xs font-medium text-ink-2 mb-1">Angle</label>
                 <input value={form.angle} onChange={(e) => set("angle", e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-slate-600">Structure</label>
+                <label className="text-xs font-medium text-ink-2">Structure</label>
                 {idea.scriptExamples?.trim() && (
                   <button type="button" onClick={generateStructure} disabled={generatingStructure}
-                    className="text-[11px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors font-medium">
+                    className="text-[11px] px-2 py-0.5 bg-accent-tint text-accent rounded-full hover:bg-accent-tint disabled:opacity-50 transition-colors font-medium">
                     {generatingStructure ? "Generating…" : "✨ AI Generate"}
                   </button>
                 )}
               </div>
               <textarea rows={2} value={form.structure} onChange={(e) => set("structure", e.target.value)}
                 placeholder='e.g. "Hook (3s) → Problem (5s) → Solution (10s) → CTA (3s)"'
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent font-mono" />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-slate-600">Guidelines</label>
+                <label className="text-xs font-medium text-ink-2">Guidelines</label>
                 {idea.scriptExamples?.trim() && (
                   <button type="button" onClick={generateGuidelines} disabled={generatingGuidelines}
-                    className="text-[11px] px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 disabled:opacity-50 transition-colors font-medium">
+                    className="text-[11px] px-2 py-0.5 bg-accent-tint text-accent rounded-full hover:bg-accent-tint disabled:opacity-50 transition-colors font-medium">
                     {generatingGuidelines ? "Generating…" : "✨ AI Generate"}
                   </button>
                 )}
               </div>
               <textarea rows={2} value={form.guidelines} onChange={(e) => set("guidelines", e.target.value)}
                 placeholder="Pacing, energy, what to include/avoid..."
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             </div>
           </form>
         </div>
 
-        <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 flex gap-2.5">
+        <div className="px-5 py-4 border-t border-line flex-shrink-0 flex gap-2.5">
           <button onClick={onDelete} className="px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-colors">Delete</button>
           <button type="submit" form="promoteForm" disabled={promoting}
-            className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-colors">
+            className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-xl hover:bg-accent-strong disabled:opacity-60 transition-colors">
             {promoting ? "Saving…" : "🚀 Save as Concept"}
           </button>
         </div>
@@ -653,9 +659,10 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
   );
 }
 
-function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
+function IdeaModal({ clients, selectedClientId, platform = "instagram", onClose, onSaved }: {
   clients: Client[];
   selectedClientId: number | null;
+  platform?: "instagram" | "tiktok";
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -674,7 +681,7 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
     await fetch("/api/concepts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, scriptExamples, clientId: selectedClientId, isIdea: true }),
+      body: JSON.stringify({ ...form, scriptExamples, clientId: selectedClientId, platform, isIdea: true }),
     });
     onSaved();
   }
@@ -683,46 +690,46 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
     <Modal title="New Idea" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Idea Name *</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Idea Name *</label>
           <input required value={form.name} onChange={(e) => set("name", e.target.value)}
             placeholder="e.g. Before/After transformation hook"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Notes</label>
           <textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)}
             placeholder="What makes this idea work..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-medium text-slate-600">Script / Transcript Examples</label>
+            <label className="block text-xs font-medium text-ink-2">Script / Transcript Examples</label>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-400">How many?</span>
+              <span className="text-[10px] text-faint">How many?</span>
               <input type="number" min={1} max={10} value={scriptBoxes.length}
                 onChange={(e) => setBoxCount(parseInt(e.target.value) || 1)}
-                className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-14 border border-line rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-accent" />
             </div>
           </div>
           <div className="space-y-2">
             {scriptBoxes.map((val, i) => (
               <div key={i}>
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Example {i + 1}</p>
+                <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Example {i + 1}</p>
                 <textarea rows={4} value={val} onChange={(e) => setBox(i, e.target.value)}
                   placeholder="Paste a script or transcript..."
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                  className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent font-mono" />
               </div>
             ))}
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Example URL (optional)</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Example URL (optional)</label>
           <input type="url" value={form.exampleUrl} onChange={(e) => set("exampleUrl", e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Idea</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-strong">Save Idea</button>
         </div>
       </form>
     </Modal>
@@ -732,10 +739,11 @@ function IdeaModal({ clients, selectedClientId, onClose, onSaved }: {
 const DEFAULT_CATEGORIES = ["Viral", "Value", "Authentic", "Authority"];
 
 export function ConceptModal({
-  clients, selectedClientId, onClose, onSaved, initial, existingConcepts, onAttachReels,
+  clients, selectedClientId, platform = "instagram", onClose, onSaved, initial, existingConcepts, onAttachReels,
 }: {
   clients: Client[];
   selectedClientId: number | null;
+  platform?: "instagram" | "tiktok";
   onClose: () => void;
   onSaved: () => void;
   initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string; reelUrls?: string[]; textOverlay?: boolean };
@@ -819,7 +827,7 @@ export function ConceptModal({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form, scriptExamples, reelUrls, textOverlay, isIdea: false,
+        ...form, scriptExamples, reelUrls, textOverlay, isIdea: false, platform,
         clientOwned,
         clientQuota: clientOwned ? clientQuota : null,
         clientIntervalDays: clientOwned ? clientIntervalDays : null,
@@ -864,16 +872,16 @@ export function ConceptModal({
               {activeClient.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-slate-800">{activeClient.name}</p>
-              <p className="text-xs text-slate-500 capitalize">{activeClient.platform}</p>
+              <p className="text-sm font-semibold text-ink">{activeClient.name}</p>
+              <p className="text-xs text-muted capitalize">{activeClient.platform}</p>
             </div>
-            <span className="text-[10px] text-slate-400">concept for this client</span>
+            <span className="text-[10px] text-faint">concept for this client</span>
           </div>
         ) : (
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Client (optional — blank = global)</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Client (optional — blank = global)</label>
             <select value={form.clientId} onChange={(e) => set("clientId", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
               <option value="">Global (all clients)</option>
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -882,83 +890,83 @@ export function ConceptModal({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Concept *</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Concept *</label>
             <input list="conceptCatList" required value={form.conceptType} onChange={(e) => set("conceptType", e.target.value)}
               placeholder="Viral, Value, Authentic…"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             <datalist id="conceptCatList">
               {catOptions.map((c) => <option key={c} value={c} />)}
             </datalist>
-            <p className="text-[10px] text-slate-400 mt-0.5">Pick one or type a new category</p>
+            <p className="text-[10px] text-faint mt-0.5">Pick one or type a new category</p>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Concept Type *</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Concept Type *</label>
             <input list="conceptTypeList" required value={form.name} onChange={(e) => set("name", e.target.value)}
               placeholder={form.conceptType ? `type under ${form.conceptType}…` : "pick a concept first"}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             <datalist id="conceptTypeList">
               {typeOptions.map((t) => <option key={t} value={t} />)}
             </datalist>
-            <p className="text-[10px] text-slate-400 mt-0.5">Pick an existing type or make a new one</p>
+            <p className="text-[10px] text-faint mt-0.5">Pick an existing type or make a new one</p>
           </div>
         </div>
 
         {/* Attached reels — editable */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+        <div className="bg-slate-50 border border-line rounded-lg px-3 py-2.5">
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[10px] font-semibold text-slate-500">📎 {reelUrls.length} reel{reelUrls.length !== 1 ? "s" : ""} attached</p>
+            <p className="text-[10px] font-semibold text-muted">📎 {reelUrls.length} {platform === "tiktok" ? "video" : "reel"}{reelUrls.length !== 1 ? "s" : ""} attached</p>
             {form.clientId && (
               <button type="button" onClick={() => setShowReelPicker(true)}
-                className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800">🎬 Pick from reels</button>
+                className="text-[10px] font-semibold text-accent hover:text-indigo-800">🎬 Pick from {platform === "tiktok" ? "videos" : "reels"}</button>
             )}
           </div>
           <div className="space-y-1 mb-1.5">
             {reelUrls.map((u, i) => (
               <div key={i} className="flex items-center gap-2">
-                <a href={u} target="_blank" rel="noopener noreferrer" className="flex-1 text-[11px] text-indigo-600 hover:underline truncate">{u}</a>
-                <button type="button" onClick={() => setReelUrls(reelUrls.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-red-500 text-xs flex-shrink-0">✕</button>
+                <a href={u} target="_blank" rel="noopener noreferrer" className="flex-1 text-[11px] text-accent hover:underline truncate">{u}</a>
+                <button type="button" onClick={() => setReelUrls(reelUrls.filter((_, idx) => idx !== i))} className="text-faint hover:text-red-500 text-xs flex-shrink-0">✕</button>
               </div>
             ))}
           </div>
           <div className="flex items-center gap-2">
             <input value={newReel} onChange={(e) => setNewReel(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (newReel.trim()) { setReelUrls([...reelUrls, newReel.trim()]); setNewReel(""); } } }}
-              placeholder="Paste another reel link…"
-              className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              placeholder={`Paste another ${platform === "tiktok" ? "video" : "reel"} link…`}
+              className="flex-1 border border-line rounded-lg px-2.5 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-accent" />
             <button type="button" onClick={() => { if (newReel.trim()) { setReelUrls([...reelUrls, newReel.trim()]); setNewReel(""); } }}
-              className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Add</button>
+              className="px-2.5 py-1 text-[11px] font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong">Add</button>
           </div>
         </div>
 
         {/* B-roll / text-overlay format */}
-        <label className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer border ${textOverlay ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
+        <label className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer border ${textOverlay ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-line"}`}>
           <input type="checkbox" checked={textOverlay} onChange={(e) => setTextOverlay(e.target.checked)} className="mt-0.5" />
           <div>
-            <p className="text-xs font-semibold text-slate-700">📝 B-roll + text overlay (no voiceover)</p>
-            <p className="text-[10px] text-slate-400">For viral text-on-screen reels. The AI writes on-screen <strong>text hooks/overlays</strong> in this style instead of a spoken script. Paste the on-screen text into Script Examples below.</p>
+            <p className="text-xs font-semibold text-ink-2">📝 B-roll + text overlay (no voiceover)</p>
+            <p className="text-[10px] text-faint">For viral text-on-screen reels. The AI writes on-screen <strong>text hooks/overlays</strong> in this style instead of a spoken script. Paste the on-screen text into Script Examples below.</p>
           </div>
         </label>
 
         {/* Client-owned: the client writes the scripts themselves */}
-        <div className={`rounded-lg border ${clientOwned ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200"}`}>
+        <div className={`rounded-lg border ${clientOwned ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-line"}`}>
           <label className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer">
             <input type="checkbox" checked={clientOwned} onChange={(e) => setClientOwned(e.target.checked)} className="mt-0.5" />
             <div>
-              <p className="text-xs font-semibold text-slate-700">🧑‍💻 Client writes the scripts</p>
-              <p className="text-[10px] text-slate-400">No AI generation. The client gets a recurring task to write the scripts themselves; their submissions land as drafts for your review.</p>
+              <p className="text-xs font-semibold text-ink-2">🧑‍💻 Client writes the scripts</p>
+              <p className="text-[10px] text-faint">No AI generation. The client gets a recurring task to write the scripts themselves; their submissions land as drafts for your review.</p>
             </div>
           </label>
           {clientOwned && (
             <div className="px-3 pb-3 grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-[10px] font-medium text-slate-500 mb-1">How many scripts</label>
+                <label className="block text-[10px] font-medium text-muted mb-1">How many scripts</label>
                 <input type="number" min={1} max={50} value={clientQuota} onChange={(e) => setClientQuota(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  className="w-full border border-line rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-slate-500 mb-1">How often</label>
+                <label className="block text-[10px] font-medium text-muted mb-1">How often</label>
                 <select value={clientIntervalDays} onChange={(e) => setClientIntervalDays(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+                  className="w-full border border-line rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
                   <option value="7">Every week</option>
                   <option value="14">Every 2 weeks</option>
                   <option value="21">Every 3 weeks</option>
@@ -966,9 +974,9 @@ export function ConceptModal({
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-slate-500 mb-1">First due date</label>
+                <label className="block text-[10px] font-medium text-muted mb-1">First due date</label>
                 <input type="date" value={clientAnchor} onChange={(e) => setClientAnchor(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  className="w-full border border-line rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
               </div>
               <p className="col-span-3 text-[10px] text-blue-500">
                 e.g. {clientQuota || "?"} scripts {clientIntervalDays === "7" ? "every week" : `every ${parseInt(clientIntervalDays || "7") / 7} weeks`}{clientAnchor ? `, starting ${clientAnchor}` : " (pick a start date)"}.
@@ -979,7 +987,7 @@ export function ConceptModal({
 
         {/* AI auto-fill — analyzes the script/on-screen text and fills the whole blueprint */}
         <button type="button" onClick={aiAnalyze} disabled={analyzing}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 disabled:opacity-60 transition-colors">
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-accent to-accent text-white hover:from-accent hover:to-accent disabled:opacity-60 transition-colors">
           {analyzing
             ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Analyzing reel…</>
             : <>✨ AI auto-fill from script — detects format, hook, structure & guidelines</>}
@@ -987,19 +995,19 @@ export function ConceptModal({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Hook Type</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Hook Type</label>
             <input list="hookTypeList" value={form.hookType} onChange={(e) => set("hookType", e.target.value)}
               placeholder="e.g. question, curiosity_gap..."
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             <datalist id="hookTypeList">
               {HOOK_TYPE_SUGGESTIONS.map((s) => <option key={s} value={s} />)}
             </datalist>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Video Type</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Video Type</label>
             <input list="videoTypeList" value={form.videoType} onChange={(e) => set("videoType", e.target.value)}
               placeholder="e.g. talking_head, broll..."
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
             <datalist id="videoTypeList">
               {VIDEO_TYPE_SUGGESTIONS.map((s) => <option key={s} value={s} />)}
             </datalist>
@@ -1007,79 +1015,79 @@ export function ConceptModal({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Text Hook Template</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Text Hook Template</label>
           <input value={form.textHook} onChange={(e) => set("textHook", e.target.value)}
             placeholder='e.g. "Did you know that [fact]..."'
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Audio Hook</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Audio Hook</label>
             <input value={form.audioHook} onChange={(e) => set("audioHook", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Angle</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Angle</label>
             <input value={form.angle} onChange={(e) => set("angle", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Structure</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Structure</label>
           <textarea rows={2} value={form.structure} onChange={(e) => set("structure", e.target.value)}
             placeholder='e.g. "Hook (3s) → Problem (5s) → Solution (10s) → CTA (3s)"'
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent font-mono" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Guidelines</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Guidelines</label>
           <textarea rows={3} value={form.guidelines} onChange={(e) => set("guidelines", e.target.value)}
             placeholder="Pacing, cut changes, energy level, what to include/avoid..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-medium text-slate-600">
+            <label className="block text-xs font-medium text-ink-2">
               Script Examples
-              <span className="ml-1.5 text-[10px] font-normal text-slate-400">real scripts that worked well for this concept</span>
+              <span className="ml-1.5 text-[10px] font-normal text-faint">real scripts that worked well for this concept</span>
             </label>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-400">How many?</span>
+              <span className="text-[10px] text-faint">How many?</span>
               <input type="number" min={1} max={10} value={scriptBoxes.length}
                 onChange={(e) => setBoxCount(parseInt(e.target.value) || 1)}
-                className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-14 border border-line rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-accent" />
             </div>
           </div>
           <div className="space-y-2">
             {scriptBoxes.map((val, i) => (
               <div key={i}>
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Example {i + 1}</p>
+                <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Example {i + 1}</p>
                 <textarea rows={4} value={val} onChange={(e) => setBox(i, e.target.value)}
                   placeholder="Paste a script that performed well..."
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                  className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent font-mono" />
               </div>
             ))}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Example URL</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Example URL</label>
             <input type="url" value={form.exampleUrl} onChange={(e) => set("exampleUrl", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+            <label className="block text-xs font-medium text-ink-2 mb-1">Notes</label>
             <input value={form.notes} onChange={(e) => set("notes", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           </div>
         </div>
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
           {onAttachReels && (
-            <button type="button" onClick={saveAndAttach} className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+            <button type="button" onClick={saveAndAttach} className="px-4 py-2 text-sm bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200">
               🎬 Save & add reels
             </button>
           )}
-          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Concept</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-strong">Save Concept</button>
         </div>
       </form>
     </Modal>
@@ -1096,6 +1104,15 @@ export function ConceptModal({
 }
 
 function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: { concept: Concept; clients: Client[]; onClose: () => void; onDelete: () => void; onUpdated?: (patch: Partial<Concept>) => void }) {
+  const isTikTok = (concept as any).platform === "tiktok"; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const noun = isTikTok ? "video" : "reel";     // singular
+  const nounU = isTikTok ? "VIDEOS" : "REELS";  // header
+  const [taggedCount, setTaggedCount] = useState<number | null>(null); // videos tagged to this concept in Analytics
+  useEffect(() => {
+    if (!isTikTok) return;
+    fetch(`/api/tiktok/video-concept?conceptId=${concept.id}`).then((r) => r.json())
+      .then((d) => setTaggedCount(typeof d?.count === "number" ? d.count : 0)).catch(() => setTaggedCount(null));
+  }, [concept.id, isTikTok]);
   const [reels, setReels] = useState<string[]>(() => {
     try { return JSON.parse((concept as any).reelUrls || "[]"); } catch { return []; }
   });
@@ -1233,20 +1250,20 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
               onBlur={(e) => saveName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") saveName((e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingName(false); }}
               placeholder="Concept name…"
-              className="px-2 py-0.5 rounded text-sm font-bold text-slate-800 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-200 w-28"
+              className="px-2 py-0.5 rounded text-sm font-bold text-ink border border-accent focus:outline-none focus:ring-2 focus:ring-accent-tint w-28"
             />
           ) : (
             <button
               onClick={() => setEditingName(true)}
               title="Click to rename this concept"
-              className="inline-flex items-center gap-1 text-sm font-bold text-slate-700 hover:text-indigo-600"
+              className="inline-flex items-center gap-1 text-sm font-bold text-ink-2 hover:text-accent"
             >
               {name} <span className="opacity-50 text-[10px]">✎</span>
             </button>
           )}
-          <span className="text-slate-300">·</span>
+          <span className="text-faint">·</span>
           {/* Concept type — a plain dropdown that always shows every type and saves on pick. */}
-          <div className={`inline-flex items-center rounded-full text-xs font-bold ${type ? categoryColor(type) : "bg-slate-100 text-slate-500"}`}>
+          <div className={`inline-flex items-center rounded-full text-xs font-bold ${type ? categoryColor(type) : "bg-slate-100 text-muted"}`}>
             <select
               value={DEFAULT_CATEGORIES.includes(type) ? type : (type ? "__custom__" : "")}
               onChange={(e) => { if (e.target.value !== "__custom__") saveType(e.target.value); }}
@@ -1261,17 +1278,17 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
             <span className="pr-2 opacity-60 text-[9px]">{savingType ? "…" : "▾"}</span>
           </div>
           {concept.hookType && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-tint text-accent-strong">
               🎣 {concept.hookType}
             </span>
           )}
           {concept.videoType && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-tint text-accent-strong">
               🎬 {concept.videoType}
             </span>
           )}
           {concept.angle && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-ink-2">
               {concept.angle}
             </span>
           )}
@@ -1283,42 +1300,47 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
               onChange={(e) => { setClientId(e.target.value); saveAssignment({ clientId: e.target.value, clientOwned: e.target.value ? clientOwned : false }); }}
               disabled={savingAssign}
               title="Assign this concept to a client"
-              className={`bg-transparent px-2.5 py-0.5 pr-1 rounded-full font-medium focus:outline-none cursor-pointer appearance-none ${clientId ? "text-white" : "text-slate-500"}`}
+              className={`bg-transparent px-2.5 py-0.5 pr-1 rounded-full font-medium focus:outline-none cursor-pointer appearance-none ${clientId ? "text-white" : "text-muted"}`}
             >
               <option value="">Global (no client)</option>
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <span className={`pr-2 opacity-70 text-[9px] ${clientId ? "text-white" : "text-slate-500"}`}>{savingAssign ? "…" : "▾"}</span>
+            <span className={`pr-2 opacity-70 text-[9px] ${clientId ? "text-white" : "text-muted"}`}>{savingAssign ? "…" : "▾"}</span>
           </div>
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
             Used {concept.timesUsed}×
           </span>
+          {isTikTok && taggedCount != null && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-tint text-accent-strong" title="Videos tagged with this concept in the Analytics table">
+              📊 {taggedCount} tagged
+            </span>
+          )}
         </div>
 
         {/* Hand it to the client to write — quota + cadence, same as on creation. */}
         {clientId && (
-          <div className={`rounded-lg border ${clientOwned ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200"}`}>
+          <div className={`rounded-lg border ${clientOwned ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-line"}`}>
             <label className="flex items-start gap-2 px-3 py-2.5 cursor-pointer">
               <input type="checkbox" checked={clientOwned}
                 onChange={(e) => { setClientOwned(e.target.checked); saveAssignment({ clientOwned: e.target.checked }); }}
                 className="mt-0.5" />
               <div>
-                <p className="text-xs font-semibold text-slate-700">✍️ {clients.find((c) => String(c.id) === clientId)?.name || "Client"} writes the scripts</p>
-                <p className="text-[11px] text-slate-500">They get assigned a batch of scripts to write for this concept on a recurring cadence.</p>
+                <p className="text-xs font-semibold text-ink-2">✍️ {clients.find((c) => String(c.id) === clientId)?.name || "Client"} writes the scripts</p>
+                <p className="text-[11px] text-muted">They get assigned a batch of scripts to write for this concept on a recurring cadence.</p>
               </div>
             </label>
             {clientOwned && (
               <div className="px-3 pb-3 space-y-2">
-                <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600">
+                <div className="flex items-center gap-2 flex-wrap text-xs text-ink-2">
                   <span>Assign</span>
                   <input type="number" min={1} max={50} value={clientQuota}
                     onChange={(e) => setClientQuota(e.target.value)}
                     onBlur={() => saveAssignment({})}
-                    className="w-14 border border-slate-300 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    className="w-14 border border-line-2 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400" />
                   <span>scripts</span>
                   <select value={clientIntervalDays}
                     onChange={(e) => { setClientIntervalDays(e.target.value); saveAssignment({ clientIntervalDays: e.target.value }); }}
-                    className="border border-slate-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    className="border border-line-2 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
                     <option value="7">every week</option>
                     <option value="14">every 2 weeks</option>
                     <option value="21">every 3 weeks</option>
@@ -1327,7 +1349,7 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
                   <span>starting</span>
                   <input type="date" value={clientAnchor || todayStr()}
                     onChange={(e) => { setClientAnchor(e.target.value); saveAssignment({ clientAnchor: e.target.value }); }}
-                    className="border border-slate-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    className="border border-line-2 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                 </div>
                 <p className="text-[11px] text-blue-700">
                   {clients.find((c) => String(c.id) === clientId)?.name || "The client"} will see {clientQuota || "?"} script{clientQuota === "1" ? "" : "s"} to write {clientIntervalDays === "7" ? "every week" : `every ${parseInt(clientIntervalDays || "7") / 7} weeks`} on their Script Tasks page.
@@ -1349,81 +1371,81 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
         {/* Attached reels */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-xs font-semibold text-slate-500">📎 ATTACHED REELS ({reels.length})</p>
+            <p className="text-xs font-semibold text-muted">📎 ATTACHED {nounU} ({reels.length})</p>
             <div className="flex items-center gap-3">
               {reels.length > 0 && concept.clientId && (
                 <button onClick={pullFromReels} disabled={pulling}
-                  title="Read each reel's text and add as Script Examples"
-                  className={`text-[11px] font-semibold ${pulling ? "text-slate-400 cursor-wait" : "text-pink-600 hover:text-pink-800"}`}>
-                  {pulling ? "Reading reels…" : `✨ Pull text from ${reels.length} reel${reels.length !== 1 ? "s" : ""}`}
+                  title={`Read each ${noun}'s text and add as Script Examples`}
+                  className={`text-[11px] font-semibold ${pulling ? "text-faint cursor-wait" : "text-pink-600 hover:text-pink-800"}`}>
+                  {pulling ? `Reading ${noun}s…` : `✨ Pull text from ${reels.length} ${noun}${reels.length !== 1 ? "s" : ""}`}
                 </button>
               )}
               {concept.clientId && (
                 <button onClick={() => setShowReelPicker(true)}
-                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800">🎬 Pick from reels</button>
+                  className="text-[11px] font-semibold text-accent hover:text-indigo-800">🎬 Pick from {noun}s</button>
               )}
             </div>
           </div>
           <div className="space-y-1.5 mb-2">
             {reels.map((u, i) => (
-              <div key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-                <a href={u} target="_blank" rel="noopener noreferrer" className="flex-1 text-xs text-indigo-600 hover:underline truncate">{u}</a>
+              <div key={i} className="flex items-center gap-2 bg-slate-50 border border-line rounded-lg px-3 py-1.5">
+                <a href={u} target="_blank" rel="noopener noreferrer" className="flex-1 text-xs text-accent hover:underline truncate">{u}</a>
                 <button onClick={() => saveReels(reels.filter((_, idx) => idx !== i))}
-                  className="text-slate-300 hover:text-red-500 text-xs flex-shrink-0">✕</button>
+                  className="text-faint hover:text-red-500 text-xs flex-shrink-0">✕</button>
               </div>
             ))}
-            {reels.length === 0 && <p className="text-xs text-slate-300">No reels attached yet.</p>}
+            {reels.length === 0 && <p className="text-xs text-faint">No {noun}s attached yet.</p>}
           </div>
           <div className="flex items-center gap-2">
             <input value={newReel} onChange={(e) => setNewReel(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") addReel(); }}
-              placeholder="Paste a reel link to attach…"
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-            <button onClick={addReel} className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Add</button>
+              placeholder={`Paste a ${noun} link to attach…`}
+              className="flex-1 border border-line rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent" />
+            <button onClick={addReel} className="px-3 py-1.5 text-xs font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong">Add</button>
           </div>
         </div>
 
         {concept.textHook && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-1">TEXT HOOK</p>
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 text-sm font-medium text-indigo-800">
+            <p className="text-xs font-semibold text-muted mb-1">TEXT HOOK</p>
+            <div className="bg-accent-tint border border-accent-tint rounded-lg px-4 py-3 text-sm font-medium text-indigo-800">
               {concept.textHook}
             </div>
           </div>
         )}
         {concept.audioHook && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-1">AUDIO HOOK</p>
-            <p className="text-sm text-slate-600">{concept.audioHook}</p>
+            <p className="text-xs font-semibold text-muted mb-1">AUDIO HOOK</p>
+            <p className="text-sm text-ink-2">{concept.audioHook}</p>
           </div>
         )}
         {concept.structure && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-1">STRUCTURE</p>
-            <pre className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-slate-700">
+            <p className="text-xs font-semibold text-muted mb-1">STRUCTURE</p>
+            <pre className="bg-slate-50 border border-line rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-ink-2">
               {concept.structure}
             </pre>
           </div>
         )}
         {concept.guidelines && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-1">GUIDELINES</p>
-            <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm text-slate-700">
+            <p className="text-xs font-semibold text-muted mb-1">GUIDELINES</p>
+            <div className="bg-slate-50 border border-line rounded-lg px-4 py-3 text-sm text-ink-2">
               {concept.guidelines}
             </div>
           </div>
         )}
         {examples && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-2">SCRIPT EXAMPLES</p>
+            <p className="text-xs font-semibold text-muted mb-2">SCRIPT EXAMPLES</p>
             <div className="space-y-2">
               {splitExamples(examples).map((ex, i) => (
                 <div key={i}>
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Example {i + 1}</p>
-                    <span className="text-[10px] text-slate-400">{ex.trim().split(/\s+/).filter(Boolean).length} words</span>
+                    <span className="text-[10px] text-faint">{ex.trim().split(/\s+/).filter(Boolean).length} words</span>
                   </div>
-                  <pre className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-slate-700 max-h-48 overflow-y-auto">
+                  <pre className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm font-mono whitespace-pre-wrap text-ink-2 max-h-48 overflow-y-auto">
                     {ex.trim()}
                   </pre>
                 </div>
@@ -1433,21 +1455,21 @@ function ConceptDetailModal({ concept, clients, onClose, onDelete, onUpdated }: 
         )}
         {concept.exampleUrl && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-1">EXAMPLE</p>
+            <p className="text-xs font-semibold text-muted mb-1">EXAMPLE</p>
             <a href={concept.exampleUrl} target="_blank" rel="noopener noreferrer"
-              className="text-sm text-indigo-600 hover:underline break-all">{concept.exampleUrl}</a>
+              className="text-sm text-accent hover:underline break-all">{concept.exampleUrl}</a>
           </div>
         )}
         {concept.notes && (
           <div>
-            <p className="text-xs font-semibold text-slate-500 mb-1">NOTES</p>
-            <p className="text-sm text-slate-600">{concept.notes}</p>
+            <p className="text-xs font-semibold text-muted mb-1">NOTES</p>
+            <p className="text-sm text-ink-2">{concept.notes}</p>
           </div>
         )}
 
-        <div className="flex justify-between pt-2 border-t border-slate-100">
+        <div className="flex justify-between pt-2 border-t border-line">
           <button onClick={onDelete} className="text-sm text-red-500 hover:text-red-700">Delete</button>
-          <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Close</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200">Close</button>
         </div>
       </div>
     </Modal>

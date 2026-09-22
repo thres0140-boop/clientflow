@@ -5,7 +5,8 @@ const include = { assignedTo: true, assignedCreator: true };
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
-  const where = clientId ? { clientId: parseInt(clientId) } : { clientId: null };
+  const platform = req.nextUrl.searchParams.get("platform") || "instagram";
+  const where = (clientId ? { clientId: parseInt(clientId), platform } : { clientId: null, platform }) as any;
   const stages = await prisma.workflowStage.findMany({ where, orderBy: { order: "asc" }, include });
   return NextResponse.json(stages);
 }

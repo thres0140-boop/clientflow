@@ -267,14 +267,15 @@ export async function scrapeCompetitorProfile(competitorId: number): Promise<{ o
 // full=false → just the latest 2-3 pages (new posts + recent updates). Use on cron/refresh.
 export async function scrapeCompetitor(
   competitorId: number,
-  opts: { full?: boolean } = {}
+  opts: { full?: boolean; pages?: number } = {}
 ): Promise<{ ok: boolean; reels: number; error?: string }> {
   const competitor = await prisma.competitor.findUnique({ where: { id: competitorId } });
   if (!competitor) return { ok: false, reels: 0, error: "not found" };
 
     // full backfill paginates deep; incremental grabs the latest pages. The provider caps each
-    // page at ~12 reels, so 5 pages ≈ 60 reels per creator on a normal refresh.
-  const maxPages = opts.full ? 12 : 5;
+    // page at ~12 reels (1 API call/page), so 5 pages ≈ 60 reels. `pages` overrides this — a
+    // daily "top-up" uses 1 page (newest ~12) to catch new posts + refresh recent stats cheaply.
+  const maxPages = opts.pages ?? (opts.full ? 12 : 5);
 
   try {
     const recent = await fetchReelsFromProvider(competitor.handle, maxPages);
@@ -282,6 +283,11 @@ export async function scrapeCompetitor(
     // Reels whose thumbnail still points at an (expiring) Instagram CDN URL — we'll
     // download + rehost these to R2 below so the archive doesn't rot into broken images.
     const toCache: { reelId: number; shortcode: string; igUrl: string }[] = [];
+    // Newest reels we don't yet own the video for — we'll save them to R2 in this same pass
+    // (resolving the mp4 inline) so the recent reels are playable immediately, not stuck in the
+    // rate-limited capture queue. The list endpoint rarely carries the video URL, so we resolve
+    // per-reel when needed, but only for the newest few (bounded cost).
+    const toCacheVideo: { reelId: number; shortcode: string; listUrl?: string }[] = [];
 
     let count = 0;
     for (const r of recent) {
@@ -321,6 +327,10 @@ export async function scrapeCompetitor(
       if (igUrl && !isR2Url(reel.thumbnailUrl)) {
         toCache.push({ reelId: reel.id, shortcode: r.shortcode, igUrl });
       }
+      // Queue video caching if we don't already own the mp4 (newest-first order preserved).
+      if (!isR2Url(reel.cachedVideoUrl)) {
+        toCacheVideo.push({ reelId: reel.id, shortcode: r.shortcode, listUrl: r.mediaUrl || undefined });
+      }
       count++;
     }
 
@@ -335,6 +345,21 @@ export async function scrapeCompetitor(
           await (prisma as any).competitorReel.update({ where: { id: t.reelId }, data: { thumbnailUrl: url } }).catch(() => {});
         }
       }));
+    }
+
+    // Save the NEWEST reels' videos to R2 immediately so they're playable the moment they show
+    // up. Resolve the mp4 inline when the list didn't carry it. SEQUENTIAL + paced so we don't
+    // trip the vendor's rate limit; capped to the newest ~6. The rest fill via the capture cron.
+    const vidQueue = toCacheVideo.slice(0, 6);
+    for (const t of vidQueue) {
+      try {
+        const src = t.listUrl || await freshReelMediaUrl(competitor.handle, t.shortcode);
+        if (src) {
+          const url = await cacheImageToR2(src, `comp-videos/${t.reelId}.mp4`);
+          if (url) await (prisma as any).competitorReel.update({ where: { id: t.reelId }, data: { cachedVideoUrl: url, captureStatus: "pending" } }).catch(() => {});
+        }
+      } catch { /* leftover picked up by the capture cron */ }
+      await new Promise((res) => setTimeout(res, 250));
     }
 
     await prisma.competitor.update({

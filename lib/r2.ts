@@ -63,7 +63,16 @@ export async function deleteFromR2(url?: string | null): Promise<boolean> {
 export async function cacheImageToR2(srcUrl: string, key: string): Promise<string | null> {
   if (!r2Configured() || !srcUrl) return null;
   try {
-    const res = await fetch(srcUrl);
+    // Instagram's media CDN (video especially) 403s plain server fetches — send a browser
+    // User-Agent + Referer so downloads succeed.
+    const res = await fetch(srcUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36",
+        Accept: "*/*",
+        Referer: "https://www.instagram.com/",
+      },
+      signal: AbortSignal.timeout(45000),
+    });
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (!buf.length) return null;

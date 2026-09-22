@@ -4,6 +4,7 @@ export type Competitor = {
   handle: string;
   name?: string | null;
   niche?: string | null;
+  tags?: string | null;
   followerCount?: number | null;
   followingCount?: number | null;
   postCount?: number | null;
@@ -37,8 +38,17 @@ export type Message = {
   createdAt: string;
 };
 
+export type Workspace = {
+  id: number;
+  name: string;
+  color: string;
+  order?: number;
+  _count?: { clients: number };
+};
+
 export type Client = {
   id: number;
+  workspaceId?: number | null;
   name: string;
   platform: string;
   profileUrl?: string | null;
@@ -54,6 +64,11 @@ export type Client = {
   scriptRules?: string | null;
   ctaKeyword?: string | null;
   isTestAccount?: boolean;
+  instagramEnabled?: boolean;
+  tiktokEnabled?: boolean;
+  tiktokZernioAccountId?: string | null;
+  tiktokZernioUsername?: string | null;
+  tiktokZernioProfileId?: string | null;
   createdAt: string;
   instagramConnection?: {
     zernioAccountId: string | null;
@@ -98,6 +113,9 @@ export type ScriptDraft = {
   rawContentUrls?: string;
   editedVideoUrl?: string | null;
   exampleVideoUrl?: string | null;
+  exampleLink?: string | null;
+  exampleReelId?: number | null;
+  exampleThumbnail?: string | null;
   checkReviewerIds?: string;
   scheduledDate?: string | null;
   zernioBooked?: boolean;

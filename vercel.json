@@ -17,12 +17,20 @@
       "schedule": "30 4,16 * * *"
     },
     {
+      "path": "/api/cron/scrape-competitors",
+      "schedule": "30 5 * * *"
+    },
+    {
       "path": "/api/cron/snapshot-reels",
       "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/capture-reels",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/tiktok-sync",
+      "schedule": "0 */4 * * *"
     }
   ]
 }

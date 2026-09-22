@@ -45,18 +45,18 @@ export default function WorkflowPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Workflow Stages</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Define your team's content production pipeline</p>
+          <h1 className="text-2xl font-bold text-ink">Workflow Stages</h1>
+          <p className="text-muted text-sm mt-0.5">Define your team's content production pipeline</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700">
+        <button onClick={() => setShowAdd(true)} className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong">
           + Add Stage
         </button>
       </div>
 
       {/* Visual pipeline preview */}
       {stages.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <p className="text-xs font-semibold text-slate-400 mb-4 uppercase tracking-wide">Pipeline Preview</p>
+        <div className="bg-white rounded-2xl border border-line p-5">
+          <p className="text-xs font-semibold text-faint mb-4 uppercase tracking-wide">Pipeline Preview</p>
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
             {stages.map((stage, i) => (
               <div key={stage.id} className="flex items-center gap-2 flex-shrink-0">
@@ -65,18 +65,18 @@ export default function WorkflowPage() {
                     style={{ backgroundColor: stage.color }}>
                     {i + 1}
                   </div>
-                  <p className="text-xs font-semibold text-slate-700 max-w-[64px] text-center leading-tight">{stage.name}</p>
+                  <p className="text-xs font-semibold text-ink-2 max-w-[64px] text-center leading-tight">{stage.name}</p>
                   {stage.assignedTo && (
-                    <p className="text-[10px] text-slate-400 mt-0.5">{stage.assignedTo.name}</p>
+                    <p className="text-[10px] text-faint mt-0.5">{stage.assignedTo.name}</p>
                   )}
                 </div>
                 {i < stages.length - 1 && (
-                  <div className="text-slate-300 text-xl flex-shrink-0">→</div>
+                  <div className="text-faint text-xl flex-shrink-0">→</div>
                 )}
               </div>
             ))}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="text-slate-300 text-xl">→</div>
+              <div className="text-faint text-xl">→</div>
               <div className="text-center">
                 <div className="w-12 h-12 rounded-2xl bg-green-500 flex items-center justify-center text-white text-xl mb-1.5">✓</div>
                 <p className="text-xs font-semibold text-green-600">Posted</p>
@@ -88,20 +88,20 @@ export default function WorkflowPage() {
 
       {/* Stage list */}
       {stages.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-14 text-center">
+        <div className="bg-white rounded-2xl border border-line p-14 text-center">
           <div className="text-4xl mb-3">⚙️</div>
-          <p className="text-slate-500 text-sm mb-2">No workflow stages yet.</p>
-          <p className="text-slate-400 text-xs mb-4">
+          <p className="text-muted text-sm mb-2">No workflow stages yet.</p>
+          <p className="text-faint text-xs mb-4">
             Example: <span className="font-medium">SMM scripts it</span> → <span className="font-medium">Creator films it</span> → <span className="font-medium">Editor finishes it</span> → <span className="font-medium">SMM approves it</span>
           </p>
-          <button onClick={() => setShowAdd(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700">
+          <button onClick={() => setShowAdd(true)} className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong">
             + Add First Stage
           </button>
         </div>
       ) : (
         <div className="space-y-2">
           {stages.map((stage, i) => (
-            <div key={stage.id} className="bg-white rounded-xl border border-slate-200 flex items-center gap-4 px-5 py-4">
+            <div key={stage.id} className="bg-white rounded-xl border border-line flex items-center gap-4 px-5 py-4">
               {/* Order indicator */}
               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
                 style={{ backgroundColor: stage.color }}>
@@ -110,15 +110,15 @@ export default function WorkflowPage() {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-800">{stage.name}</p>
+                <p className="font-semibold text-ink">{stage.name}</p>
                 {stage.assignedTo ? (
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <div className="w-4 h-4 rounded-full flex-shrink-0"
                       style={{ backgroundColor: stage.assignedTo.color }} />
-                    <p className="text-xs text-slate-500">{stage.assignedTo.name}{stage.assignedTo.role ? ` · ${stage.assignedTo.role}` : ""}</p>
+                    <p className="text-xs text-muted">{stage.assignedTo.name}{stage.assignedTo.role ? ` · ${stage.assignedTo.role}` : ""}</p>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 mt-0.5">No one assigned</p>
+                  <p className="text-xs text-faint mt-0.5">No one assigned</p>
                 )}
               </div>
 
@@ -132,15 +132,15 @@ export default function WorkflowPage() {
               {/* Actions */}
               <div className="flex items-center gap-1">
                 <button onClick={() => moveStage(i, -1)} disabled={i === 0}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 disabled:opacity-30 text-sm">
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-faint disabled:opacity-30 text-sm">
                   ↑
                 </button>
                 <button onClick={() => moveStage(i, 1)} disabled={i === stages.length - 1}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 disabled:opacity-30 text-sm">
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-faint disabled:opacity-30 text-sm">
                   ↓
                 </button>
                 <button onClick={() => setEditing(stage)}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 ml-1">
+                  className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200 ml-1">
                   Edit
                 </button>
                 <button onClick={() => deleteStage(stage.id)}
@@ -194,21 +194,21 @@ function StageModal({ stage, team, onClose, onSaved }: {
     <Modal title={stage ? "Edit Stage" : "New Workflow Stage"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Stage Name *</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Stage Name *</label>
           <input required value={form.name} onChange={(e) => set("name", e.target.value)}
             placeholder="e.g. SMM Scripts, Creator Films, Editor Edits, SMM Approves..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Assigned To (gets notified when content reaches this stage)</label>
+          <label className="block text-xs font-medium text-ink-2 mb-1">Assigned To (gets notified when content reaches this stage)</label>
           {team.length === 0 ? (
             <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
               No team members yet. Add team members first to assign them to stages.
             </p>
           ) : (
             <select value={form.assignedToId} onChange={(e) => set("assignedToId", e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
               <option value="">— No one assigned —</option>
               {team.map((m) => <option key={m.id} value={m.id}>{m.name}{m.role ? ` (${m.role})` : ""}</option>)}
             </select>
@@ -216,7 +216,7 @@ function StageModal({ stage, team, onClose, onSaved }: {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-2">Stage Color</label>
+          <label className="block text-xs font-medium text-ink-2 mb-2">Stage Color</label>
           <div className="flex flex-wrap gap-2">
             {MEMBER_COLORS.map((c) => (
               <button key={c} type="button" onClick={() => set("color", c)}
@@ -233,8 +233,8 @@ function StageModal({ stage, team, onClose, onSaved }: {
               {stage ? "→" : "+"}
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-800">{form.name}</p>
-              <p className="text-xs text-slate-400">
+              <p className="text-sm font-semibold text-ink">{form.name}</p>
+              <p className="text-xs text-faint">
                 {form.assignedToId
                   ? `Notifies ${team.find((m) => m.id === parseInt(form.assignedToId))?.name}`
                   : "No notification"}
@@ -244,8 +244,8 @@ function StageModal({ stage, team, onClose, onSaved }: {
         )}
 
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-xl hover:bg-accent-strong">
             {stage ? "Save Changes" : "Add Stage"}
           </button>
         </div>
