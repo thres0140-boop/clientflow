@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { fetchSimilarAccounts, expandKeywords, matchedKeyword, type FoundUser } from "@/lib/findCompetitors";
+import { prisma } from "@/shared/db/prisma";
+import { fetchSimilarAccounts, expandKeywords, matchedKeyword, type FoundUser } from "@/features/instagram/server/findCompetitors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

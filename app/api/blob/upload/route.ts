@@ -1,6 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken } from "@/lib/session";
+import { verifySessionToken } from "@/shared/auth/session";
 
 // POST /api/blob/upload — client-upload token endpoint for Vercel Blob.
 // Used for large videos (>95MB) that exceed Cloudinary's limit. The browser uploads

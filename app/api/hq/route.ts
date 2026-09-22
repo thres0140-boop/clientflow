@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifySessionToken } from "@/lib/session";
+import { prisma } from "@/shared/db/prisma";
+import { verifySessionToken } from "@/shared/auth/session";
 
 export const runtime = "nodejs";
 

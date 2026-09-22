@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifySessionToken } from "@/lib/session";
-import { sendWhatsApp } from "@/lib/notify";
-import { sendPush } from "@/lib/push";
+import { prisma } from "@/shared/db/prisma";
+import { verifySessionToken } from "@/shared/auth/session";
+import { sendWhatsApp } from "@/shared/notify/notify";
+import { sendPush } from "@/shared/notify/push";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");

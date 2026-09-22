@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { scrapeCompetitorProfile } from "@/lib/scrapeCompetitors";
+import { prisma } from "@/shared/db/prisma";
+import { scrapeCompetitorProfile } from "@/features/instagram/server/scrapeCompetitors";
 
 export const maxDuration = 120;
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 const DEFAULT_STAGES = [
   { name: "Record",       color: "#3b82f6", order: 1 },

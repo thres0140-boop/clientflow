@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 const BASE = `https://${process.env.UNIPILE_DSN}/api/v1`;
 const KEY  = process.env.UNIPILE_API_KEY!;

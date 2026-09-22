@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // Advance content to the next workflow stage, log history, fire notification
 export async function POST(req: NextRequest) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { prisma } from "@/lib/prisma";
-import { buildExamplesBlock, splitExamples } from "@/lib/conceptExamples";
+import { prisma } from "@/shared/db/prisma";
+import { buildExamplesBlock, splitExamples } from "@/features/scripts/server/conceptExamples";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

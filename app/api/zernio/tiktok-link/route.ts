@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // POST /api/zernio/tiktok-link  { clientId, zernioAccountId, username?, zernioProfileId? }
 // Links a Zernio TikTok account to a client (for organic analytics). Mirrors /api/zernio/link

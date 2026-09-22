@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncClientPipeline } from "@/lib/syncPipeline";
+import { syncClientPipeline } from "@/features/content/server/syncPipeline";
 
 // GET /api/zernio/sync-pipeline?clientId=X
 // On-demand sync for a single client — called when the Analytics / DM Pipeline page opens.

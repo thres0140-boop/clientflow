@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 import bcrypt from "bcryptjs";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {

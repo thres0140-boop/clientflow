@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken, createSessionToken } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { verifySessionToken, createSessionToken } from "@/shared/auth/session";
+import { prisma } from "@/shared/db/prisma";
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get("cf_session")?.value;

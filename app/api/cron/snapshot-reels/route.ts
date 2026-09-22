@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 import { enrichReels } from "@/app/api/instagram/media/route";
 
 export const runtime = "nodejs";

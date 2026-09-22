@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { ensureReelVideo } from "@/lib/reelCapture";
-import { cacheImageToR2 } from "@/lib/r2";
+import { prisma } from "@/shared/db/prisma";
+import { ensureReelVideo } from "@/features/instagram/server/reelCapture";
+import { cacheImageToR2 } from "@/shared/media/r2";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;

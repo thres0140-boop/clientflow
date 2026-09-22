@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchReelsFromProvider } from "@/lib/scrapeCompetitors";
+import { fetchReelsFromProvider } from "@/features/instagram/server/scrapeCompetitors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { scrapeCompetitor, scrapeCompetitorProfile } from "@/lib/scrapeCompetitors";
+import { scrapeCompetitor, scrapeCompetitorProfile } from "@/features/instagram/server/scrapeCompetitors";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { sendWhatsApp } from "@/lib/notify";
-import { deletePostedMedia } from "@/lib/mediaCleanup";
-import { logActivity } from "@/lib/activity";
+import { prisma } from "@/shared/db/prisma";
+import { sendWhatsApp } from "@/shared/notify/notify";
+import { deletePostedMedia } from "@/shared/media/mediaCleanup";
+import { logActivity } from "@/shared/activity";
 
 // POST /api/webhooks/zernio
 // Receives Zernio webhook events for post.published, post.failed, post.scheduled

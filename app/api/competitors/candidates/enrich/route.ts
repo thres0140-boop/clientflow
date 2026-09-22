@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { classifyProfiles } from "@/lib/findCompetitors";
-import { fetchProfileInfo } from "@/lib/scrapeCompetitors";
+import { prisma } from "@/shared/db/prisma";
+import { classifyProfiles } from "@/features/instagram/server/findCompetitors";
+import { fetchProfileInfo } from "@/features/instagram/server/scrapeCompetitors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

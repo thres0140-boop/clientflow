@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 import { randomBytes } from "crypto";
 
 // POST /api/upload-tokens — create or return existing token for a draft

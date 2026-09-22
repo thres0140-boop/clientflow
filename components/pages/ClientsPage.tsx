@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Client, PLATFORMS } from "@/lib/types";
-import Modal from "@/components/ui/Modal";
-import ClientAvatar from "@/components/ui/ClientAvatar";
+import { Client, PLATFORMS } from "@/shared/types";
+import Modal from "@/shared/ui/Modal";
+import ClientAvatar from "@/shared/ui/ClientAvatar";
 
 type Props = {
   clients: Client[];

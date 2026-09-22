@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Client, Concept } from "@/lib/types";
+import { Client, Concept } from "@/shared/types";
 
 type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void };
 

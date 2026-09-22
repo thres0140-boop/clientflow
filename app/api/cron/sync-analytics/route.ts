@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { promoteProvenExamples } from "@/lib/conceptExamples";
+import { prisma } from "@/shared/db/prisma";
+import { promoteProvenExamples } from "@/features/scripts/server/conceptExamples";
 
 const IG_BASE = "https://graph.instagram.com/v21.0";
 

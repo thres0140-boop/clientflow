@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 import bcrypt from "bcryptjs";
-import { createSessionToken } from "@/lib/session";
+import { createSessionToken } from "@/shared/auth/session";
 
 function setCookie(res: NextResponse, token: string) {
   res.cookies.set("cf_session", token, {

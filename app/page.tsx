@@ -1,27 +1,27 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import Sidebar from "@/components/Sidebar";
-import Pipeline from "@/components/pages/Pipeline";
-import HeadquartersPage from "@/components/pages/HeadquartersPage";
-import Concepts from "@/components/pages/Concepts";
-import Analytics from "@/components/pages/Analytics";
-import TeamPage from "@/components/pages/TeamPage";
-import ChatPage from "@/components/pages/ChatPage";
-import SettingsPage from "@/components/pages/SettingsPage";
-import Kanban from "@/components/pages/Kanban";
-import ScriptTasksPage from "@/components/pages/ScriptTasksPage";
-import InstagramPage from "@/components/pages/InstagramPage";
-import BoardPage from "@/components/pages/BoardPage";
-import ClientSettingsPage from "@/components/pages/ClientSettingsPage";
-import TikTokPage from "@/components/pages/TikTokPage";
-import TikTokInstructionsPage from "@/components/pages/TikTokInstructionsPage";
-import DmsPage from "@/components/pages/DmsPage";
-import ContextPage from "@/components/pages/ContextPage";
-import TranscribePage from "@/components/pages/TranscribePage";
-import { Client, Notification, TeamMember, Workspace } from "@/lib/types";
-import type { SessionPayload } from "@/lib/session";
-import { countUnseenSentBack } from "@/lib/sentBackSeen";
+import Sidebar from "@/shared/ui/Sidebar";
+import Pipeline from "@/features/content/pages/Pipeline";
+import HeadquartersPage from "@/features/analytics/pages/HeadquartersPage";
+import Concepts from "@/features/scripts/pages/Concepts";
+import Analytics from "@/features/analytics/pages/Analytics";
+import TeamPage from "@/features/clients/pages/TeamPage";
+import ChatPage from "@/features/chat/pages/ChatPage";
+import SettingsPage from "@/features/clients/pages/SettingsPage";
+import Kanban from "@/features/scripts/pages/Kanban";
+import ScriptTasksPage from "@/features/scripts/pages/ScriptTasksPage";
+import InstagramPage from "@/features/instagram/pages/InstagramPage";
+import BoardPage from "@/features/content/pages/BoardPage";
+import ClientSettingsPage from "@/features/clients/pages/ClientSettingsPage";
+import TikTokPage from "@/features/tiktok/pages/TikTokPage";
+import TikTokInstructionsPage from "@/features/tiktok/pages/TikTokInstructionsPage";
+import DmsPage from "@/features/instagram/pages/DmsPage";
+import ContextPage from "@/features/scripts/pages/ContextPage";
+import TranscribePage from "@/features/content/pages/TranscribePage";
+import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
+import type { SessionPayload } from "@/shared/auth/session";
+import { countUnseenSentBack } from "@/features/scripts/sentBackSeen";
 
 export type Page =
   | "headquarters"

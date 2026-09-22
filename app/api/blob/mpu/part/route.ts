@@ -1,6 +1,6 @@
 import { uploadPart } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken } from "@/lib/session";
+import { verifySessionToken } from "@/shared/auth/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

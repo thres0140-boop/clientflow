@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { syncTikTokCompetitor } from "@/lib/tiktokSync";
-import { snapshotOfficial } from "@/lib/tiktokOAuth";
+import { prisma } from "@/shared/db/prisma";
+import { syncTikTokCompetitor } from "@/features/tiktok/server/tiktokSync";
+import { snapshotOfficial } from "@/features/tiktok/server/tiktokOAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

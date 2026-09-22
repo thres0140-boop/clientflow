@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { captureReel } from "@/lib/reelCapture";
+import { prisma } from "@/shared/db/prisma";
+import { captureReel } from "@/features/instagram/server/reelCapture";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     if (videoPending.length > 0) {
       // Import lazily so a video-only pass never pulls in the transcription path.
-      const { ensureReelVideo } = await import("@/lib/reelCapture");
+      const { ensureReelVideo } = await import("@/features/instagram/server/reelCapture");
       for (const r of videoPending) {
         try {
           const v = await ensureReelVideo(r.id);

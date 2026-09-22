@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { logActivity } from "@/lib/activity";
+import { prisma } from "@/shared/db/prisma";
+import { logActivity } from "@/shared/activity";
 
 // Ordered stages for a client + the stage that comes after `stageId`.
 async function stageInfo(clientId: number, stageId: number | null) {

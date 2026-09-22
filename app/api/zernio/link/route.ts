@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // POST /api/zernio/link  { clientId, zernioAccountId, igUsername? }
 // Links a Zernio social account to a client in our DB.

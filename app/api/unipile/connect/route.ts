@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // POST { clientId, unipileAccountId } — links a Unipile account to a client
 export async function POST(req: NextRequest) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // POST /api/competitors/candidates/[id]  { action: "accept" | "reject", clientId }
 // accept → promote into a Competitor row (then the client kicks the normal scrape).

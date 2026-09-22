@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { verifySessionToken } from "@/lib/session";
+import { verifySessionToken } from "@/shared/auth/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

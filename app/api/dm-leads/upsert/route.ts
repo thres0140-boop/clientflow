@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // POST { clientId, name, handle, status }
 // Creates the lead or promotes it (follows → messaged)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 import Anthropic from "@anthropic-ai/sdk";
-import { fetchTikTokProfile } from "@/lib/scrapeTikTok";
+import { fetchTikTokProfile } from "@/features/tiktok/server/scrapeTikTok";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

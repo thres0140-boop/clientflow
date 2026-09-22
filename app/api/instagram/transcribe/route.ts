@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   // we have one, otherwise captures the video to R2, transcribes once, and stores it forever.
   // This means transcription never depends on the flaky vendor after the first successful pass.
   if (reelId) {
-    const { ensureReelTranscript } = await import("@/lib/reelCapture");
+    const { ensureReelTranscript } = await import("@/features/instagram/server/reelCapture");
     const transcript = await ensureReelTranscript(Number(reelId));
     if (transcript === null) {
       return NextResponse.json({ error: "Couldn't get this reel's video yet (source temporarily unavailable) — it'll be captured automatically shortly, try again in a bit." }, { status: 503 });

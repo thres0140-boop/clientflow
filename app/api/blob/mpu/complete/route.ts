@@ -1,6 +1,6 @@
 import { completeMultipartUpload } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken } from "@/lib/session";
+import { verifySessionToken } from "@/shared/auth/session";
 
 // POST /api/blob/mpu/complete — finalize the multipart upload, return the public URL.
 export async function POST(req: NextRequest) {

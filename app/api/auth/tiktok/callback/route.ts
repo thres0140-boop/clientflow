@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { exchangeCode, saveTokens } from "@/lib/tiktokOAuth";
+import { exchangeCode, saveTokens } from "@/features/tiktok/server/tiktokOAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

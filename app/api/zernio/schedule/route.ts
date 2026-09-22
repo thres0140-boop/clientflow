@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { canEditPage } from "@/lib/permissions";
+import { prisma } from "@/shared/db/prisma";
+import { canEditPage } from "@/shared/auth/permissions";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;

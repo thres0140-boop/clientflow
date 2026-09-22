@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { fetchProfileInfo, freshReelMediaUrl, scrapeCompetitor } from "@/lib/scrapeCompetitors";
-import { joinExamples } from "@/lib/conceptExamples";
+import { prisma } from "@/shared/db/prisma";
+import { fetchProfileInfo, freshReelMediaUrl, scrapeCompetitor } from "@/features/instagram/server/scrapeCompetitors";
+import { joinExamples } from "@/features/scripts/server/conceptExamples";
 
 // GET — debug: show all instagram connections + lead counts
 export async function GET(req: NextRequest) {
@@ -119,7 +119,7 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
   if (req.nextUrl.searchParams.get("remixtest2")) {
     try {
       const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const { buildExamplesBlock, splitExamples } = await import("@/lib/conceptExamples");
+      const { buildExamplesBlock, splitExamples } = await import("@/features/scripts/server/conceptExamples");
       const ac = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
       const cid = parseInt(req.nextUrl.searchParams.get("remixtest2")!);
       // param is a clientId; grab that client's most-populated concept (has examples/blueprint).
@@ -207,7 +207,7 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     const rid = parseInt(req.nextUrl.searchParams.get("capturetest") || "0");
     const reel = await (prisma as any).competitorReel.findUnique({ where: { id: rid }, include: { competitor: { select: { handle: true } } } });
     if (!reel) return NextResponse.json({ error: "reel not found" });
-    const { cacheImageToR2 } = await import("@/lib/r2");
+    const { cacheImageToR2 } = await import("@/shared/media/r2");
     const out: any = { handle: reel.competitor?.handle, shortcode: reel.shortcode, hadCached: reel.cachedVideoUrl || null, listMediaUrl: reel.mediaUrl ? reel.mediaUrl.slice(0, 60) : null };
     let fresh: string | null = null;
     try { fresh = await freshReelMediaUrl(reel.competitor?.handle || "", reel.shortcode); } catch (e) { out.freshError = String(e).slice(0, 120); }
@@ -229,7 +229,7 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     const cid = parseInt(req.nextUrl.searchParams.get("scrapeclient") || "0");
     const per = Math.min(parseInt(req.nextUrl.searchParams.get("per") || "8") || 8, 15);
     const comps = await (prisma as any).competitor.findMany({ where: { clientId: cid }, select: { id: true, handle: true } });
-    const { cacheImageToR2 } = await import("@/lib/r2");
+    const { cacheImageToR2 } = await import("@/shared/media/r2");
     const out: any[] = [];
     for (const c of comps) {
       const reels = await (prisma as any).competitorReel.findMany({ where: { competitorId: c.id, cachedVideoUrl: null }, orderBy: { postedAt: "desc" }, take: per, select: { id: true, shortcode: true } });
@@ -416,7 +416,7 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
 
   // Diagnostic: run the Instructions engine for the first TikTok-linked client.
   if (req.nextUrl.searchParams.get("ttinstrtest")) {
-    const { generateInstructions } = await import("@/lib/tiktokInstructions");
+    const { generateInstructions } = await import("@/features/tiktok/server/tiktokInstructions");
     const c = await (prisma as any).client.findFirst({ where: { tiktokZernioAccountId: { not: null } }, select: { id: true, name: true } });
     if (!c) return NextResponse.json({ note: "no tiktok-linked client" });
     const r = await generateInstructions(c.id).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
@@ -560,7 +560,7 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
   // freshReelMediaUrl and report which return null (pinpoints per-reel failures).
   if (req.nextUrl.searchParams.get("reelhandle")) {
     try {
-      const { freshReelMediaUrl } = await import("@/lib/scrapeCompetitors");
+      const { freshReelMediaUrl } = await import("@/features/instagram/server/scrapeCompetitors");
       const handle = req.nextUrl.searchParams.get("reelhandle")!.replace(/^@/, "");
       const comp = await (prisma as any).competitor.findFirst({ where: { handle: { equals: handle, mode: "insensitive" } }, select: { id: true, handle: true } });
       if (!comp) return NextResponse.json({ error: "competitor not found", handle });
@@ -578,7 +578,7 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
 
   if (req.nextUrl.searchParams.get("reeltest")) {
     try {
-      const { freshReelMediaUrl } = await import("@/lib/scrapeCompetitors");
+      const { freshReelMediaUrl } = await import("@/features/instagram/server/scrapeCompetitors");
       const reel = await (prisma as any).competitorReel.findFirst({ orderBy: { id: "desc" }, select: { id: true, shortcode: true, competitorId: true } });
       if (!reel) return NextResponse.json({ error: "no competitor reels in DB" });
       const comp = await (prisma as any).competitor.findUnique({ where: { id: reel.competitorId }, select: { handle: true } });

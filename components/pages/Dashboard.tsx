@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Client, ContentPiece, Concept, TrackedVideo, STATUSES } from "@/lib/types";
-import StatusBadge from "@/components/ui/StatusBadge";
-import ClientAvatar from "@/components/ui/ClientAvatar";
+import { Client, ContentPiece, Concept, TrackedVideo, STATUSES } from "@/shared/types";
+import StatusBadge from "@/shared/ui/StatusBadge";
+import ClientAvatar from "@/shared/ui/ClientAvatar";
 import { Page } from "@/app/page";
 
 type Props = {

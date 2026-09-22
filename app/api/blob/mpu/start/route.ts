@@ -1,6 +1,6 @@
 import { createMultipartUpload } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
-import { verifySessionToken } from "@/lib/session";
+import { verifySessionToken } from "@/shared/auth/session";
 
 // POST /api/blob/mpu/start — begin a server-side multipart upload to Vercel Blob.
 export async function POST(req: NextRequest) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { classifyUnclassified } from "@/lib/classifyCompetitorReels";
+import { classifyUnclassified } from "@/features/instagram/server/classifyCompetitorReels";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";

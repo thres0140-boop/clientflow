@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { addConceptExample } from "@/lib/conceptExamples";
-import { verifySessionToken } from "@/lib/session";
-import { sendWhatsApp } from "@/lib/notify";
-import { canEditPage } from "@/lib/permissions";
-import { logActivity } from "@/lib/activity";
+import { prisma } from "@/shared/db/prisma";
+import { addConceptExample } from "@/features/scripts/server/conceptExamples";
+import { verifySessionToken } from "@/shared/auth/session";
+import { sendWhatsApp } from "@/shared/notify/notify";
+import { canEditPage } from "@/shared/auth/permissions";
+import { logActivity } from "@/shared/activity";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

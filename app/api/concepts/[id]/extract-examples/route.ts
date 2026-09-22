@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 import Anthropic from "@anthropic-ai/sdk";
-import { addConceptExample, splitExamples, joinExamples } from "@/lib/conceptExamples";
-import { classifyReelFormat } from "@/lib/classifyCompetitorReels";
+import { addConceptExample, splitExamples, joinExamples } from "@/features/scripts/server/conceptExamples";
+import { classifyReelFormat } from "@/features/instagram/server/classifyCompetitorReels";
 
 // Transcribing several videos can take a while — give the function room.
 export const maxDuration = 120;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // PUT /api/workspaces/[id] → rename / recolor.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

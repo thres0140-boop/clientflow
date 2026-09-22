@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { syncClientPipeline } from "@/lib/syncPipeline";
+import { prisma } from "@/shared/db/prisma";
+import { syncClientPipeline } from "@/features/content/server/syncPipeline";
 
 // Vercel Cron — runs on a schedule (see vercel.json).
 // Keeps every connected client's DM pipeline + analytics in sync in the background,

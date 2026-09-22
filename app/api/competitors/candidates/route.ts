@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // GET /api/competitors/candidates?clientId=&status=pending → discovered profiles to review
 export async function GET(req: NextRequest) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { todayYMD } from "@/lib/analyticsBump";
+import { prisma } from "@/shared/db/prisma";
+import { todayYMD } from "@/features/analytics/server/analyticsBump";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

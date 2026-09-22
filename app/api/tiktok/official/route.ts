@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchOfficial, disconnectTikTok } from "@/lib/tiktokOAuth";
+import { fetchOfficial, disconnectTikTok } from "@/features/tiktok/server/tiktokOAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

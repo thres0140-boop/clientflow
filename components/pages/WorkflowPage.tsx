@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { WorkflowStage, TeamMember, MEMBER_COLORS } from "@/lib/types";
-import Modal from "@/components/ui/Modal";
+import { WorkflowStage, TeamMember, MEMBER_COLORS } from "@/shared/types";
+import Modal from "@/shared/ui/Modal";
 
 export default function WorkflowPage() {
   const [stages, setStages] = useState<WorkflowStage[]>([]);

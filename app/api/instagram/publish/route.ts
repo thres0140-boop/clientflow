@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 export async function POST(req: NextRequest) {
   const { clientId, caption, videoUrl, autoSubtitles, shareToFeed } = await req.json();

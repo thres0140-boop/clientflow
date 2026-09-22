@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/shared/db/prisma";
 
 // GET — Unipile redirects here after hosted auth
 // Query params: clientId, status (success|failure), account_id (on success)

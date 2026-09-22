@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { freshReelMediaUrl } from "@/lib/scrapeCompetitors";
-import { uploadToR2, isR2Url } from "@/lib/r2";
+import { prisma } from "@/shared/db/prisma";
+import { freshReelMediaUrl } from "@/features/instagram/server/scrapeCompetitors";
+import { uploadToR2, isR2Url } from "@/shared/media/r2";
 
 // Download an Instagram CDN video with a browser User-Agent (IG 403s plain server
 // fetches) and push it to R2. Returns the permanent public URL, or null on failure.

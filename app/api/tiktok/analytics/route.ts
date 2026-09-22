@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTikTokZernio } from "@/lib/tiktokZernio";
+import { fetchTikTokZernio } from "@/features/tiktok/server/tiktokZernio";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { freshReelMediaUrl } from "@/lib/scrapeCompetitors";
-import { ensureReelVideo } from "@/lib/reelCapture";
-import { isR2Url } from "@/lib/r2";
+import { prisma } from "@/shared/db/prisma";
+import { freshReelMediaUrl } from "@/features/instagram/server/scrapeCompetitors";
+import { ensureReelVideo } from "@/features/instagram/server/reelCapture";
+import { isR2Url } from "@/shared/media/r2";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

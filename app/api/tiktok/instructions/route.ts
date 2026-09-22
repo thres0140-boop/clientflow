@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { generateInstructions } from "@/lib/tiktokInstructions";
+import { prisma } from "@/shared/db/prisma";
+import { generateInstructions } from "@/features/tiktok/server/tiktokInstructions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

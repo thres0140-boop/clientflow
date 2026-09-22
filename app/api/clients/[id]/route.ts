@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { handleFromInput } from "@/lib/scrapeTikTok";
+import { prisma } from "@/shared/db/prisma";
+import { handleFromInput } from "@/features/tiktok/server/scrapeTikTok";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

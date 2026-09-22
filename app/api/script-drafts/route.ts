@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { addConceptExample, splitExamples, joinExamples } from "@/lib/conceptExamples";
-import { sendWhatsApp } from "@/lib/notify";
-import { logActivity } from "@/lib/activity";
+import { prisma } from "@/shared/db/prisma";
+import { addConceptExample, splitExamples, joinExamples } from "@/features/scripts/server/conceptExamples";
+import { sendWhatsApp } from "@/shared/notify/notify";
+import { logActivity } from "@/shared/activity";
 
 export async function GET(req: NextRequest) {
   const idParam = req.nextUrl.searchParams.get("id");
