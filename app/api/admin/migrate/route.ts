@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import { fetchProfileInfo, freshReelMediaUrl, scrapeCompetitor } from "@/features/instagram/server/scrapeCompetitors";
 import { joinExamples } from "@/features/scripts/server/conceptExamples";
+import { isAdminToken } from "@/shared/auth/adminToken";
 
 // GET — debug: show all instagram connections + lead counts
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("token");
-  if (secret !== "zernio-migrate-2024") return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!isAdminToken(secret)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   // ?reeltest — diagnose why competitor reel videos won't play: call get_media_data with the
   // runtime RapidAPI key and show the raw response.
@@ -1450,7 +1451,7 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
 // Call once after deploy, then this is a no-op (IF NOT EXISTS is safe to re-run).
 export async function POST(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("token") || req.headers.get("x-admin-secret");
-  if (secret !== "zernio-migrate-2024") {
+  if (!isAdminToken(secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

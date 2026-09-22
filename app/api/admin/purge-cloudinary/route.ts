@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import { deletePostedMedia } from "@/shared/media/mediaCleanup";
+import { isAdminToken } from "@/shared/auth/adminToken";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-// GET /api/admin/purge-cloudinary?token=zernio-migrate-2024
+// GET /api/admin/purge-cloudinary?token=<ADMIN_TOKEN>
 // One-time backlog cleaner. Cloudinary's dashboard is locked while the account is over its
 // free limit, but the Admin API still deletes — so this deletes media for ALREADY-POSTED
 // drafts (safe: nothing in the active pipeline is touched) to free space.
@@ -13,7 +14,7 @@ export const maxDuration = 300;
 //   &limit=N → cap how many drafts to process this run (default 250)
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("token");
-  if (secret !== "zernio-migrate-2024") {
+  if (!isAdminToken(secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const dry = req.nextUrl.searchParams.get("dry") === "1";

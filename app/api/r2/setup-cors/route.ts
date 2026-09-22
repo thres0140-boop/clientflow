@@ -1,13 +1,12 @@
 import { S3Client, PutBucketCorsCommand, GetBucketCorsCommand } from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
+import { isAdminToken } from "@/shared/auth/adminToken";
 
 export const runtime = "nodejs";
 
 // Token-gated. Applies (POST) or reads (GET) the bucket CORS policy so the browser can
 // upload large videos directly to R2 via presigned PUT. Without this, those uploads fail
 // with "network/CORS error" because the cross-origin PUT is blocked by the browser.
-const TOKEN = "zernio-migrate-2024";
-
 const ALLOWED_ORIGINS = [
   "https://www.ordoagency.com",
   "https://ordoagency.com",
@@ -27,7 +26,7 @@ function client() {
 }
 
 export async function POST(req: NextRequest) {
-  if (req.nextUrl.searchParams.get("token") !== TOKEN) {
+  if (!isAdminToken(req.nextUrl.searchParams.get("token"))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const bucket = process.env.R2_BUCKET;
@@ -56,7 +55,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  if (req.nextUrl.searchParams.get("token") !== TOKEN) {
+  if (!isAdminToken(req.nextUrl.searchParams.get("token"))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const bucket = process.env.R2_BUCKET;

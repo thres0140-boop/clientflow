@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import { captureReel } from "@/features/instagram/server/reelCapture";
+import { isAdminToken } from "@/shared/auth/adminToken";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     // Allow Vercel Cron (no auth header issue) or manual trigger with the migrate token.
     const token = req.nextUrl.searchParams.get("token");
     const isCron = req.headers.get("user-agent")?.includes("vercel-cron") || req.headers.get("x-vercel-cron");
-    if (!isCron && token !== "zernio-migrate-2024") {
+    if (!isCron && !isAdminToken(token)) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
     const videoOnly = req.nextUrl.searchParams.get("videoOnly") === "1";
