@@ -440,13 +440,13 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
               const ttItems = TT_FOLDER.filter((id) => allowedPages.includes(id));
               return (
                 <>
+                  {sharedItems.length > 0 && <div>{groupHeader("WORK")}<div className="space-y-0.5">{sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => onNavigate(id), "sh-"))}</div></div>}
                   <div>
                     {groupHeader("🎵 TIKTOK")}
                     <div className="space-y-0.5">
                       {ttItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { onSelectPlatform?.("tiktok"); onNavigate(id); }, "tt-"))}
                     </div>
                   </div>
-                  {sharedItems.length > 0 && <div>{groupHeader("WORK")}<div className="space-y-0.5">{sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => onNavigate(id), "sh-"))}</div></div>}
                   {manage.length > 0 && <div>{groupHeader("MANAGE")}<div className="space-y-0.5">{manage.map((item) => renderItem(item.id, item.label, currentPage === item.id, () => onNavigate(item.id), "mg-"))}</div></div>}
                 </>
               );
@@ -458,6 +458,14 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
               const ttItems = TT_FOLDER.filter((id) => allowedPages.includes(id));
               return (
                 <>
+                  {sharedItems.length > 0 && (
+                    <div>
+                      {groupHeader("WORK")}
+                      <div className="space-y-0.5">
+                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { if (!CROSS_PLATFORM.includes(id)) onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     {folderHeader("📸 INSTAGRAM", "instagram")}
                     {!foldersClosed["instagram"] && (
@@ -474,14 +482,6 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
                       </div>
                     )}
                   </div>
-                  {sharedItems.length > 0 && (
-                    <div>
-                      {groupHeader("WORK")}
-                      <div className="space-y-0.5">
-                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { if (!CROSS_PLATFORM.includes(id)) onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
-                      </div>
-                    </div>
-                  )}
                   {manage.length > 0 && (
                     <div>
                       {groupHeader("MANAGE")}
@@ -500,14 +500,6 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
               const igItems = IG_FOLDER.filter((id) => allowedPages.includes(id));
               return (
                 <>
-                  <div>
-                    {folderHeader("📸 INSTAGRAM", "instagram")}
-                    {!foldersClosed["instagram"] && (
-                      <div className="space-y-0.5">
-                        {igItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "instagram", () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "ig-"))}
-                      </div>
-                    )}
-                  </div>
                   {sharedItems.length > 0 && (
                     <div>
                       {groupHeader("WORK")}
@@ -516,6 +508,14 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
                       </div>
                     </div>
                   )}
+                  <div>
+                    {folderHeader("📸 INSTAGRAM", "instagram")}
+                    {!foldersClosed["instagram"] && (
+                      <div className="space-y-0.5">
+                        {igItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "instagram", () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "ig-"))}
+                      </div>
+                    )}
+                  </div>
                   {manage.length > 0 && (
                     <div>
                       {groupHeader("MANAGE")}
