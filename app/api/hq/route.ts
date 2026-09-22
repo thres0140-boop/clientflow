@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
   });
   const stagesByClient = new Map<number, { id: number; name: string; order: number }[]>();
   for (const s of stages) {
+    if (s.clientId == null) continue; // global/template stages are never looked up by client id
     const arr = stagesByClient.get(s.clientId) || [];
     arr.push(s); stagesByClient.set(s.clientId, arr);
   }

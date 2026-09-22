@@ -590,7 +590,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
   const [creatorSearch, setCreatorSearch] = useState("");
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
-  const [playingReelId, setPlayingReelId] = useState<number | null>(null);
+  const [playingReelId, setPlayingReelId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const data = await fetch(`/api/competitors?clientId=${client.id}`).then((r) => r.json());
@@ -1434,7 +1434,7 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
 function CompetitorProfileModal({ competitor: c, client, onClose }: { competitor: Competitor; client: Client; onClose: () => void }) {
   const [reels, setReels] = useState<IGReel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [playingReelId, setPlayingReelId] = useState<number | null>(null);
+  const [playingReelId, setPlayingReelId] = useState<string | null>(null);
   const [selectedReel, setSelectedReel] = useState<IGReel | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -1473,7 +1473,7 @@ function CompetitorProfileModal({ competitor: c, client, onClose }: { competitor
             <div className="grid grid-cols-3 gap-1.5">
               {sorted.map((reel) => (
                 <div key={reel.id} className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group">
-                  {playingReelId === Number(reel.id) ? (
+                  {playingReelId === reel.id ? (
                     <InlineReelPlayer reel={reel} onClose={() => setPlayingReelId(null)} onDetails={() => { setPlayingReelId(null); setSelectedReel(reel); }} />
                   ) : (
                     <>
@@ -1485,7 +1485,7 @@ function CompetitorProfileModal({ competitor: c, client, onClose }: { competitor
                         <span className="bg-black/55 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">{new Date(reel.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
                       </div>
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/25">
-                        <button onClick={() => setPlayingReelId(Number(reel.id))} className="w-10 h-10 rounded-full bg-white/95 text-ink flex items-center justify-center text-sm o-elev-lift">▶</button>
+                        <button onClick={() => setPlayingReelId(reel.id)} className="w-10 h-10 rounded-full bg-white/95 text-ink flex items-center justify-center text-sm o-elev-lift">▶</button>
                         <button onClick={() => setSelectedReel(reel)} className="text-[10px] font-semibold text-white bg-black/55 hover:bg-black/75 px-2.5 py-0.5 rounded-full backdrop-blur-sm">Details</button>
                       </div>
                       <div className="absolute bottom-0 inset-x-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent flex flex-wrap gap-1 pointer-events-none">

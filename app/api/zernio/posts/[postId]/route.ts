@@ -4,8 +4,8 @@ const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
 
 // DELETE /api/zernio/posts/[postId] — cancel/delete a scheduled post in Zernio
-export async function DELETE(req: NextRequest, { params }: { params: { postId: string } }) {
-  const { postId } = params;
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
+  const { postId } = await params;
   if (!postId) return NextResponse.json({ error: "postId required" }, { status: 400 });
 
   const res = await fetch(`${ZERNIO_BASE}/posts/${postId}`, {
@@ -23,8 +23,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { postId: s
 }
 
 // PATCH /api/zernio/posts/[postId] — update scheduled time
-export async function PATCH(req: NextRequest, { params }: { params: { postId: string } }) {
-  const { postId } = params;
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
+  const { postId } = await params;
   const { scheduledFor } = await req.json();
   if (!postId || !scheduledFor) return NextResponse.json({ error: "postId and scheduledFor required" }, { status: 400 });
 

@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 
 const VAPID_PUBLIC_KEY = "BDWsZgwGpPelObrBXr0DHTsJedDU0TdYq5g4Ggt55AwaarLjlXRW7V37_7A6la-L4AYb2xzjI4cir0YaxKj74OY";
 
-function urlBase64ToUint8Array(base64: string): Uint8Array {
+// Returns Uint8Array<ArrayBuffer> (not ArrayBufferLike) so it satisfies BufferSource
+// for pushManager.subscribe — allocate over an explicit ArrayBuffer to pin the generic.
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(b64);
-  const arr = new Uint8Array(raw.length);
+  const arr = new Uint8Array(new ArrayBuffer(raw.length));
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return arr;
 }
