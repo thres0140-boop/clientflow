@@ -491,6 +491,40 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
               );
             }
 
+            // Only Instagram on (owner) → same collapsible Instagram folder as the both-platforms
+            // case, just without the TikTok folder, so the grouping doesn't change when TikTok is off.
+            if (session?.type === "owner" && igOn && !ttOn) {
+              const igItems = IG_FOLDER.filter((id) => allowedPages.includes(id));
+              return (
+                <>
+                  <div>
+                    {folderHeader("📸 INSTAGRAM", "instagram")}
+                    {!foldersClosed["instagram"] && (
+                      <div className="space-y-0.5">
+                        {igItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "instagram", () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "ig-"))}
+                      </div>
+                    )}
+                  </div>
+                  {sharedItems.length > 0 && (
+                    <div>
+                      {groupHeader("WORK")}
+                      <div className="space-y-0.5">
+                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
+                      </div>
+                    </div>
+                  )}
+                  {manage.length > 0 && (
+                    <div>
+                      {groupHeader("MANAGE")}
+                      <div className="space-y-0.5">
+                        {manage.map((item) => renderItem(item.id, item.label, currentPage === item.id, () => onNavigate(item.id), "mg-"))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            }
+
             // Default flat nav. Hide platform-specific pages when that platform is off for the
             // client — a TikTok-disabled client must never show the TikTok tab (to owner OR client).
             const platformHidden = (id: Page) => ((id === "tiktok" || id === "tiktokcompetitors" || id === "tiktokinstructions") && !ttOn) || (id === "instagram" && !igOn);
