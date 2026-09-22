@@ -10,9 +10,16 @@
 :root {
   --background: #f6f6f4;   /* warm near-white canvas (was clinical slate-50) */
   --foreground: #1c1c1e;   /* warm near-black label */
+  /* rgb channel triples for inline `rgba(var(--x), alpha)` — byte-exact alpha variants of
+     the nav text/overlay bases without a colour-space round trip. Kept out of @theme. */
+  --nav-ink-2-rgb: 147,197,253;
+  --nav-overlay-rgb: 255,255,255;
 }
 
-@theme {
+/* `static`: emit EVERY token, not only the ones a Tailwind utility happens to use. Tokens
+   read from inline style={{ }} (var(--color-nav-strip) …) would otherwise be silently
+   dropped from the stylesheet and the element would render with no colour at all. */
+@theme static {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -35,6 +42,34 @@
   --color-ink-strong: #000;                         /* primary-button hover */
   --color-on-ink: #fff;                             /* text on an ink-coloured surface */
   --color-on-accent: #fff;                          /* text on an accent-coloured surface */
+  --color-on-status: #fff;                          /* text on a solid status colour (ok/warn/danger-500/600) */
+  --color-knob: #fff;                               /* the moving knob of a toggle switch */
+
+  /* slate ramp by ROLE. Same light values as slate-N, but split by what they paint so
+     dark mode can treat a fill, a hairline and a text colour differently. */
+  --color-surface-3: oklch(96.8% 0.007 247.896);    /* = slate-100 fill: chips, secondary buttons */
+  --color-surface-4: oklch(92.9% 0.013 255.508);    /* = slate-200 fill: pressed / hover of surface-3, switch track */
+  --color-surface-5: oklch(86.9% 0.022 252.894);    /* = slate-300 fill: inactive dots */
+  --color-line-soft: oklch(96.8% 0.007 247.896);    /* = slate-100 border */
+  --color-line-hard: oklch(92.9% 0.013 255.508);    /* = slate-200 border */
+  --color-line-focus: oklch(70.4% 0.04 256.788);    /* = slate-400 ring */
+  --color-ink-400: oklch(70.4% 0.04 256.788);       /* = slate-400 text */
+  --color-ink-500: oklch(55.4% 0.046 257.417);      /* = slate-500 text */
+  --color-ink-600: oklch(44.6% 0.043 257.281);      /* = slate-600 text */
+  --color-ink-700: oklch(37.2% 0.044 257.287);      /* = slate-700 text */
+  --color-ink-800: oklch(27.9% 0.041 260.031);      /* = slate-800 text */
+
+  /* sidebar. Light = the navy the sidebar has always been; dark = same family as the canvas. */
+  --color-nav: #1a2f52;                             /* nav column */
+  --color-nav-strip: #0f1c34;                       /* client-switcher strip */
+  --color-nav-line: rgba(255,255,255,0.08);         /* dividers inside the sidebar */
+  --color-nav-edge: transparent;                    /* hairline between sidebar and content (dark only) */
+  --color-nav-ink: #fff;                            /* active text / icons / labels on the nav */
+  --color-nav-ink-2: #93c5fd;                       /* base of the blue-tinted secondary text (always used with alpha) */
+  --color-nav-overlay: #fff;                        /* base of the hover / ring overlays (always used with alpha) */
+  --color-nav-active: rgba(255,255,255,0.12);       /* active nav item / active settings button */
+  --color-nav-active-strong: rgba(255,255,255,0.16);/* active Headquarters button */
+  --color-nav-ring: #fff;                           /* 2px ring on the selected client / HQ */
 
   /* status colours — semantic names, Tailwind grades, exact light values (green/amber/red/blue) */
   --color-ok-50:  oklch(98.2% 0.018 155.826);
@@ -46,12 +81,14 @@
   --color-warn-50:  oklch(98.7% 0.022 95.277);
   --color-warn-100: oklch(96.2% 0.059 95.617);
   --color-warn-200: oklch(92.4% 0.12 95.746);
+  --color-warn-400: oklch(82.8% 0.189 84.429);
   --color-warn-500: oklch(76.9% 0.188 70.08);
   --color-warn-600: oklch(66.6% 0.179 58.318);
   --color-warn-700: oklch(55.5% 0.163 48.998);
   --color-danger-50:  oklch(97.1% 0.013 17.38);
   --color-danger-100: oklch(93.6% 0.032 17.717);
   --color-danger-200: oklch(88.5% 0.062 18.334);
+  --color-danger-400: oklch(70.4% 0.191 22.216);
   --color-danger-500: oklch(63.7% 0.237 25.331);
   --color-danger-600: oklch(57.7% 0.245 27.325);
   --color-danger-700: oklch(50.5% 0.213 27.518);
@@ -80,6 +117,8 @@
   --shadow-btn: 0 1px 2px rgba(17, 17, 19, 0.18);          /* primary button */
   --shadow-btn-accent: 0 1px 2px rgba(47, 58, 134, 0.28);   /* accent button */
   --shadow-glow: none;                                       /* accent glow — dark only */
+  --shadow-nav-peek: 8px 0 40px rgba(0,0,0,0.35);           /* sidebar peeking out when collapsed */
+  --shadow-nav-active: none;                                 /* glow on the active nav item — dark only */
 }
 
 /* ============================================================================
@@ -113,6 +152,34 @@
   --color-accent-strong: #16a34a;
   --color-accent-tint: rgba(34, 197, 94, 0.12);
   --color-on-accent: #06120a;
+  --color-on-status: #0a0c0a;
+  --color-knob: #e8ece8;
+
+  --color-surface-3: #1f241f;
+  --color-surface-4: #272d27;
+  --color-surface-5: #333a33;
+  --color-line-soft: rgba(255, 255, 255, 0.05);
+  --color-line-hard: rgba(255, 255, 255, 0.10);
+  --color-line-focus: rgba(255, 255, 255, 0.35);
+  --color-ink-400: #6f776f;
+  --color-ink-500: #8a928a;
+  --color-ink-600: #a3aba3;
+  --color-ink-700: #cfd5cf;
+  --color-ink-800: #e8ece8;
+
+  /* sidebar: near-black in the canvas family, split from the content by a hairline */
+  --color-nav: #0d100d;
+  --color-nav-strip: #0a0c0a;
+  --color-nav-line: rgba(255, 255, 255, 0.07);
+  --color-nav-edge: rgba(255, 255, 255, 0.07);
+  --color-nav-ink: #e8ece8;
+  --color-nav-ink-2: #b9c0b9;
+  --color-nav-overlay: #ffffff;
+  --color-nav-active: rgba(34, 197, 94, 0.14);
+  --color-nav-active-strong: rgba(34, 197, 94, 0.22);
+  --color-nav-ring: #22c55e;
+  --nav-ink-2-rgb: 185,192,185;
+  --nav-overlay-rgb: 255,255,255;
 
   /* status: translucent tints instead of pastel blocks, lighter ink for contrast */
   --color-ok-50:  rgba(34, 197, 94, 0.10);
@@ -124,12 +191,14 @@
   --color-warn-50:  rgba(245, 158, 11, 0.10);
   --color-warn-100: rgba(245, 158, 11, 0.18);
   --color-warn-200: rgba(245, 158, 11, 0.32);
+  --color-warn-400: #fbbf24;
   --color-warn-500: #f59e0b;
   --color-warn-600: #fbbf24;
   --color-warn-700: #fcd34d;
   --color-danger-50:  rgba(239, 68, 68, 0.10);
   --color-danger-100: rgba(239, 68, 68, 0.18);
   --color-danger-200: rgba(239, 68, 68, 0.32);
+  --color-danger-400: #f87171;
   --color-danger-500: #ef4444;
   --color-danger-600: #f87171;
   --color-danger-700: #fca5a5;
@@ -146,6 +215,8 @@
   --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 14px 38px rgba(0, 0, 0, 0.55);
   --shadow-pop:  0 0 0 1px rgba(255, 255, 255, 0.06), 0 30px 70px rgba(0, 0, 0, 0.7);
   --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.22);
+  --shadow-nav-peek: 8px 0 40px rgba(0, 0, 0, 0.75);
+  --shadow-nav-active: 0 0 16px rgba(34, 197, 94, 0.16);
   --shadow-btn: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 18px rgba(34, 197, 94, 0.18);
   --shadow-btn-accent: 0 0 20px rgba(34, 197, 94, 0.28);
 }

@@ -8,8 +8,8 @@ import { readStoredTheme, setStoredTheme, type Theme } from "@/shared/theme";
 
 // ─── Connection status badge ──────────────────────────────────────────────────
 function ConnBadge({ label, ok, warn }: { label: string; ok: boolean; warn?: boolean }) {
-  const color = ok ? "bg-green-100 text-green-700" : warn ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-faint";
-  const dot   = ok ? "bg-green-500" : warn ? "bg-amber-400" : "bg-slate-300";
+  const color = ok ? "bg-ok-100 text-ok-700" : warn ? "bg-warn-100 text-warn-700" : "bg-surface-3 text-faint";
+  const dot   = ok ? "bg-ok-500" : warn ? "bg-warn-400" : "bg-surface-5";
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${color}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
@@ -133,19 +133,19 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
           </div>
           <button
             onClick={() => setShowAdd(true)}
-            className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong"
+            className="bg-accent text-on-accent px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong"
           >
             + Add Client
           </button>
         </div>
 
         {clients.length === 0 ? (
-          <div className="bg-white rounded-xl border border-line p-12 text-center">
+          <div className="bg-surface rounded-xl border border-line p-12 text-center">
             <div className="text-4xl mb-3">👥</div>
             <p className="text-muted text-sm">No clients yet. Add your first client to get started.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-line overflow-hidden">
+          <div className="bg-surface rounded-xl border border-line overflow-hidden">
             {clients.map((client, i) => (
               <div
                 key={client.id}
@@ -178,13 +178,13 @@ export default function SettingsPage({ clients, refreshClients, onNavigateToPipe
                   </button>
                   <button
                     onClick={() => setEditing(client)}
-                    className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200"
+                    className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => deleteClient(client.id)}
-                    className="px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100"
+                    className="px-3 py-1.5 text-xs font-medium text-danger-500 bg-danger-50 rounded-lg hover:bg-danger-100"
                   >
                     Delete
                   </button>
@@ -338,7 +338,7 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
 
   return (
     <div className="border border-line rounded-xl overflow-hidden">
-      <div className="bg-slate-50 px-4 py-2.5 border-b border-line">
+      <div className="bg-surface-2 px-4 py-2.5 border-b border-line">
         <p className="text-xs font-semibold text-ink-2">Connections</p>
         <p className="text-[10px] text-faint mt-0.5">Everything needs to be connected here before the app works for this client.</p>
       </div>
@@ -350,8 +350,8 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
             <div className="flex items-center gap-2 mb-0.5">
               <p className="text-xs font-semibold text-ink-2">📱 DMs & Scheduling (Zernio)</p>
               {zernioConnected
-                ? <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">● Connected{linkedUsername ? ` · @${linkedUsername}` : ""}</span>
-                : <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full font-medium">● Not connected</span>
+                ? <span className="text-[10px] px-1.5 py-0.5 bg-ok-100 text-ok-700 rounded-full font-medium">● Connected{linkedUsername ? ` · @${linkedUsername}` : ""}</span>
+                : <span className="text-[10px] px-1.5 py-0.5 bg-danger-100 text-danger-600 rounded-full font-medium">● Not connected</span>
               }
             </div>
             <p className="text-[10px] text-faint">Required for DM inbox, sending booking links, and scheduling posts to Instagram.</p>
@@ -377,7 +377,7 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
             <button
               type="button"
               onClick={loadAccounts}
-              className="px-3 py-1.5 text-[11px] font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong"
+              className="px-3 py-1.5 text-[11px] font-semibold bg-accent text-on-accent rounded-lg hover:bg-accent-strong"
             >
               {zernioConnected ? "Switch account" : "Link account here"}
             </button>
@@ -386,7 +386,7 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
                 type="button"
                 onClick={disconnectZernio}
                 disabled={disconnecting}
-                className="px-3 py-1.5 text-[11px] font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                className="px-3 py-1.5 text-[11px] font-semibold bg-danger-50 text-danger-600 border border-danger-200 rounded-lg hover:bg-danger-100 disabled:opacity-50"
               >
                 {disconnecting ? "Disconnecting…" : "Disconnect"}
               </button>
@@ -407,7 +407,7 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
                     key={id}
                     type="button"
                     onClick={() => linkAccount(acc)}
-                    className="w-full text-left px-3 py-2 bg-white border border-line rounded-lg text-xs hover:bg-accent-tint hover:border-accent transition-colors"
+                    className="w-full text-left px-3 py-2 bg-surface border border-line rounded-lg text-xs hover:bg-accent-tint hover:border-accent transition-colors"
                   >
                     <span className="font-semibold">@{uname}</span>
                     <span className="text-faint ml-2">{id}</span>
@@ -433,8 +433,8 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
             <div className="flex items-center gap-2 mb-0.5">
               <p className="text-xs font-semibold text-ink-2">📊 Reels & Analytics (Meta)</p>
               {metaConnected
-                ? <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">● Connected</span>
-                : <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-muted rounded-full font-medium">● Not connected</span>
+                ? <span className="text-[10px] px-1.5 py-0.5 bg-ok-100 text-ok-700 rounded-full font-medium">● Connected</span>
+                : <span className="text-[10px] px-1.5 py-0.5 bg-surface-3 text-muted rounded-full font-medium">● Not connected</span>
               }
             </div>
             <p className="text-[10px] text-faint">Optional. Pulls reel performance data and follower analytics from Meta's API. Requires a Business or Creator account.</p>
@@ -457,8 +457,8 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
             <div className="flex items-center gap-2 mb-0.5">
               <p className="text-xs font-semibold text-ink-2">🎵 TikTok Analytics (Zernio)</p>
               {ttLinked
-                ? <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">● Connected{ttUsername ? ` · @${ttUsername}` : ""}</span>
-                : <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-muted rounded-full font-medium">● Not connected</span>
+                ? <span className="text-[10px] px-1.5 py-0.5 bg-ok-100 text-ok-700 rounded-full font-medium">● Connected{ttUsername ? ` · @${ttUsername}` : ""}</span>
+                : <span className="text-[10px] px-1.5 py-0.5 bg-surface-3 text-muted rounded-full font-medium">● Not connected</span>
               }
             </div>
             <p className="text-[10px] text-faint">Connect the client&apos;s TikTok in Zernio first, then pick it here. Powers the TikTok Analytics tab (follower growth, video &amp; profile views).</p>
@@ -470,7 +470,7 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
             <button
               type="button"
               onClick={loadTikTokAccounts}
-              className="px-3 py-1.5 text-[11px] font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong"
+              className="px-3 py-1.5 text-[11px] font-semibold bg-accent text-on-accent rounded-lg hover:bg-accent-strong"
             >
               {ttLinked ? "Switch account" : "Link TikTok account here"}
             </button>
@@ -479,7 +479,7 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
                 type="button"
                 onClick={disconnectTikTok}
                 disabled={ttDisconnecting}
-                className="px-3 py-1.5 text-[11px] font-semibold bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                className="px-3 py-1.5 text-[11px] font-semibold bg-danger-50 text-danger-600 border border-danger-200 rounded-lg hover:bg-danger-100 disabled:opacity-50"
               >
                 {ttDisconnecting ? "Disconnecting…" : "Disconnect"}
               </button>
@@ -500,7 +500,7 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
                     key={id}
                     type="button"
                     onClick={() => linkTikTok(acc)}
-                    className="w-full text-left px-3 py-2 bg-white border border-line rounded-lg text-xs hover:bg-accent-tint hover:border-accent transition-colors"
+                    className="w-full text-left px-3 py-2 bg-surface border border-line rounded-lg text-xs hover:bg-accent-tint hover:border-accent transition-colors"
                   >
                     <span className="font-semibold">@{uname}</span>
                     <span className="text-faint ml-2">{id}</span>
@@ -533,13 +533,13 @@ function InviteLinkModal({ url, onClose }: { url: string; onClose: () => void })
           <p className="text-xs text-muted">They&apos;ll use it to set their password and access their dashboard. The link expires in 7 days.</p>
         </div>
         <div className="flex items-center gap-2">
-          <input readOnly value={url} className="flex-1 border border-line rounded-lg px-3 py-2 text-xs text-ink-2 bg-slate-50 focus:outline-none" />
-          <button onClick={copy} className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${copied ? "bg-green-600 text-white" : "bg-accent text-white hover:bg-accent-strong"}`}>
+          <input readOnly value={url} className="flex-1 border border-line rounded-lg px-3 py-2 text-xs text-ink-2 bg-surface-2 focus:outline-none" />
+          <button onClick={copy} className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${copied ? "bg-ok-600 text-on-status" : "bg-accent text-on-accent hover:bg-accent-strong"}`}>
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
         <div className="flex justify-end pt-1">
-          <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-100 text-ink-2 rounded-xl hover:bg-slate-200">Done</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm bg-surface-3 text-ink-2 rounded-xl hover:bg-surface-4">Done</button>
         </div>
       </div>
     </Modal>
@@ -676,20 +676,20 @@ function ClientModal({
             <div className="flex flex-wrap gap-2">
               {COLORS.map((c) => (
                 <button key={c} type="button" onClick={() => set("color", c)}
-                  className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`}
+                  className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-offset-surface ring-line-focus scale-110" : ""}`}
                   style={{ backgroundColor: c }} />
               ))}
             </div>
           </div>
           {form.name && (
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-surface-2 rounded-lg">
               <ClientAvatar name={form.name} color={form.color} size="md" />
               <p className="text-sm font-semibold text-ink">{form.name}</p>
             </div>
           )}
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-strong">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-surface-3 rounded-lg">Cancel</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-accent text-on-accent rounded-lg hover:bg-accent-strong">
               Add Client →
             </button>
           </div>
@@ -725,7 +725,7 @@ function ClientModal({
           <div className="flex flex-wrap gap-2">
             {COLORS.map((c) => (
               <button key={c} type="button" onClick={() => set("color", c)}
-                className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`}
+                className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-offset-surface ring-line-focus scale-110" : ""}`}
                 style={{ backgroundColor: c }} />
             ))}
           </div>
@@ -741,11 +741,11 @@ function ClientModal({
             placeholder="https://calendly.com/yourname"
             className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           {client?.id && (
-            <div className="mt-2 bg-slate-50 border border-line rounded-lg px-3 py-2">
+            <div className="mt-2 bg-surface-2 border border-line rounded-lg px-3 py-2">
               <p className="text-[10px] font-medium text-muted mb-1">📡 Booking Webhook URL</p>
               <p className="text-[10px] text-faint mb-1.5">Add this to Calendly → Webhooks or Cal.com → Developer → Webhooks. When someone books, the lead is auto-moved to <strong>Booked</strong>.</p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 text-[10px] bg-white border border-line rounded px-2 py-1 text-ink-2 truncate">
+                <code className="flex-1 text-[10px] bg-surface border border-line rounded px-2 py-1 text-ink-2 truncate">
                   {`https://ordoagency.com/api/webhooks/booking?clientId=${client.id}`}
                 </code>
                 <button
@@ -787,14 +787,14 @@ function ClientModal({
           <button
             type="button"
             onClick={() => setIsTestAccount((v) => !v)}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${isTestAccount ? "bg-accent" : "bg-slate-200"}`}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${isTestAccount ? "bg-accent" : "bg-surface-4"}`}
           >
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${isTestAccount ? "translate-x-4" : "translate-x-1"}`} />
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-knob shadow transition-transform ${isTestAccount ? "translate-x-4" : "translate-x-1"}`} />
           </button>
         </label>
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-strong">Save Changes</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-surface-3 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-accent text-on-accent rounded-lg hover:bg-accent-strong">Save Changes</button>
         </div>
       </form>
     </Modal>
