@@ -98,6 +98,7 @@ export type AnalyticsEntry = {
 export type ScriptDraft = {
   id: number;
   clientId: number;
+  platform?: string; // "instagram" | "tiktok"
   conceptId: number;
   stageId?: number | null;
   title: string;
@@ -144,6 +145,7 @@ export type TeamMember = {
 export type WorkflowStage = {
   id: number;
   clientId?: number | null;
+  platform?: string; // "instagram" | "tiktok" — stages are per client AND per platform
   name: string;
   order: number;
   color: string;
@@ -184,6 +186,7 @@ export type Notification = {
 export type Concept = {
   id: number;
   clientId?: number | null;
+  platform?: string; // "instagram" | "tiktok"
   name: string;
   hookType?: string | null;
   textHook?: string | null;

@@ -8,6 +8,7 @@ import {
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember, Creator } from "@/shared/types";
+import { parseDayTemplate } from "@/shared/dayTemplate";
 import { QRCodeSVG } from "qrcode.react";
 import SparkMD5 from "spark-md5";
 import { markSeen as markSentBackSeen, getSeen as getSentBackSeen } from "@/features/scripts/sentBackSeen";
@@ -3162,12 +3163,10 @@ function BatchModal({ client, platform = "instagram", concepts, drafts, onClose,
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
-  // The Content Scheduling day template ({ weekday: conceptId }) is the source of truth: how
-  // many days per week each concept is assigned. Fall back to the concept's own cadence only
-  // if no template is set up yet.
-  const template: Record<string, number | null> = (() => {
-    try { return JSON.parse((client as any).dayTemplate || "{}"); } catch { return {}; }
-  })();
+  // The Content Scheduling day template ({ weekday: conceptId }) for THIS platform is the source
+  // of truth: how many days per week each concept is assigned. Fall back to the concept's own
+  // cadence only if no template is set up yet. (Legacy flat templates parse as Instagram.)
+  const template: Record<string, number | null> = parseDayTemplate((client as any).dayTemplate)[platform] ?? {};
   const hasTemplate = Object.values(template).some((v) => v != null);
   const perWeekOf = (c: Concept) => hasTemplate
     ? Object.values(template).filter((v) => v === c.id).length

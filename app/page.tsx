@@ -151,10 +151,9 @@ export default function App() {
     if (nextPlatform !== platform) setPlatform(nextPlatform);
 
     // Bounce the page off the wrong platform's pages, always to a page that exists in the target
-    // folder ("instagram" for IG, "pipeline" for TikTok — never "kanban", which TikTok doesn't have).
+    // folder. Content Scheduling ("pipeline") is cross-platform and reachable from either context.
     setPage((p) => {
-      // TikTok no longer has Content Scheduling, so bounce off IG-only pages to the TikTok profile.
-      if (nextPlatform === "tiktok" && (IG_ONLY.includes(p) || p === "pipeline")) return "tiktok";
+      if (nextPlatform === "tiktok" && IG_ONLY.includes(p)) return "tiktok";
       if (nextPlatform === "instagram" && TT_ONLY.includes(p)) return igOn ? "instagram" : "pipeline";
       return p;
     });
@@ -361,6 +360,16 @@ export default function App() {
     else nav.clearAppBadge?.().catch(() => {});
   }, [unreadCount, badges.chat]);
 
+  // Platforms the selected client has switched on (Instagram defaults on). Cross-platform pages
+  // like Content Scheduling merge these; single-platform pages keep using `platform`.
+  const enabledPlatforms: Platform[] = (() => {
+    const c = clients.find((cl) => cl.id === selectedClientId) as { instagramEnabled?: boolean; tiktokEnabled?: boolean } | undefined;
+    const list: Platform[] = [];
+    if (!c || c.instagramEnabled !== false) list.push("instagram");
+    if (c?.tiktokEnabled) list.push("tiktok");
+    return list;
+  })();
+
   function renderPage(which: Page = page, embedded = false) {
     // Redirect to first allowed page if current page isn't allowed
     if (!allowedPages.includes(which)) {
@@ -373,7 +382,7 @@ export default function App() {
     const props = { clients, selectedClientId, refreshClients: fetchClients };
     switch (which) {
       case "headquarters": return <HeadquartersPage clients={clients} refreshClients={fetchClients} onOpenKanban={(clientId, draftId) => { setSelectedClientId(clientId); if (draftId) setKanbanHighlightId(draftId); setPage("kanban"); }} />;
-      case "pipeline": return <Pipeline {...props} platform={platform} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} onOpenInKanban={(session?.type === "member" && activeProfile?.isClientAccount) ? (id) => { setKanbanHighlightId(id); setPage("kanban"); } : undefined} />;
+      case "pipeline": return <Pipeline {...props} enabledPlatforms={enabledPlatforms} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} onOpenInKanban={(session?.type === "member" && activeProfile?.isClientAccount) ? (id) => { setKanbanHighlightId(id); setPage("kanban"); } : undefined} />;
       case "concepts": return <Concepts {...props} platform={platform} onAttachReels={(c) => { setAttachConcept(c); setPage("instagram"); }} />;
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;

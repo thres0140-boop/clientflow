@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
+import { parsePlatformsParam } from "@/shared/platforms";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
-  const where = clientId ? { clientId: parseInt(clientId) } : {};
+  const where: Record<string, unknown> = clientId ? { clientId: parseInt(clientId) } : {};
+  // Optional ?platforms=a,b filter. Without it the route returns every piece (legacy, unchanged).
+  // ContentPiece.platform is nullable: a NULL platform is treated as Instagram (the client's
+  // primary/legacy platform), so it is included only when "instagram" is among the requested ones.
+  const platforms = parsePlatformsParam(req.nextUrl.searchParams.get("platforms"));
+  if (platforms) {
+    where.OR = platforms.includes("instagram")
+      ? [{ platform: { in: platforms } }, { platform: null }]
+      : [{ platform: { in: platforms } }];
+  }
   try {
     const content = await prisma.contentPiece.findMany({
       where,

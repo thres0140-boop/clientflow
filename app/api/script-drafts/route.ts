@@ -3,6 +3,7 @@ import { prisma } from "@/shared/db/prisma";
 import { addConceptExample, splitExamples, joinExamples } from "@/features/scripts/server/conceptExamples";
 import { sendWhatsApp } from "@/shared/notify/notify";
 import { logActivity } from "@/shared/activity";
+import { platformWhere } from "@/shared/platforms";
 
 export async function GET(req: NextRequest) {
   const idParam = req.nextUrl.searchParams.get("id");
@@ -18,8 +19,9 @@ export async function GET(req: NextRequest) {
   const scheduled = req.nextUrl.searchParams.get("scheduled");
   const today = new Date().toISOString().slice(0, 10);
 
-  const platform = req.nextUrl.searchParams.get("platform") || "instagram";
-  const where: Record<string, unknown> = clientId ? { clientId: parseInt(clientId), platform } : { platform };
+  // ?platforms=a,b (multi) takes precedence; else ?platform= ; else "instagram". See shared/platforms.ts.
+  const pw = platformWhere(req.nextUrl.searchParams);
+  const where: Record<string, unknown> = clientId ? { clientId: parseInt(clientId), ...pw } : { ...pw };
 
   const staged = req.nextUrl.searchParams.get("staged");
   const all = req.nextUrl.searchParams.get("all");

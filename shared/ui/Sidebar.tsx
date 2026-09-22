@@ -144,9 +144,12 @@ const PAGE_NAV_LABEL: Record<string, string> = {
   concepts: "Concept Library", context: "AI Context", analytics: "Analytics",
   dms: "DM Pipeline", instagram: "Instagram", tiktok: "TikTok", tiktokcompetitors: "Competitors", tiktokinstructions: "Instructions", board: "Strategy Board", transcribe: "Transcribe",
 };
-const IG_FOLDER: Page[] = ["pipeline", "kanban", "tasks", "concepts", "context", "analytics", "dms", "instagram"];
+const IG_FOLDER: Page[] = ["kanban", "tasks", "concepts", "context", "analytics", "dms", "instagram"];
 const TT_FOLDER: Page[] = ["tiktok", "tiktokinstructions", "tiktokcompetitors", "concepts", "analytics"];
-const SHARED_WORK: Page[] = ["board", "transcribe"];
+// Cross-platform pages under WORK. Content Scheduling merges every enabled platform into one
+// calendar, so it must NOT switch the app's active platform when opened (see CROSS_PLATFORM).
+const SHARED_WORK: Page[] = ["pipeline", "board", "transcribe"];
+const CROSS_PLATFORM: Page[] = ["pipeline"];
 
 const DIVIDER = { borderColor: "rgba(255,255,255,0.08)" };
 const STRIP_BG = "#0f1c34";
@@ -475,7 +478,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
                     <div>
                       {groupHeader("WORK")}
                       <div className="space-y-0.5">
-                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
+                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { if (!CROSS_PLATFORM.includes(id)) onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
                       </div>
                     </div>
                   )}
@@ -509,7 +512,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
                     <div>
                       {groupHeader("WORK")}
                       <div className="space-y-0.5">
-                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
+                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { if (!CROSS_PLATFORM.includes(id)) onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
                       </div>
                     </div>
                   )}

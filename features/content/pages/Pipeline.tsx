@@ -3,17 +3,20 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Client, ContentPiece, Concept, WorkflowStage, TeamMember, ScriptDraft,
-  STATUSES, PLATFORMS, CONTENT_TYPES,
+  STATUSES, CONTENT_TYPES,
 } from "@/shared/types";
 import StatusBadge from "@/shared/ui/StatusBadge";
 import ClientAvatar from "@/shared/ui/ClientAvatar";
 import Modal from "@/shared/ui/Modal";
 import { videoSrc } from "@/shared/media/videoSrc";
+import { isPlatformId, type PlatformId } from "@/shared/platforms";
+import { parseDayTemplate, serializeDayTemplate, type DayMap, type DayTemplate } from "@/shared/dayTemplate";
 import { QRCodeSVG } from "qrcode.react";
 
 type Props = {
   clients: Client[];
-  platform?: "instagram" | "tiktok";
+  // Every platform the selected client has enabled — the calendar merges all of them.
+  enabledPlatforms: PlatformId[];
   selectedClientId: number | null;
   refreshClients: () => void;
   refreshNotifications: () => void;
@@ -30,6 +33,25 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const CONTENT_ICONS: Record<string, string> = {
   video: "🎬", photo: "📷", carousel: "📱", reel: "🎞️", story: "⭕",
 };
+const PLATFORM_BADGE: Record<PlatformId, string> = { instagram: "📸", tiktok: "🎵" };
+const PLATFORM_LABEL: Record<PlatformId, string> = { instagram: "Instagram", tiktok: "TikTok" };
+
+// Platform of a draft / content piece / stage / concept. A NULL or unknown platform is treated
+// as Instagram — the client's primary/legacy platform (mirrors /api/content's null handling).
+function platformOf(x: { platform?: string | null } | null | undefined): PlatformId {
+  const p = x?.platform;
+  return isPlatformId(p) ? p : "instagram";
+}
+
+// Schedule Board column keys are platform-qualified ("instagram:Edit") so two platforms that
+// both have an "Edit" stage never share a column. Legacy saved keys were bare stage names.
+function colKey(p: PlatformId, name: string): string { return `${p}:${name}`; }
+function splitColKey(key: string): { platform: PlatformId; name: string } | null {
+  const i = key.indexOf(":");
+  if (i === -1) return null;
+  const p = key.slice(0, i);
+  return isPlatformId(p) ? { platform: p, name: key.slice(i + 1) } : null;
+}
 
 // Local YYYY-MM-DD — NOT toISOString(), which shifts to UTC and slips the date back
 // a day in east-of-UTC timezones (e.g. Amsterdam), misaligning the calendar.
@@ -61,12 +83,15 @@ function getWeekDays(baseDate: Date, weekOffset: number): string[] {
   });
 }
 
-function parseDayTemplate(raw: string | null | undefined): Record<number, number | null> {
-  if (!raw) return {};
-  try { return JSON.parse(raw); } catch { return {}; }
-}
-
-export default function Pipeline({ clients, platform = "instagram", selectedClientId, refreshNotifications, isClient, readOnly = false, onOpenInKanban }: Props) {
+export default function Pipeline({ clients, enabledPlatforms, selectedClientId, refreshNotifications, isClient, readOnly = false, onOpenInKanban }: Props) {
+  // The platforms this calendar merges. Never empty: the shell always includes "instagram"
+  // unless the client explicitly switched it off.
+  const platforms: PlatformId[] = enabledPlatforms.length ? enabledPlatforms : ["instagram"];
+  const platformsParam = platforms.join(","); // for the `platforms=` query param (shared/platforms.ts)
+  // Badges only matter when more than one platform shares the calendar; a single-platform
+  // client sees exactly what it saw before.
+  const multi = platforms.length > 1;
+  const badge = (p: PlatformId) => (multi ? `${PLATFORM_BADGE[p]} ` : "");
   // Clients shouldn't open the editing modals from the calendar (it confuses them into
   // thinking they work from here). A click just takes them to the board, highlighted.
   const openDraft = (draft: ScriptDraft) => {
@@ -95,7 +120,10 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
   //  blue   = confirmed / booked to auto-post
   //  green  = posted
   function draftState(d: ScriptDraft): { key: "planned" | "edited" | "ready" | "booked" | "posted"; color: string; label: string } {
-    const lastStageId = stages.length ? stages[stages.length - 1].id : null;
+    // Stage lookups always run against the draft's OWN platform's stage list — `stages` holds
+    // every enabled platform's stages, so "last" and "edit" must never be read off the merged array.
+    const ps = stagesFor(platformOf(d));
+    const lastStageId = ps.length ? ps[ps.length - 1].id : null;
     if (d.status === "posted") return { key: "posted", color: "#16a34a", label: "Posted" };
     if (d.zernioBooked) return { key: "booked", color: "#2563eb", label: "Scheduled" };
     if (lastStageId != null && d.stageId === lastStageId) return { key: "ready", color: "#f97316", label: "Ready · tap to confirm" };
@@ -103,20 +131,37 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
     // If it was moved back to Edit (or earlier), it's being re-worked, so don't call it
     // edited even though an old cut is still attached.
     if (d.editedVideoUrl) {
-      const editStage = stages.find((s) => s.name.toLowerCase() === "edit");
-      const dStage = stages.find((s) => s.id === d.stageId);
+      const editStage = ps.find((s) => s.name.toLowerCase() === "edit");
+      const dStage = ps.find((s) => s.id === d.stageId);
       const pastEdit = !editStage || !dStage || dStage.order > editStage.order;
       if (pastEdit) return { key: "edited", color: "#eab308", label: "Edited · not confirmed" };
     }
     return { key: "planned", color: "#ef4444", label: "Planned · not in Schedule yet" };
   }
+  // `stages` is the merged list for every enabled platform (ordered by `order`, so platforms
+  // interleave). Every ordered lookup goes through stagesFor(platform).
   const [stages, setStages] = useState<WorkflowStage[]>([]);
+  const stagesFor = (p: PlatformId): WorkflowStage[] => stages.filter((s) => platformOf(s) === p);
+  const conceptsFor = (p: PlatformId): Concept[] => concepts.filter((c) => platformOf(c) === p);
+  // Every Schedule Board column this client can show, in display order.
+  const allColumnKeys: string[] = platforms.flatMap((p) => [colKey(p, "Ideas"), ...stagesFor(p).map((s) => colKey(p, s.name))]);
+  const columnLabel = (key: string): string => { const s = splitColKey(key); return s ? `${badge(s.platform)}${s.name}` : key; };
+  // Saved column keys may be legacy bare names ("Edit"); a bare name means that column on EVERY
+  // enabled platform, so nothing a user chose before disappears or gets absorbed elsewhere.
+  // A platform with no saved keys at all (just enabled) starts with all of its columns shown.
+  const normalizeColumns = (saved: string[]): string[] => {
+    const keys = saved.flatMap((k) => (splitColKey(k) ? [k] : platforms.map((p) => colKey(p, k))));
+    for (const p of platforms) {
+      if (!keys.some((k) => splitColKey(k)?.platform === p)) keys.push(...allColumnKeys.filter((k) => splitColKey(k)?.platform === p));
+    }
+    return keys;
+  };
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [scheduledDrafts, setScheduledDrafts] = useState<ScriptDraft[]>([]);
   const [stagedDrafts, setStagedDrafts] = useState<ScriptDraft[]>([]);
   const [selectedDraft, setSelectedDraft] = useState<ScriptDraft | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [showPostIG, setShowPostIG] = useState(false);
+  const [showPost, setShowPost] = useState<PlatformId | null>(null); // direct-post modal, per platform
   const [selected, setSelected] = useState<ContentPiece | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [dragDraftId, setDragDraftId] = useState<number | null>(null);
@@ -138,7 +183,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
   const [planMode, setPlanMode] = useState<PlanningMode>("calendar");
   const [offset, setOffset] = useState(0);
   const [openDatePicker, setOpenDatePicker] = useState<string | null>(null);
-  const [openTemplateDay, setOpenTemplateDay] = useState<number | null>(null);
+  const [openTemplateDay, setOpenTemplateDay] = useState<string | null>(null); // "<platform>:<weekday>"
   const [dateTags, setDateTags] = useState<Record<string, number>>({});
 
   const today = new Date();
@@ -161,16 +206,15 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
   })();
 
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
-  const [dayTemplate, setDayTemplate] = useState<Record<number, number | null>>({});
+  const [dayTemplate, setDayTemplate] = useState<DayTemplate>({}); // per platform: weekday → conceptId
 
   const reload = useCallback(async () => {
-    const qs = selectedClientId ? `?clientId=${selectedClientId}` : "";
     const [c, co, s, t, allDrafts] = await Promise.all([
-      fetch(`/api/content${qs}`).then((r) => r.json()),
-      fetch(`/api/concepts?platform=${platform}${selectedClientId ? `&clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
-      fetch(`/api/workflow?platform=${platform}${selectedClientId ? `&clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
+      fetch(`/api/content?platforms=${platformsParam}${selectedClientId ? `&clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
+      fetch(`/api/concepts?platforms=${platformsParam}${selectedClientId ? `&clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
+      fetch(`/api/workflow?platforms=${platformsParam}${selectedClientId ? `&clientId=${selectedClientId}` : ""}`).then((r) => r.json()),
       fetch(selectedClientId ? `/api/team?clientId=${selectedClientId}` : "/api/team").then((r) => r.json()),
-      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&all=true&platform=${platform}`).then((r) => r.json()) : Promise.resolve([]),
+      selectedClientId ? fetch(`/api/script-drafts?clientId=${selectedClientId}&all=true&platforms=${platformsParam}`).then((r) => r.json()) : Promise.resolve([]),
     ]);
     // Guard against non-array responses (e.g. a transient 403 returns {error}) so a
     // failed fetch never white-screens the page.
@@ -181,7 +225,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
     const allStaged: ScriptDraft[] = Array.isArray(allDrafts) ? allDrafts : [];
     setStagedDrafts(allStaged);
     setScheduledDrafts(allStaged.filter((d: ScriptDraft) => d.scheduledDate));
-  }, [selectedClientId, platform]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedClientId, platformsParam]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -201,9 +245,9 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
   useEffect(() => {
     if (!selectedClientId) return;
     const saved = localStorage.getItem(`cf_board_cols_${selectedClientId}`);
-    if (saved) { try { setBoardColumns(JSON.parse(saved)); return; } catch { /* fall through */ } }
-    if (stages.length) setBoardColumns(["Ideas", ...stages.map((s) => s.name)]);
-  }, [selectedClientId, stages]);
+    if (saved) { try { setBoardColumns(normalizeColumns(JSON.parse(saved))); return; } catch { /* fall through */ } }
+    if (stages.length) setBoardColumns(allColumnKeys);
+  }, [selectedClientId, stages, platformsParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (activeClient) setDayTemplate(parseDayTemplate(activeClient.dayTemplate));
@@ -224,13 +268,15 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
     setOpenDatePicker(null);
   }
 
-  async function saveDayTemplate(updated: Record<number, number | null>) {
+  // Save one platform's weekday map; the other platforms' maps are kept untouched.
+  async function saveDayTemplate(platform: PlatformId, map: DayMap) {
     if (!activeClient) return;
+    const updated: DayTemplate = { ...dayTemplate, [platform]: map };
     setDayTemplate(updated);
     await fetch(`/api/clients/${activeClient.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...activeClient, dayTemplate: JSON.stringify(updated) }),
+      body: JSON.stringify({ ...activeClient, dayTemplate: serializeDayTemplate(updated) }),
     });
   }
 
@@ -340,12 +386,15 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
           {canEdit && <PlanModeSelector current={planMode} onChange={changePlanMode} />}
           {canEdit && (
             <>
-              <button
-                onClick={() => setShowPostIG(true)}
-                className="bg-gradient-to-r from-accent to-pink-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5"
-              >
-                <span>📸</span> Post to Instagram
-              </button>
+              {platforms.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setShowPost(p)}
+                  className="bg-gradient-to-r from-accent to-pink-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                >
+                  <span>{PLATFORM_BADGE[p]}</span> Post to {PLATFORM_LABEL[p]}
+                </button>
+              ))}
               <button
                 onClick={() => setShowAdd(true)}
                 className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong transition-colors"
@@ -385,57 +434,62 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
           </div>
         </div>
 
-        {/* Day headers — in template mode each header gets a concept picker */}
+        {/* Day headers — in template mode each header gets one concept picker PER enabled platform
+            (each lane only offers that platform's concepts). */}
         <div className="grid grid-cols-7 border-b border-line bg-slate-50">
-          {DAYS.map((d, i) => {
-            const conceptId = dayTemplate[i] ?? null;
-            return (
-              <div key={d} className="border-r border-line last:border-r-0 px-2 py-2">
-                <div className="flex items-center justify-center gap-1.5">
-                  <span className="text-xs font-semibold text-faint">{d}</span>
-                  {planMode === "template" && canEdit && (
-                    conceptId ? (
-                      <button
-                        onClick={() => saveDayTemplate({ ...dayTemplate, [i]: null })}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium text-white hover:opacity-80 transition-opacity"
-                        style={{ backgroundColor: "#6366f1" }}
-                        title="Click to remove"
-                      >
-                        <span className="truncate max-w-[90px]">{conceptLabel(conceptId)}</span>
-                        <span className="opacity-70">×</span>
+          {DAYS.map((d, i) => (
+            <div key={d} className="border-r border-line last:border-r-0 px-2 py-2">
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                <span className="text-xs font-semibold text-faint">{d}</span>
+                {planMode === "template" && canEdit && platforms.map((p) => {
+                  const map = dayTemplate[p] ?? {};
+                  const conceptId = map[i] ?? null;
+                  const pickerKey = `${p}:${i}`;
+                  const laneConcepts = conceptsFor(p);
+                  return conceptId ? (
+                    <button
+                      key={p}
+                      onClick={() => saveDayTemplate(p, { ...map, [i]: null })}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium text-white hover:opacity-80 transition-opacity"
+                      style={{ backgroundColor: "#6366f1" }}
+                      title={`${multi ? `${PLATFORM_LABEL[p]} · ` : ""}Click to remove`}
+                    >
+                      <span className="truncate max-w-[90px]">{badge(p)}{conceptLabel(conceptId)}</span>
+                      <span className="opacity-70">×</span>
+                    </button>
+                  ) : (
+                    <div key={p} className="relative">
+                      <button onClick={() => setOpenTemplateDay(openTemplateDay === pickerKey ? null : pickerKey)}
+                        title={multi ? `Set ${PLATFORM_LABEL[p]} concept` : undefined}
+                        className={`${multi ? "px-1 min-w-4" : "w-4"} h-4 rounded-full bg-slate-200 hover:bg-accent text-muted hover:text-white text-[10px] font-bold flex items-center justify-center transition-colors leading-none`}>
+                        {multi ? `${PLATFORM_BADGE[p]}+` : "+"}
                       </button>
-                    ) : (
-                      <div className="relative">
-                        <button onClick={() => setOpenTemplateDay(openTemplateDay === i ? null : i)}
-                          className="w-4 h-4 rounded-full bg-slate-200 hover:bg-accent text-muted hover:text-white text-[10px] font-bold flex items-center justify-center transition-colors leading-none">
-                          +
-                        </button>
-                        {openTemplateDay === i && (
-                          <>
-                            {/* click-away backdrop */}
-                            <div className="fixed inset-0 z-10" onClick={() => setOpenTemplateDay(null)} />
-                            <div className="absolute top-5 left-0 z-20 bg-white border border-line rounded-xl o-elev-lift py-1 min-w-[160px] max-h-64 overflow-y-auto">
-                              {concepts.length === 0 ? (
-                                <p className="px-3 py-2 text-xs text-faint">No concepts yet</p>
-                              ) : concepts.map((c) => (
-                                <button
-                                  key={c.id}
-                                  onClick={() => { saveDayTemplate({ ...dayTemplate, [i]: c.id }); setOpenTemplateDay(null); }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-accent-tint hover:text-accent-strong"
-                                >
-                                  {conceptLabel(c.id, c.name)}
-                                </button>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )
-                  )}
-                </div>
+                      {openTemplateDay === pickerKey && (
+                        <>
+                          {/* click-away backdrop */}
+                          <div className="fixed inset-0 z-10" onClick={() => setOpenTemplateDay(null)} />
+                          <div className="absolute top-5 left-0 z-20 bg-white border border-line rounded-xl o-elev-lift py-1 min-w-[160px] max-h-64 overflow-y-auto">
+                            {multi && <p className="px-3 py-1 text-[10px] font-semibold text-faint uppercase tracking-wide">{PLATFORM_BADGE[p]} {PLATFORM_LABEL[p]}</p>}
+                            {laneConcepts.length === 0 ? (
+                              <p className="px-3 py-2 text-xs text-faint">No {multi ? `${PLATFORM_LABEL[p]} ` : ""}concepts yet</p>
+                            ) : laneConcepts.map((c) => (
+                              <button
+                                key={c.id}
+                                onClick={() => { saveDayTemplate(p, { ...map, [i]: c.id }); setOpenTemplateDay(null); }}
+                                className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-accent-tint hover:text-accent-strong"
+                              >
+                                {conceptLabel(c.id, c.name)}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
         {calView === "month" ? (
@@ -446,8 +500,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                 const isToday = date === todayStr;
                 const isDragTarget = date !== null && date === dragOverDate && dragDraftId !== null;
                 const dow = date ? (new Date(date + "T00:00:00").getDay() + 6) % 7 : -1; // 0=Mon (parse local, not UTC)
-                const templateConceptId = dow >= 0 ? dayTemplate[dow] : null;
-                const templateConcept = templateConceptId ? concepts.find((c) => c.id === templateConceptId) : null;
+                const templateHints = dow >= 0 ? templateHintsFor(dow) : [];
                 return (
                   <div
                     key={idx}
@@ -493,7 +546,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                                         onClick={() => setDateTag(date, c.id)}
                                         className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-accent-tint hover:text-accent-strong"
                                       >
-                                        {conceptLabel(c.id, c.name)}
+                                        {badge(platformOf(c))}{conceptLabel(c.id, c.name)}
                                       </button>
                                     ))}
                                   </div>
@@ -502,12 +555,12 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                             );
                           })()}
                         </div>
-                        {/* Template hint (faint, only in template mode) */}
-                        {planMode === "template" && templateConcept && pieces.length === 0 && (
-                          <div className="mb-1 px-1.5 py-0.5 rounded text-[9px] text-faint border border-dashed border-line truncate">
-                            💡 {conceptLabel(templateConcept.id, templateConcept.name)}
+                        {/* Template hint (faint, only in template mode) — one per platform with a concept that day */}
+                        {planMode === "template" && pieces.length === 0 && templateHints.map((h) => (
+                          <div key={h.platform} className="mb-1 px-1.5 py-0.5 rounded text-[9px] text-faint border border-dashed border-line truncate">
+                            💡 {badge(h.platform)}{conceptLabel(h.concept.id, h.concept.name)}
                           </div>
-                        )}
+                        ))}
                         <div className="space-y-1">
                           {pieces.slice(0, 3).map((piece) => {
                             const isPosted = piece.status === "posted" || !!piece.igMediaId;
@@ -526,7 +579,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                                   color: "#1e293b",
                                 }}
                               >
-                                <div className="truncate">{piece.title}</div>
+                                <div className="truncate">{badge(platformOf(piece))}{piece.title}</div>
                                 {isPosted && <div className="text-[8px] font-semibold text-green-600 mt-0.5">✓ Posted</div>}
                               </button>
                             );
@@ -552,7 +605,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                                 : { backgroundColor: st.color + "15", borderLeft: `2px solid ${st.color}`, color: "#1e293b" }}
                             >
                               <button onClick={() => (!canEdit || solid) ? openDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
-                                <div className="truncate font-semibold pr-4">{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</div>
+                                <div className="truncate font-semibold pr-4">{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{badge(platformOf(draft))}{draft.title}</div>
                                 {draft.concept && <div className={`truncate text-[9px] ${solid ? "text-white/80" : "opacity-70"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</div>}
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                   {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <span className={`rounded px-1 text-[9px] font-semibold ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-ink-2"}`}>🕐 {t}</span> : null; })()}
@@ -582,8 +635,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                 const draftsOnDay = scheduledDrafts.filter((d) => d.scheduledDate?.startsWith(date));
                 const isToday = date === todayStr;
                 const isDragTargetWeek = date === dragOverDate && dragDraftId !== null;
-                const templateConceptId = dayTemplate[i];
-                const templateConcept = templateConceptId ? concepts.find((c) => c.id === templateConceptId) : null;
+                const templateHints = templateHintsFor(i);
                 const d = new Date(date);
                 return (
                   <div
@@ -599,12 +651,12 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                         {d.getDate()}
                       </span>
                     </div>
-                    {/* Template hint */}
-                    {templateConcept && (
-                      <div className="mb-2 px-2 py-1 rounded-lg text-[10px] text-muted bg-slate-50 border border-dashed border-line text-center truncate">
-                        💡 {conceptLabel(templateConcept.id, templateConcept.name)}
+                    {/* Template hint — one per platform with a concept that day */}
+                    {templateHints.map((h) => (
+                      <div key={h.platform} className="mb-2 px-2 py-1 rounded-lg text-[10px] text-muted bg-slate-50 border border-dashed border-line text-center truncate">
+                        💡 {badge(h.platform)}{conceptLabel(h.concept.id, h.concept.name)}
                       </div>
-                    )}
+                    ))}
                     <div className="flex-1 space-y-1.5">
                       {pieces.map((piece) => {
                         const isPosted = piece.status === "posted" || !!piece.igMediaId;
@@ -621,7 +673,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                               borderLeft: `3px solid ${piece.client?.color || "#6366f1"}`,
                             }}
                           >
-                            <p className={`font-semibold truncate leading-snug ${isPosted ? "text-green-800" : "text-ink"}`}>{piece.title}</p>
+                            <p className={`font-semibold truncate leading-snug ${isPosted ? "text-green-800" : "text-ink"}`}>{badge(platformOf(piece))}{piece.title}</p>
                             {piece.concept && <p className={`truncate text-[10px] mt-0.5 ${isPosted ? "text-green-600" : "text-faint"}`}>💡 {conceptLabel(piece.conceptId, piece.concept.name)}</p>}
                             <div className="mt-1">
                               {isPosted
@@ -648,7 +700,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                             : { backgroundColor: st.color + "15", borderLeft: `3px solid ${st.color}` }}
                         >
                           <button onClick={() => (!canEdit || solid) ? openDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
-                            <p className="font-semibold truncate leading-snug pr-4" style={{ color: solid ? "#fff" : st.color }}>{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{draft.title}</p>
+                            <p className="font-semibold truncate leading-snug pr-4" style={{ color: solid ? "#fff" : st.color }}>{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{badge(platformOf(draft))}{draft.title}</p>
                             {draft.concept && <p className={`truncate text-[10px] ${solid ? "text-white/80" : "text-muted"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</p>}
                             {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <p className={`text-[10px] font-semibold ${solid ? "text-white/90" : "text-ink-2"}`}>🕐 {t}</p> : null; })()}
                             {!solid && <p className="text-[10px] mt-0.5" style={{ color: st.color }}>{st.label}</p>}
@@ -698,7 +750,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
               {boardColumnPicker && (
                 <div className="absolute right-16 top-full mt-1 bg-white border border-line rounded-xl o-elev-lift z-50 p-3 min-w-[180px]" onClick={(e) => e.stopPropagation()}>
                   <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2">Show columns</p>
-                  {(["Ideas", ...stages.map((s) => s.name)]).map((col) => (
+                  {allColumnKeys.map((col) => (
                     <label key={col} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-slate-50 rounded px-1">
                       <input
                         type="checkbox"
@@ -712,7 +764,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                         }}
                         className="rounded"
                       />
-                      <span className="text-xs text-ink-2">{col}</span>
+                      <span className="text-xs text-ink-2">{columnLabel(col)}</span>
                     </label>
                   ))}
                 </div>
@@ -733,19 +785,24 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
             if (stagedDrafts.length === 0) {
               return <p className="px-5 py-8 text-center text-sm text-faint">No scripts yet — generate scripts in the Kanban first.</p>;
             }
-            // Group by selected columns (show even if empty)
-            const grouped: { label: string; color: string; drafts: ScriptDraft[] }[] = [];
-            if (boardColumns.includes("Ideas")) {
-              grouped.push({ label: "Ideas", color: "#a855f7", drafts: unscheduled.filter((d) => !d.stageId) });
+            // Group by selected columns (show even if empty). Columns are per platform: an
+            // "Edit" column only ever holds drafts of ITS platform (stage ids are platform-specific,
+            // and Ideas is filtered by the draft's platform).
+            const grouped: { key: string; label: string; color: string; drafts: ScriptDraft[] }[] = [];
+            for (const p of platforms) {
+              const ideasKey = colKey(p, "Ideas");
+              if (boardColumns.includes(ideasKey)) {
+                grouped.push({ key: ideasKey, label: columnLabel(ideasKey), color: "#a855f7", drafts: unscheduled.filter((d) => !d.stageId && platformOf(d) === p) });
+              }
+              stagesFor(p).filter((st) => boardColumns.includes(colKey(p, st.name))).forEach((st) => {
+                grouped.push({ key: colKey(p, st.name), label: columnLabel(colKey(p, st.name)), color: st.color, drafts: unscheduled.filter((d) => d.stageId === st.id) });
+              });
             }
-            stages.filter((st) => boardColumns.includes(st.name)).forEach((st) => {
-              grouped.push({ label: st.name, color: st.color, drafts: unscheduled.filter((d) => d.stageId === st.id) });
-            });
             return (
               <div className="overflow-x-auto">
                 <div className="flex gap-0 min-w-max">
                   {grouped.map((group) => (
-                    <div key={group.label} className="w-56 border-r border-line last:border-r-0 flex-shrink-0">
+                    <div key={group.key} className="w-56 border-r border-line last:border-r-0 flex-shrink-0">
                       <div className="px-3 py-2 border-b border-line flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
                         <span className="text-xs font-semibold text-ink-2 truncate">{group.label}</span>
@@ -778,11 +835,12 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
         </div>
       )}
 
-      {showPostIG && selectedClientId && (
-        <PostToInstagramModal
+      {showPost && selectedClientId && (
+        <PostModal
           clientId={selectedClientId}
-          onClose={() => setShowPostIG(false)}
-          onPosted={() => { reload(); setShowPostIG(false); }}
+          platform={showPost}
+          onClose={() => setShowPost(null)}
+          onPosted={() => { reload(); setShowPost(null); }}
         />
       )}
 
@@ -791,6 +849,7 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
           clients={clients}
           concepts={concepts}
           stages={stages}
+          platforms={platforms}
           selectedClientId={selectedClientId}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); reload(); }}
@@ -800,7 +859,9 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
       {selected && (
         <ContentDetailModal
           piece={selected}
-          stages={stages}
+          platform={platformOf(selected)}
+          showPlatform={multi}
+          stages={stagesFor(platformOf(selected))}
           team={team}
           clients={clients}
           onClose={() => setSelected(null)}
@@ -824,13 +885,18 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
           }}
         />
       )}
-      {pendingDrop && canEdit && (
+      {pendingDrop && canEdit && (() => {
+        // Everything about "ready to post" is judged against the draft's OWN platform's stages.
+        const dp = platformOf(pendingDrop.draft);
+        const ps = stagesFor(dp);
+        return (
         <ConfirmScheduleModal
           draft={pendingDrop.draft}
+          platform={dp}
           date={pendingDrop.date}
           clientId={selectedClientId}
-          canPost={!!stages.length && pendingDrop.draft.stageId === stages[stages.length - 1]?.id}
-          lastStageName={stages[stages.length - 1]?.name ?? "Schedule"}
+          canPost={!!ps.length && pendingDrop.draft.stageId === ps[ps.length - 1]?.id}
+          lastStageName={ps[ps.length - 1]?.name ?? "Schedule"}
           onClose={() => setPendingDrop(null)}
           onConfirm={async (postToIG, opts) => {
             // Keep the chosen time on the draft's scheduledDate so the calendar card
@@ -846,11 +912,12 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   clientId: selectedClientId,
+                  platform: dp,
                   content: opts.caption,
                   mediaUrls: mediaUrl ? [mediaUrl] : [],
                   scheduledFor: new Date(`${pendingDrop.date}T${opts.time || "09:00"}:00`).toISOString(),
                   scriptDraftId: pendingDrop.draft.id,
-                  trialReel: opts.trialReel,
+                  trialReel: dp === "instagram" && opts.trialReel,
                 }),
               });
               if (!res.ok) {
@@ -867,9 +934,21 @@ export default function Pipeline({ clients, platform = "instagram", selectedClie
             setPendingDrop(null);
           }}
         />
-      )}
+        );
+      })()}
     </div>
   );
+
+  // Template concepts for a weekday, one entry per enabled platform that has one set.
+  function templateHintsFor(dow: number): { platform: PlatformId; concept: Concept }[] {
+    const out: { platform: PlatformId; concept: Concept }[] = [];
+    for (const p of platforms) {
+      const id = dayTemplate[p]?.[dow];
+      const c = id ? concepts.find((x) => x.id === id) : null;
+      if (c) out.push({ platform: p, concept: c });
+    }
+    return out;
+  }
 }
 
 // ── Script Draft Modal (read-only view from calendar) ───────────────────────
@@ -992,9 +1071,10 @@ function PlanTimeModal({ date, onClose, onPlan }: { date: string; onClose: () =>
 interface IGOptions { caption: string; trialReel: boolean; time: string; }
 
 function ConfirmScheduleModal({
-  draft, date, clientId, canPost, lastStageName, onClose, onConfirm,
+  draft, platform, date, clientId, canPost, lastStageName, onClose, onConfirm,
 }: {
   draft: ScriptDraft;
+  platform: PlatformId; // the draft's platform — drives the caption prompt, labels and Zernio target
   date: string;
   clientId: number | null;
   canPost: boolean;
@@ -1014,6 +1094,8 @@ function ConfirmScheduleModal({
     const m = (draft.scheduledDate || "").match(/T(\d{2}:\d{2})/);
     return m ? m[1] : "09:00";
   });
+  const platformLabel = PLATFORM_LABEL[platform];
+  const platformBadge = PLATFORM_BADGE[platform];
 
   // Prefer the finished/edited video; fall back to raw uploads.
   const videoUrl = draft.editedVideoUrl || draft.rawContentUrl || (() => {
@@ -1027,7 +1109,7 @@ function ConfirmScheduleModal({
     try {
       const d = await fetch("/api/generate-caption", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, hook: draft.hook, script: draft.script, platform: "instagram" }),
+        body: JSON.stringify({ clientId, hook: draft.hook, script: draft.script, platform }),
       }).then((r) => r.json());
       if (d.caption) setCaption(d.caption);
       else if (d.error && !silent) alert(d.error);
@@ -1152,13 +1234,13 @@ function ConfirmScheduleModal({
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               rows={4}
-              placeholder={genCaption ? "✨ Generating caption…" : "Write your Instagram caption here…"}
+              placeholder={genCaption ? "✨ Generating caption…" : `Write your ${platformLabel} caption here…`}
               className="w-full text-sm text-ink-2 bg-slate-50 border border-line rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
 
-          {/* Trial reel toggle */}
-          {hasMedia && (
+          {/* Trial reel toggle (Instagram-only feature) */}
+          {hasMedia && platform === "instagram" && (
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <input type="checkbox" checked={trialReel} onChange={(e) => setTrialReel(e.target.checked)}
                 className="mt-0.5 w-4 h-4 rounded border-line-2 text-accent focus:ring-accent" />
@@ -1188,7 +1270,7 @@ function ConfirmScheduleModal({
           {hasMedia && canPost && (
             <div className="flex items-start gap-2 bg-accent-tint rounded-xl px-4 py-3">
               <span className="text-accent mt-0.5">📡</span>
-              <p className="text-[11px] text-accent-strong">Hit <span className="font-semibold">Confirm &amp; Schedule</span> to book this auto-post via Zernio for {scheduleTime} on {date}.</p>
+              <p className="text-[11px] text-accent-strong">Hit <span className="font-semibold">Confirm &amp; Schedule</span> to book this {platformLabel} auto-post via Zernio for {scheduleTime} on {date}.</p>
             </div>
           )}
 
@@ -1213,10 +1295,10 @@ function ConfirmScheduleModal({
             <button
               onClick={() => handle(true)}
               disabled={loading || !hasMedia || !canPost}
-              title={!canPost ? `Move this to the "${lastStageName}" stage first` : !hasMedia ? "Upload a video/photo in the Kanban first to enable Instagram posting" : ""}
+              title={!canPost ? `Move this to the "${lastStageName}" stage first` : !hasMedia ? `Upload a video/photo in the Kanban first to enable ${platformLabel} posting` : ""}
               className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-accent to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
             >
-              {loading ? (isFuture ? "Scheduling…" : "Posting…") : (isFuture ? "🗓 Confirm & Schedule" : "📸 Post now")}
+              {loading ? (isFuture ? "Scheduling…" : "Posting…") : (isFuture ? "🗓 Confirm & Schedule" : `${platformBadge} Post now`)}
             </button>
             );
           })()}
@@ -1228,7 +1310,7 @@ function ConfirmScheduleModal({
         )}
         {canPost && !hasMedia && (
           <p className="px-6 pb-4 text-[11px] text-faint text-center">
-            Upload a video or photo in the Kanban stage to enable direct Instagram posting.
+            Upload a video or photo in the Kanban stage to enable direct {platformLabel} posting.
           </p>
         )}
       </div>
@@ -1236,7 +1318,7 @@ function ConfirmScheduleModal({
   );
 }
 
-// ── Post to Instagram Modal (Buffer-style direct scheduling) ─────────────────
+// ── Post Modal (Buffer-style direct scheduling, one platform at a time) ──────
 
 // Upload to Cloudflare R2 via a presigned PUT (Cloudinary is gone). A single PUT handles up
 // to 5GB — fine for any IG reel — and R2 has no credit limit to lock us out.
@@ -1263,10 +1345,12 @@ function igUpload(file: File, onProgress: (pct: number) => void): Promise<string
   });
 }
 
-function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: number; onClose: () => void; onPosted: () => void }) {
+function PostModal({ clientId, platform, onClose, onPosted }: { clientId: number; platform: PlatformId; onClose: () => void; onPosted: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const today = ymdLocal(new Date());
   const nowTime = new Date().toTimeString().slice(0, 5);
+  const platformLabel = PLATFORM_LABEL[platform];
+  const platformBadge = PLATFORM_BADGE[platform];
 
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaName, setMediaName] = useState<string>("");
@@ -1310,7 +1394,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
         ? new Date().toISOString()
         : new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
       // Save to DB first so we have a contentPieceId to send to Zernio
-      const title = caption.split("\n")[0].trim().slice(0, 80) || `Instagram Post – ${scheduleDate}`;
+      const title = caption.split("\n")[0].trim().slice(0, 80) || `${platformLabel} Post – ${scheduleDate}`;
       const contentRes = await fetch("/api/content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1319,7 +1403,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
           title,
           caption,
           rawContentUrl: mediaUrl,
-          platform: "instagram",
+          platform,
           contentType: "reel",
           status: postNow ? "posted" : "scheduled",
           scheduledDate: `${scheduleDate}T${scheduleTime}:00`,
@@ -1331,11 +1415,11 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
       const res = await fetch("/api/zernio/schedule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, content: caption, mediaUrls: [mediaUrl], scheduledFor, contentPieceId: newPieceId, trialReel }),
+        body: JSON.stringify({ clientId, platform, content: caption, mediaUrls: [mediaUrl], scheduledFor, contentPieceId: newPieceId, trialReel: platform === "instagram" && trialReel }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to post to Instagram");
+        throw new Error(data?.message ?? data?.error ?? `Failed to post to ${platformLabel}`);
       }
 
       onPosted(); // reload calendar
@@ -1357,8 +1441,8 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
         {/* Header */}
         <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">📸</span>
-            <h2 className="text-base font-bold text-ink">Post to Instagram</h2>
+            <span className="text-lg">{platformBadge}</span>
+            <h2 className="text-base font-bold text-ink">Post to {platformLabel}</h2>
           </div>
           <button onClick={onClose} className="text-faint hover:text-ink-2 text-xl leading-none">×</button>
         </div>
@@ -1439,15 +1523,17 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
               </div>
             </div>
 
-            {/* Trial reel toggle */}
-            <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
-              <input type="checkbox" checked={trialReel} onChange={(e) => setTrialReel(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-line-2 text-accent focus:ring-accent" />
-              <span className="text-xs text-ink-2 leading-relaxed">
-                <span className="font-semibold text-ink-2">🧪 Post as trial reel</span> — shown only to non-followers first;
-                Instagram auto-shares it to your followers if it performs well. (Video reels only.)
-              </span>
-            </label>
+            {/* Trial reel toggle (Instagram-only feature) */}
+            {platform === "instagram" && (
+              <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
+                <input type="checkbox" checked={trialReel} onChange={(e) => setTrialReel(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-line-2 text-accent focus:ring-accent" />
+                <span className="text-xs text-ink-2 leading-relaxed">
+                  <span className="font-semibold text-ink-2">🧪 Post as trial reel</span> — shown only to non-followers first;
+                  Instagram auto-shares it to your followers if it performs well. (Video reels only.)
+                </span>
+              </label>
+            )}
           </div>
 
           {/* Status */}
@@ -1455,7 +1541,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
             <div className="flex items-center gap-2 bg-green-50 rounded-xl px-4 py-3">
               <span className="text-green-500">✓</span>
               <p className="text-sm font-medium text-green-700">
-                {postedNow ? "Sent to Instagram — should appear shortly!" : `Scheduled for ${scheduleDate} at ${scheduleTime}`}
+                {postedNow ? `Sent to ${platformLabel} — should appear shortly!` : `Scheduled for ${scheduleDate} at ${scheduleTime}`}
               </p>
             </div>
           )}
@@ -1481,7 +1567,7 @@ function PostToInstagramModal({ clientId, onClose, onPosted }: { clientId: numbe
               title={!mediaUrl ? "Upload media first" : ""}
               className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-accent to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
             >
-              {status === "posting" ? "Posting…" : "📸 Post Now"}
+              {status === "posting" ? "Posting…" : `${platformBadge} Post Now`}
             </button>
           </div>
         )}
@@ -1574,26 +1660,38 @@ function PlanModeSelector({ current, onChange }: { current: PlanningMode; onChan
 // ── Add Content Modal ───────────────────────────────────────────────────────
 
 function AddContentModal({
-  clients, concepts, stages, selectedClientId, onClose, onSaved,
+  clients, concepts, stages, platforms, selectedClientId, onClose, onSaved,
 }: {
   clients: Client[];
-  concepts: Concept[];
-  stages: WorkflowStage[];
+  concepts: Concept[];   // merged across enabled platforms — filtered by the chosen platform below
+  stages: WorkflowStage[]; // merged across enabled platforms — filtered by the chosen platform below
+  platforms: PlatformId[]; // exactly the client's enabled platforms
   selectedClientId: number | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const activeClient = clients.find((c) => c.id === selectedClientId) ?? null;
+  const stagesFor = (p: PlatformId) => stages.filter((s) => platformOf(s) === p);
+  // Default to the client's primary platform when it's enabled, else the first enabled one.
+  const defaultPlatform: PlatformId = isPlatformId(activeClient?.platform) && platforms.includes(activeClient!.platform as PlatformId)
+    ? (activeClient!.platform as PlatformId) : platforms[0];
 
   const [form, setForm] = useState({
     clientId: selectedClientId?.toString() || (clients[0]?.id?.toString() ?? ""),
     conceptId: "", title: "", contentType: "video",
-    platform: activeClient?.platform || "instagram",
+    platform: defaultPlatform as string,
     status: "scripted", scheduledDate: "", hook: "", caption: "", script: "", notes: "",
-    currentStageId: stages[0]?.id?.toString() || "",
+    currentStageId: stagesFor(defaultPlatform)[0]?.id?.toString() || "",
   });
   const [generatingCaption, setGeneratingCaption] = useState(false);
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
+  const formPlatform = platformOf({ platform: form.platform });
+  // Switching platform resets the concept + starting stage, which are platform-scoped.
+  function setPlatform(p: string) {
+    const stage = stagesFor(platformOf({ platform: p }))[0];
+    setForm((f) => ({ ...f, platform: p, conceptId: "", currentStageId: stage?.id?.toString() || "" }));
+  }
+  const platformConcepts = concepts.filter((c) => platformOf(c) === formPlatform);
 
   async function generateCaption() {
     if (!form.script && !form.hook) return;
@@ -1673,9 +1771,9 @@ function AddContentModal({
           </div>
           <div>
             <label className="block text-xs font-medium text-ink-2 mb-1">Platform</label>
-            <select value={form.platform} onChange={(e) => set("platform", e.target.value)}
+            <select value={form.platform} onChange={(e) => setPlatform(e.target.value)}
               className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
-              {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+              {platforms.map((p) => <option key={p} value={p}>{PLATFORM_BADGE[p]} {PLATFORM_LABEL[p]}</option>)}
             </select>
           </div>
           <div>
@@ -1698,7 +1796,7 @@ function AddContentModal({
             <select value={form.conceptId} onChange={(e) => set("conceptId", e.target.value)}
               className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
               <option value="">No concept</option>
-              {concepts.map((c) => <option key={c.id} value={c.id}>{(c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name}</option>)}
+              {platformConcepts.map((c) => <option key={c.id} value={c.id}>{(c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name}</option>)}
             </select>
           </div>
         </div>
@@ -1743,10 +1841,12 @@ function AddContentModal({
 // ── Content Detail Modal ────────────────────────────────────────────────────
 
 function ContentDetailModal({
-  piece, stages, team, clients, onClose, onStatusChange, onAdvanceStage, onDelete, onSaved,
+  piece, platform, showPlatform, stages, team, clients, onClose, onStatusChange, onAdvanceStage, onDelete, onSaved,
 }: {
   piece: ContentPiece;
-  stages: WorkflowStage[];
+  platform: PlatformId;      // the piece's platform (null → Instagram)
+  showPlatform: boolean;     // badge the platform (only when the calendar merges several)
+  stages: WorkflowStage[];   // ONLY this platform's stages, in order
   team: TeamMember[];
   clients: Client[];
   onClose: () => void;
@@ -1763,8 +1863,10 @@ function ContentDetailModal({
   const [copied, setCopied] = useState(false);
   const [igPosting, setIgPosting] = useState(false);
   const [igPostMsg, setIgPostMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const platformLabel = PLATFORM_LABEL[platform];
+  const platformBadge = PLATFORM_BADGE[platform];
 
-  async function postToInstagramNow() {
+  async function postNow() {
     const videoUrl = rawContentUrl || piece.rawContentUrl;
     if (!videoUrl) { setIgPostMsg({ ok: false, text: "No media uploaded yet — add a video URL first." }); return; }
     setIgPosting(true);
@@ -1776,6 +1878,7 @@ function ContentDetailModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId: piece.clientId,
+          platform,
           content: caption,
           mediaUrls: [videoUrl],
           scheduledFor: new Date().toISOString(),
@@ -1784,7 +1887,7 @@ function ContentDetailModal({
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        setIgPostMsg({ ok: false, text: data.error || data.message || "Posting failed" });
+        setIgPostMsg({ ok: false, text: data.message || data.error || "Posting failed" });
       } else {
         // Mark as posted in DB
         await fetch(`/api/content/${piece.id}`, {
@@ -1793,7 +1896,7 @@ function ContentDetailModal({
           body: JSON.stringify({ status: "posted" }),
         });
         onStatusChange("posted");
-        setIgPostMsg({ ok: true, text: "✓ Posted to Instagram via Zernio!" });
+        setIgPostMsg({ ok: true, text: `✓ Posted to ${platformLabel} via Zernio!` });
         onSaved();
       }
     } catch (err) {
@@ -1809,7 +1912,7 @@ function ContentDetailModal({
       const res = await fetch("/api/generate-caption", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: piece.clientId, hook: piece.hook, script: piece.script, platform: piece.platform }),
+        body: JSON.stringify({ clientId: piece.clientId, hook: piece.hook, script: piece.script, platform }),
       });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
@@ -1849,6 +1952,11 @@ function ContentDetailModal({
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
           <StatusBadge status={piece.status} />
+          {showPlatform && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-ink-2">
+              {platformBadge} {platformLabel}
+            </span>
+          )}
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-ink-2">
             {CONTENT_ICONS[piece.contentType]} {piece.contentType}
           </span>
@@ -2002,16 +2110,16 @@ function ContentDetailModal({
             className="w-full border border-line rounded-xl px-4 py-3 text-sm text-ink-2 focus:outline-none focus:ring-2 focus:ring-accent resize-none" />
         </div>
 
-        {/* Post to Instagram directly */}
+        {/* Post directly to the piece's platform */}
         {piece.status !== "posted" && (piece.rawContentUrl || rawContentUrl) && (
           <div className="rounded-xl border border-accent-tint bg-accent-tint px-4 py-3 space-y-2">
-            <p className="text-[10px] font-semibold text-accent uppercase tracking-wide">Instagram</p>
+            <p className="text-[10px] font-semibold text-accent uppercase tracking-wide">{platformLabel}</p>
             <button
-              onClick={postToInstagramNow}
+              onClick={postNow}
               disabled={igPosting}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-accent to-pink-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              {igPosting ? <><span className="animate-spin inline-block">⟳</span> Posting…</> : "📸 Post to Instagram Now"}
+              {igPosting ? <><span className="animate-spin inline-block">⟳</span> Posting…</> : `${platformBadge} Post to ${platformLabel} Now`}
             </button>
             {igPostMsg && (
               <p className={`text-xs font-medium text-center ${igPostMsg.ok ? "text-green-600" : "text-red-500"}`}>
