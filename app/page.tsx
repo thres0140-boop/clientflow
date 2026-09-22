@@ -21,6 +21,7 @@ import ContextPage from "@/features/scripts/pages/ContextPage";
 import TranscribePage from "@/features/content/pages/TranscribePage";
 import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
+import { applyTheme, readStoredTheme } from "@/shared/theme";
 import { countUnseenSentBack } from "@/features/scripts/sentBackSeen";
 import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
 
@@ -235,6 +236,9 @@ export default function App() {
       const sessData = await fetch("/api/auth/me").then((r) => r.json());
       const sess: SessionPayload | null = sessData;
       setSession(sess);
+      // Dark mode is owner-only: re-assert the theme from the verified session so a
+      // member/client session renders light whatever cf_theme holds in this browser.
+      applyTheme(sess?.type === "owner" ? readStoredTheme() : "light");
       if (sessData?.ownerName) setOwnerName(sessData.ownerName);
       if (sessData?.ownerEmail !== undefined) setOwnerEmail(sessData.ownerEmail);
 
@@ -424,7 +428,7 @@ export default function App() {
       case "analytics": return <Analytics {...props} />;
       case "team": return <TeamPage clients={clients} selectedClientId={selectedClientId} />;
       case "chat": return <ChatPage clients={clients} selectedClientId={selectedClientId} isOwnerSession={session?.type === "owner"} ownerName={ownerName} clientName={session?.type === "member" ? session.name : undefined} reelContext={chatContext} onContextUsed={() => setChatContext(null)} team={team} initialChannel={chatContext?.channel} activeProfile={activeProfile} />;
-      case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} defaultWorkspaceId={activeWorkspaceId} />;
+      case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} defaultWorkspaceId={activeWorkspaceId} isOwner={session?.type === "owner"} />;
       case "kanban": return <Kanban clients={clients} platform={platform} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} highlightDraftId={kanbanHighlightId} onHighlightConsumed={() => setKanbanHighlightId(null)} />;
       case "tasks": return <ScriptTasksPage clients={clients} selectedClientId={selectedClientId} canSubmit={session?.type === "member"} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} />;

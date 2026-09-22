@@ -28,6 +28,40 @@
   --color-line: rgba(17, 17, 19, 0.08);
   --color-line-2: rgba(17, 17, 19, 0.14);
 
+  /* second-tier surfaces & extremes — light values equal the hardcoded colours they replace */
+  --color-surface-2: oklch(98.4% 0.003 247.858);   /* = slate-50: raised / hover surface */
+  --color-surface-hover: #fafafa;                   /* ghost-button hover */
+  --color-line-strong: rgba(17, 17, 19, 0.2);      /* ghost-button hover border */
+  --color-ink-strong: #000;                         /* primary-button hover */
+  --color-on-ink: #fff;                             /* text on an ink-coloured surface */
+  --color-on-accent: #fff;                          /* text on an accent-coloured surface */
+
+  /* status colours — semantic names, Tailwind grades, exact light values (green/amber/red/blue) */
+  --color-ok-50:  oklch(98.2% 0.018 155.826);
+  --color-ok-100: oklch(96.2% 0.044 156.743);
+  --color-ok-200: oklch(92.5% 0.084 155.995);
+  --color-ok-500: oklch(72.3% 0.219 149.579);
+  --color-ok-600: oklch(62.7% 0.194 149.214);
+  --color-ok-700: oklch(52.7% 0.154 150.069);
+  --color-warn-50:  oklch(98.7% 0.022 95.277);
+  --color-warn-100: oklch(96.2% 0.059 95.617);
+  --color-warn-200: oklch(92.4% 0.12 95.746);
+  --color-warn-500: oklch(76.9% 0.188 70.08);
+  --color-warn-600: oklch(66.6% 0.179 58.318);
+  --color-warn-700: oklch(55.5% 0.163 48.998);
+  --color-danger-50:  oklch(97.1% 0.013 17.38);
+  --color-danger-100: oklch(93.6% 0.032 17.717);
+  --color-danger-200: oklch(88.5% 0.062 18.334);
+  --color-danger-500: oklch(63.7% 0.237 25.331);
+  --color-danger-600: oklch(57.7% 0.245 27.325);
+  --color-danger-700: oklch(50.5% 0.213 27.518);
+  --color-info-50:  oklch(97% 0.014 254.604);
+  --color-info-100: oklch(93.2% 0.032 255.585);
+  --color-info-200: oklch(88.2% 0.059 254.128);
+  --color-info-500: oklch(62.3% 0.214 259.815);
+  --color-info-600: oklch(54.6% 0.245 262.881);
+  --color-info-700: oklch(48.8% 0.243 264.376);
+
   /* single restrained accent (refined indigo-navy, pairs with the nav) */
   --color-accent: #3d4aa3;
   --color-accent-strong: #2f3a86;
@@ -43,7 +77,83 @@
   --shadow-soft: 0 1px 2px rgba(17, 17, 19, 0.04), 0 4px 14px rgba(17, 17, 19, 0.05);
   --shadow-lift: 0 2px 6px rgba(17, 17, 19, 0.06), 0 14px 38px rgba(17, 17, 19, 0.09);
   --shadow-pop: 0 8px 24px rgba(17, 17, 19, 0.10), 0 30px 70px rgba(17, 17, 19, 0.14);
+  --shadow-btn: 0 1px 2px rgba(17, 17, 19, 0.18);          /* primary button */
+  --shadow-btn-accent: 0 1px 2px rgba(47, 58, 134, 0.28);   /* accent button */
+  --shadow-glow: none;                                       /* accent glow — dark only */
 }
+
+/* ============================================================================
+   DARK THEME — owner-only. Activated by data-theme="dark" on <html> (see
+   shared/theme.ts). Near-black canvas with a faint green cast, slightly lighter
+   card surfaces, hairline borders, one green accent with a soft glow. Only
+   variables are redefined here; components never fork on the theme.
+   ========================================================================== */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #0a0c0a;
+  --foreground: #e8ece8;
+
+  --color-ink: #e8ece8;
+  --color-ink-2: #b9c0b9;
+  --color-muted: #8a928a;
+  --color-faint: #5f665f;
+  --color-ink-strong: #ffffff;
+  --color-on-ink: #0a0c0a;
+
+  --color-canvas: #0a0c0a;
+  --color-surface: #121512;
+  --color-surface-2: #1a1e1a;
+  --color-surface-hover: #1a1e1a;
+  --color-line: rgba(255, 255, 255, 0.07);
+  --color-line-2: rgba(255, 255, 255, 0.12);
+  --color-line-strong: rgba(255, 255, 255, 0.2);
+
+  --color-accent: #22c55e;
+  --color-accent-strong: #16a34a;
+  --color-accent-tint: rgba(34, 197, 94, 0.12);
+  --color-on-accent: #06120a;
+
+  /* status: translucent tints instead of pastel blocks, lighter ink for contrast */
+  --color-ok-50:  rgba(34, 197, 94, 0.10);
+  --color-ok-100: rgba(34, 197, 94, 0.18);
+  --color-ok-200: rgba(34, 197, 94, 0.32);
+  --color-ok-500: #22c55e;
+  --color-ok-600: #4ade80;
+  --color-ok-700: #86efac;
+  --color-warn-50:  rgba(245, 158, 11, 0.10);
+  --color-warn-100: rgba(245, 158, 11, 0.18);
+  --color-warn-200: rgba(245, 158, 11, 0.32);
+  --color-warn-500: #f59e0b;
+  --color-warn-600: #fbbf24;
+  --color-warn-700: #fcd34d;
+  --color-danger-50:  rgba(239, 68, 68, 0.10);
+  --color-danger-100: rgba(239, 68, 68, 0.18);
+  --color-danger-200: rgba(239, 68, 68, 0.32);
+  --color-danger-500: #ef4444;
+  --color-danger-600: #f87171;
+  --color-danger-700: #fca5a5;
+  --color-info-50:  rgba(59, 130, 246, 0.10);
+  --color-info-100: rgba(59, 130, 246, 0.18);
+  --color-info-200: rgba(59, 130, 246, 0.32);
+  --color-info-500: #3b82f6;
+  --color-info-600: #60a5fa;
+  --color-info-700: #93c5fd;
+
+  /* depth: black shadows vanish on a near-black canvas, so depth comes from the
+     lighter surface + an outer hairline, with a deeper drop for floating layers */
+  --shadow-soft: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 14px 38px rgba(0, 0, 0, 0.55);
+  --shadow-pop:  0 0 0 1px rgba(255, 255, 255, 0.06), 0 30px 70px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.22);
+  --shadow-btn: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 18px rgba(34, 197, 94, 0.18);
+  --shadow-btn-accent: 0 0 20px rgba(34, 197, 94, 0.28);
+}
+[data-theme="dark"] ::selection { background: rgba(34, 197, 94, 0.32); }
+[data-theme="dark"] :focus-visible { outline-color: rgba(34, 197, 94, 0.6); }
+[data-theme="dark"] * { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+[data-theme="dark"] *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); background-clip: content-box; }
+[data-theme="dark"] *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); background-clip: content-box; }
 
 /* ---------- base ---------- */
 html { -webkit-text-size-adjust: 100%; }
@@ -104,12 +214,12 @@ h1, h2, h3, h4 { letter-spacing: -0.02em; }
   transition: background-color .15s ease, box-shadow .15s ease, transform .06s ease, border-color .15s ease;
 }
 .o-btn:active { transform: translateY(0.5px); }
-.o-btn-primary { background: var(--color-ink); color: #fff; box-shadow: 0 1px 2px rgba(17,17,19,0.18); }
-.o-btn-primary:hover { background: #000; }
-.o-btn-accent { background: var(--color-accent); color: #fff; box-shadow: 0 1px 2px rgba(47,58,134,0.28); }
+.o-btn-primary { background: var(--color-ink); color: var(--color-on-ink); box-shadow: var(--shadow-btn); }
+.o-btn-primary:hover { background: var(--color-ink-strong); }
+.o-btn-accent { background: var(--color-accent); color: var(--color-on-accent); box-shadow: var(--shadow-btn-accent); }
 .o-btn-accent:hover { background: var(--color-accent-strong); }
 .o-btn-ghost { background: var(--color-surface); color: var(--color-ink-2); border: 1px solid var(--color-line-2); }
-.o-btn-ghost:hover { background: #fafafa; border-color: rgba(17,17,19,0.2); }
+.o-btn-ghost:hover { background: var(--color-surface-hover); border-color: var(--color-line-strong); }
 
 /* ---------- motion (gentle, spring-ish) ---------- */
 @keyframes oModalIn { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: none; } }
