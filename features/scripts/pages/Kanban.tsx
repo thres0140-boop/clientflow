@@ -2196,7 +2196,7 @@ function CheckCardActions({ draft, onProceed }: { draft: ScriptDraft; onProceed:
     <div className="space-y-1">
       {total > 0 && (
         <div className={`text-[10px] font-medium text-center py-1 rounded-lg ${
-          hasRejection ? "text-red-600 bg-red-50" : approved === total && total > 0 ? "text-green-600 bg-green-50" : "text-slate-500 bg-slate-50"
+          hasRejection ? "text-danger-600 bg-danger-50" : approved === total && total > 0 ? "text-ok-600 bg-ok-50" : "text-ink-500 bg-surface-2"
         }`}>
           {hasRejection ? "✗ Rejected — needs changes" : approved === total && total > 0 ? "✓ All approved" : `${approved}/${total} approved`}
         </div>
@@ -2205,7 +2205,7 @@ function CheckCardActions({ draft, onProceed }: { draft: ScriptDraft; onProceed:
         onClick={onProceed}
         disabled={total === 0 || !reviews.length || reviews.some(r => r.status === "bad") || reviews.filter(r => r.status === "good").length < total}
         title={total === 0 ? "Open card to assign reviewers first" : ""}
-        className="w-full py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed">
+        className="w-full py-1 text-[10px] font-semibold text-accent-600 bg-accent-50 rounded-lg hover:bg-accent-100 disabled:opacity-40 disabled:cursor-not-allowed">
         → Schedule
       </button>
     </div>
@@ -2277,10 +2277,10 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
               <button key={r.id} onClick={() => toggleReviewer(r)}
                 className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${
                   selected
-                    ? rv?.status === "good" ? "bg-green-100 border-green-400 text-green-700"
-                    : rv?.status === "bad" ? "bg-red-100 border-red-400 text-red-700"
-                    : "bg-indigo-100 border-indigo-400 text-indigo-700"
-                    : "bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-400"
+                    ? rv?.status === "good" ? "bg-ok-100 border-ok-400 text-ok-700"
+                    : rv?.status === "bad" ? "bg-danger-100 border-danger-400 text-danger-700"
+                    : "bg-accent-100 border-accent-400 text-accent-700"
+                    : "bg-surface-2 border-line-hard text-ink-500 hover:border-line-focus"
                 }`}>
                 {rv?.status === "good" ? "✓ " : rv?.status === "bad" ? "✗ " : ""}{r.name}
               </button>
@@ -2295,30 +2295,30 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
           {selectedReviewers.map((r) => {
             const rv = reviews.find(rv => rv.reviewerName === r.name);
             return (
-              <div key={r.id} className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl">
-                <span className="text-xs font-medium text-slate-700 flex-1">{r.name}</span>
-                {rv?.status === "good" && <span className="text-xs text-green-600 font-semibold">✓ Approved</span>}
+              <div key={r.id} className="flex items-center gap-2 p-2.5 bg-surface-2 rounded-xl">
+                <span className="text-xs font-medium text-ink-700 flex-1">{r.name}</span>
+                {rv?.status === "good" && <span className="text-xs text-ok-600 font-semibold">✓ Approved</span>}
                 {rv?.status === "bad" && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-red-600 font-semibold">✗ Rejected</span>
+                    <span className="text-xs text-danger-600 font-semibold">✗ Rejected</span>
                     {rv.comment && <span className="text-[10px] text-faint truncate max-w-[120px]">{rv.comment}</span>}
                   </div>
                 )}
                 {(!rv || rv.status === "pending") && (
                   <div className="flex gap-1">
                     <button onClick={() => submitReview(r, "good")} disabled={saving}
-                      className="px-2.5 py-1 text-[10px] font-semibold text-green-700 bg-green-100 rounded-lg hover:bg-green-200">
+                      className="px-2.5 py-1 text-[10px] font-semibold text-ok-700 bg-ok-100 rounded-lg hover:bg-ok-200">
                       ✓ Good
                     </button>
                     <button onClick={() => { setBadTarget(r); setBadComment(""); }} disabled={saving}
-                      className="px-2.5 py-1 text-[10px] font-semibold text-red-600 bg-red-50 rounded-lg hover:bg-red-100">
+                      className="px-2.5 py-1 text-[10px] font-semibold text-danger-600 bg-danger-50 rounded-lg hover:bg-danger-100">
                       ✗ Bad
                     </button>
                   </div>
                 )}
                 {rv && rv.status !== "pending" && (
                   <button onClick={() => submitReview(r, rv.status === "good" ? "bad" : "good")} disabled={saving}
-                    className="text-[10px] text-faint hover:text-slate-600 ml-1">
+                    className="text-[10px] text-faint hover:text-ink-600 ml-1">
                     Change
                   </button>
                 )}
@@ -2329,7 +2329,7 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
       )}
 
       {allApproved && (
-        <p className="text-xs text-green-600 font-semibold text-center bg-green-50 rounded-xl py-2">
+        <p className="text-xs text-ok-600 font-semibold text-center bg-ok-50 rounded-xl py-2">
           ✓ All reviewers approved — ready to schedule
         </p>
       )}
@@ -2337,22 +2337,22 @@ function ReviewPanel({ draft, team, ownerName, onReviewSubmitted, onApprovalChan
       {/* Bad review modal */}
       {badTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl o-elev-pop p-6 w-80 space-y-4">
-            <h3 className="text-sm font-bold text-slate-800">Why is this not good?</h3>
-            <p className="text-xs text-slate-500">Leave feedback for the editor:</p>
+          <div className="bg-surface rounded-2xl o-elev-pop p-6 w-80 space-y-4">
+            <h3 className="text-sm font-bold text-ink-800">Why is this not good?</h3>
+            <p className="text-xs text-ink-500">Leave feedback for the editor:</p>
             <textarea value={badComment} onChange={(e) => setBadComment(e.target.value)}
               placeholder="e.g. Audio quality is too low, need to re-record..."
               rows={3}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none" />
+              className="w-full border border-line-hard rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-danger-400 resize-none" />
             <div className="flex gap-2">
               <button onClick={() => setBadTarget(null)}
-                className="flex-1 py-2 text-xs font-medium border border-slate-200 rounded-xl hover:bg-slate-50">
+                className="flex-1 py-2 text-xs font-medium border border-line-hard rounded-xl hover:bg-surface-2">
                 Cancel
               </button>
               <button
                 onClick={async () => { await submitReview(badTarget, "bad", badComment); setBadTarget(null); }}
                 disabled={!badComment.trim() || saving}
-                className="flex-1 py-2 text-xs font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-40">
+                className="flex-1 py-2 text-xs font-semibold text-on-status bg-danger-500 rounded-xl hover:bg-danger-600 disabled:opacity-40">
                 Submit feedback
               </button>
             </div>
@@ -2389,15 +2389,15 @@ function FinishedVideoUpload({ draft, onUploaded }: { draft: ScriptDraft; onUplo
 
   return (
     <div className="space-y-2">
-      {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+      {error && <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-lg">{error}</p>}
 
       <button
         onClick={() => setExpanded((s) => !s)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors border border-orange-100">
-        <span className="text-xs font-semibold text-orange-700">
+        className="w-full flex items-center justify-between px-3 py-2 bg-hue-orange-50 hover:bg-hue-orange-100 rounded-xl transition-colors border border-hue-orange-100">
+        <span className="text-xs font-semibold text-hue-orange-700">
           {draft.editedVideoUrl ? "✓ Finished video uploaded" : "No finished video yet"}
         </span>
-        <span className="text-orange-400 text-xs">{expanded ? "▲ Collapse" : "▼ Expand"}</span>
+        <span className="text-hue-orange-400 text-xs">{expanded ? "▲ Collapse" : "▼ Expand"}</span>
       </button>
 
       {expanded && draft.editedVideoUrl && (
@@ -2408,26 +2408,26 @@ function FinishedVideoUpload({ draft, onUploaded }: { draft: ScriptDraft; onUplo
 
       <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
       {progress !== null ? (
-        <div className="w-full rounded-lg border-2 border-orange-200 bg-orange-50 px-3 py-2">
+        <div className="w-full rounded-lg border-2 border-hue-orange-200 bg-hue-orange-50 px-3 py-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-orange-600 font-medium">Uploading…</span>
-            <span className="text-xs font-bold text-orange-700">{progress}%</span>
+            <span className="text-xs text-hue-orange-600 font-medium">Uploading…</span>
+            <span className="text-xs font-bold text-hue-orange-700">{progress}%</span>
           </div>
-          <div className="w-full bg-orange-100 rounded-full h-1.5">
-            <div className="bg-orange-500 h-1.5 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
+          <div className="w-full bg-hue-orange-100 rounded-full h-1.5">
+            <div className="bg-hue-orange-500 h-1.5 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
           </div>
         </div>
       ) : (
         <div className="flex items-center gap-2">
           <button
             onClick={() => inputRef.current?.click()}
-            className="flex-1 py-2 text-sm font-medium border-2 border-dashed border-orange-300 rounded-lg text-orange-500 hover:border-orange-400 hover:text-orange-600 transition-colors">
+            className="flex-1 py-2 text-sm font-medium border-2 border-dashed border-hue-orange-300 rounded-lg text-hue-orange-500 hover:border-hue-orange-400 hover:text-hue-orange-600 transition-colors">
             {draft.editedVideoUrl ? "⬆ Replace finished video" : "⬆ Add finished video"}
           </button>
           {draft.editedVideoUrl && (
             <button
               onClick={() => { if (confirm("Delete the finished video?")) { onUploaded(null); setExpanded(false); } }}
-              className="px-3 py-2 text-xs font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100">
+              className="px-3 py-2 text-xs font-semibold text-danger-500 bg-danger-50 rounded-lg hover:bg-danger-100">
               🗑 Delete
             </button>
           )}
@@ -2482,42 +2482,42 @@ function QRUploadModal({ draft, onClose, onUploaded }: { draft: ScriptDraft; onC
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-sm mx-4 p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-sm mx-4 p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-slate-800">Upload from Phone</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Scan to open a mobile upload page</p>
+            <h3 className="text-base font-bold text-ink-800">Upload from Phone</h3>
+            <p className="text-xs text-ink-400 mt-0.5">Scan to open a mobile upload page</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-xl leading-none">×</button>
         </div>
 
         {qrUrl ? (
           <>
             <div className="flex justify-center">
-              <div className="p-4 bg-white border-2 border-slate-100 rounded-2xl shadow-inner">
+              <div className="p-4 bg-surface border-2 border-line-soft rounded-2xl shadow-inner">
                 <QRCodeSVG value={qrUrl} size={200} level="M" />
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <input readOnly value={qrUrl} className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-500 bg-slate-50 focus:outline-none truncate" />
-              <button onClick={copy} className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all flex-shrink-0 ${copied ? "bg-green-500 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}>
+              <input readOnly value={qrUrl} className="flex-1 border border-line-hard rounded-lg px-3 py-2 text-xs text-ink-500 bg-surface-2 focus:outline-none truncate" />
+              <button onClick={copy} className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all flex-shrink-0 ${copied ? "bg-ok-500 text-on-status" : "bg-surface-3 text-ink-700 hover:bg-surface-4"}`}>
                 {copied ? "Copied!" : "Copy"}
               </button>
             </div>
             {checking && (
-              <p className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-                <span className="inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+              <p className="text-center text-[11px] text-ink-400 flex items-center justify-center gap-1.5">
+                <span className="inline-block w-3 h-3 border-2 border-accent-400 border-t-transparent rounded-full animate-spin" />
                 Waiting for upload…
               </p>
             )}
           </>
         ) : (
           <div className="flex justify-center py-8">
-            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-accent-600 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
-        <p className="text-center text-[11px] text-slate-400">
+        <p className="text-center text-[11px] text-ink-400">
           The link works once — the page closes automatically once a file is received.
         </p>
       </div>
@@ -2613,23 +2613,23 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 
   return (
     <div
-      className={`space-y-2 rounded-xl transition-colors ${dragOver ? "ring-2 ring-indigo-400 ring-offset-2 bg-indigo-50/40" : ""}`}
+      className={`space-y-2 rounded-xl transition-colors ${dragOver ? "ring-2 ring-accent-400 ring-offset-2 bg-accent-50/40" : ""}`}
       onDragOver={(e) => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
       onDragLeave={(e) => { e.preventDefault(); if (e.currentTarget === e.target) setDragOver(false); }}
       onDrop={onDrop}
     >
-      {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+      {error && <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-lg">{error}</p>}
 
       {/* Collapsible header */}
       <button
         onClick={() => setExpanded((s) => !s)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors">
+        className="w-full flex items-center justify-between px-3 py-2 bg-surface-2 hover:bg-surface-3 rounded-xl transition-colors">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-600">
+          <span className="text-xs font-semibold text-ink-600">
             {urls.length > 0 ? `📎 ${urls.length} file${urls.length > 1 ? "s" : ""} uploaded` : "No files yet"}
           </span>
         </div>
-        <span className="text-slate-400 text-xs">{expanded ? "▲ Collapse" : "▼ Expand"}</span>
+        <span className="text-ink-400 text-xs">{expanded ? "▲ Collapse" : "▼ Expand"}</span>
       </button>
 
       {expanded && (
@@ -2647,13 +2647,13 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
                       onClick={() => setPlayUrl(url)}
                       title={isImage(url) ? "View" : "Play"}
                       className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
-                      <span className="w-7 h-7 rounded-full bg-white/85 text-slate-900 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="w-7 h-7 rounded-full bg-surface/85 text-ink-900 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
                         {isImage(url) ? "🔍" : "▶"}
                       </span>
                     </button>
                     <button
                       onClick={() => removeFile(i)}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-on-status text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-danger-600">
                       ✕
                     </button>
                     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -2661,7 +2661,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
                       ↗
                     </a>
                     <button onClick={() => downloadOne(url, i)} title="Download"
-                      className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-white px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-indigo-600">
+                      className="absolute bottom-1 right-1 text-[8px] bg-black/60 text-on-accent px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent-600">
                       ⬇
                     </button>
                   </div>
@@ -2669,7 +2669,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
               </div>
               <button
                 onClick={downloadAll}
-                className="w-full py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                className="w-full py-1.5 text-xs font-semibold text-ink-600 bg-surface-3 hover:bg-surface-4 rounded-lg transition-colors flex items-center justify-center gap-1.5">
                 ⬇ Download all ({urls.length})
               </button>
             </>
@@ -2679,13 +2679,13 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 
       <input ref={inputRef} type="file" accept="video/*,image/*" multiple className="hidden" onChange={handleFiles} />
       {progress !== null ? (
-        <div className="w-full rounded-lg border-2 border-indigo-200 bg-indigo-50 px-3 py-2">
+        <div className="w-full rounded-lg border-2 border-accent-200 bg-accent-50 px-3 py-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-indigo-600 font-medium">Uploading…</span>
-            <span className="text-xs font-bold text-indigo-700">{progress}%</span>
+            <span className="text-xs text-accent-600 font-medium">Uploading…</span>
+            <span className="text-xs font-bold text-accent-700">{progress}%</span>
           </div>
-          <div className="w-full bg-indigo-100 rounded-full h-1.5">
-            <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
+          <div className="w-full bg-accent-100 rounded-full h-1.5">
+            <div className="bg-accent-500 h-1.5 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
           </div>
         </div>
       ) : (
@@ -2693,14 +2693,14 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
           <button
             onClick={() => inputRef.current?.click()}
             className={`flex-1 py-2 text-sm font-medium border-2 border-dashed rounded-lg transition-colors ${
-              dragOver ? "border-indigo-500 text-indigo-600 bg-indigo-50" : "border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
+              dragOver ? "border-accent-500 text-accent-600 bg-accent-50" : "border-line-harder text-ink-500 hover:border-accent-400 hover:text-accent-600"
             }`}>
             {dragOver ? "⬇ Drop to upload" : "⬆ Add files · or drag & drop"}
           </button>
           <button
             onClick={() => setShowQR(true)}
             title="Generate QR code to upload from phone"
-            className="px-3 py-2 text-sm border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-purple-400 hover:text-purple-600 transition-colors">
+            className="px-3 py-2 text-sm border-2 border-dashed border-line-harder rounded-lg text-ink-500 hover:border-hue-purple-400 hover:text-hue-purple-600 transition-colors">
             📱 QR
           </button>
         </div>
