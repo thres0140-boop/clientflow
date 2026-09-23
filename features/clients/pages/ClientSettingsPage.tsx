@@ -108,9 +108,9 @@ export default function ClientSettingsPage({ client, refreshClients, onManageAll
           <Toggle label="🎵 TikTok" desc="TikTok pipeline (separate from Instagram)." checked={form.tiktokEnabled}
             onChange={(v) => { if (!v && !form.instagramEnabled) { alert("Enable Instagram first — a client must have at least one platform on."); return; } set("tiktokEnabled", v); }} />
           {form.tiktokEnabled && (
-            <div className="rounded-lg bg-slate-50 border border-line px-3 py-2.5">
+            <div className="rounded-lg bg-surface-2 border border-line px-3 py-2.5">
               {(client as any)?.tiktokZernioUsername ? ( // eslint-disable-line @typescript-eslint/no-explicit-any
-                <p className="text-xs text-ink-2"><span className="font-semibold text-green-700">✓ Connected via Zernio</span> · @{(client as any).tiktokZernioUsername}</p>
+                <p className="text-xs text-ink-2"><span className="font-semibold text-ok-700">✓ Connected via Zernio</span> · @{(client as any).tiktokZernioUsername}</p>
               ) : (
                 <p className="text-xs text-muted">Connect this client&apos;s TikTok on the <span className="font-semibold text-ink-2">TikTok → Profile</span> tab (one-click, via Zernio) to pull analytics.</p>
               )}
@@ -200,8 +200,8 @@ function Toggle({ label, desc, checked, disabled, onChange }: { label: string; d
         {desc && <p className="text-[11px] text-faint">{desc}</p>}
       </div>
       <button type="button" disabled={disabled} onClick={() => onChange(!checked)}
-        className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors ${checked ? "bg-accent" : "bg-slate-300"} ${disabled ? "cursor-not-allowed" : ""}`}>
-        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
+        className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors ${checked ? "bg-accent" : "bg-surface-5"} ${disabled ? "cursor-not-allowed" : ""}`}>
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-surface shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
       </button>
     </div>
   );

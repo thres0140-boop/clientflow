@@ -272,7 +272,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
         const [, label, ref] = match;
         const isVideo = ref.startsWith("video:");
         return (
-          <span key={i} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${isVideo ? "bg-amber-100 text-amber-700" : "bg-accent-tint text-accent-strong"}`}>
+          <span key={i} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${isVideo ? "bg-warn-100 text-warn-700" : "bg-accent-tint text-accent-strong"}`}>
             {isVideo ? "🎬" : "💡"} {label}
           </span>
         );
@@ -290,7 +290,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
             <span className="text-base flex-shrink-0">🎬</span>
             <div className="min-w-0">
               <p className={`text-[10px] font-bold uppercase tracking-wide leading-none mb-1 ${isOwnerBubble ? "text-accent-tint" : "text-accent"}`}>Reel</p>
-              <p className={`text-xs font-semibold truncate ${isOwnerBubble ? "text-white" : "text-ink-2"}`}>{reelRef.title}</p>
+              <p className={`text-xs font-semibold truncate ${isOwnerBubble ? "text-on-accent" : "text-ink-2"}`}>{reelRef.title}</p>
               {reelRef.hook && <p className={`text-[11px] truncate mt-0.5 ${isOwnerBubble ? "text-accent-tint" : "text-accent"}`}>{reelRef.hook}</p>}
             </div>
           </button>
@@ -306,7 +306,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     return (
       <>
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-line p-4 space-y-3 min-h-0">
+        <div className="flex-1 overflow-y-auto bg-surface rounded-2xl border border-line p-4 space-y-3 min-h-0">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="text-3xl mb-2">💬</div>
@@ -337,8 +337,8 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                     {!isMe && (
                       <span className="text-[10px] text-faint px-1">{displayName}</span>
                     )}
-                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "text-white rounded-bl-sm" : "bg-slate-100 text-ink rounded-br-sm"}`}
-                      style={isMe ? { backgroundColor: "#6366f1" } : {}}>
+                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "text-white rounded-bl-sm" : "bg-surface-3 text-ink rounded-br-sm"}`}
+                      style={isMe ? { backgroundColor: "var(--color-bubble-me)" } : {}}>
                       {renderContent(msg.content, isOwnerMsg)}
                     </div>
                     <div className={`flex items-center gap-2 px-1 ${!isMe ? "flex-row-reverse" : ""}`}>
@@ -347,14 +347,14 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                       </span>
                       <button
                         onClick={() => deleteMessage(msg.id)}
-                        className="text-[10px] text-faint hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="text-[10px] text-faint hover:text-danger-400 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         delete
                       </button>
                     </div>
                   </div>
                   {!isMe && (
-                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-muted flex-shrink-0 mt-0.5">
+                    <div className="w-7 h-7 rounded-full bg-surface-4 flex items-center justify-center text-xs font-bold text-muted flex-shrink-0 mt-0.5">
                       {initial}
                     </div>
                   )}
@@ -368,7 +368,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
         {/* Input */}
         <div className="mt-3 flex-shrink-0 relative">
           {mention && filteredMentions.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-line rounded-xl o-elev-lift overflow-hidden z-50 max-h-52 overflow-y-auto">
+            <div className="absolute bottom-full left-0 right-0 mb-1 bg-surface border border-line rounded-xl o-elev-lift overflow-hidden z-50 max-h-52 overflow-y-auto">
               <div className="px-3 py-1.5 border-b border-line">
                 <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">Tag a concept or video</p>
               </div>
@@ -376,7 +376,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                 <button
                   key={`${item.type}-${item.id}`}
                   onMouseDown={(e) => { e.preventDefault(); applyMention(item); }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 transition-colors ${i === mentionIndex ? "bg-accent-tint" : ""}`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-surface-2 transition-colors ${i === mentionIndex ? "bg-accent-tint" : ""}`}
                 >
                   <span className="text-base">{item.type === "video" ? "🎬" : "💡"}</span>
                   <div className="flex-1 min-w-0">
@@ -387,7 +387,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               ))}
             </div>
           )}
-          <div className="bg-white border border-line rounded-2xl focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent overflow-hidden">
+          <div className="bg-surface border border-line rounded-2xl focus-within:ring-2 focus-within:ring-accent focus-within:border-transparent overflow-hidden">
             {activeReel && (
               <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-line">
                 <div className="w-0.5 h-8 bg-accent rounded-full flex-shrink-0" />
@@ -414,7 +414,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                 onKeyDown={handleKeyDown}
                 placeholder={memberChannel ? `Message ${ownerName}…` : `Message ${activeConv?.label ?? ""}… (@ to tag, Enter to send)`}
                 rows={1}
-                className="flex-1 text-sm text-ink placeholder-slate-400 resize-none focus:outline-none bg-transparent leading-relaxed"
+                className="flex-1 text-sm text-ink placeholder-ink-400 resize-none focus:outline-none bg-transparent leading-relaxed"
                 style={{ maxHeight: "120px" }}
                 onInput={(e) => {
                   const el = e.currentTarget;
@@ -425,7 +425,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               <button
                 onClick={sendMessage}
                 disabled={!draft.trim()}
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-accent text-white hover:bg-accent-strong disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-accent text-on-accent hover:bg-accent-strong disabled:opacity-30 disabled:cursor-not-allowed transition-opacity flex-shrink-0"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -453,7 +453,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setReelModal(null)}>
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        <div className="relative bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="relative bg-surface rounded-2xl o-elev-pop w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
           <div className="px-5 py-4 border-b border-line flex-shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -505,7 +505,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                       <div>
                         <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Raw Content</p>
                         <button onClick={() => setRawExpanded((v) => !v)}
-                          className="w-full flex items-center justify-between gap-2 border border-line rounded-xl px-3.5 py-3 text-sm font-semibold text-ink-2 bg-slate-50 hover:bg-slate-100 transition-colors">
+                          className="w-full flex items-center justify-between gap-2 border border-line rounded-xl px-3.5 py-3 text-sm font-semibold text-ink-2 bg-surface-2 hover:bg-surface-3 transition-colors">
                           <span>📎 {raws.length} file{raws.length > 1 ? "s" : ""} uploaded</span>
                           <span className="text-accent text-xs font-semibold">{rawExpanded ? "▲ Collapse" : "▼ Expand"}</span>
                         </button>
@@ -525,7 +525,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               {reelModalFull.hook && (
                 <div>
                   <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Text Hook</p>
-                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-ink-2 leading-relaxed bg-slate-50">
+                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-ink-2 leading-relaxed bg-surface-2">
                     {reelModalFull.hook}
                   </div>
                 </div>
@@ -533,7 +533,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               {reelModalFull.script && (
                 <div>
                   <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Script</p>
-                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-ink-2 leading-relaxed whitespace-pre-wrap bg-slate-50 font-mono">
+                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-ink-2 leading-relaxed whitespace-pre-wrap bg-surface-2 font-mono">
                     {reelModalFull.script}
                   </div>
                   <p className="text-[10px] text-faint mt-1.5">
@@ -544,7 +544,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               {reelModalFull.caption && (
                 <div>
                   <p className="text-[10px] font-semibold text-faint uppercase tracking-widest mb-2">Caption</p>
-                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-muted leading-relaxed bg-slate-50">
+                  <div className="border border-line rounded-xl px-3.5 py-3 text-sm text-muted leading-relaxed bg-surface-2">
                     {reelModalFull.caption}
                   </div>
                 </div>
@@ -561,7 +561,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
         <div className="flex items-center gap-3 mb-4 flex-shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center text-on-accent text-xs font-bold flex-shrink-0">
             {ownerName[0]?.toUpperCase()}
           </div>
           <div>
@@ -579,7 +579,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
   return (
     <div className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] gap-0 -mx-8 px-0">
       {/* Sidebar */}
-      <div className="w-56 flex-shrink-0 border-r border-line flex flex-col bg-slate-50 rounded-l-2xl overflow-hidden">
+      <div className="w-56 flex-shrink-0 border-r border-line flex flex-col bg-surface-2 rounded-l-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-line">
           <p className="text-[10px] font-semibold text-faint uppercase tracking-widest">Conversations</p>
         </div>
@@ -595,7 +595,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
               <button
                 key={conv.channel}
                 onClick={() => setActiveChannel(conv.channel)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-accent-tint border-r-2 border-accent" : "hover:bg-slate-100"}`}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${isActive ? "bg-accent-tint border-r-2 border-accent" : "hover:bg-surface-3"}`}
               >
                 <div
                   className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-bold text-white"

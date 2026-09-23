@@ -34,10 +34,10 @@ function Rich({ text }: { text: string }) {
 }
 
 const BUCKETS = [
-  { key: "keep" as const, icon: "✅", title: "Keep posting", tint: "bg-green-50 border-green-200", head: "text-green-800", desc: "Highest expected-views concepts — exploit these." },
-  { key: "test" as const, icon: "🧪", title: "Test next", tint: "bg-blue-50 border-blue-200", head: "text-blue-800", desc: "High upside, under-explored — explore for new winners." },
-  { key: "copy" as const, icon: "🎯", title: "Copy from competitors", tint: "bg-purple-50 border-purple-200", head: "text-purple-800", desc: "Breakout videos — new arms to add to your rotation." },
-  { key: "stop" as const, icon: "🛑", title: "Stop / rework", tint: "bg-amber-50 border-amber-200", head: "text-amber-800", desc: "Below baseline — every slot here is views lost elsewhere." },
+  { key: "keep" as const, icon: "✅", title: "Keep posting", tint: "bg-ok-50 border-ok-200", head: "text-ok-800", desc: "Highest expected-views concepts — exploit these." },
+  { key: "test" as const, icon: "🧪", title: "Test next", tint: "bg-info-50 border-info-200", head: "text-info-800", desc: "High upside, under-explored — explore for new winners." },
+  { key: "copy" as const, icon: "🎯", title: "Copy from competitors", tint: "bg-hue-purple-50 border-hue-purple-200", head: "text-hue-purple-800", desc: "Breakout videos — new arms to add to your rotation." },
+  { key: "stop" as const, icon: "🛑", title: "Stop / rework", tint: "bg-warn-50 border-warn-200", head: "text-warn-800", desc: "Below baseline — every slot here is views lost elsewhere." },
 ];
 
 export default function TikTokInstructionsPage({ clients, selectedClientId }: { clients: Client[]; selectedClientId: number | null }) {
@@ -82,7 +82,7 @@ export default function TikTokInstructionsPage({ clients, selectedClientId }: { 
       {loading && !data && <div className="flex items-center justify-center h-40 text-faint text-sm">Building the playbook…</div>}
 
       {empty && (
-        <div className="bg-white rounded-2xl border border-line p-12 text-center">
+        <div className="bg-surface rounded-2xl border border-line p-12 text-center">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-black flex items-center justify-center text-2xl o-elev-lift mb-3">🧭</div>
           <h2 className="text-base font-bold text-ink mb-1">{data?.connected ? "Almost there" : "Connect TikTok first"}</h2>
           <p className="text-sm text-muted max-w-md mx-auto">{data?.note}</p>
@@ -94,12 +94,12 @@ export default function TikTokInstructionsPage({ clients, selectedClientId }: { 
         <>
           {/* Summary + stats */}
           {data.summary && (
-            <div className="bg-white rounded-2xl border border-line p-4 text-sm text-ink-2 leading-relaxed"><Rich text={data.summary} /></div>
+            <div className="bg-surface rounded-2xl border border-line p-4 text-sm text-ink-2 leading-relaxed"><Rich text={data.summary} /></div>
           )}
           {s && (
             <div className="flex flex-wrap gap-2 text-[11px]">
               {[["Videos analyzed", s.totalVideos], ["Your median", fmt(s.accountMedianViews) + " views"], ["Concepts tracked", s.conceptsTracked], ["Competitors scanned", s.competitorsScanned], ["Breakouts found", s.breakoutsFound]].map(([l, v]) => (
-                <span key={String(l)} className="bg-slate-100 rounded-full px-2.5 py-1 text-muted"><span className="font-semibold text-ink-2">{v}</span> {l}</span>
+                <span key={String(l)} className="bg-surface-3 rounded-full px-2.5 py-1 text-muted"><span className="font-semibold text-ink-2">{v}</span> {l}</span>
               ))}
             </div>
           )}
@@ -113,7 +113,7 @@ export default function TikTokInstructionsPage({ clients, selectedClientId }: { 
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-lg">{b.icon}</span>
                     <h2 className={`text-sm font-bold ${b.head}`}>{b.title}</h2>
-                    <span className="ml-auto text-[11px] font-semibold text-ink-2/60 bg-white/70 rounded-full px-2 py-0.5">{items.length}</span>
+                    <span className="ml-auto text-[11px] font-semibold text-ink-2/60 bg-surface/70 rounded-full px-2 py-0.5">{items.length}</span>
                   </div>
                   <p className="text-[11px] text-ink-2/60 mb-2.5">{b.desc}</p>
                   <div className="space-y-2">
@@ -123,7 +123,7 @@ export default function TikTokInstructionsPage({ clients, selectedClientId }: { 
                       const Wrapper: any = link ? "a" : "div"; // eslint-disable-line @typescript-eslint/no-explicit-any
                       return (
                         <Wrapper key={r.id} {...(link ? { href: link, target: "_blank", rel: "noreferrer" } : {})}
-                          className={`block bg-white/80 border border-white rounded-xl px-3 py-2.5 ${link ? "hover:border-accent hover:bg-white transition-colors" : ""}`}>
+                          className={`block bg-surface/80 border border-surface rounded-xl px-3 py-2.5 ${link ? "hover:border-accent hover:bg-surface transition-colors" : ""}`}>
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-xs font-bold text-ink truncate">{r.title}</p>
                             <span className="text-[11px] font-bold text-accent-strong whitespace-nowrap">~{fmt(r.ev)} views{b.key === "copy" ? " potential" : "/post"}</span>

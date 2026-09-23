@@ -123,7 +123,7 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
       </div>
 
       {concepts.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-dashed border-line p-16 text-center">
+        <div className="bg-surface rounded-2xl border border-dashed border-line p-16 text-center">
           <div className="text-3xl mb-2">🧑‍💻</div>
           <p className="text-sm font-semibold text-ink-2">No script tasks{canSubmit ? "" : ` for ${client.name}`}</p>
           <p className="text-xs text-faint mt-1">A task appears here when a concept is set to “Client writes the scripts”.</p>
@@ -146,10 +146,10 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
             const dueStr = end.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
             const cat = (c as any).conceptType ? `${(c as any).conceptType} · ` : "";
             return (
-              <div key={c.id} className="bg-white border border-line rounded-2xl p-4">
+              <div key={c.id} className="bg-surface border border-line rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-bold text-ink">{cat}{c.name}</p>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${remaining === 0 ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${remaining === 0 ? "bg-ok-100 text-ok-700" : "bg-info-100 text-info-700"}`}>
                     {remaining === 0 ? "✓ Done this cycle" : `${done}/${quota} written · due ${dueStr}`}
                   </span>
                 </div>
@@ -158,26 +158,26 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                 {rejected.length > 0 && (
                   <div className="space-y-2 mb-3">
                     {rejected.map((d) => (
-                      <div key={d.id} className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
-                        <p className="text-[10px] font-semibold text-red-500 uppercase tracking-wide mb-1">↩ Needs changes</p>
+                      <div key={d.id} className="bg-danger-50 border border-danger-200 rounded-lg px-3 py-2.5">
+                        <p className="text-[10px] font-semibold text-danger-500 uppercase tracking-wide mb-1">↩ Needs changes</p>
                         {d.rejectionFeedback && (
-                          <p className="text-xs text-red-700 font-medium mb-1.5">Feedback: {d.rejectionFeedback}</p>
+                          <p className="text-xs text-danger-700 font-medium mb-1.5">Feedback: {d.rejectionFeedback}</p>
                         )}
                         <p className="text-xs text-muted whitespace-pre-line leading-relaxed mb-2 line-clamp-3">{d.script}</p>
                         {canSubmit ? (
                           <div className="space-y-1.5">
                             <textarea rows={3} value={revise[d.id] ?? d.script}
                               onChange={(e) => setRevise((p) => ({ ...p, [d.id]: e.target.value }))}
-                              className="w-full border border-red-200 rounded-lg px-3 py-2 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-red-300 resize-none" />
+                              className="w-full border border-danger-200 rounded-lg px-3 py-2 text-sm font-mono bg-surface focus:outline-none focus:ring-2 focus:ring-danger-300 resize-none" />
                             <div className="flex justify-end">
                               <button onClick={() => resubmit(d)} disabled={submitting === d.id || !(revise[d.id] ?? d.script).trim()}
-                                className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50">
+                                className="px-3 py-1.5 text-xs font-semibold text-on-status bg-danger-600 rounded-lg hover:bg-danger-700 disabled:opacity-50">
                                 {submitting === d.id ? "Resubmitting…" : "Revise & resubmit"}
                               </button>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-[11px] text-red-400">Sent back to the client to revise.</p>
+                          <p className="text-[11px] text-danger-400">Sent back to the client to revise.</p>
                         )}
                       </div>
                     ))}
@@ -188,8 +188,8 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                 {active.length > 0 && (
                   <div className="space-y-1.5 mb-3">
                     {active.map((d, i) => (
-                      <div key={d.id} className="flex items-start gap-2 bg-slate-50 border border-line rounded-lg px-3 py-2">
-                        <span className="text-green-500 text-xs mt-0.5">✓</span>
+                      <div key={d.id} className="flex items-start gap-2 bg-surface-2 border border-line rounded-lg px-3 py-2">
+                        <span className="text-ok-500 text-xs mt-0.5">✓</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-0.5">
                             Script {i + 1} · {d.stageId ? "in production" : "submitted for review"}
@@ -208,10 +208,10 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                     <textarea rows={4} value={inputs[c.id] ?? ""}
                       onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
                       placeholder="Write the on-screen text / script here…"
-                      className="w-full border border-line rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
+                      className="w-full border border-line rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-info-400 resize-none" />
                     <div className="flex justify-end">
                       <button onClick={() => submit(c)} disabled={submitting === c.id || !(inputs[c.id] || "").trim()}
-                        className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                        className="px-4 py-1.5 text-xs font-semibold text-on-status bg-info-600 rounded-lg hover:bg-info-700 disabled:opacity-50">
                         {submitting === c.id ? "Submitting…" : "Submit this script for review"}
                       </button>
                     </div>
@@ -226,27 +226,27 @@ export default function ScriptTasksPage({ clients, selectedClientId, canSubmit =
                     same amount as the last run. Don then sees the writing tasks again. */}
                 {!canSubmit && (
                   addOpen[c.id] ? (
-                    <div className="flex items-center justify-between gap-3 bg-slate-50 border border-line rounded-lg px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-3 bg-surface-2 border border-line rounded-lg px-3 py-2.5">
                       <div className="flex items-center gap-2 text-xs text-ink-2">
                         <span className="font-semibold">Assign</span>
                         <input type="number" min={1}
                           value={assignQty[c.id] ?? (quota || 1)}
                           onChange={(e) => setAssignQty((p) => ({ ...p, [c.id]: parseInt(e.target.value) || 1 }))}
-                          className="w-16 border border-line-2 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                          className="w-16 border border-line-2 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-info-400" />
                         <span>new script{(assignQty[c.id] ?? quota) === 1 ? "" : "s"} to {client.name}</span>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => setAddOpen((p) => ({ ...p, [c.id]: false }))}
                           className="px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink-2">Cancel</button>
                         <button onClick={() => assignRound(c)} disabled={submitting === c.id}
-                          className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                          className="px-4 py-1.5 text-xs font-semibold text-on-status bg-info-600 rounded-lg hover:bg-info-700 disabled:opacity-50">
                           {submitting === c.id ? "Assigning…" : "Assign"}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <button onClick={() => { setAssignQty((p) => ({ ...p, [c.id]: quota || 1 })); setAddOpen((p) => ({ ...p, [c.id]: true })); }}
-                      className="w-full py-2 text-xs font-semibold text-muted border border-dashed border-line-2 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors">
+                      className="w-full py-2 text-xs font-semibold text-muted border border-dashed border-line-2 rounded-lg hover:border-info-400 hover:text-info-600 transition-colors">
                       ↻ Assign a new round{quota ? ` (${quota} script${quota > 1 ? "s" : ""})` : ""} to {client.name}
                     </button>
                   )

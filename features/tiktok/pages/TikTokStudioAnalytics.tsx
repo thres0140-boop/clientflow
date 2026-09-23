@@ -119,23 +119,23 @@ export default function TikTokStudioAnalytics({ clientId }: { clientId: number }
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-bold text-ink flex items-center gap-1.5"><span className="w-5 h-5 rounded bg-black text-white text-[11px] flex items-center justify-center">🎵</span> TikTok</span>
-          <span className="text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">✓ Official</span>
+          <span className="text-xs font-semibold text-ok-700 bg-ok-50 px-2 py-0.5 rounded-full">✓ Official</span>
           {data.username && <span className="text-xs text-muted">@{data.username}</span>}
           {data.totals.engagementRate != null && <span className="text-xs text-faint">· {data.totals.engagementRate.toFixed(1)}% avg engagement</span>}
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
+          <div className="flex gap-0.5 bg-surface-3 rounded-lg p-0.5">
             {RANGES.map(([d, label]) => (
-              <button key={d} onClick={() => { setPreset(d); setShowCustom(false); }} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${preset === d ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>{label}</button>
+              <button key={d} onClick={() => { setPreset(d); setShowCustom(false); }} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${preset === d ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>{label}</button>
             ))}
-            <button onClick={() => { setShowCustom((s) => !s); if (preset != null) { setPreset(null); } }} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${custom ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>Custom</button>
+            <button onClick={() => { setShowCustom((s) => !s); if (preset != null) { setPreset(null); } }} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${custom ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>Custom</button>
           </div>
-          <a href="https://www.tiktok.com/tiktokstudio" target="_blank" rel="noreferrer" className="text-xs font-medium text-ink-2 bg-slate-100 rounded-lg px-3 py-1.5 hover:bg-slate-200">Studio ↗</a>
+          <a href="https://www.tiktok.com/tiktokstudio" target="_blank" rel="noreferrer" className="text-xs font-medium text-ink-2 bg-surface-3 rounded-lg px-3 py-1.5 hover:bg-surface-4">Studio ↗</a>
         </div>
       </div>
 
       {(showCustom || custom) && (
-        <div className="flex items-center gap-2 flex-wrap bg-white border border-line rounded-xl px-4 py-2.5">
+        <div className="flex items-center gap-2 flex-wrap bg-surface border border-line rounded-xl px-4 py-2.5">
           <span className="text-xs font-semibold text-ink-2">Custom range:</span>
           <input type="date" value={from} min={minFromDate} max={to || todayStr} onChange={(e) => { setFrom(e.target.value); setPreset(null); }} className="border border-line rounded-lg px-2 py-1 text-xs text-ink-2" />
           <span className="text-xs text-faint">→</span>
@@ -148,11 +148,11 @@ export default function TikTokStudioAnalytics({ clientId }: { clientId: number }
       {/* Metric cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {cards.map((c) => (
-          <div key={c.label} className="bg-white rounded-2xl border border-line p-4">
+          <div key={c.label} className="bg-surface rounded-2xl border border-line p-4">
             <p className="text-xs text-faint">{c.label}</p>
             <p className="text-2xl font-extrabold text-ink mt-0.5 tabular-nums">{fmt(c.value)}</p>
             {c.d ? (
-              <p className={`text-[11px] font-semibold mt-0.5 ${c.d.d >= 0 ? "text-green-600" : "text-red-500"}`}>{c.d.d >= 0 ? "↑" : "↓"} {fmt(Math.abs(c.d.d))} ({c.d.pct >= 0 ? "+" : ""}{c.d.pct.toFixed(1)}%)</p>
+              <p className={`text-[11px] font-semibold mt-0.5 ${c.d.d >= 0 ? "text-ok-600" : "text-danger-500"}`}>{c.d.d >= 0 ? "↑" : "↓"} {fmt(Math.abs(c.d.d))} ({c.d.pct >= 0 ? "+" : ""}{c.d.pct.toFixed(1)}%)</p>
             ) : (
               <p className="text-[11px] text-faint mt-0.5">{c.sub}</p>
             )}
@@ -161,7 +161,7 @@ export default function TikTokStudioAnalytics({ clientId }: { clientId: number }
       </div>
 
       {/* Views-per-day chart */}
-      <div className="bg-white rounded-2xl border border-line p-5">
+      <div className="bg-surface rounded-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-semibold text-ink-2">Video views / day · {rangeText}</span>
           <span className="text-xs text-faint">{viewsByDay.length} day{viewsByDay.length === 1 ? "" : "s"} with posts</span>
@@ -175,12 +175,12 @@ export default function TikTokStudioAnalytics({ clientId }: { clientId: number }
       </div>
 
       {/* Video performance */}
-      <div className="bg-white rounded-2xl border border-line overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-line overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">
           <p className="text-sm font-semibold text-ink-2">Video performance <span className="font-normal text-faint">· {rangeText}</span></p>
           <div className="flex gap-1">
             {([["views", "Top views"], ["recent", "Recent"]] as [typeof vsort, string][]).map(([id, label]) => (
-              <button key={id} onClick={() => setVsort(id)} className={`px-2.5 py-1 rounded-lg text-xs font-medium ${vsort === id ? "bg-accent text-white" : "bg-slate-100 text-muted"}`}>{label}</button>
+              <button key={id} onClick={() => setVsort(id)} className={`px-2.5 py-1 rounded-lg text-xs font-medium ${vsort === id ? "bg-accent text-on-accent" : "bg-surface-3 text-muted"}`}>{label}</button>
             ))}
           </div>
         </div>
@@ -194,10 +194,10 @@ export default function TikTokStudioAnalytics({ clientId }: { clientId: number }
             </thead>
             <tbody>
               {sortedVideos.map((v) => (
-                <tr key={v.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
+                <tr key={v.id} className="border-b border-line-softer last:border-0 hover:bg-surface-2/60">
                   <td className="px-4 py-2.5">
                     <a href={v.postUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2.5 group">
-                      {v.thumbnailUrl && <img src={imgSrc(v.thumbnailUrl)} alt="" className="w-9 h-12 rounded object-cover flex-shrink-0 bg-slate-100" />}
+                      {v.thumbnailUrl && <img src={imgSrc(v.thumbnailUrl)} alt="" className="w-9 h-12 rounded object-cover flex-shrink-0 bg-surface-3" />}
                       <span className="text-xs text-ink-2 line-clamp-2 group-hover:text-accent max-w-[280px]">{v.content || "(no caption)"}</span>
                     </a>
                   </td>
@@ -229,14 +229,14 @@ function ConceptCell({ concepts, conceptId, onSet }: { concepts: { id: number; n
   return (
     <div className="relative inline-block">
       <button type="button" onClick={() => setOpen((o) => !o)}
-        className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-full px-2 py-0.5 transition-colors max-w-[160px] ${current ? "bg-accent-tint text-accent-strong hover:opacity-80" : "text-muted bg-slate-100 hover:bg-slate-200"}`}>
+        className={`inline-flex items-center gap-1 text-[11px] font-medium rounded-full px-2 py-0.5 transition-colors max-w-[160px] ${current ? "bg-accent-tint text-accent-strong hover:opacity-80" : "text-muted bg-surface-3 hover:bg-surface-4"}`}>
         {current ? <span className="truncate">{current.name}</span> : <><span className="text-[13px] leading-none">＋</span> Concept</>}
         <span className="text-[8px] opacity-60">▼</span>
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 z-30 mt-1 w-56 max-h-64 overflow-auto bg-white border border-line rounded-xl shadow-lg py-1">
+          <div className="absolute left-0 z-30 mt-1 w-56 max-h-64 overflow-auto bg-surface border border-line rounded-xl shadow-lg py-1">
             {concepts.length === 0 ? (
               <p className="px-3 py-2 text-[11px] text-faint">No TikTok concepts yet. Create them in the Concept Library.</p>
             ) : concepts.map((c) => (
@@ -247,7 +247,7 @@ function ConceptCell({ concepts, conceptId, onSet }: { concepts: { id: number; n
             ))}
             {conceptId != null && (
               <button type="button" onClick={() => { onSet(null); setOpen(false); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 border-t border-line mt-1">Clear</button>
+                className="w-full text-left px-3 py-1.5 text-xs text-danger-500 hover:bg-danger-50 border-t border-line mt-1">Clear</button>
             )}
           </div>
         </>
@@ -266,7 +266,7 @@ function BarChart({ points }: { points: SeriesPoint[] }) {
       <div className="flex items-end gap-1 h-40">
         {points.map((p) => (
           <div key={p.date} className="flex-1 h-full flex flex-col justify-end items-center group relative min-w-0">
-            <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold text-ink bg-white border border-line rounded px-1.5 py-0.5 whitespace-nowrap z-10 pointer-events-none">
+            <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold text-ink bg-surface border border-line rounded px-1.5 py-0.5 whitespace-nowrap z-10 pointer-events-none">
               {fmt(p.value)}
             </div>
             <div className="w-full rounded-t bg-accent/80 hover:bg-accent transition-colors" style={{ height: `${Math.max(2, (p.value / max) * 100)}%` }} />
