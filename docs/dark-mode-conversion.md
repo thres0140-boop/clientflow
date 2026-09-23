@@ -303,3 +303,28 @@ intentionally kept, with the reason for each kept one.
 |---|---|---|
 | `shared/ui/Sidebar.tsx` | 39 converted, 5 kept (`text-white` on client / workspace / member identity colours) | 56 converted (34 inside the 17 icons, 3 module constants, 19 at style sites); 3 kept (`#6366f1` ×2 member fallback, `#3b5bdb` owner avatar) |
 | `features/clients/pages/SettingsPage.tsx` | 56 converted, 7 kept (Instagram brand gradients and their `text-white`) | 0 converted, 17 kept (12 `COLORS` picker swatches, `#6366f1` form default, 4 theme-preview swatches in the Appearance toggle that must depict each theme literally) |
+
+## What renders colour outside the token system (final sweep, 2026-09-23)
+
+Everything below stays as it is in dark mode. It is listed so nobody re-audits it.
+
+| What | Where | Can it be themed? |
+|---|---|---|
+| Chart series palette `FUNNEL_COLORS` | HeadquartersPage | Yes, by minting `--color-chart-series-N` tokens; not done because a six-step purple→rose ramp reads fine on both canvases. The status bar colours already use `--color-chart-*`. |
+| Video-player chrome: black backdrops, white controls, `rgba(0,0,0,.x)` chips, the seek bar's `accentColor` | BoardPage tile overlays, `app/play/page.tsx` (the iframe player embedded on the board) | Deliberately not: a video player is black with white controls in every theme. |
+| Excalidraw canvas and UI | BoardPage, `public/excalidraw.css` | Yes, and it is: the `theme` prop is bound to `useLiveTheme()`. The rectangle "tile" elements created under each video (`#0f1c34` / `#6366f1`) are Excalidraw element data, hidden under the real video overlays. |
+| Modal scrims (`bg-black/40`, `bg-[rgba(17,17,19,0.28)]`) and image-viewer backdrops | every modal | Could read a `--color-scrim` token; kept black on purpose so dialogs read the same way in both themes. |
+| Identity colours: client / workspace / member `.color`, `COLORS` / `MEMBER_COLORS` pickers, `#6366f1` / `#8b5cf6` fallbacks, `#3b5bdb` owner avatar | Sidebar, Settings, Team, Chat, Kanban, Pipeline, Concepts, `shared/types.ts` | No: they identify a record, not the UI. |
+| Instagram brand gradients, TikTok brand black | Settings, Pipeline, Instagram, TikTok pages | No: brand. |
+| Saturated status hexes in Pipeline's `STATUS` metadata (applied as `st.color` and `st.color + "15"`) | Pipeline | Only by dropping the hex-alpha-suffix trick; the saturated values read fine on both canvases, and their pastel companions already use `--color-chip-*`. |
+| PWA `theme_color` / `background_color` (`#0f1c34`) and the viewport `themeColor` | `app/manifest.ts`, `app/layout.tsx` | Partly: Next's viewport `themeColor` accepts only `prefers-color-scheme` media queries, not an attribute, so it cannot follow the owner's toggle. The manifest is static. Both stay the navy the OS title bar has always had. |
+| ORDO wordmark icon colours | `app/icons/[size]/route.tsx` | No: brand asset. |
+| Light base styles in `app/globals.css` (`::selection`, focus outline, scrollbar) | globals.css | Already themed: each has a `[data-theme="dark"]` override directly above. |
+| The five public routes (login, owner, invite, upload, review) | `app/*` | Not applicable: no owner session exists there, so the pre-paint script never runs. Untouched. |
+
+Residue after the sweep, by convention reason (every remaining palette utility in a
+component is one of these): scrim / media backdrop / brand black, caption or glass with
+white text over media, white text on an identity or status colour set via `style`,
+media placeholder tiles and gradients, spinners over media, Instagram brand gradients.
+`shared/types.ts` (the DM and script status badge classes) was the one real miss the
+sweep found and is converted.

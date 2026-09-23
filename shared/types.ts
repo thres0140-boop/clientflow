@@ -275,23 +275,23 @@ export type DmLead = {
 };
 
 export const DM_STATUSES = [
-  { value: "messaged",          label: "Messaged",             bg: "bg-indigo-50",   text: "text-indigo-700",   border: "border-indigo-200"  },
-  { value: "answered",          label: "Answered",             bg: "bg-emerald-50",  text: "text-emerald-700",  border: "border-emerald-200" },
-  { value: "link_sent",         label: "Link Sent",            bg: "bg-purple-50",   text: "text-purple-700",   border: "border-purple-200"  },
-  { value: "booked",            label: "Booked",               bg: "bg-blue-50",     text: "text-blue-700",     border: "border-blue-200"    },
-  { value: "no_show",           label: "No Show",              bg: "bg-red-50",      text: "text-red-600",      border: "border-red-200"     },
-  { value: "unqualified",       label: "Unqualified",          bg: "bg-orange-50",   text: "text-orange-700",   border: "border-orange-200"  },
-  { value: "no_close",          label: "No Close",             bg: "bg-rose-50",     text: "text-rose-700",     border: "border-rose-200"    },
-  { value: "closed",            label: "Closed",               bg: "bg-emerald-50",  text: "text-emerald-700",  border: "border-emerald-200" },
+  { value: "messaged",          label: "Messaged",             bg: "bg-accent-50",   text: "text-accent-700",   border: "border-accent-200"  },
+  { value: "answered",          label: "Answered",             bg: "bg-hue-emerald-50",  text: "text-hue-emerald-700",  border: "border-hue-emerald-200" },
+  { value: "link_sent",         label: "Link Sent",            bg: "bg-hue-purple-50",   text: "text-hue-purple-700",   border: "border-hue-purple-200"  },
+  { value: "booked",            label: "Booked",               bg: "bg-info-50",     text: "text-info-700",     border: "border-info-200"    },
+  { value: "no_show",           label: "No Show",              bg: "bg-danger-50",      text: "text-danger-600",      border: "border-danger-200"     },
+  { value: "unqualified",       label: "Unqualified",          bg: "bg-hue-orange-50",   text: "text-hue-orange-700",   border: "border-hue-orange-200"  },
+  { value: "no_close",          label: "No Close",             bg: "bg-hue-rose-50",     text: "text-hue-rose-700",     border: "border-hue-rose-200"    },
+  { value: "closed",            label: "Closed",               bg: "bg-hue-emerald-50",  text: "text-hue-emerald-700",  border: "border-hue-emerald-200" },
 ] as const;
 
 export const STATUSES = [
-  { value: "scripted", label: "Scripted", bg: "bg-purple-100", text: "text-purple-700" },
-  { value: "ready_to_film", label: "Ready to Film", bg: "bg-amber-100", text: "text-amber-700" },
-  { value: "filmed", label: "Filmed", bg: "bg-blue-100", text: "text-blue-700" },
-  { value: "edited", label: "Edited", bg: "bg-cyan-100", text: "text-cyan-700" },
-  { value: "scheduled", label: "Scheduled", bg: "bg-orange-100", text: "text-orange-700" },
-  { value: "posted", label: "Posted", bg: "bg-green-100", text: "text-green-700" },
+  { value: "scripted", label: "Scripted", bg: "bg-hue-purple-100", text: "text-hue-purple-700" },
+  { value: "ready_to_film", label: "Ready to Film", bg: "bg-warn-100", text: "text-warn-700" },
+  { value: "filmed", label: "Filmed", bg: "bg-info-100", text: "text-info-700" },
+  { value: "edited", label: "Edited", bg: "bg-hue-cyan-100", text: "text-hue-cyan-700" },
+  { value: "scheduled", label: "Scheduled", bg: "bg-hue-orange-100", text: "text-hue-orange-700" },
+  { value: "posted", label: "Posted", bg: "bg-ok-100", text: "text-ok-700" },
 ] as const;
 
 export const PLATFORMS = ["instagram", "tiktok", "youtube", "linkedin"];
