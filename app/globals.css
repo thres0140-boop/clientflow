@@ -178,6 +178,7 @@
   /* neutrals for the remaining roles (light = exact literal they replace) */
   --color-canvas-2: oklch(98.4% 0.003 247.858);      /* = slate-50 as a PAGE BACKGROUND (screen-height wrapper). Dark = the canvas, so cards stay lighter than the page. */
   --color-ink-200: oklch(92.9% 0.013 255.508);             /* = slate-200 text: placeholder / empty-value text */
+  --color-surface-ink: oklch(20.8% 0.042 265.755);         /* = slate-900 fill: neutral primary button hover */
   --color-surface-ink-2: oklch(27.9% 0.041 260.031);       /* = slate-800 fill: neutral primary button hover */
   --color-surface-ink-3: oklch(37.2% 0.044 257.287);       /* = slate-700 fill: neutral primary button */
   --color-line-softer: oklch(98.4% 0.003 247.858);          /* = slate-50 border / divide */
@@ -378,6 +379,7 @@
   --color-accent-800: #bbf7d0;
   --color-canvas-2: #0a0c0a;
   --color-ink-200: #3a413a;
+  --color-surface-ink: #f2f5f2;
   --color-surface-ink-2: #d6dbd6;
   --color-surface-ink-3: #c4cac4;
   --color-line-softer: rgba(255, 255, 255, 0.04);

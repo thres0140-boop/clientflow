@@ -161,7 +161,9 @@ panel: `bg-white/70`, `bg-white/80 border-white`, `hover:bg-white`) → `bg-surf
 `bg-surface/80 border-surface`, `hover:bg-surface`.
 
 A `bg-slate-700 text-white hover:bg-slate-800` neutral button (not media) →
-`bg-surface-ink-3 text-on-ink hover:bg-surface-ink-2`.
+`bg-surface-ink-3 text-on-ink hover:bg-surface-ink-2`. Likewise `bg-slate-800 text-white
+hover:bg-slate-900` → `bg-surface-ink-2 text-on-ink hover:bg-surface-ink` (`surface-ink` =
+slate-900, dark `#f2f5f2`).
 
 ### Glass, selected pills and placeholder gradients (Phase 3b rule)
 

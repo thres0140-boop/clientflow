@@ -2888,28 +2888,28 @@ function ImportScriptModal({ client, platform = "instagram", concepts, stages, o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-lg max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-800">⬇ Import content</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Transfer existing content — script + finished video — into a concept. The AI learns from the script.</p>
+            <h2 className="text-base font-bold text-ink-800">⬇ Import content</h2>
+            <p className="text-xs text-ink-400 mt-0.5">Transfer existing content — script + finished video — into a concept. The AI learns from the script.</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-xl leading-none">×</button>
         </div>
 
         <div className="px-6 py-4 space-y-3">
           {isTextOverlay && (
-            <div className="rounded-lg bg-violet-50 border border-violet-200 px-3 py-2 text-[11px] text-violet-700">
+            <div className="rounded-lg bg-hue-violet-50 border border-hue-violet-200 px-3 py-2 text-[11px] text-hue-violet-700">
               🎬 This is a <b>B-roll + on-screen text</b> concept — no spoken script. Just drop the video (and the on-screen text hook if you have it); the script is optional.
             </div>
           )}
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Concept</label>
+            <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Concept</label>
             {concepts.length === 0 ? (
-              <p className="text-xs text-slate-400">No concepts yet — add one in the Concept Library first.</p>
+              <p className="text-xs text-ink-400">No concepts yet — add one in the Concept Library first.</p>
             ) : (
               <select value={conceptId} onChange={(e) => setConceptId(e.target.value ? parseInt(e.target.value) : "")}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-400">
                 {concepts.map((c) => (
                   <option key={c.id} value={c.id}>{(c as any).conceptType ? `${(c as any).conceptType} · ` : ""}{c.name}</option>
                 ))}
@@ -2919,75 +2919,75 @@ function ImportScriptModal({ client, platform = "instagram", concepts, stages, o
           {/* Mark the format — B-roll/text-hook (no spoken script) vs talking-head. */}
           <label className="flex items-start gap-2.5 cursor-pointer select-none">
             <input type="checkbox" checked={textOverlay} onChange={(e) => setTextOverlay(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-400" />
-            <span className="text-xs text-slate-600 leading-relaxed">
-              <span className="font-semibold text-slate-700">🎬 B-roll + on-screen text (no spoken script)</span> — the Viral text-hook format. Tick this and you only need the video; the script becomes optional. (Also saved to the concept.)
+              className="mt-0.5 w-4 h-4 rounded border-line-harder text-hue-violet-600 focus:ring-hue-violet-400" />
+            <span className="text-xs text-ink-600 leading-relaxed">
+              <span className="font-semibold text-ink-700">🎬 B-roll + on-screen text (no spoken script)</span> — the Viral text-hook format. Tick this and you only need the video; the script becomes optional. (Also saved to the concept.)
             </span>
           </label>
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Title (optional)</label>
+            <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Title (optional)</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short title…"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-400" />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">{isTextOverlay ? "Text hook (on-screen) — optional" : "Hook (optional)"}</label>
+            <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-wide mb-1">{isTextOverlay ? "Text hook (on-screen) — optional" : "Hook (optional)"}</label>
             <input value={hook} onChange={(e) => setHook(e.target.value)} placeholder={isTextOverlay ? "The on-screen text hook…" : "Opening hook line…"}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-400" />
           </div>
           <div>
-            <label className="flex items-center gap-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <label className="flex items-center gap-2 text-[10px] font-semibold text-ink-500 uppercase tracking-wide mb-1">
               {isTextOverlay ? "On-screen text (optional)" : "Script *"}
-              {extracting && <span className="text-violet-500 normal-case font-medium tracking-normal">✨ reading video…</span>}
+              {extracting && <span className="text-hue-violet-500 normal-case font-medium tracking-normal">✨ reading video…</span>}
             </label>
             <textarea value={script} onChange={(e) => setScript(e.target.value)} rows={isTextOverlay ? 4 : 8} placeholder={isTextOverlay ? "On-screen text, if any (optional)…" : "Paste the full script here…"}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-accent-400" />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Caption (optional)</label>
+            <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Caption (optional)</label>
             <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} placeholder="Caption, if you have one…"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent-400" />
           </div>
           {/* Finished video — for transferred content that's already produced. */}
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Finished video (optional)</label>
+            <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Finished video (optional)</label>
             <input ref={fileRef} type="file" accept="video/*" className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVideo(f); }} />
             {videoUrl ? (
-              <div className="flex items-center justify-between border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-2">
-                <span className="text-xs text-emerald-700 font-medium truncate">✓ Video uploaded{extracting ? " · ✨ reading…" : ""}</span>
+              <div className="flex items-center justify-between border border-hue-emerald-200 bg-hue-emerald-50 rounded-lg px-3 py-2">
+                <span className="text-xs text-hue-emerald-700 font-medium truncate">✓ Video uploaded{extracting ? " · ✨ reading…" : ""}</span>
                 <button onClick={() => { setVideoUrl(null); if (fileRef.current) fileRef.current.value = ""; }}
-                  className="text-[11px] text-slate-400 hover:text-red-500 flex-shrink-0 ml-2">Remove</button>
+                  className="text-[11px] text-ink-400 hover:text-danger-500 flex-shrink-0 ml-2">Remove</button>
               </div>
             ) : (
               <button onClick={() => fileRef.current?.click()} disabled={uploadPct !== null}
-                className="w-full border border-dashed border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:bg-slate-50 disabled:opacity-60">
+                className="w-full border border-dashed border-line-harder rounded-lg px-3 py-2.5 text-sm text-ink-500 hover:bg-surface-2 disabled:opacity-60">
                 {uploadPct !== null ? `Uploading ${uploadPct}%…` : "⬆ Upload the finished video"}
               </button>
             )}
           </div>
           {/* Example / reference video — what the person filming should copy. */}
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Example video — for the recorder to copy (optional)</label>
+            <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Example video — for the recorder to copy (optional)</label>
             <input ref={exampleRef} type="file" accept="video/*" className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadExample(f); }} />
             {exampleUrl ? (
-              <div className="flex items-center justify-between border border-amber-200 bg-amber-50 rounded-lg px-3 py-2">
-                <span className="text-xs text-amber-700 font-medium truncate">🎬 Example uploaded</span>
+              <div className="flex items-center justify-between border border-warn-200 bg-warn-50 rounded-lg px-3 py-2">
+                <span className="text-xs text-warn-700 font-medium truncate">🎬 Example uploaded</span>
                 <button onClick={() => { setExampleUrl(null); if (exampleRef.current) exampleRef.current.value = ""; }}
-                  className="text-[11px] text-slate-400 hover:text-red-500 flex-shrink-0 ml-2">Remove</button>
+                  className="text-[11px] text-ink-400 hover:text-danger-500 flex-shrink-0 ml-2">Remove</button>
               </div>
             ) : (
               <button onClick={() => exampleRef.current?.click()} disabled={examplePct !== null}
-                className="w-full border border-dashed border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-500 hover:bg-slate-50 disabled:opacity-60">
+                className="w-full border border-dashed border-line-harder rounded-lg px-3 py-2.5 text-sm text-ink-500 hover:bg-surface-2 disabled:opacity-60">
                 {examplePct !== null ? `Uploading ${examplePct}%…` : "⬆ Upload an example to copy"}
               </button>
             )}
           </div>
           {/* Where it lands — Ideas (still needs production) or straight into a stage. */}
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Place in</label>
+            <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-wide mb-1">Place in</label>
             <select value={stageId} onChange={(e) => setStageId(e.target.value ? parseInt(e.target.value) : "")}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-400">
               <option value="">💡 Ideas (needs review)</option>
               {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
@@ -2995,17 +2995,17 @@ function ImportScriptModal({ client, platform = "instagram", concepts, stages, o
           </div>
           <label className="flex items-start gap-2.5 cursor-pointer select-none">
             <input type="checkbox" checked={seedAsExample} onChange={(e) => setSeedAsExample(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400" />
-            <span className="text-xs text-slate-600 leading-relaxed">
-              <span className="font-semibold text-slate-700">🧠 Teach the AI this belongs to the concept</span> — adds it to AI Context as an example so future generated scripts learn from it.
+              className="mt-0.5 w-4 h-4 rounded border-line-harder text-accent-600 focus:ring-accent-400" />
+            <span className="text-xs text-ink-600 leading-relaxed">
+              <span className="font-semibold text-ink-700">🧠 Teach the AI this belongs to the concept</span> — adds it to AI Context as an example so future generated scripts learn from it.
             </span>
           </label>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+        <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-ink-600 hover:bg-surface-3 rounded-lg">Cancel</button>
           <button onClick={submit} disabled={saving || uploadPct !== null || !canSubmit}
-            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+            className="px-4 py-2 text-sm font-semibold text-on-accent bg-accent-600 rounded-lg hover:bg-accent-700 disabled:opacity-50">
             {saving ? "Importing…" : uploadPct !== null ? "Uploading video…" : "⬇ Import"}
           </button>
         </div>
@@ -3056,35 +3056,35 @@ function GenerateModal({ client, platform = "instagram", concepts, onClose, onGe
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl o-elev-pop w-[480px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-2xl o-elev-pop w-[480px] max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 border-b border-line flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-800">✨ Generate Scripts</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <h2 className="text-base font-bold text-ink-800">✨ Generate Scripts</h2>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-xl leading-none">×</button>
         </div>
         <div className="px-6 py-5 space-y-5">
-          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-lg">{error}</p>}
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-slate-600">Concepts</label>
+              <label className="text-xs font-semibold text-ink-600">Concepts</label>
               <button onClick={() => setSelectedConcepts(selectedConcepts.length === genConcepts.length ? [] : genConcepts.map((c) => c.id))}
-                className="text-xs text-indigo-600 hover:underline">
+                className="text-xs text-accent-600 hover:underline">
                 {selectedConcepts.length === genConcepts.length ? "Deselect all" : "Select all"}
               </button>
             </div>
             {genConcepts.length === 0 ? (
-              <p className="text-xs text-slate-400">No AI concepts — these are all client-written, or add some in the Concept Library first.</p>
+              <p className="text-xs text-ink-400">No AI concepts — these are all client-written, or add some in the Concept Library first.</p>
             ) : (
               <div className="space-y-1.5">
                 {genConcepts.map((c) => (
                   <button key={c.id} onClick={() => toggleConcept(c.id)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left text-xs font-medium transition-all ${
                       selectedConcepts.includes(c.id)
-                        ? "bg-indigo-50 border-indigo-300 text-indigo-700"
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        ? "bg-accent-50 border-accent-300 text-accent-700"
+                        : "bg-surface-2 border-line-hard text-ink-600 hover:bg-surface-3"
                     }`}>
                     <span className={`w-4 h-4 rounded flex items-center justify-center border flex-shrink-0 ${
-                      selectedConcepts.includes(c.id) ? "bg-indigo-600 border-indigo-600" : "border-slate-300 bg-white"
+                      selectedConcepts.includes(c.id) ? "bg-accent-600 border-accent-600" : "border-line-harder bg-surface"
                     }`}>
                       {selectedConcepts.includes(c.id) && <span className="text-white text-[9px] font-bold">✓</span>}
                     </span>
@@ -3097,45 +3097,45 @@ function GenerateModal({ client, platform = "instagram", concepts, onClose, onGe
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Week label</label>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Week label</label>
               <input value={weekLabel} onChange={(e) => setWeekLabel(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Day (optional)</label>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Day (optional)</label>
               <input value={dayLabel} onChange={(e) => setDayLabel(e.target.value)}
                 placeholder="e.g. Monday"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Alternatives per concept</label>
+            <label className="block text-xs font-semibold text-ink-600 mb-1">Alternatives per concept</label>
             <div className="flex items-center gap-3">
               {[2, 3, 5, 7].map((n) => (
                 <button key={n} onClick={() => setCount(n)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${
-                    count === n ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    count === n ? "bg-accent-600 text-on-accent border-accent-600" : "border-line-hard text-ink-600 hover:bg-surface-2"
                   }`}>
                   {n}
                 </button>
               ))}
               <input type="number" min={1} max={10} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 3)}
-                className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-16 border border-line-hard rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-accent-500" />
             </div>
           </div>
 
           {selectedConcepts.length > 0 && (
-            <p className="text-xs text-slate-400">
-              Will generate <strong className="text-slate-700">{count * selectedConcepts.length} scripts</strong> total
+            <p className="text-xs text-ink-400">
+              Will generate <strong className="text-ink-700">{count * selectedConcepts.length} scripts</strong> total
               ({count} × {selectedConcepts.length} concept{selectedConcepts.length > 1 ? "s" : ""})
             </p>
           )}
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+        <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-ink-600 hover:bg-surface-3 rounded-lg">Cancel</button>
           <button onClick={generate} disabled={generating || selectedConcepts.length === 0}
-            className="px-5 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">
+            className="px-5 py-2 text-sm font-semibold bg-accent-600 text-on-accent rounded-xl hover:bg-accent-700 disabled:opacity-50">
             {generating ? "Generating…" : `✨ Generate ${count * selectedConcepts.length} scripts`}
           </button>
         </div>
@@ -3207,23 +3207,23 @@ function BatchModal({ client, platform = "instagram", concepts, drafts, onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl o-elev-pop w-[520px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-2xl o-elev-pop w-[520px] max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-800">📦 Generate Batch</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">Counts from your Content Scheduling day template — how many days each concept is assigned × the period, minus what you have.</p>
+            <h2 className="text-base font-bold text-ink-800">📦 Generate Batch</h2>
+            <p className="text-[11px] text-ink-400 mt-0.5">Counts from your Content Scheduling day template — how many days each concept is assigned × the period, minus what you have.</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-xl leading-none">×</button>
         </div>
         <div className="px-6 py-5 space-y-5">
-          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-lg">{error}</p>}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Batch length</label>
+            <label className="block text-xs font-semibold text-ink-600 mb-1.5">Batch length</label>
             <div className="flex gap-2">
               {[[1, "1 week"], [2, "2 weeks"], [4, "1 month"]].map(([w, lbl]) => (
                 <button key={w} onClick={() => setWeeks(w as number)}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-all ${weeks === w ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold border transition-all ${weeks === w ? "bg-accent-600 text-on-accent border-accent-600" : "border-line-hard text-ink-600 hover:bg-surface-2"}`}>
                   {lbl}
                 </button>
               ))}
@@ -3232,12 +3232,12 @@ function BatchModal({ client, platform = "instagram", concepts, drafts, onClose,
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-slate-600">Concepts in the batch</label>
+              <label className="text-xs font-semibold text-ink-600">Concepts in the batch</label>
               <button onClick={() => setSelected(selected.length === genConcepts.length ? [] : genConcepts.map((c) => c.id))}
-                className="text-xs text-indigo-600 hover:underline">{selected.length === genConcepts.length ? "Deselect all" : "Select all"}</button>
+                className="text-xs text-accent-600 hover:underline">{selected.length === genConcepts.length ? "Deselect all" : "Select all"}</button>
             </div>
             {genConcepts.length === 0 ? (
-              <p className="text-xs text-slate-400">No AI concepts — add some in the Concept Library first.</p>
+              <p className="text-xs text-ink-400">No AI concepts — add some in the Concept Library first.</p>
             ) : (
               <div className="space-y-1.5">
                 {genConcepts.map((c) => {
@@ -3245,15 +3245,15 @@ function BatchModal({ client, platform = "instagram", concepts, drafts, onClose,
                   const label = (c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name;
                   const have = drafts.filter((d) => d.conceptId === c.id).length;
                   return (
-                    <div key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs ${on ? "bg-indigo-50 border-indigo-200" : "bg-slate-50 border-slate-200 opacity-60"}`}>
-                      <button onClick={() => toggle(c.id)} className={`w-4 h-4 rounded flex items-center justify-center border flex-shrink-0 ${on ? "bg-indigo-600 border-indigo-600" : "border-slate-300 bg-white"}`}>
+                    <div key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs ${on ? "bg-accent-50 border-accent-200" : "bg-surface-2 border-line-hard opacity-60"}`}>
+                      <button onClick={() => toggle(c.id)} className={`w-4 h-4 rounded flex items-center justify-center border flex-shrink-0 ${on ? "bg-accent-600 border-accent-600" : "border-line-harder bg-surface"}`}>
                         {on && <span className="text-white text-[9px] font-bold">✓</span>}
                       </button>
-                      <span className="flex-1 font-medium text-slate-700 truncate" title={label}>{label}</span>
+                      <span className="flex-1 font-medium text-ink-700 truncate" title={label}>{label}</span>
                       <span className="text-[10px] text-faint flex-shrink-0">{perWeekOf(c)}/wk · have {have}</span>
                       <input type="number" min={0} value={counts[c.id] ?? 0} disabled={!on}
                         onChange={(e) => setCounts((p) => ({ ...p, [c.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
-                        className="w-12 border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40" />
+                        className="w-12 border border-line-hard rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-accent-400 disabled:opacity-40" />
                     </div>
                   );
                 })}
@@ -3262,17 +3262,17 @@ function BatchModal({ client, platform = "instagram", concepts, drafts, onClose,
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Week label</label>
+            <label className="block text-xs font-semibold text-ink-600 mb-1">Week label</label>
             <input value={weekLabel} onChange={(e) => setWeekLabel(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500" />
           </div>
 
-          <p className="text-xs text-slate-400">Will generate <strong className="text-slate-700">{total} scripts</strong> across {selected.filter((id) => (counts[id] || 0) > 0).length} concept{selected.filter((id) => (counts[id] || 0) > 0).length !== 1 ? "s" : ""} — enough to cover the next {weeks === 4 ? "month" : `${weeks} week${weeks > 1 ? "s" : ""}`}.</p>
+          <p className="text-xs text-ink-400">Will generate <strong className="text-ink-700">{total} scripts</strong> across {selected.filter((id) => (counts[id] || 0) > 0).length} concept{selected.filter((id) => (counts[id] || 0) > 0).length !== 1 ? "s" : ""} — enough to cover the next {weeks === 4 ? "month" : `${weeks} week${weeks > 1 ? "s" : ""}`}.</p>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+        <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-ink-600 hover:bg-surface-3 rounded-lg">Cancel</button>
           <button onClick={generate} disabled={generating || total === 0}
-            className="px-5 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">
+            className="px-5 py-2 text-sm font-semibold bg-accent-600 text-on-accent rounded-xl hover:bg-accent-700 disabled:opacity-50">
             {generating ? "Generating…" : `📦 Generate ${total} scripts`}
           </button>
         </div>
@@ -3357,41 +3357,41 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl o-elev-pop w-[520px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-2xl o-elev-pop w-[520px] max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-800">♻️ Remix a Winner</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">Take one reel that performed → market that same message {count} different ways.</p>
+            <h2 className="text-base font-bold text-ink-800">♻️ Remix a Winner</h2>
+            <p className="text-[11px] text-ink-400 mt-0.5">Take one reel that performed → market that same message {count} different ways.</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-xl leading-none">×</button>
         </div>
         <div className="px-6 py-5 space-y-5">
-          {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-lg">{error}</p>}
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-600">The winning reel</label>
+              <label className="text-xs font-semibold text-ink-600">The winning reel</label>
               <button type="button" onClick={() => setShowReelPicker(true)} disabled={transcribing}
-                className="text-[11px] font-semibold text-purple-600 hover:text-purple-800 disabled:opacity-50">
+                className="text-[11px] font-semibold text-hue-purple-600 hover:text-hue-purple-800 disabled:opacity-50">
                 🎬 Pick from {client.name}'s reels
               </button>
             </div>
             <textarea rows={6} value={source} onChange={(e) => setSource(e.target.value)}
               placeholder="Pick a reel above to auto-pull its script — or paste the exact script / on-screen text of the reel that already performed…"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none" />
-            {transcribing && <p className="mt-1 text-[11px] text-purple-600">⏳ Reading the reel's audio…</p>}
+              className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-hue-purple-400 resize-none" />
+            {transcribing && <p className="mt-1 text-[11px] text-hue-purple-600">⏳ Reading the reel's audio…</p>}
             <input value={sourceTitle} onChange={(e) => setSourceTitle(e.target.value)}
               placeholder="Optional: a label for this winner (e.g. '250k views — survival mode')"
-              className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400" />
+              className="mt-2 w-full border border-line-hard rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-hue-purple-400" />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Match to concept (voice & format)</label>
+            <label className="block text-xs font-semibold text-ink-600 mb-1">Match to concept (voice & format)</label>
             {remixConcepts.length === 0 ? (
-              <p className="text-xs text-slate-400">No AI concepts yet — add one in the Concept Library first.</p>
+              <p className="text-xs text-ink-400">No AI concepts yet — add one in the Concept Library first.</p>
             ) : (
               <select value={conceptId ?? ""} onChange={(e) => setConceptId(parseInt(e.target.value))}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400">
+                className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-hue-purple-400">
                 {remixConcepts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {(c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name}
@@ -3403,24 +3403,24 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Week label</label>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Week label</label>
               <input value={weekLabel} onChange={(e) => setWeekLabel(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-hue-purple-400" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Day (optional)</label>
+              <label className="block text-xs font-semibold text-ink-600 mb-1">Day (optional)</label>
               <input value={dayLabel} onChange={(e) => setDayLabel(e.target.value)} placeholder="e.g. Monday"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-hue-purple-400" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Output format</label>
+            <label className="block text-xs font-semibold text-ink-600 mb-1">Output format</label>
             <div className="flex gap-2">
               {([["auto", "Match concept"], ["spoken", "🎤 Spoken script"], ["text", "📝 On-screen text"]] as const).map(([v, lbl]) => (
                 <button key={v} onClick={() => setFormat(v)}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                    format === v ? "bg-purple-600 text-white border-purple-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    format === v ? "bg-hue-purple-600 text-on-status border-hue-purple-600" : "border-line-hard text-ink-600 hover:bg-surface-2"
                   }`}>
                   {lbl}
                 </button>
@@ -3431,15 +3431,15 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
             </p>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2.5">
-            <label className="block text-xs font-semibold text-slate-600">The hook</label>
+          <div className="rounded-lg border border-line-hard bg-surface-2 p-3 space-y-2.5">
+            <label className="block text-xs font-semibold text-ink-600">The hook</label>
             <div className="flex gap-2">
               <button onClick={() => setKeepHook(true)}
-                className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${keepHook ? "bg-purple-600 text-white border-purple-600" : "border-slate-200 text-slate-600 bg-white hover:bg-slate-50"}`}>
+                className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${keepHook ? "bg-hue-purple-600 text-on-status border-hue-purple-600" : "border-line-hard text-ink-600 bg-surface hover:bg-surface-2"}`}>
                 🔒 Keep the winner's hook
               </button>
               <button onClick={() => setKeepHook(false)}
-                className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${!keepHook ? "bg-purple-600 text-white border-purple-600" : "border-slate-200 text-slate-600 bg-white hover:bg-slate-50"}`}>
+                className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${!keepHook ? "bg-hue-purple-600 text-on-status border-hue-purple-600" : "border-line-hard text-ink-600 bg-surface hover:bg-surface-2"}`}>
                 ✍️ Rewrite the hook
               </button>
             </div>
@@ -3447,10 +3447,10 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
               {keepHook ? "Every variation opens with the proven hook — only the body changes." : "Each variation gets a fresh hook."}
             </p>
             <div className="flex items-center gap-2 pt-0.5">
-              <span className="text-[11px] font-semibold text-slate-600">Alternative hooks per script</span>
+              <span className="text-[11px] font-semibold text-ink-600">Alternative hooks per script</span>
               {[0, 2, 3, 5].map((n) => (
                 <button key={n} onClick={() => setHookAltCount(n)}
-                  className={`px-2 py-1 rounded-md text-[11px] font-semibold border transition-all ${hookAltCount === n ? "bg-white text-purple-700 border-purple-300 shadow-sm" : "border-slate-200 text-slate-500 bg-white hover:bg-slate-50"}`}>
+                  className={`px-2 py-1 rounded-md text-[11px] font-semibold border transition-all ${hookAltCount === n ? "bg-surface text-hue-purple-700 border-hue-purple-300 shadow-sm" : "border-line-hard text-ink-500 bg-surface hover:bg-surface-2"}`}>
                   {n === 0 ? "none" : n}
                 </button>
               ))}
@@ -3459,25 +3459,25 @@ function RemixModal({ client, concepts, onClose, onGenerated }: {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">How many variations</label>
+            <label className="block text-xs font-semibold text-ink-600 mb-1">How many variations</label>
             <div className="flex items-center gap-3">
               {[3, 5, 7, 10].map((n) => (
                 <button key={n} onClick={() => setCount(n)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${
-                    count === n ? "bg-purple-600 text-white border-purple-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    count === n ? "bg-hue-purple-600 text-on-status border-hue-purple-600" : "border-line-hard text-ink-600 hover:bg-surface-2"
                   }`}>
                   {n}
                 </button>
               ))}
               <input type="number" min={1} max={30} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 5)}
-                className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                className="w-16 border border-line-hard rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-hue-purple-400" />
             </div>
           </div>
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+        <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-ink-600 hover:bg-surface-3 rounded-lg">Cancel</button>
           <button onClick={generate} disabled={generating || !conceptId || !source.trim()}
-            className="px-5 py-2 text-sm font-semibold bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50">
+            className="px-5 py-2 text-sm font-semibold bg-hue-purple-600 text-on-status rounded-xl hover:bg-hue-purple-700 disabled:opacity-50">
             {generating ? "Remixing…" : `♻️ Make ${count} variations`}
           </button>
         </div>
@@ -3543,40 +3543,40 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-[620px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl o-elev-pop w-[620px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold text-slate-800">Pick a winning reel</h3>
-            <p className="text-[11px] text-slate-400">Click the reel that performed — we'll pull its script automatically.</p>
+            <h3 className="text-sm font-bold text-ink-800">Pick a winning reel</h3>
+            <p className="text-[11px] text-ink-400">Click the reel that performed — we'll pull its script automatically.</p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex bg-slate-100 rounded-lg p-0.5 text-[11px] font-semibold">
+            <div className="flex bg-surface-3 rounded-lg p-0.5 text-[11px] font-semibold">
               <button onClick={() => setSort("recent")}
-                className={`px-2.5 py-1 rounded-md transition-colors ${sort === "recent" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                className={`px-2.5 py-1 rounded-md transition-colors ${sort === "recent" ? "bg-surface text-ink-800 shadow-sm" : "text-ink-500 hover:text-ink-700"}`}>
                 Recent
               </button>
               <button onClick={rankByViews}
-                className={`px-2.5 py-1 rounded-md transition-colors ${sort === "views" ? "bg-white text-purple-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                className={`px-2.5 py-1 rounded-md transition-colors ${sort === "views" ? "bg-surface text-hue-purple-700 shadow-sm" : "text-ink-500 hover:text-ink-700"}`}>
                 🔥 Top performers
               </button>
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+            <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-xl leading-none">×</button>
           </div>
         </div>
         <div className="p-4 overflow-y-auto" onScroll={onScroll}>
-          {sort === "views" && ranking && <p className="mb-2 text-[11px] text-purple-600 text-center">⏳ Ranking all reels by views…</p>}
+          {sort === "views" && ranking && <p className="mb-2 text-[11px] text-hue-purple-600 text-center">⏳ Ranking all reels by views…</p>}
           {loading ? (
-            <div className="py-16 text-center text-sm text-slate-400">Loading {clientName}'s reels…</div>
+            <div className="py-16 text-center text-sm text-ink-400">Loading {clientName}'s reels…</div>
           ) : displayed.length === 0 ? (
-            <div className="py-16 text-center text-sm text-slate-400">No reels found — is Instagram connected for {clientName}?</div>
+            <div className="py-16 text-center text-sm text-ink-400">No reels found — is Instagram connected for {clientName}?</div>
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {displayed.map((r) => (
                 <button key={r.id} type="button" onClick={() => onPick(r)}
-                  className="relative aspect-[9/16] rounded-lg overflow-hidden border-2 border-transparent hover:border-purple-400 transition-all group">
+                  className="relative aspect-[9/16] rounded-lg overflow-hidden border-2 border-transparent hover:border-hue-purple-400 transition-all group">
                   {r.thumbnail_url
                     ? <img src={imgSrc(r.thumbnail_url)} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500">▶</div>}
+                    : <div className="w-full h-full bg-slate-800 flex items-center justify-center text-ink-500">▶</div>}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   {r.timestamp && <span className="absolute top-1 left-1 text-[8px] text-white bg-black/50 px-1 rounded">{new Date(r.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
                   {r.plays != null && <span className="absolute bottom-1 left-1 text-[10px] font-bold text-white">▶ {r.plays >= 1000 ? (r.plays / 1000).toFixed(1) + "K" : r.plays}</span>}
@@ -3585,11 +3585,11 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
                     onClick={(e) => { e.stopPropagation(); setPreview(r); }}
                     className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-black/85 text-white text-[11px] flex items-center justify-center backdrop-blur-sm cursor-pointer z-10">▶</span>
                   <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    <span className="px-2 py-1 rounded-md bg-purple-600 text-white text-[10px] font-bold">♻️ Remix this</span>
+                    <span className="px-2 py-1 rounded-md bg-hue-purple-600 text-on-status text-[10px] font-bold">♻️ Remix this</span>
                   </span>
                 </button>
               ))}
-              {loadingMore && <div className="col-span-4 py-3 text-center text-xs text-slate-400">Loading more…</div>}
+              {loadingMore && <div className="col-span-4 py-3 text-center text-xs text-ink-400">Loading more…</div>}
             </div>
           )}
         </div>
@@ -3603,13 +3603,13 @@ function RemixReelPicker({ clientId, clientName, onClose, onPick }: {
                 <video src={videoSrc(preview.media_url)} poster={imgSrc(preview.thumbnail_url)} controls autoPlay playsInline
                   className="max-h-[80vh] w-auto rounded-2xl o-elev-pop bg-black" />
               ) : (
-                <div className="bg-white rounded-xl p-8 text-center text-sm text-slate-500">No preview available for this reel.</div>
+                <div className="bg-surface rounded-xl p-8 text-center text-sm text-ink-500">No preview available for this reel.</div>
               )}
               <button onClick={() => setPreview(null)}
-                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-slate-700 shadow-lg flex items-center justify-center text-lg">×</button>
+                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-surface text-ink-700 shadow-lg flex items-center justify-center text-lg">×</button>
               {preview.media_url && (
                 <button onClick={() => { onPick(preview); setPreview(null); }}
-                  className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 whitespace-nowrap">♻️ Remix this one</button>
+                  className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg bg-hue-purple-600 text-on-status text-xs font-bold hover:bg-hue-purple-700 whitespace-nowrap">♻️ Remix this one</button>
               )}
             </div>
           </div>
@@ -3651,20 +3651,20 @@ function StageManagerModal({ client, stages, team, creators, ownerName, onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl o-elev-pop w-[500px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-2xl o-elev-pop w-[500px] max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-5 border-b border-line flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-800">Assign Stages · {client.name}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Select everyone responsible for each stage</p>
+            <h2 className="text-base font-bold text-ink-800">Assign Stages · {client.name}</h2>
+            <p className="text-xs text-ink-400 mt-0.5">Select everyone responsible for each stage</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-xl">×</button>
         </div>
         <div className="px-6 py-5 space-y-3">
           {list.map((stage) => (
-            <div key={stage.id} className="p-3 bg-slate-50 rounded-xl">
+            <div key={stage.id} className="p-3 bg-surface-2 rounded-xl">
               <div className="flex items-center gap-2 mb-2.5">
                 <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
-                <span className="text-sm text-slate-700 font-semibold">{stage.name}</span>
+                <span className="text-sm text-ink-700 font-semibold">{stage.name}</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {allPeople.map((p) => {
@@ -3672,7 +3672,7 @@ function StageManagerModal({ client, stages, team, creators, ownerName, onClose,
                   return (
                     <button key={p.value} onClick={() => togglePerson(stage.id, p.value)}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                        selected ? "text-white border-transparent" : "bg-white border-slate-200 text-slate-500 hover:border-slate-400"
+                        selected ? "text-white border-transparent" : "bg-surface border-line-hard text-ink-500 hover:border-line-focus"
                       }`}
                       style={selected ? { backgroundColor: p.color, borderColor: p.color } : {}}>
                       <span className="w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center text-white flex-shrink-0"
@@ -3687,9 +3687,9 @@ function StageManagerModal({ client, stages, team, creators, ownerName, onClose,
             </div>
           ))}
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+        <div className="px-6 py-4 border-t border-line-soft flex justify-end">
           <button onClick={onSaved}
-            className="px-5 py-2 text-sm font-semibold bg-slate-800 text-white rounded-xl hover:bg-slate-900">
+            className="px-5 py-2 text-sm font-semibold bg-surface-ink-2 text-on-ink rounded-xl hover:bg-surface-ink">
             Done
           </button>
         </div>
@@ -3744,11 +3744,11 @@ function RejectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
-          <h2 className="text-base font-bold text-slate-800">{replace ? "Why replace this one?" : draft.clientAuthored ? "Send back for changes" : "Why are you rejecting this?"}</h2>
-          <p className="text-xs text-slate-400 mt-0.5 truncate">"{draft.title}"</p>
-          <p className="text-[10px] text-indigo-500 mt-0.5">
+          <h2 className="text-base font-bold text-ink-800">{replace ? "Why replace this one?" : draft.clientAuthored ? "Send back for changes" : "Why are you rejecting this?"}</h2>
+          <p className="text-xs text-ink-400 mt-0.5 truncate">"{draft.title}"</p>
+          <p className="text-[10px] text-accent-500 mt-0.5">
             {replace
               ? "Claude learns from this, then writes a fresh script for this concept to replace it."
               : draft.clientAuthored
@@ -3764,8 +3764,8 @@ function RejectModal({
               onClick={() => setSelected(r.value)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm text-left transition-all ${
                 selected === r.value
-                  ? "border-red-400 bg-red-50 text-red-700 font-semibold"
-                  : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                  ? "border-danger-400 bg-danger-50 text-danger-700 font-semibold"
+                  : "border-line-hard text-ink-700 hover:border-line-harder hover:bg-surface-2"
               }`}
             >
               <span>{r.emoji}</span>
@@ -3781,18 +3781,18 @@ function RejectModal({
             value={customText}
             onChange={(e) => setCustomText(e.target.value)}
             rows={3}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
+            className="w-full border border-line-hard rounded-xl px-3 py-2 text-sm text-ink-700 focus:outline-none focus:ring-2 focus:ring-danger-200 resize-none"
           />
         )}
 
         <div className="flex gap-2 pt-1">
-          <button onClick={onCancel} className="flex-1 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl">
+          <button onClick={onCancel} className="flex-1 py-2.5 text-sm font-medium text-ink-500 hover:text-ink-700 border border-line-hard rounded-xl">
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={!selected || (selected === "custom" && !customText.trim())}
-            className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-xl disabled:opacity-40 transition-colors"
+            className="flex-1 py-2.5 text-sm font-semibold text-on-status bg-danger-500 hover:bg-danger-600 rounded-xl disabled:opacity-40 transition-colors"
           >
             {replace ? "🔄 Replace with a new one" : draft.clientAuthored ? "↩ Send back to client" : "✗ Reject & Delete"}
           </button>
@@ -3801,10 +3801,10 @@ function RejectModal({
         {/* Delete/replace without teaching the AI / notifying the client — no reason needed. */}
         <button
           onClick={onDeleteOnly}
-          className="w-full text-center text-xs font-medium text-slate-400 hover:text-red-500 pt-1"
+          className="w-full text-center text-xs font-medium text-ink-400 hover:text-danger-500 pt-1"
         >
           {replace ? "🔄 Just replace — don't teach the AI" : `🗑 Just delete — don't teach the AI${draft.clientAuthored ? " or notify the client" : ""}`}
-          <span className="ml-1.5 text-[10px] text-slate-300 border border-slate-200 rounded px-1 py-0.5">⏎ Enter</span>
+          <span className="ml-1.5 text-[10px] text-ink-300 border border-line-hard rounded px-1 py-0.5">⏎ Enter</span>
         </button>
       </div>
     </div>
