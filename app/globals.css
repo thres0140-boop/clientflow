@@ -99,6 +99,76 @@
   --color-info-600: oklch(54.6% 0.245 262.881);
   --color-info-700: oklch(48.8% 0.243 264.376);
 
+  /* Phase 3 additions: extra status grades, the categorical hue-* families (tags, labels, diffs),
+     and legacy indigo as accent-N. Light = Tailwind's exact value; dark = per-grade formula
+     (50/100/200/300 translucent tints, 400/500 the hue, 600/700/800 progressively lighter). */
+  --color-ok-400: oklch(79.2% 0.209 151.711);
+  --color-ok-800: oklch(44.8% 0.119 151.328);
+  --color-warn-300: oklch(87.9% 0.169 91.605);
+  --color-warn-800: oklch(47.3% 0.137 46.201);
+  --color-danger-300: oklch(80.8% 0.114 19.571);
+  --color-info-300: oklch(80.9% 0.105 251.813);
+  --color-info-400: oklch(70.7% 0.165 254.624);
+  --color-info-800: oklch(42.4% 0.199 265.638);
+  --color-hue-emerald-50: oklch(97.9% 0.021 166.113);
+  --color-hue-emerald-100: oklch(95% 0.052 163.051);
+  --color-hue-emerald-200: oklch(90.5% 0.093 164.15);
+  --color-hue-emerald-500: oklch(69.6% 0.17 162.48);
+  --color-hue-emerald-600: oklch(59.6% 0.145 163.225);
+  --color-hue-emerald-700: oklch(50.8% 0.118 165.612);
+  --color-hue-emerald-800: oklch(43.2% 0.095 166.913);
+  --color-hue-rose-50: oklch(96.9% 0.015 12.422);
+  --color-hue-rose-100: oklch(94.1% 0.03 12.58);
+  --color-hue-rose-200: oklch(89.2% 0.058 10.001);
+  --color-hue-rose-400: oklch(71.2% 0.194 13.428);
+  --color-hue-rose-500: oklch(64.5% 0.246 16.439);
+  --color-hue-rose-600: oklch(58.6% 0.253 17.585);
+  --color-hue-rose-700: oklch(51.4% 0.222 16.935);
+  --color-hue-sky-50: oklch(97.7% 0.013 236.62);
+  --color-hue-sky-100: oklch(95.1% 0.026 236.824);
+  --color-hue-sky-200: oklch(90.1% 0.058 230.902);
+  --color-hue-sky-400: oklch(74.6% 0.16 232.661);
+  --color-hue-sky-700: oklch(50% 0.134 242.749);
+  --color-hue-cyan-100: oklch(95.6% 0.045 203.388);
+  --color-hue-cyan-700: oklch(52% 0.105 223.128);
+  --color-hue-pink-50: oklch(97.1% 0.014 343.198);
+  --color-hue-pink-100: oklch(94.8% 0.028 342.258);
+  --color-hue-pink-200: oklch(89.9% 0.061 343.231);
+  --color-hue-pink-500: oklch(65.6% 0.241 354.308);
+  --color-hue-pink-600: oklch(59.2% 0.249 0.584);
+  --color-hue-pink-700: oklch(52.5% 0.223 3.958);
+  --color-hue-pink-800: oklch(45.9% 0.187 3.815);
+  --color-hue-purple-50: oklch(97.7% 0.014 308.299);
+  --color-hue-purple-200: oklch(90.2% 0.063 306.703);
+  --color-hue-purple-800: oklch(43.8% 0.218 303.724);
+  --color-hue-orange-100: oklch(95.4% 0.038 75.164);
+  --color-hue-orange-500: oklch(70.5% 0.213 47.604);
+  --color-hue-orange-700: oklch(55.3% 0.195 38.402);
+  --color-accent-50: oklch(96.2% 0.018 272.314);
+  --color-accent-100: oklch(93% 0.034 272.788);
+  --color-accent-400: oklch(67.3% 0.182 276.935);
+  --color-accent-500: oklch(58.5% 0.233 277.117);
+  --color-accent-600: oklch(51.1% 0.262 276.966);
+  --color-accent-700: oklch(45.7% 0.24 277.023);
+  --color-accent-800: oklch(39.8% 0.195 277.366);
+  /* neutrals for the remaining roles (light = exact literal they replace) */
+  --color-canvas-2: oklch(98.4% 0.003 247.858);      /* = slate-50 as a PAGE BACKGROUND (screen-height wrapper). Dark = the canvas, so cards stay lighter than the page. */
+  --color-ink-200: oklch(92.9% 0.013 255.508);             /* = slate-200 text: placeholder / empty-value text */
+  --color-surface-ink-2: oklch(27.9% 0.041 260.031);       /* = slate-800 fill: neutral primary button hover */
+  --color-surface-ink-3: oklch(37.2% 0.044 257.287);       /* = slate-700 fill: neutral primary button */
+  --color-line-softer: oklch(98.4% 0.003 247.858);          /* = slate-50 border / divide */
+  --color-line-harder: oklch(86.9% 0.022 252.894);         /* = slate-300 border */
+  --color-shade: #000;                              /* black-at-alpha used as a hover shade or ring on a theme surface (NOT media scrims) */
+  --color-fill-neutral: #e2e8f0;                    /* v3 slate-200 hex used inline for a 'no client' pill */
+  --color-bubble-me: #6366f1;                       /* own chat bubble */
+  --color-chip-ink: #1e293b;                        /* v3 slate-800 hex: text on a tinted calendar chip */
+  --color-chip-posted-bg: #dcfce7;                  /* v3 green-100 hex: posted calendar chip */
+  --color-chip-posted-ink: #15803d;                 /* v3 green-700 hex: posted calendar chip text */
+  --color-chart-red: #ef4444;                       /* inline chart status colours (v3 hexes) */
+  --color-chart-amber: #f59e0b;
+  --color-chart-green: #10b981;
+  --color-chart-empty: #cbd5e1;                     /* v3 slate-300: empty chart bar */
+
   /* single restrained accent (refined indigo-navy, pairs with the nav) */
   --color-accent: #3d4aa3;
   --color-accent-strong: #2f3a86;
@@ -208,6 +278,72 @@
   --color-info-500: #3b82f6;
   --color-info-600: #60a5fa;
   --color-info-700: #93c5fd;
+
+  --color-ok-400: #4ade80;
+  --color-ok-800: #bbf7d0;
+  --color-warn-300: rgba(245, 158, 11, 0.45);
+  --color-warn-800: #fde68a;
+  --color-danger-300: rgba(239, 68, 68, 0.45);
+  --color-info-300: rgba(59, 130, 246, 0.45);
+  --color-info-400: #60a5fa;
+  --color-info-800: #bfdbfe;
+  --color-hue-emerald-50: rgba(16, 185, 129, 0.10);
+  --color-hue-emerald-100: rgba(16, 185, 129, 0.18);
+  --color-hue-emerald-200: rgba(16, 185, 129, 0.32);
+  --color-hue-emerald-500: #10b981;
+  --color-hue-emerald-600: #34d399;
+  --color-hue-emerald-700: #6ee7b7;
+  --color-hue-emerald-800: #a7f3d0;
+  --color-hue-rose-50: rgba(244, 63, 94, 0.10);
+  --color-hue-rose-100: rgba(244, 63, 94, 0.18);
+  --color-hue-rose-200: rgba(244, 63, 94, 0.32);
+  --color-hue-rose-400: #fb7185;
+  --color-hue-rose-500: #f43f5e;
+  --color-hue-rose-600: #fb7185;
+  --color-hue-rose-700: #fda4af;
+  --color-hue-sky-50: rgba(14, 165, 233, 0.10);
+  --color-hue-sky-100: rgba(14, 165, 233, 0.18);
+  --color-hue-sky-200: rgba(14, 165, 233, 0.32);
+  --color-hue-sky-400: #38bdf8;
+  --color-hue-sky-700: #7dd3fc;
+  --color-hue-cyan-100: rgba(6, 182, 212, 0.18);
+  --color-hue-cyan-700: #67e8f9;
+  --color-hue-pink-50: rgba(236, 72, 153, 0.10);
+  --color-hue-pink-100: rgba(236, 72, 153, 0.18);
+  --color-hue-pink-200: rgba(236, 72, 153, 0.32);
+  --color-hue-pink-500: #ec4899;
+  --color-hue-pink-600: #f472b6;
+  --color-hue-pink-700: #f9a8d4;
+  --color-hue-pink-800: #fbcfe8;
+  --color-hue-purple-50: rgba(168, 85, 247, 0.10);
+  --color-hue-purple-200: rgba(168, 85, 247, 0.32);
+  --color-hue-purple-800: #e9d5ff;
+  --color-hue-orange-100: rgba(249, 115, 22, 0.18);
+  --color-hue-orange-500: #f97316;
+  --color-hue-orange-700: #fdba74;
+  --color-accent-50: rgba(34, 197, 94, 0.10);
+  --color-accent-100: rgba(34, 197, 94, 0.18);
+  --color-accent-400: #4ade80;
+  --color-accent-500: #22c55e;
+  --color-accent-600: #4ade80;
+  --color-accent-700: #86efac;
+  --color-accent-800: #bbf7d0;
+  --color-canvas-2: #0a0c0a;
+  --color-ink-200: #3a413a;
+  --color-surface-ink-2: #d6dbd6;
+  --color-surface-ink-3: #c4cac4;
+  --color-line-softer: rgba(255, 255, 255, 0.04);
+  --color-line-harder: rgba(255, 255, 255, 0.16);
+  --color-shade: #fff;
+  --color-fill-neutral: #272d27;
+  --color-bubble-me: #16a34a;
+  --color-chip-ink: #e8ece8;
+  --color-chip-posted-bg: rgba(34, 197, 94, 0.18);
+  --color-chip-posted-ink: #86efac;
+  --color-chart-red: #ef4444;
+  --color-chart-amber: #f59e0b;
+  --color-chart-green: #10b981;
+  --color-chart-empty: #333a33;
 
   /* depth: black shadows vanish on a near-black canvas, so depth comes from the
      lighter surface + an outer hairline, with a deeper drop for floating layers */

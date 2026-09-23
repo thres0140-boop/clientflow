@@ -57,7 +57,9 @@ Light values in the right column are byte-identical to the literal on the left.
 | `border-slate-200` | `border-line-hard` | `rgba(255,255,255,0.10)` |
 | `ring-slate-400` | `ring-line-focus` | `rgba(255,255,255,0.35)` |
 | `ring-offset-N` (any) | add `ring-offset-surface` | Tailwind's default offset colour is `#fff` = `surface` light. Without this the offset ring stays white in dark. |
-| `border-slate-300` | mint `line-harder` when first needed (light = slate-300 oklch) | |
+| `border-slate-50`, `divide-slate-50` | `border-line-softer`, `divide-line-softer` | `rgba(255,255,255,0.04)` |
+| `border-slate-300` | `border-line-harder` | `rgba(255,255,255,0.16)` |
+| `focus:ring-blue-400` | `focus:ring-info-400` | |
 
 ### Neutral text (`text-`)
 
@@ -71,6 +73,7 @@ graphite, not slate). Do not fold. Use the slate-exact tokens:
 | `text-slate-600` | `text-ink-600` | `#a3aba3` |
 | `text-slate-700` | `text-ink-700` | `#cfd5cf` |
 | `text-slate-800` | `text-ink-800` | `#e8ece8` |
+| `text-slate-200`, `placeholder-slate-200` | `text-ink-200`, `placeholder-ink-200` | `#3a413a` |
 | `text-slate-300`, `-900` | mint `ink-300` / `ink-900` when first needed | |
 
 ### `text-white` — decide by what it sits on
@@ -79,7 +82,9 @@ graphite, not slate). Do not fold. Use the slate-exact tokens:
 |---|---|
 | `bg-accent` / `bg-accent-strong` | `text-on-accent` (dark `#06120a`, because the accent is bright green in dark) |
 | `bg-ink` / `.o-btn-primary` | `text-on-ink` |
-| a solid status fill (`bg-ok-600`, `bg-danger-500`, …) | `text-on-status` (dark `#0a0c0a`) |
+| a solid status or hue fill (`bg-ok-600`, `bg-danger-500`, `bg-hue-pink-500`, …) | `text-on-status` (dark `#0a0c0a`) |
+| `bg-accent-N` (converted indigo) | `text-on-accent` |
+| `bg-surface-ink-N` (converted slate-700/800 button) | `text-on-ink` |
 | the sidebar (navy) | `text-nav-ink`, and `text-white/NN` → `text-nav-ink/NN` |
 | an IDENTITY colour (client / workspace / member `.color`, a brand gradient) | **leave `text-white`** — the thing under it does not change with the theme |
 
@@ -90,35 +95,81 @@ tint for 50/100, translucent line for 200, lighter ink for 500/600/700.
 
 | Literal family | Token family | grades that exist |
 |---|---|---|
-| `green-*` | `ok-*` | 50 100 200 500 600 700 |
-| `amber-*` | `warn-*` | 50 100 200 400 500 600 700 |
-| `red-*` | `danger-*` | 50 100 200 400 500 600 700 |
-| `blue-*` | `info-*` | 50 100 200 500 600 700 |
+| `green-*` | `ok-*` | 50 100 200 400 500 600 700 800 |
+| `amber-*` | `warn-*` | 50 100 200 300 400 500 600 700 800 |
+| `red-*` | `danger-*` | 50 100 200 300 400 500 600 700 |
+| `blue-*` | `info-*` | 50 100 200 300 400 500 600 700 800 |
 
 `bg-green-100 text-green-700` → `bg-ok-100 text-ok-700`. `hover:bg-red-100` →
 `hover:bg-danger-100`. `border-amber-200` → `border-warn-200`. A grade that is not in the
 list yet (e.g. `text-green-800`) is minted in BOTH the light block and the dark block
 before it is used, with the exact oklch value from Tailwind's palette.
 
-### Emerald, indigo, purple, orange, pink, and any other palette colour
+### Emerald, indigo, purple, orange, pink, rose, sky, cyan (Phase 3 rule)
 
 1. If the literal's light value equals an existing token's light value **exactly**, use
-   that token. Only indigo can match: `--color-accent` is `#3d4aa3` and
-   `--color-accent-strong` is `#2f3a86`. Tailwind's `indigo-600` is
-   `oklch(51.1% 0.262 276.966)`, which is NOT `#3d4aa3`, so `bg-indigo-600` does NOT map
-   to `bg-accent`. It is minted (see 3).
-2. Emerald is not green. `text-emerald-600` never becomes `text-ok-600`.
-3. Otherwise mint a token whose light value is the literal verbatim, named by role +
-   family + grade so the mapping stays mechanical: e.g. `--color-ok-alt-600` for
-   emerald-600 (dark `#34d399`), `--color-accent-600` for indigo-600 (dark `#22c55e`
-   only if it is used as a primary action; otherwise a lighter indigo `#818cf8`).
-   Add the light and the dark value in the same edit, and document the pair in this table.
-4. **Identity and brand colours are not theme colours.** Leave literal, whatever the
-   theme: `client.color`, `workspace.color`, `member.color`, the `COLORS` picker array in
-   SettingsPage, the fallback `#6366f1` for a member without a colour, the owner avatar
-   `#3b5bdb`, and the Instagram / TikTok brand gradients
-   (`from-orange-400 to-pink-500`, `from-accent via-pink-500 to-orange-400`). These are
-   the same in both themes by design. `text-white` on top of them also stays.
+   that token. Only indigo could match, and it does not: `--color-accent` is `#3d4aa3`,
+   Tailwind's `indigo-600` is `oklch(51.1% 0.262 276.966)`. So nothing folds.
+2. Emerald is not green, rose is not red, sky is not blue. Never fold across hues.
+3. **Indigo is the legacy accent** (spinners, resize handles, old primary buttons). It maps
+   to `accent-<grade>`: `bg-indigo-600` → `bg-accent-600`, `hover:bg-indigo-700` →
+   `hover:bg-accent-700`, `text-indigo-800` → `text-accent-800`, `bg-indigo-50` →
+   `bg-accent-50`. Light = Tailwind's indigo value; dark = the green accent family.
+   `text-white` on `bg-accent-N` → `text-on-accent`.
+4. **Every other hue is categorical** (tag colours, platform labels, diff red/green,
+   chart legends), not a status. It maps 1:1 to a `hue-<name>-<grade>` token:
+   `bg-emerald-100 text-emerald-700` → `bg-hue-emerald-100 text-hue-emerald-700`,
+   `border-rose-200` → `border-hue-rose-200`, `text-sky-400` → `text-hue-sky-400`.
+   Light = Tailwind's exact value. Dark follows one formula for every family so nothing
+   is hand-tuned: 50 / 100 / 200 / 300 = the hue at 10 / 18 / 32 / 45 % alpha,
+   400 / 500 = the hue, 600 / 700 / 800 = the hue's 400 / 300 / 200 (progressively
+   lighter ink). `ok`, `warn`, `danger`, `info` follow the same formula.
+   `text-white` on a `bg-hue-*-N` fill → `text-on-status`.
+5. A grade that does not exist yet is minted in both blocks before use, with the value
+   copied from `node_modules/tailwindcss/theme.css` (never typed from memory).
+6. **Identity and brand colours are not theme colours.** Leave literal, whatever the
+   theme: `client.color`, `workspace.color`, `member.color`, the `COLORS` picker arrays,
+   the fallback `#6366f1` / `#8b5cf6` for a record without a colour, the owner avatar
+   `#3b5bdb`, the Instagram brand gradients (`from-orange-400 to-pink-500`,
+   `from-accent via-pink-500 to-orange-400`, `from-accent to-pink-500`), TikTok's brand
+   black (`bg-black text-white` on the TikTok pages), and chart series palettes such as
+   `FUNNEL_COLORS`. These are the same in both themes by design. `text-white` on top of
+   them also stays.
+
+### Page canvas vs raised fill (Phase 3 rule)
+
+`bg-slate-50` on a **screen-height page wrapper** (`h-screen`, `min-h-screen`) is the page
+background, not a raised chip. It maps to `bg-canvas-2` (light = slate-50 exactly, dark =
+the canvas `#0a0c0a`) so cards stay lighter than the page in dark mode. Everywhere else
+`bg-slate-50` → `bg-surface-2`. This is the clearest case of one literal, two roles.
+
+### Media, scrims and brand black (Phase 3 rule)
+
+Anything painted **as the backdrop of, or on top of, a thumbnail / video / image** stays
+literal: `bg-black`, `bg-slate-800` / `bg-slate-900` placeholder tiles with an aspect
+ratio, `bg-black/NN` scrims and badges, `from-black/NN` / `via-black/NN` gradients,
+`text-white` / `text-white/NN` captions over media, `bg-white/NN` glass buttons over
+media, `border-white/NN` spinners on a dark tile, and inline video-player controls
+(`#000`, `#fff`, `rgba(0,0,0,.x)`). The media is the same in both themes, so its
+overlays are too. Tell-tales in the class string: `absolute`, `inset-0`, `aspect-`,
+`object-cover`, `object-contain`, `backdrop-blur`, `pointer-events-none`, `animate-spin`.
+
+The exceptions are shades on a **theme surface**, which must flip: `hover:bg-black/[0.06]`
+→ `hover:bg-shade/[0.06]`, `ring-black/10` → `ring-shade/10` (`--color-shade` is `#000`
+light, `#fff` dark). A translucent white over a theme surface (a card on a tinted
+panel: `bg-white/70`, `bg-white/80 border-white`, `hover:bg-white`) → `bg-surface/70`,
+`bg-surface/80 border-surface`, `hover:bg-surface`.
+
+A `bg-slate-700 text-white hover:bg-slate-800` neutral button (not media) →
+`bg-surface-ink-3 text-on-ink hover:bg-surface-ink-2`.
+
+### Inline v3 hexes that are neither identity nor media (Phase 3 rule)
+
+Old Tailwind v3 hexes typed inline (`#dcfce7`, `#15803d`, `#1e293b`, `#e2e8f0`,
+`#6366f1` as a chat bubble, chart status hexes) are NOT byte-equal to any v4 token, so
+each gets its own exact token: `chip-posted-bg`, `chip-posted-ink`, `chip-ink`,
+`fill-neutral`, `bubble-me`, `chart-red` / `chart-amber` / `chart-green` / `chart-empty`.
+Name them by what they paint. Do not map them to the nearest `ok-100`.
 
 ### Sidebar (navy in light, canvas-family near-black in dark)
 

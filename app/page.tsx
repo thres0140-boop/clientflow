@@ -426,7 +426,7 @@ export default function App() {
         const first = allowedPages[0];
         if (first) setTimeout(() => setPage(first), 0);
       }
-      return <div className="flex items-center justify-center h-full text-slate-400 text-sm">This page isn&apos;t available here.</div>;
+      return <div className="flex items-center justify-center h-full text-ink-400 text-sm">This page isn&apos;t available here.</div>;
     }
     const props = { clients, selectedClientId, refreshClients: fetchClients };
     switch (which) {
@@ -479,10 +479,10 @@ export default function App() {
   }
 
   if (!appReady) return (
-    <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+    <div className="flex h-screen w-screen items-center justify-center bg-canvas-2">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-        <span className="text-sm text-slate-400 font-medium">Loading...</span>
+        <div className="w-8 h-8 border-4 border-accent-600 border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm text-ink-400 font-medium">Loading...</span>
       </div>
     </div>
   );
@@ -490,7 +490,7 @@ export default function App() {
   const sidebarWidth = embedded || sidebarCollapsed ? 0 : 280;
 
   return (
-    <div className="flex h-full min-h-screen bg-slate-50">
+    <div className="flex h-full min-h-screen bg-canvas-2">
       {!embedded && <Sidebar
         currentPage={page}
         onNavigate={(p) => setPage(p as Page)}
@@ -540,16 +540,16 @@ export default function App() {
       />}
       {splitPage && session?.type === "owner" ? (
         <div ref={splitRef} className="fixed top-0 bottom-0 right-0 flex h-screen transition-[left] duration-200" style={{ left: sidebarWidth }}>
-          <div className="relative h-screen overflow-hidden bg-slate-50" style={{ width: `${splitRatio * 100}%` }}>
+          <div className="relative h-screen overflow-hidden bg-canvas-2" style={{ width: `${splitRatio * 100}%` }}>
             {paneEl(page)}
           </div>
           <div onMouseDown={startResize} title="Drag to resize"
-            className="w-1.5 h-screen flex-shrink-0 bg-slate-200 hover:bg-indigo-400 cursor-col-resize transition-colors" />
-          <div className="flex flex-col flex-1 h-screen overflow-hidden bg-slate-50">
-            <div className="flex items-center justify-between px-3 h-8 flex-shrink-0 border-b border-line bg-white">
+            className="w-1.5 h-screen flex-shrink-0 bg-surface-4 hover:bg-accent-400 cursor-col-resize transition-colors" />
+          <div className="flex flex-col flex-1 h-screen overflow-hidden bg-canvas-2">
+            <div className="flex items-center justify-between px-3 h-8 flex-shrink-0 border-b border-line bg-surface">
               <span className="text-[11px] font-semibold text-faint">◨ {PAGE_LABELS[splitPage]}</span>
               <button onClick={() => setSplitPage(null)} title="Close split view"
-                className="w-6 h-6 rounded-full text-faint hover:text-ink hover:bg-black/[0.06] flex items-center justify-center">✕</button>
+                className="w-6 h-6 rounded-full text-faint hover:text-ink hover:bg-shade/[0.06] flex items-center justify-center">✕</button>
             </div>
             <div className="relative flex-1 overflow-hidden">
               {paneEl(splitPage)}
@@ -560,7 +560,7 @@ export default function App() {
         ? <>{transitioning ? null : renderPage()}</>
         : <main className={`flex-1 ${embedded ? "p-6" : "p-8"} min-w-0 flex flex-col h-screen overflow-y-auto transition-[margin] duration-200`} style={{ marginLeft: sidebarWidth }}>
             {transitioning
-              ? <div className="flex items-center justify-center" style={{height: "calc(100vh - 4rem)"}}><div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
+              ? <div className="flex items-center justify-center" style={{height: "calc(100vh - 4rem)"}}><div className="w-7 h-7 border-4 border-accent-600 border-t-transparent rounded-full animate-spin" /></div>
               : renderPage()
             }
           </main>

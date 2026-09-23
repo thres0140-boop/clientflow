@@ -66,7 +66,7 @@ export default function PushToggle() {
 
   if (state === "unsupported") return null;
   if (state === "blocked") {
-    return <span className="text-[11px] text-slate-400" title="Notifications are blocked in your browser settings">🔕 Notifications blocked</span>;
+    return <span className="text-[11px] text-ink-400" title="Notifications are blocked in your browser settings">🔕 Notifications blocked</span>;
   }
   const on = state === "on";
   const busy = state === "working";
@@ -75,7 +75,7 @@ export default function PushToggle() {
       onClick={on ? disable : enable}
       disabled={busy}
       className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
-        on ? "bg-green-50 text-green-600 hover:bg-green-100" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+        on ? "bg-ok-50 text-ok-600 hover:bg-ok-100" : "bg-accent-50 text-accent-600 hover:bg-accent-100"
       } disabled:opacity-50`}
       title={on ? "Notifications on — click to turn off" : "Get notified of new messages"}
     >

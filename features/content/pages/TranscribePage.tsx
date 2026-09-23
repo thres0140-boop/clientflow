@@ -166,11 +166,11 @@ export default function TranscribePage() {
         Drop any video — any size — and get its transcript instantly. The audio is pulled out in your browser, so there's no upload limit.
       </p>
 
-      <div className="inline-flex rounded-lg border border-line bg-white p-0.5 mb-4">
+      <div className="inline-flex rounded-lg border border-line bg-surface p-0.5 mb-4">
         {([["transcribe", "🎙 Spoken transcript"], ["onscreen", "🔤 On-screen text"]] as [Mode, string][]).map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} disabled={busy}
             className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors disabled:opacity-50 ${
-              mode === m ? "bg-accent text-white" : "text-muted hover:text-ink-2"
+              mode === m ? "bg-accent text-on-accent" : "text-muted hover:text-ink-2"
             }`}>
             {label}
           </button>
@@ -201,14 +201,14 @@ export default function TranscribePage() {
       </button>
 
       {error && (
-        <div className="mt-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="mt-4 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm text-danger-700">{error}</div>
       )}
 
       {status === "done" && (
         <div className="mt-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-muted uppercase tracking-wide">Transcript · {wordCount} words</span>
-            <button onClick={copy} className="px-3 py-1.5 text-xs font-semibold text-white bg-accent rounded-lg hover:bg-accent-strong">
+            <button onClick={copy} className="px-3 py-1.5 text-xs font-semibold text-on-accent bg-accent rounded-lg hover:bg-accent-strong">
               {copied ? "✓ Copied" : "📋 Copy"}
             </button>
           </div>
