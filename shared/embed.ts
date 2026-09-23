@@ -15,6 +15,12 @@ export type OrdoNavigateMessage = {
   path: string;
 };
 
+/** Posted to the parent whenever the client list is (re)loaded, so its client switcher matches Ordo. */
+export type OrdoClientsMessage = {
+  type: "ordo:clients";
+  clients: { id: number; name: string; color: string; platform: string; workspace: string | null }[];
+};
+
 /** Message the parent may post to Ordo to change screens without reloading the iframe. */
 export type ParentNavigateMessage = {
   type: "ordo:navigate";

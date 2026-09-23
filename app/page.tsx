@@ -23,7 +23,7 @@ import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { applyTheme, readStoredTheme } from "@/shared/theme";
 import { countUnseenSentBack } from "@/features/scripts/sentBackSeen";
-import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
+import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoClientsMessage, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
 
 export type Page =
   | "headquarters"
@@ -102,6 +102,14 @@ export default function App() {
   const fetchClients = useCallback(async () => {
     const data: Client[] = await fetch("/api/clients").then((r) => r.json());
     setClients(data);
+    // Embedded in the Cenks Dashboard: hand it the client list for its own client switcher.
+    if (embedded && window.parent !== window && Array.isArray(data)) {
+      const msg: OrdoClientsMessage = {
+        type: "ordo:clients",
+        clients: data.map((c) => ({ id: c.id, name: c.name, color: c.color, platform: c.platform, workspace: (c as { workspace?: { name?: string } | null }).workspace?.name ?? null })),
+      };
+      window.parent.postMessage(msg, "*");
+    }
     // Always keep a client selected — default to first if none saved
     setSelectedClientId((prev) => {
       if (prev !== null) return prev;
@@ -112,7 +120,7 @@ export default function App() {
       }
       return data[0]?.id ?? null;
     });
-  }, []);
+  }, [embedded]);
 
   const fetchWorkspaces = useCallback(async () => {
     try {
