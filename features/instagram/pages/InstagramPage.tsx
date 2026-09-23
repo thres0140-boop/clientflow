@@ -186,9 +186,9 @@ export default function InstagramPage({ clients, selectedClientId, attachConcept
   return (
     <div className="space-y-5">
       {attachConcept && (
-        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-accent text-white o-elev-lift">
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-accent text-on-accent o-elev-lift">
           <p className="text-sm font-semibold">🎬 Adding reels to "{attachConcept.name}" — open a reel and tap "Add to concept group".</p>
-          <button onClick={onExitAttach} className="px-3 py-1.5 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-lg">✕ Done</button>
+          <button onClick={onExitAttach} className="px-3 py-1.5 text-xs font-semibold bg-on-accent/20 hover:bg-on-accent/30 rounded-lg">✕ Done</button>
         </div>
       )}
       <ProfileHeader
@@ -200,13 +200,13 @@ export default function InstagramPage({ clients, selectedClientId, attachConcept
         onDisconnect={disconnect}
       />
 
-      <div className="flex gap-1 bg-white border border-line rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-surface border border-line rounded-xl p-1 w-fit">
         {([["reels", "📱 Reels"], ["feed", "🗓 My Feed"], ["competitors", "🔍 Competitors"]] as [Tab, string][]).map(([id, label]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === id ? "bg-accent text-white" : "text-muted hover:text-ink-2"
+              tab === id ? "bg-accent text-on-accent" : "text-muted hover:text-ink-2"
             }`}
           >
             {label}
@@ -217,12 +217,12 @@ export default function InstagramPage({ clients, selectedClientId, attachConcept
       {tab === "reels" && (
         tokenExpired
           ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
-              <p className="text-amber-800 font-semibold mb-1">Instagram access token expired</p>
-              <p className="text-amber-600 text-sm mb-4">Reconnect to restore access to reels and insights.</p>
+            <div className="bg-warn-50 border border-warn-200 rounded-xl p-8 text-center">
+              <p className="text-warn-800 font-semibold mb-1">Instagram access token expired</p>
+              <p className="text-warn-600 text-sm mb-4">Reconnect to restore access to reels and insights.</p>
               <a
                 href={`/api/auth/instagram?clientId=${client.id}`}
-                className="inline-block bg-accent text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong"
+                className="inline-block bg-accent text-on-accent px-5 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong"
               >
                 Reconnect Instagram
               </a>
@@ -250,7 +250,7 @@ export default function InstagramPage({ clients, selectedClientId, attachConcept
 
 function NotConnectedReels({ client }: { client: Client }) {
   return (
-    <div className="bg-white rounded-2xl border border-line p-16 flex flex-col items-center text-center gap-5">
+    <div className="bg-surface rounded-2xl border border-line p-16 flex flex-col items-center text-center gap-5">
       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent via-pink-500 to-orange-400 flex items-center justify-center text-2xl o-elev-lift">
         📸
       </div>
@@ -260,14 +260,14 @@ function NotConnectedReels({ client }: { client: Client }) {
           Link the Instagram Business or Creator account to browse Reels, view analytics, and save content as concepts.
         </p>
       </div>
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-left max-w-sm w-full">
-        <p className="text-xs font-semibold text-amber-700 mb-2">Requirements</p>
+      <div className="bg-warn-50 border border-warn-200 rounded-xl px-5 py-4 text-left max-w-sm w-full">
+        <p className="text-xs font-semibold text-warn-700 mb-2">Requirements</p>
         {[
           "Instagram Business or Creator account",
           "Linked to a Facebook Page",
           "Added as tester in Meta Developer App",
         ].map((item) => (
-          <div key={item} className="flex items-start gap-2 text-xs text-amber-700 mt-1">
+          <div key={item} className="flex items-start gap-2 text-xs text-warn-700 mt-1">
             <span className="mt-0.5">•</span>
             {item}
           </div>
@@ -294,7 +294,7 @@ function ProfileHeader({
   onDisconnect: () => void;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-line px-6 py-5 flex items-center gap-6">
+    <div className="bg-surface rounded-2xl border border-line px-6 py-5 flex items-center gap-6">
       {profile?.profilePictureUrl
         ? <img src={profile.profilePictureUrl} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0 shadow" />
         : <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0 shadow" style={{ backgroundColor: client.color }}>
@@ -306,7 +306,7 @@ function ProfileHeader({
           <h2 className="text-base font-bold text-ink">
             {profile?.username ? `@${profile.username}` : client.name}
           </h2>
-          {isConnected && <span className="text-[10px] bg-blue-100 text-blue-600 font-semibold px-1.5 py-0.5 rounded-full">Business</span>}
+          {isConnected && <span className="text-[10px] bg-info-100 text-info-600 font-semibold px-1.5 py-0.5 rounded-full">Business</span>}
         </div>
         <p className="text-xs text-faint line-clamp-1">{profile?.biography || client.name}</p>
       </div>
@@ -323,13 +323,13 @@ function ProfileHeader({
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
         <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
-          isConnected ? "bg-green-100 text-green-700" : "bg-slate-100 text-muted"
+          isConnected ? "bg-ok-100 text-ok-700" : "bg-surface-3 text-muted"
         }`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-amber-400"}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-ok-500" : "bg-warn-400"}`} />
           {isConnected ? "Connected" : "Not connected"}
         </span>
         {isConnected && (
-          <button onClick={onDisconnect} className="text-xs text-faint hover:text-red-500 transition-colors">
+          <button onClick={onDisconnect} className="text-xs text-faint hover:text-danger-500 transition-colors">
             Disconnect
           </button>
         )}
@@ -385,8 +385,8 @@ function FeedPreview({ client, reels, profile, embedded }: { client: Client; ree
       <div className="flex items-center gap-4 mb-4 px-1">
         {profile?.profilePictureUrl
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={`/api/img?u=${encodeURIComponent(profile.profilePictureUrl)}`} alt="" className="w-16 h-16 rounded-full object-cover bg-slate-100" />
-          : <div className="w-16 h-16 rounded-full bg-slate-100" />}
+          ? <img src={`/api/img?u=${encodeURIComponent(profile.profilePictureUrl)}`} alt="" className="w-16 h-16 rounded-full object-cover bg-surface-3" />
+          : <div className="w-16 h-16 rounded-full bg-surface-3" />}
         <div>
           <p className="text-base font-bold text-ink">@{profile?.username || client.name}</p>
           <p className="text-xs text-muted">{fmt(profile?.mediaCount || reels.length)} posts · {fmt(profile?.followers || 0)} followers</p>
@@ -414,7 +414,7 @@ function FeedPreview({ client, reels, profile, embedded }: { client: Client; ree
               {it.kind === "planned" ? (
                 <>
                   <div className="absolute inset-0 ring-1 ring-accent/70 ring-inset pointer-events-none" />
-                  <span className="absolute top-1.5 left-1.5 bg-accent text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">📅 PLANNED</span>
+                  <span className="absolute top-1.5 left-1.5 bg-accent text-on-accent text-[9px] font-bold px-1.5 py-0.5 rounded-full">📅 PLANNED</span>
                   {it.when && <span className="absolute bottom-1.5 left-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">{new Date(it.when.includes("T") ? it.when : it.when + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
                 </>
               ) : (
@@ -447,9 +447,9 @@ function FeedViewer({ item, onClose }: { item: FeedItem; onClose: () => void }) 
             <img src={imgSrc(item.reel.thumbnail_url)} alt="" className="w-full object-contain" />
           ) : <div className="p-10 text-white/40">No preview</div>}
         </div>
-        <div className="sm:w-[40%] bg-white p-4 overflow-y-auto">
+        <div className="sm:w-[40%] bg-surface p-4 overflow-y-auto">
           <div className="flex items-center justify-between mb-2">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.kind === "planned" ? "bg-accent-tint text-accent-strong" : "bg-slate-100 text-ink-2"}`}>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.kind === "planned" ? "bg-accent-tint text-accent-strong" : "bg-surface-3 text-ink-2"}`}>
               {item.kind === "planned" ? "📅 Planned" : "✓ Posted"}
             </span>
             <button onClick={onClose} className="text-faint hover:text-ink-2 text-xl leading-none">×</button>
@@ -484,16 +484,16 @@ function ReelsGrid({ reels, onSelect, embedded }: { reels: IGReel[]; onSelect: (
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Weekday filter */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+          <div className="flex items-center gap-1 bg-surface-3 rounded-lg p-0.5">
             <button
               onClick={() => setDayFilter(null)}
-              className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${dayFilter === null ? "bg-white text-ink-2 shadow-sm" : "text-faint hover:text-ink-2"}`}
+              className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${dayFilter === null ? "bg-surface text-ink-2 shadow-sm" : "text-faint hover:text-ink-2"}`}
             >All</button>
             {WEEKDAY_FILTERS.map((w) => (
               <button
                 key={w.dow}
                 onClick={() => setDayFilter(dayFilter === w.dow ? null : w.dow)}
-                className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${dayFilter === w.dow ? "bg-accent text-white shadow-sm" : "text-faint hover:text-ink-2"}`}
+                className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors ${dayFilter === w.dow ? "bg-accent text-on-accent shadow-sm" : "text-faint hover:text-ink-2"}`}
               >{w.label}</button>
             ))}
           </div>
@@ -501,8 +501,8 @@ function ReelsGrid({ reels, onSelect, embedded }: { reels: IGReel[]; onSelect: (
             onClick={() => setSort(sort === "recent" ? "best" : "recent")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
               sort === "best"
-                ? "bg-amber-400 text-white"
-                : "bg-slate-100 text-muted hover:bg-slate-200"
+                ? "bg-warn-400 text-on-status"
+                : "bg-surface-3 text-muted hover:bg-surface-4"
             }`}
           >
             🏆 Best Performing
@@ -527,7 +527,7 @@ function ReelsGrid({ reels, onSelect, embedded }: { reels: IGReel[]; onSelect: (
             {/* Trial reel badge */}
             {reel.is_shared_to_feed === false && (
               <div className="absolute top-2 left-2 z-10">
-                <span className="bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide shadow">Trial</span>
+                <span className="bg-hue-orange-500 text-on-status text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide shadow">Trial</span>
               </div>
             )}
             {/* Posted date */}
@@ -542,13 +542,13 @@ function ReelsGrid({ reels, onSelect, embedded }: { reels: IGReel[]; onSelect: (
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
             <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-wrap gap-1">
               {reel.plays != null && (
-                <span className="flex items-center gap-0.5 bg-accent/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">▶ {fmt(reel.plays)}</span>
+                <span className="flex items-center gap-0.5 bg-accent/90 text-on-accent text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">▶ {fmt(reel.plays)}</span>
               )}
               {reel.like_count > 0 && (
-                <span className="flex items-center gap-0.5 bg-pink-500/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">♥ {fmt(reel.like_count)}</span>
+                <span className="flex items-center gap-0.5 bg-hue-pink-500/90 text-on-status text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">♥ {fmt(reel.like_count)}</span>
               )}
               {reel.saved != null && reel.saved > 0 && (
-                <span className="flex items-center gap-0.5 bg-amber-500/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">🔖 {fmt(reel.saved)}</span>
+                <span className="flex items-center gap-0.5 bg-warn-500/90 text-on-status text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">🔖 {fmt(reel.saved)}</span>
               )}
               {reel.comments_count > 0 && (
                 <span className="flex items-center gap-0.5 bg-slate-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">💬 {fmt(reel.comments_count)}</span>
@@ -719,11 +719,11 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 bg-white border border-line rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-surface border border-line rounded-xl p-1 w-fit">
         {([["list", "📋 List"], ["reels", "🎬 Reels"], ["find", "🔎 Find"]] as [CompSubTab, string][]).map(([id, label]) => (
           <button key={id} onClick={() => setSubTab(id)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              subTab === id ? "bg-accent text-white" : "text-muted hover:text-ink-2"
+              subTab === id ? "bg-accent text-on-accent" : "text-muted hover:text-ink-2"
             }`}>
             {label}
           </button>
@@ -741,7 +741,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
               {competitors.length > 0 && (
                 <button onClick={() => syncProfiles(false)} disabled={syncing}
                   title="Pulls follower/post data for competitors that are new or out of date (won't re-hit the API for ones already synced today)."
-                  className="px-3 py-2 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50">
+                  className="px-3 py-2 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4 disabled:opacity-50">
                   {syncing ? "Syncing…" : "↻ Sync data"}
                 </button>
               )}
@@ -750,7 +750,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
                 {suggesting ? "Thinking…" : "✨ Suggest competitors"}
               </button>
               <button onClick={() => setShowAdd(true)}
-                className="px-3 py-2 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent-strong">
+                className="px-3 py-2 text-xs font-medium bg-accent text-on-accent rounded-lg hover:bg-accent-strong">
                 + Add
               </button>
             </div>
@@ -762,7 +762,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
               <div className="flex flex-wrap gap-2">
                 {suggestions.map((handle) => (
                   <button key={handle} onClick={() => { setShowAdd(true); setSuggestions([]); }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-accent-tint rounded-lg text-xs font-medium text-ink-2 hover:border-accent hover:bg-accent-tint transition-colors">
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-accent-tint rounded-lg text-xs font-medium text-ink-2 hover:border-accent hover:bg-accent-tint transition-colors">
                     <span className="text-faint">@</span>{handle}
                     <span className="text-accent text-[10px]">+ add</span>
                   </button>
@@ -772,9 +772,9 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
           )}
 
           {quotaReached && (
-            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <span className="text-amber-500 text-sm mt-0.5">⚠️</span>
-              <p className="text-xs text-amber-700 leading-relaxed">
+            <div className="flex items-start gap-2.5 bg-warn-50 border border-warn-200 rounded-xl px-4 py-3">
+              <span className="text-warn-500 text-sm mt-0.5">⚠️</span>
+              <p className="text-xs text-warn-700 leading-relaxed">
                 <span className="font-semibold">Instagram data API quota reached.</span> Follower/post stats can't update
                 until the monthly quota resets or the RapidAPI plan is upgraded. Existing data stays as-is in the meantime.
               </p>
@@ -782,13 +782,13 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
           )}
 
           {competitors.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-line p-12 text-center">
+            <div className="bg-surface rounded-2xl border border-dashed border-line p-12 text-center">
               <div className="text-3xl mb-2">🔍</div>
               <p className="text-sm text-muted">No competitors tracked yet.</p>
               <p className="text-xs text-faint mt-1">Add handles manually or let AI suggest accounts in your niche.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-line overflow-hidden">
+            <div className="bg-surface rounded-2xl border border-line overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-line text-left text-[11px] font-semibold text-faint uppercase tracking-wide">
@@ -816,11 +816,11 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
       {subTab === "reels" && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+            <div className="flex gap-1 bg-surface-3 rounded-lg p-0.5">
               {([["recent", "🆕 Recent"], ["best", "🏆 Top"], ["trending", "📈 Trending"]] as ["recent"|"best"|"trending", string][]).map(([id, label]) => (
                 <button key={id} onClick={() => setReelSort(id)}
                   className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                    reelSort === id ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"
+                    reelSort === id ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"
                   }`}>
                   {label}
                 </button>
@@ -836,15 +836,15 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
               if (total === 0 || ready === total) return null;
               const pct = Math.round((ready / total) * 100);
               return (
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600" title="Videos are downloaded to our storage so they play instantly. This fills in automatically.">
-                  <span className="w-3.5 h-3.5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-warn-600" title="Videos are downloaded to our storage so they play instantly. This fills in automatically.">
+                  <span className="w-3.5 h-3.5 border-2 border-warn-500 border-t-transparent rounded-full animate-spin" />
                   Saving reels · {pct}% ready
-                  <span className="w-16 h-1.5 rounded-full bg-amber-100 overflow-hidden"><span className="block h-full bg-amber-500" style={{ width: `${pct}%` }} /></span>
+                  <span className="w-16 h-1.5 rounded-full bg-warn-100 overflow-hidden"><span className="block h-full bg-warn-500" style={{ width: `${pct}%` }} /></span>
                 </span>
               );
             })()}
             <button onClick={refreshNow} disabled={refreshing}
-              className="ml-auto px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded-lg hover:bg-accent-strong disabled:opacity-50">
+              className="ml-auto px-3 py-1.5 bg-accent text-on-accent text-xs font-semibold rounded-lg hover:bg-accent-strong disabled:opacity-50">
               {refreshing ? "Scraping…" : "↻ Refresh now"}
             </button>
           </div>
@@ -854,7 +854,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
             {([["all", "All formats"], ["talking_head", "🎙 Talking-head"], ["text_overlay", "📝 Text-overlay"], ["broll", "🎞 B-roll"]] as ["all"|"talking_head"|"text_overlay"|"broll", string][]).map(([id, label]) => (
               <button key={id} onClick={() => setFormatFilter(id)}
                 className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
-                  formatFilter === id ? "bg-slate-800 text-white border-slate-800" : "bg-white text-muted border-line hover:border-line-2"
+                  formatFilter === id ? "bg-surface-ink-2 text-on-ink border-surface-ink-2" : "bg-surface text-muted border-line hover:border-line-2"
                 }`}>
                 {label}
               </button>
@@ -877,16 +877,16 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
                   className="w-44 border border-line rounded-full px-3 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-accent" />
               )}
               {creatorOpen && !creatorFilter && (
-                <div className="absolute right-0 top-full mt-1 w-56 max-h-60 overflow-y-auto bg-white border border-line rounded-xl o-elev-lift z-[100] py-1">
+                <div className="absolute right-0 top-full mt-1 w-56 max-h-60 overflow-y-auto bg-surface border border-line rounded-xl o-elev-lift z-[100] py-1">
                   {competitors
                     .filter((c) => c.handle.toLowerCase().includes(creatorSearch.toLowerCase()))
                     .sort((a, b) => a.handle.localeCompare(b.handle))
                     .map((c) => (
                       <button key={c.id} onMouseDown={() => { setCreatorFilter(c.handle); setCreatorOpen(false); }}
-                        className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-slate-50 flex items-center gap-2">
+                        className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-surface-2 flex items-center gap-2">
                         {c.profilePicUrl
                           ? <img src={`/api/img?u=${encodeURIComponent(c.profilePicUrl)}`} alt="" className="w-5 h-5 rounded-full object-cover" />
-                          : <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-faint">{c.handle.slice(0, 2).toUpperCase()}</span>}
+                          : <span className="w-5 h-5 rounded-full bg-surface-3 flex items-center justify-center text-[8px] font-bold text-faint">{c.handle.slice(0, 2).toUpperCase()}</span>}
                         @{c.handle}
                       </button>
                     ))}
@@ -903,10 +903,10 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[10px] font-semibold text-faint uppercase tracking-wide mr-0.5">🏷 Tags</span>
               <button onClick={() => setTagFilter("")}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tagFilter === "" ? "bg-accent text-white border-accent" : "bg-white text-muted border-line hover:border-line-2"}`}>All</button>
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tagFilter === "" ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line hover:border-line-2"}`}>All</button>
               {allTags.map((t) => (
                 <button key={t} onClick={() => setTagFilter(tagFilter.toLowerCase() === t.toLowerCase() ? "" : t)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tagFilter.toLowerCase() === t.toLowerCase() ? "bg-accent text-white border-accent" : "bg-accent-tint text-accent-strong border-transparent hover:border-accent"}`}>
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tagFilter.toLowerCase() === t.toLowerCase() ? "bg-accent text-on-accent border-accent" : "bg-accent-tint text-accent-strong border-transparent hover:border-accent"}`}>
                   {t}
                 </button>
               ))}
@@ -914,7 +914,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
           )}
 
           {sortedReels.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-line p-16 flex flex-col items-center gap-4 text-center">
+            <div className="bg-surface rounded-2xl border border-dashed border-line p-16 flex flex-col items-center gap-4 text-center">
               <div className="text-3xl">🎬</div>
               <div>
                 <p className="text-sm font-semibold text-ink-2">
@@ -957,7 +957,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
                     {/* center play + details controls */}
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/25">
                       <button onClick={() => setPlayingReelId(reel.id)} title="Play reel"
-                        className="w-12 h-12 rounded-full bg-white/95 text-ink flex items-center justify-center text-lg o-elev-lift hover:scale-105 transition-transform">▶</button>
+                        className="w-12 h-12 rounded-full bg-surface/95 text-ink flex items-center justify-center text-lg o-elev-lift hover:scale-105 transition-transform">▶</button>
                       <button onClick={() => setSelectedReel(reel)}
                         className="text-[11px] font-semibold text-white bg-black/55 hover:bg-black/75 px-3 py-1 rounded-full backdrop-blur-sm">Details</button>
                     </div>
@@ -969,19 +969,19 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
                         </span>
                       )}
                       {reel.ready === false && (
-                        <span className="flex items-center gap-1 text-[9px] font-bold text-white bg-amber-500/90 px-1.5 py-0.5 rounded-full shadow backdrop-blur-sm"
+                        <span className="flex items-center gap-1 text-[9px] font-bold text-on-status bg-warn-500/90 px-1.5 py-0.5 rounded-full shadow backdrop-blur-sm"
                           title="We're saving this video to our storage so it plays instantly. Ready in a few minutes.">
                           <span className="w-2 h-2 border border-white border-t-transparent rounded-full animate-spin" /> Saving…
                         </span>
                       )}
                       {reel.exploded && (
-                        <span className="text-[9px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full shadow"
+                        <span className="text-[9px] font-bold text-on-status bg-hue-rose-500 px-1.5 py-0.5 rounded-full shadow"
                           title={reel.growthPct3d != null ? `+${Math.round(reel.growthPct3d)}% views in 3 days` : "Spiking"}>
                           🚀 {reel.viewDelta3d && reel.viewDelta3d > 0 ? `+${fmt(reel.viewDelta3d)}` : "hot"}
                         </span>
                       )}
                       {reel.isOutlier && reel.outlierX != null && (
-                        <span className="text-[9px] font-bold text-white bg-amber-500 px-1.5 py-0.5 rounded-full shadow"
+                        <span className="text-[9px] font-bold text-on-status bg-warn-500 px-1.5 py-0.5 rounded-full shadow"
                           title="Far above this account's median views — a break-out hit">
                           🔥 {reel.outlierX.toFixed(1)}× avg
                         </span>
@@ -999,16 +999,16 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
                     <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-wrap gap-1">
                       {reel.plays != null && (
-                        <span className="flex items-center gap-0.5 bg-accent/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">▶ {fmt(reel.plays)}</span>
+                        <span className="flex items-center gap-0.5 bg-accent/90 text-on-accent text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">▶ {fmt(reel.plays)}</span>
                       )}
                       {reel.like_count > 0 && (
-                        <span className="flex items-center gap-0.5 bg-pink-500/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">♥ {fmt(reel.like_count)}</span>
+                        <span className="flex items-center gap-0.5 bg-hue-pink-500/90 text-on-status text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">♥ {fmt(reel.like_count)}</span>
                       )}
                       {reel.comments_count > 0 && (
                         <span className="flex items-center gap-0.5 bg-slate-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">💬 {fmt(reel.comments_count)}</span>
                       )}
                       {reel.format && reel.format !== "other" && (
-                        <span className="flex items-center gap-0.5 bg-white/85 text-ink-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+                        <span className="flex items-center gap-0.5 bg-surface/85 text-ink-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm">
                           {reel.format === "talking_head" ? "🎙" : reel.format === "text_overlay" ? "📝" : "🎞"}
                         </span>
                       )}
@@ -1155,7 +1155,7 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-line rounded-2xl p-4 space-y-3">
+      <div className="bg-surface border border-line rounded-2xl p-4 space-y-3">
         <div>
           <p className="text-sm font-semibold text-ink-2">Find competitors</p>
           <p className="text-xs text-faint mt-0.5">Give one account in your niche — we pull Instagram's "similar accounts" for it (and theirs, and so on) to surface peers. Review and accept them into your tracked list.</p>
@@ -1164,7 +1164,7 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
           <div>
             <label className="block text-[10px] font-semibold text-muted uppercase mb-1">Seed account</label>
             <div className="flex items-center border border-line rounded-lg overflow-hidden">
-              <span className="px-2.5 py-2 bg-slate-50 text-faint text-sm">@</span>
+              <span className="px-2.5 py-2 bg-surface-2 text-faint text-sm">@</span>
               <input value={seed} onChange={(e) => setSeed(e.target.value.replace("@", ""))} placeholder="someone in your niche"
                 className="flex-1 px-2 py-2 text-sm focus:outline-none" />
             </div>
@@ -1183,12 +1183,12 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
         <div className="flex items-center gap-3">
           {!crawling ? (
             <button onClick={startCrawl} disabled={!seed.trim()}
-              className="px-4 py-2 text-sm font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong disabled:opacity-50">
+              className="px-4 py-2 text-sm font-semibold bg-accent text-on-accent rounded-lg hover:bg-accent-strong disabled:opacity-50">
               🔎 Start finding
             </button>
           ) : (
             <button onClick={() => { stopRef.current = true; }}
-              className="px-4 py-2 text-sm font-semibold bg-red-50 text-red-600 rounded-lg hover:bg-red-100">
+              className="px-4 py-2 text-sm font-semibold bg-danger-50 text-danger-600 rounded-lg hover:bg-danger-100">
               ■ Stop
             </button>
           )}
@@ -1203,13 +1203,13 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-[11px] text-faint">Filter:</span>
           <select value={gender} onChange={(e) => setGender(e.target.value)}
-            className="border border-line rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-accent">
+            className="border border-line rounded-lg px-2 py-1 text-xs bg-surface focus:outline-none focus:ring-2 focus:ring-accent">
             <option value="any">Any gender</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select>
           <select value={language} onChange={(e) => setLanguage(e.target.value)}
-            className="border border-line rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-accent">
+            className="border border-line rounded-lg px-2 py-1 text-xs bg-surface focus:outline-none focus:ring-2 focus:ring-accent">
             <option value="any">Any language</option>
             <option value="nl">Dutch</option>
             <option value="en">English</option>
@@ -1218,7 +1218,7 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
             <option value="fr">French</option>
           </select>
           <select value={followerSort} onChange={(e) => setFollowerSort(e.target.value as "none" | "desc" | "asc")}
-            className="border border-line rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-accent">
+            className="border border-line rounded-lg px-2 py-1 text-xs bg-surface focus:outline-none focus:ring-2 focus:ring-accent">
             <option value="none">Sort: default</option>
             <option value="desc">Followers: high → low</option>
             <option value="asc">Followers: low → high</option>
@@ -1227,12 +1227,12 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
         </div>
         {candidates.length > 0 && (
           <button onClick={async () => { if (confirm("Clear all candidates?")) { await fetch(`/api/competitors/candidates?clientId=${client.id}`, { method: "DELETE" }); loadCandidates(); } }}
-            className="text-xs text-faint hover:text-red-500">Clear all</button>
+            className="text-xs text-faint hover:text-danger-500">Clear all</button>
         )}
       </div>
 
       {shown.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-dashed border-line p-12 text-center text-sm text-faint">
+        <div className="bg-surface rounded-2xl border border-dashed border-line p-12 text-center text-sm text-faint">
           {candidates.length === 0
             ? "No candidates yet. Run a search above."
             : enriching ? "Classifying candidates for your filter…" : "No candidates match the current gender/language filter."}
@@ -1240,12 +1240,12 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {shown.map((c) => (
-            <div key={c.id} className="bg-white border border-line rounded-xl p-3 flex flex-col gap-2">
+            <div key={c.id} className="bg-surface border border-line rounded-xl p-3 flex flex-col gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 {c.profilePicUrl
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={`/api/img?u=${encodeURIComponent(c.profilePicUrl)}`} alt="" className="w-9 h-9 rounded-full object-cover bg-slate-100 flex-shrink-0" />
-                  : <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-faint flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</div>}
+                  ? <img src={`/api/img?u=${encodeURIComponent(c.profilePicUrl)}`} alt="" className="w-9 h-9 rounded-full object-cover bg-surface-3 flex-shrink-0" />
+                  : <div className="w-9 h-9 rounded-full bg-surface-3 flex items-center justify-center text-[10px] font-bold text-faint flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</div>}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink truncate">@{c.handle}</p>
                   <p className="text-[10px] text-faint truncate">
@@ -1259,9 +1259,9 @@ function FinderTab({ client, onAccepted }: { client: Client; onAccepted: () => v
                 ? <p className="text-[11px] leading-snug text-muted line-clamp-3 whitespace-pre-line">{c.bio}</p>
                 : <p className="text-[11px] text-faint italic">{enriching ? "loading bio…" : "no bio"}</p>}
               <div className="flex gap-1.5 mt-auto">
-                <button onClick={() => setPreview(c)} className="flex-1 py-1.5 text-[11px] font-semibold bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200">👁 View</button>
-                <button onClick={() => act(c, "accept")} className="px-2.5 py-1.5 text-[11px] font-semibold bg-green-50 text-green-600 rounded-lg hover:bg-green-100">✓</button>
-                <button onClick={() => act(c, "reject")} className="px-2.5 py-1.5 text-[11px] font-semibold bg-red-50 text-red-500 rounded-lg hover:bg-red-100">✕</button>
+                <button onClick={() => setPreview(c)} className="flex-1 py-1.5 text-[11px] font-semibold bg-surface-3 text-ink-2 rounded-lg hover:bg-surface-4">👁 View</button>
+                <button onClick={() => act(c, "accept")} className="px-2.5 py-1.5 text-[11px] font-semibold bg-ok-50 text-ok-600 rounded-lg hover:bg-ok-100">✓</button>
+                <button onClick={() => act(c, "reject")} className="px-2.5 py-1.5 text-[11px] font-semibold bg-danger-50 text-danger-500 rounded-lg hover:bg-danger-100">✕</button>
               </div>
             </div>
           ))}
@@ -1318,7 +1318,7 @@ function InlineReelPlayer({ reel, onClose, onDetails }: { reel: IGReel; onClose:
         <div className="flex flex-col items-center gap-2.5 px-4 text-center">
           <p className="text-white/60 text-xs">Not ready yet — still saving this reel.</p>
           <div className="flex items-center gap-2">
-            <button onClick={reload} className="bg-white/90 text-ink text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
+            <button onClick={reload} className="bg-surface/90 text-ink text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
             <a href={reel.permalink || (reel as any).instagramUrl || `https://instagram.com/reel/${reel.id}`} target="_blank" rel="noopener noreferrer" className="text-white/70 text-[11px] font-medium px-3 py-1 rounded-full border border-white/20">Open on Instagram ↗</a>
           </div>
         </div>
@@ -1365,8 +1365,8 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-3xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-line flex items-center justify-between sticky top-0 bg-white">
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-3xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-line flex items-center justify-between sticky top-0 bg-surface">
           <div className="flex items-center gap-2">
             <a href={`https://instagram.com/${candidate.handle}`} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-ink hover:text-accent">@{candidate.handle}</a>
             {(data?.profile?.followerCount ?? candidate.followerCount) != null && <span className="text-xs text-faint">{fmt((data?.profile?.followerCount ?? candidate.followerCount) as number)} followers</span>}
@@ -1396,7 +1396,7 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-2 text-center">
                           <p className="text-white/60 text-[10px]">Couldn&apos;t load</p>
-                          <a href={r.permalink || `https://instagram.com/reel/${r.shortcode}`} target="_blank" rel="noopener noreferrer" className="bg-white/90 text-ink text-[10px] font-semibold px-2 py-1 rounded-full">Open on IG ↗</a>
+                          <a href={r.permalink || `https://instagram.com/reel/${r.shortcode}`} target="_blank" rel="noopener noreferrer" className="bg-surface/90 text-ink text-[10px] font-semibold px-2 py-1 rounded-full">Open on IG ↗</a>
                         </div>
                       )
                     ) : (
@@ -1406,9 +1406,9 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
                           ? <img src={imgSrc(r.thumbnailUrl)} alt="" className="w-full h-full object-cover" />
                           : <div className="w-full h-full flex items-center justify-center text-2xl opacity-30">▶</div>}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-                          <span className="w-9 h-9 rounded-full bg-white/90 text-ink flex items-center justify-center text-sm shadow">▶</span>
+                          <span className="w-9 h-9 rounded-full bg-surface/90 text-ink flex items-center justify-center text-sm shadow">▶</span>
                         </div>
-                        {r.views != null && <span className="absolute bottom-1 left-1 bg-accent/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">▶ {fmt(r.views)}</span>}
+                        {r.views != null && <span className="absolute bottom-1 left-1 bg-accent/90 text-on-accent text-[9px] font-bold px-1.5 py-0.5 rounded-full">▶ {fmt(r.views)}</span>}
                       </button>
                     )}
                   </div>
@@ -1418,9 +1418,9 @@ function CandidatePreview({ candidate, onClose, onAccept, onReject }: { candidat
           )}
         </div>
         {onAccept && onReject && (
-          <div className="px-5 py-4 border-t border-line flex gap-2 sticky bottom-0 bg-white">
-            <button onClick={onReject} className="flex-1 py-2.5 text-sm font-semibold bg-red-50 text-red-600 rounded-xl hover:bg-red-100">✕ Reject</button>
-            <button onClick={onAccept} className="flex-1 py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700">✓ Accept as competitor</button>
+          <div className="px-5 py-4 border-t border-line flex gap-2 sticky bottom-0 bg-surface">
+            <button onClick={onReject} className="flex-1 py-2.5 text-sm font-semibold bg-danger-50 text-danger-600 rounded-xl hover:bg-danger-100">✕ Reject</button>
+            <button onClick={onAccept} className="flex-1 py-2.5 text-sm font-semibold bg-ok-600 text-on-status rounded-xl hover:bg-ok-700">✓ Accept as competitor</button>
           </div>
         )}
       </div>
@@ -1449,13 +1449,13 @@ function CompetitorProfileModal({ competitor: c, client, onClose }: { competitor
   const igUrl = c.profileUrl || `https://instagram.com/${c.handle}`;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-3xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-line flex items-center justify-between sticky top-0 bg-white z-10">
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-3xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-line flex items-center justify-between sticky top-0 bg-surface z-10">
           <div className="flex items-center gap-3 min-w-0">
             {c.profilePicUrl
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={`/api/img?u=${encodeURIComponent(c.profilePicUrl)}`} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0 bg-slate-100" />
-              : <div className="w-11 h-11 rounded-full bg-slate-100 flex-shrink-0" />}
+              ? <img src={`/api/img?u=${encodeURIComponent(c.profilePicUrl)}`} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0 bg-surface-3" />
+              : <div className="w-11 h-11 rounded-full bg-surface-3 flex-shrink-0" />}
             <div className="min-w-0">
               <a href={igUrl} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-ink hover:text-accent">@{c.handle} <span className="text-xs font-normal text-faint">↗</span></a>
               <p className="text-xs text-faint truncate">{c.followerCount != null ? `${fmt(c.followerCount)} followers` : ""}{c.name ? ` · ${c.name}` : ""}</p>
@@ -1485,12 +1485,12 @@ function CompetitorProfileModal({ competitor: c, client, onClose }: { competitor
                         <span className="bg-black/55 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm">{new Date(reel.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
                       </div>
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-black/25">
-                        <button onClick={() => setPlayingReelId(reel.id)} className="w-10 h-10 rounded-full bg-white/95 text-ink flex items-center justify-center text-sm o-elev-lift">▶</button>
+                        <button onClick={() => setPlayingReelId(reel.id)} className="w-10 h-10 rounded-full bg-surface/95 text-ink flex items-center justify-center text-sm o-elev-lift">▶</button>
                         <button onClick={() => setSelectedReel(reel)} className="text-[10px] font-semibold text-white bg-black/55 hover:bg-black/75 px-2.5 py-0.5 rounded-full backdrop-blur-sm">Details</button>
                       </div>
                       <div className="absolute bottom-0 inset-x-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent flex flex-wrap gap-1 pointer-events-none">
-                        {reel.plays != null && <span className="bg-accent/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">▶ {fmt(reel.plays)}</span>}
-                        {reel.like_count > 0 && <span className="bg-pink-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">♥ {fmt(reel.like_count)}</span>}
+                        {reel.plays != null && <span className="bg-accent/90 text-on-accent text-[9px] font-bold px-1.5 py-0.5 rounded-full">▶ {fmt(reel.plays)}</span>}
+                        {reel.like_count > 0 && <span className="bg-hue-pink-500/90 text-on-status text-[9px] font-bold px-1.5 py-0.5 rounded-full">♥ {fmt(reel.like_count)}</span>}
                       </div>
                     </>
                   )}
@@ -1543,12 +1543,12 @@ function TagCell({ competitor: c, allTags, onSaved }: { competitor: Competitor; 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-line rounded-xl o-elev-lift z-50 p-2" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute left-0 top-full mt-1 w-56 bg-surface border border-line rounded-xl o-elev-lift z-50 p-2" onClick={(e) => e.stopPropagation()}>
             {current.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">
                 {current.map((t) => (
                   <span key={t} className="flex items-center gap-1 px-2 py-0.5 bg-accent-tint text-accent-strong text-[10px] rounded-full font-semibold">
-                    {t}<button onClick={() => remove(t)} className="hover:text-red-500">✕</button>
+                    {t}<button onClick={() => remove(t)} className="hover:text-danger-500">✕</button>
                   </span>
                 ))}
               </div>
@@ -1562,7 +1562,7 @@ function TagCell({ competitor: c, allTags, onSaved }: { competitor: Competitor; 
             )}
             <div className="max-h-40 overflow-y-auto">
               {suggestions.map((t) => (
-                <button key={t} onClick={() => add(t)} className="w-full text-left px-2 py-1 text-[11px] text-ink-2 hover:bg-slate-50 rounded-md">🏷 {t}</button>
+                <button key={t} onClick={() => add(t)} className="w-full text-left px-2 py-1 text-[11px] text-ink-2 hover:bg-surface-2 rounded-md">🏷 {t}</button>
               ))}
               {suggestions.length === 0 && !canCreate && <p className="px-2 py-1.5 text-[10px] text-faint">No tags yet — type above to create one.</p>}
             </div>
@@ -1576,21 +1576,21 @@ function TagCell({ competitor: c, allTags, onSaved }: { competitor: Competitor; 
 function CompetitorRow({ competitor: c, allTags, onEdit, onDelete, onSaved, onView }: { competitor: Competitor; allTags: string[]; onEdit: () => void; onDelete: () => void; onSaved: () => void; onView: () => void }) {
   const url = c.profileUrl || `https://instagram.com/${c.handle}`;
   return (
-    <tr className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
+    <tr className="border-b border-line-softer last:border-0 hover:bg-surface-2/60 transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           {c.profilePicUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.profilePicUrl} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-slate-100" />
+            <img src={c.profilePicUrl} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-surface-3" />
           ) : (
-            <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-faint text-xs font-bold flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-surface-3 flex items-center justify-center text-faint text-xs font-bold flex-shrink-0">
               {c.handle.slice(0, 2).toUpperCase()}
             </div>
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <button onClick={onView} className="text-sm font-bold text-ink hover:text-accent truncate" title="View profile in ORDO">@{c.handle}</button>
-              {c.verified && <span className="text-blue-500 text-xs" title="Verified">✔</span>}
+              {c.verified && <span className="text-info-500 text-xs" title="Verified">✔</span>}
             </div>
             {c.name && <p className="text-xs text-faint truncate max-w-[220px]">{c.name}</p>}
           </div>
@@ -1607,9 +1607,9 @@ function CompetitorRow({ competitor: c, allTags, onEdit, onDelete, onSaved, onVi
           <button onClick={onView}
             className="px-2.5 py-1.5 text-xs font-medium text-accent bg-accent-tint rounded-lg hover:bg-accent-tint">View profile</button>
           <a href={url} target="_blank" rel="noopener noreferrer" title="Open on Instagram"
-            className="px-2 py-1.5 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200">↗</a>
-          <button onClick={onEdit} className="px-2.5 py-1.5 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
-          <button onClick={onDelete} className="px-2.5 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">✕</button>
+            className="px-2 py-1.5 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4">↗</a>
+          <button onClick={onEdit} className="px-2.5 py-1.5 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4">Edit</button>
+          <button onClick={onDelete} className="px-2.5 py-1.5 text-xs font-medium text-danger-500 bg-danger-50 rounded-lg hover:bg-danger-100">✕</button>
         </div>
       </td>
     </tr>
@@ -1656,7 +1656,7 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
         <div>
           <label className="block text-xs font-medium text-ink-2 mb-1">Instagram Handle *</label>
           <div className="flex items-center border border-line rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-accent">
-            <span className="px-3 py-2 bg-slate-50 text-faint text-sm border-r border-line">@</span>
+            <span className="px-3 py-2 bg-surface-2 text-faint text-sm border-r border-line">@</span>
             <input required value={form.handle} onChange={(e) => set("handle", e.target.value.replace("@", ""))}
               placeholder="username" className="flex-1 px-3 py-2 text-sm focus:outline-none" />
           </div>
@@ -1692,8 +1692,8 @@ function CompetitorModal({ clientId, competitor, onClose, onSaved }: {
             className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-strong disabled:opacity-50">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-surface-3 rounded-lg">Cancel</button>
+          <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-accent text-on-accent rounded-lg hover:bg-accent-strong disabled:opacity-50">
             {saving ? "Saving…" : competitor ? "Save Changes" : "Add Competitor"}
           </button>
         </div>
@@ -1998,12 +1998,12 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
 
   const primaryStats = [
     { label: "Views",       value: reel.plays,             icon: "▶",  color: "bg-accent-tint text-accent-strong" },
-    { label: "Reach",       value: reel.reach,              icon: "👁", color: "bg-sky-50 text-sky-700" },
-    { label: "Likes",       value: reel.like_count,         icon: "♥",  color: "bg-pink-50 text-pink-700" },
-    { label: "Saves",       value: reel.saved,              icon: "🔖", color: "bg-amber-50 text-amber-700" },
-    { label: "Shares",      value: reel.shares,             icon: "↗",  color: "bg-teal-50 text-teal-700" },
-    { label: "Comments",    value: reel.comments_count,     icon: "💬", color: "bg-slate-50 text-ink-2" },
-    { label: "Reposts",     value: reel.reposts,            icon: "🔁", color: "bg-green-50 text-green-700" },
+    { label: "Reach",       value: reel.reach,              icon: "👁", color: "bg-hue-sky-50 text-hue-sky-700" },
+    { label: "Likes",       value: reel.like_count,         icon: "♥",  color: "bg-hue-pink-50 text-hue-pink-700" },
+    { label: "Saves",       value: reel.saved,              icon: "🔖", color: "bg-warn-50 text-warn-700" },
+    { label: "Shares",      value: reel.shares,             icon: "↗",  color: "bg-hue-teal-50 text-hue-teal-700" },
+    { label: "Comments",    value: reel.comments_count,     icon: "💬", color: "bg-surface-2 text-ink-2" },
+    { label: "Reposts",     value: reel.reposts,            icon: "🔁", color: "bg-ok-50 text-ok-700" },
     { label: "Interactions",value: reel.totalInteractions,  icon: "⚡", color: "bg-accent-tint text-accent-strong" },
   ];
 
@@ -2059,7 +2059,7 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/40" onClick={onClose}>
       <div
-        className={`w-[520px] h-full bg-white flex flex-col o-elev-pop overflow-hidden transform transition-transform duration-300 ease-out ${mounted ? "translate-x-0" : "translate-x-full"}`}
+        className={`w-[520px] h-full bg-surface flex flex-col o-elev-pop overflow-hidden transform transition-transform duration-300 ease-out ${mounted ? "translate-x-0" : "translate-x-full"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-line flex-shrink-0">
@@ -2072,7 +2072,7 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
               <p className="text-[10px] text-faint">{new Date(reel.timestamp).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-faint">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-3 text-faint">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="relative bg-slate-900 aspect-[9/16] max-h-72 w-full flex items-center justify-center overflow-hidden">
@@ -2099,7 +2099,7 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
                         : <>
                             <span className="text-[11px] opacity-80">Not ready yet — still saving this reel.</span>
                             <div className="flex items-center gap-2">
-                              <button onClick={reloadCompUrl} className="bg-white/90 text-ink text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
+                              <button onClick={reloadCompUrl} className="bg-surface/90 text-ink text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
                               {igLink && <a href={igLink} target="_blank" rel="noopener noreferrer" className="text-white/70 text-[11px] font-medium px-3 py-1 rounded-full border border-white/20">Open on Instagram ↗</a>}
                             </div>
                           </>}
@@ -2159,7 +2159,7 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
               </div>
               {/* Engagement rates */}
               {rateStats.length > 0 && (
-                <div className="bg-slate-50 rounded-xl p-3">
+                <div className="bg-surface-2 rounded-xl p-3">
                   <p className="text-[10px] font-semibold text-faint mb-2">Engagement rates</p>
                   <div className="grid grid-cols-4 gap-1.5">
                     {rateStats.map(({ label, value, suffix }) => (
@@ -2177,24 +2177,24 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
                 <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">Transcript</p>
                 {transcript
                   ? <div className="flex items-center gap-3">
-                      <button onClick={translateToDutch} disabled={translating || transcribing} className="text-xs font-medium text-orange-600 hover:text-orange-800 disabled:opacity-50">
+                      <button onClick={translateToDutch} disabled={translating || transcribing} className="text-xs font-medium text-hue-orange-600 hover:text-hue-orange-800 disabled:opacity-50">
                         {translating ? "Translating…" : "🇳🇱 To Dutch"}
                       </button>
-                      <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-accent hover:text-indigo-800 disabled:opacity-50">
+                      <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-accent hover:text-accent-800 disabled:opacity-50">
                         {transcribing ? "Transcribing…" : "↻ Redo"}
                       </button>
-                      <button onClick={clearTranscript} disabled={transcribing} className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50">
+                      <button onClick={clearTranscript} disabled={transcribing} className="text-xs font-medium text-danger-500 hover:text-danger-700 disabled:opacity-50">
                         ✕ Clear
                       </button>
                     </div>
-                  : <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-accent hover:text-indigo-800 disabled:opacity-50">
+                  : <button onClick={transcribe} disabled={transcribing} className="text-xs font-medium text-accent hover:text-accent-800 disabled:opacity-50">
                       {transcribing ? "Transcribing…" : "↯ Auto-transcribe"}
                     </button>
                 }
               </div>
               {transcript
                 ? <div className="bg-accent-tint border border-accent-tint rounded-xl p-3.5 text-sm text-ink-2 leading-relaxed max-h-40 overflow-y-auto">{transcript}</div>
-                : <div className="bg-slate-50 border border-dashed border-line rounded-xl p-4 text-center">
+                : <div className="bg-surface-2 border border-dashed border-line rounded-xl p-4 text-center">
                     {transcribing
                       ? <div className="flex flex-col items-center gap-2">
                           <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -2212,14 +2212,14 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
               idea, with the video attached as the example to copy. */}
           {(reel.handle || reel.media_url) && (
             sentToKanban ? (
-              <div className="w-full py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">
+              <div className="w-full py-2.5 rounded-xl text-sm font-semibold bg-ok-100 text-ok-700 text-center">
                 ✓ Added to Kanban · {sentToKanban}
               </div>
             ) : (
               <div className="flex gap-2.5">
                 {/* One-click: drop just the video onto a Kanban card as the example to copy. */}
                 <button onClick={() => openKanbanPicker("video")}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-accent text-white hover:bg-accent-strong">
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-accent text-on-accent hover:bg-accent-strong">
                   🎬 Add video to Kanban
                 </button>
                 {/* Also carry the script/idea across (needs a transcript first). */}
@@ -2233,20 +2233,20 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
           {/* Drop the reel straight onto the Strategy Board canvas. */}
           {(reel.handle || reel.media_url) && (
             <button onClick={addToBoard} disabled={boardState !== "idle"}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${boardState === "added" ? "bg-green-100 text-green-700" : "bg-slate-100 text-ink-2 hover:bg-slate-200"} disabled:opacity-70`}>
+              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${boardState === "added" ? "bg-ok-100 text-ok-700" : "bg-surface-3 text-ink-2 hover:bg-surface-4"} disabled:opacity-70`}>
               {boardState === "added" ? "✓ Added to Strategy Board — open it to see it" : boardState === "adding" ? "Adding…" : "🧠 Add to Strategy Board"}
             </button>
           )}
           <div className="flex gap-2.5">
           {attachConcept ? (
             <button onClick={addToConceptGroup} disabled={attachState !== "idle"}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${attachState === "added" ? "bg-green-100 text-green-700" : "bg-accent text-white hover:bg-accent-strong"} disabled:opacity-70`}>
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${attachState === "added" ? "bg-ok-100 text-ok-700" : "bg-accent text-on-accent hover:bg-accent-strong"} disabled:opacity-70`}>
               {attachState === "added" ? `✓ Added to ${attachConcept.name}` : attachState === "saving" ? "Adding…" : `➕ Add to "${attachConcept.name}"`}
             </button>
           ) : saved ? (
-            <div className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">✓ Saved</div>
+            <div className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-ok-100 text-ok-700 text-center">✓ Saved</div>
           ) : linkedTo ? (
-            <div className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-green-100 text-green-700 text-center">✓ Linked to {linkedTo}</div>
+            <div className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-ok-100 text-ok-700 text-center">✓ Linked to {linkedTo}</div>
           ) : (
             <>
               <button onClick={() => saveAsConcept(true)} disabled={saving}
@@ -2254,18 +2254,18 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
                 {saving ? "Saving…" : "💡 Save as Idea"}
               </button>
               <button onClick={openConceptForm} disabled={saving}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-accent text-white hover:bg-accent-strong disabled:opacity-60">
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-accent text-on-accent hover:bg-accent-strong disabled:opacity-60">
                 {saving ? "Preparing…" : "✅ Save as Concept"}
               </button>
               <button onClick={openLinkPicker} disabled={saving} title="Add this reel to an existing concept's group"
-                className="px-3 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-ink-2 hover:bg-slate-200 disabled:opacity-60">
+                className="px-3 py-2.5 rounded-xl text-sm font-semibold bg-surface-3 text-ink-2 hover:bg-surface-4 disabled:opacity-60">
                 🔗 Link
               </button>
             </>
           )}
           {reel.media_url && (
             <a href={reel.media_url} target="_blank" rel="noopener noreferrer"
-              className="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 text-ink-2 hover:bg-slate-200">
+              className="px-4 py-2.5 rounded-xl text-sm font-medium bg-surface-3 text-ink-2 hover:bg-surface-4">
               Open ↗
             </a>
           )}
@@ -2276,7 +2276,7 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
 
     {showLinkPicker && (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={() => setShowLinkPicker(false)}>
-        <div className="w-[420px] max-h-[70vh] bg-white rounded-2xl o-elev-pop flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="w-[420px] max-h-[70vh] bg-surface rounded-2xl o-elev-pop flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
           <div className="px-5 py-3.5 border-b border-line flex items-center justify-between">
             <p className="text-sm font-bold text-ink">🔗 Link reel to a concept</p>
             <button onClick={() => setShowLinkPicker(false)} className="text-faint hover:text-ink-2">✕</button>
@@ -2301,7 +2301,7 @@ export function ReelDetailPanel({ reel, client, onClose, attachConcept }: { reel
 
     {showKanbanPicker && (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={() => setShowKanbanPicker(false)}>
-        <div className="w-[420px] max-h-[70vh] bg-white rounded-2xl o-elev-pop flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="w-[420px] max-h-[70vh] bg-surface rounded-2xl o-elev-pop flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
           <div className="px-5 py-3.5 border-b border-line flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-ink">{kanbanMode === "video" ? "🎬 Add video to Kanban — pick a concept" : "➡️ Send to Kanban — pick a concept"}</p>

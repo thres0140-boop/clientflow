@@ -163,6 +163,22 @@ panel: `bg-white/70`, `bg-white/80 border-white`, `hover:bg-white`) → `bg-surf
 A `bg-slate-700 text-white hover:bg-slate-800` neutral button (not media) →
 `bg-surface-ink-3 text-on-ink hover:bg-surface-ink-2`.
 
+### Glass, selected pills and placeholder gradients (Phase 3b rule)
+
+- **Glass whose text is already an ink token follows the surface, even over media.**
+  `bg-white/90 text-ink` (play buttons, "Open on IG", Retry) → `bg-surface/90 text-ink`,
+  `bg-white/85 text-ink-2` → `bg-surface/85 text-ink-2`. Otherwise the dark ink would sit
+  on a white pill. Glass with `text-white` or `text-white/NN` over media stays literal.
+- **Glass on an accent banner** (`bg-accent text-white` → `text-on-accent`) uses the
+  on-accent colour: `bg-white/20 hover:bg-white/30` → `bg-on-accent/20 hover:bg-on-accent/30`.
+- **A selected pill painted like a neutral primary button** (`bg-slate-800 text-white
+  border-slate-800`) → `bg-surface-ink-2 text-on-ink border-surface-ink-2`. A border that
+  exists only to match the fill uses the fill's token, not a `line-*` token.
+- **Placeholder gradients behind a thumbnail** (`bg-gradient-to-br from-slate-800
+  to-slate-900`) are media backdrops and stay literal, like `bg-slate-900` tiles.
+- `teal` is a categorical hue like the others: `bg-teal-50 text-teal-700` →
+  `bg-hue-teal-50 text-hue-teal-700`.
+
 ### Inline v3 hexes that are neither identity nor media (Phase 3 rule)
 
 Old Tailwind v3 hexes typed inline (`#dcfce7`, `#15803d`, `#1e293b`, `#e2e8f0`,
