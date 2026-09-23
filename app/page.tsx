@@ -21,7 +21,7 @@ import ContextPage from "@/features/scripts/pages/ContextPage";
 import TranscribePage from "@/features/content/pages/TranscribePage";
 import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
-import { applyTheme, readStoredTheme } from "@/shared/theme";
+import { applyTheme, readStoredTheme, startThemeColorSync } from "@/shared/theme";
 import { countUnseenSentBack } from "@/features/scripts/sentBackSeen";
 import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoClientsMessage, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
 
@@ -390,6 +390,10 @@ export default function App() {
 
   // Arc-style collapsible sidebar (persisted). When collapsed, content goes full-width
   // and the sidebar peeks out as an overlay when you hover the left edge.
+  // Title-bar colour (<meta name="theme-color">) follows the data-theme attribute, including
+  // an unsaved preview from Settings.
+  useEffect(() => startThemeColorSync(), []);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   useEffect(() => { try { setSidebarCollapsed(localStorage.getItem("cf_sidebar_collapsed") === "1"); } catch { /* ignore */ } }, []);
   const toggleSidebar = () => setSidebarCollapsed((v) => {

@@ -244,10 +244,10 @@
   --color-line-2: rgba(255, 255, 255, 0.12);
   --color-line-strong: rgba(255, 255, 255, 0.2);
 
-  --color-accent: #22c55e;
-  --color-accent-strong: #16a34a;
-  --color-accent-tint: rgba(34, 197, 94, 0.12);
-  --color-on-accent: #06120a;
+  --color-accent: #3d6ea8;
+  --color-accent-strong: #325b8a;
+  --color-accent-tint: rgba(61, 110, 168, 0.12);
+  --color-on-accent: #ffffff;
   --color-on-status: #0a0c0a;
   --color-knob: #e8ece8;
 
@@ -271,9 +271,9 @@
   --color-nav-ink: #e8ece8;
   --color-nav-ink-2: #b9c0b9;
   --color-nav-overlay: #ffffff;
-  --color-nav-active: rgba(34, 197, 94, 0.14);
-  --color-nav-active-strong: rgba(34, 197, 94, 0.22);
-  --color-nav-ring: #22c55e;
+  --color-nav-active: rgba(61, 110, 168, 0.14);
+  --color-nav-active-strong: rgba(61, 110, 168, 0.22);
+  --color-nav-ring: #3d6ea8;
   --nav-ink-2-rgb: 185,192,185;
   --nav-overlay-rgb: 255,255,255;
 
@@ -366,17 +366,17 @@
   --color-hue-violet-500: #8b5cf6;
   --color-hue-violet-600: #a78bfa;
   --color-hue-violet-700: #c4b5fd;
-  --color-accent-200: rgba(34, 197, 94, 0.32);
-  --color-accent-300: rgba(34, 197, 94, 0.45);
+  --color-accent-200: rgba(61, 110, 168, 0.32);
+  --color-accent-300: rgba(61, 110, 168, 0.45);
   --color-ink-300: #4a524a;
   --color-ink-900: #f2f5f2;
-  --color-accent-50: rgba(34, 197, 94, 0.10);
-  --color-accent-100: rgba(34, 197, 94, 0.18);
-  --color-accent-400: #4ade80;
-  --color-accent-500: #22c55e;
-  --color-accent-600: #4ade80;
-  --color-accent-700: #86efac;
-  --color-accent-800: #bbf7d0;
+  --color-accent-50: rgba(61, 110, 168, 0.10);
+  --color-accent-100: rgba(61, 110, 168, 0.18);
+  --color-accent-400: #5e8dc5;
+  --color-accent-500: #3d6ea8;
+  --color-accent-600: #5e8dc5;
+  --color-accent-700: #8fafd6;
+  --color-accent-800: #bccfe7;
   --color-canvas-2: #0a0c0a;
   --color-ink-200: #3a413a;
   --color-surface-ink: #f2f5f2;
@@ -386,7 +386,7 @@
   --color-line-harder: rgba(255, 255, 255, 0.16);
   --color-shade: #fff;
   --color-fill-neutral: #272d27;
-  --color-accent-legacy: #16a34a;
+  --color-accent-legacy: #325b8a;
   --color-chip-ink: #e8ece8;
   --color-chip-posted-bg: rgba(34, 197, 94, 0.18);
   --color-chip-posted-ink: #86efac;
@@ -401,14 +401,14 @@
   --shadow-soft: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 14px 38px rgba(0, 0, 0, 0.55);
   --shadow-pop:  0 0 0 1px rgba(255, 255, 255, 0.06), 0 30px 70px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.22);
+  --shadow-glow: 0 0 20px rgba(61, 110, 168, 0.22);
   --shadow-nav-peek: 8px 0 40px rgba(0, 0, 0, 0.75);
-  --shadow-nav-active: 0 0 16px rgba(34, 197, 94, 0.16);
-  --shadow-btn: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 18px rgba(34, 197, 94, 0.18);
-  --shadow-btn-accent: 0 0 20px rgba(34, 197, 94, 0.28);
+  --shadow-nav-active: 0 0 16px rgba(61, 110, 168, 0.16);
+  --shadow-btn: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 18px rgba(61, 110, 168, 0.18);
+  --shadow-btn-accent: 0 0 20px rgba(61, 110, 168, 0.28);
 }
-[data-theme="dark"] ::selection { background: rgba(34, 197, 94, 0.32); }
-[data-theme="dark"] :focus-visible { outline-color: rgba(34, 197, 94, 0.6); }
+[data-theme="dark"] ::selection { background: rgba(61, 110, 168, 0.32); }
+[data-theme="dark"] :focus-visible { outline-color: rgba(61, 110, 168, 0.6); }
 [data-theme="dark"] * { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 [data-theme="dark"] *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); background-clip: content-box; }
 [data-theme="dark"] *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); background-clip: content-box; }

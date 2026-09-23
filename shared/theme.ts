@@ -22,10 +22,18 @@ export const THEME_ATTR = "data-theme";
 
 export type Theme = "light" | "dark";
 
+/** Browser title-bar colour (<meta name="theme-color">) per theme. Light = the navy the
+ *  installed app has always shown; dark = the dark canvas so the bar blends into the app.
+ *  Next's static `viewport.themeColor` cannot follow a data attribute, so this is applied
+ *  from JS together with the attribute — see applyTheme and THEME_PRE_PAINT_SCRIPT. */
+export const THEME_COLOR: Record<Theme, string> = { light: "#0f1c34", dark: "#0a0c0a" };
+
 /** Runs inline in <head> before first paint (owner sessions only). Must stay tiny and self-contained. */
 export const THEME_PRE_PAINT_SCRIPT =
-  `(function(){try{if(localStorage.getItem(${JSON.stringify(THEME_KEY)})==="dark")` +
-  `document.documentElement.setAttribute(${JSON.stringify(THEME_ATTR)},"dark")}catch(e){}})();`;
+  `(function(){try{if(localStorage.getItem(${JSON.stringify(THEME_KEY)})==="dark"){` +
+  `document.documentElement.setAttribute(${JSON.stringify(THEME_ATTR)},"dark");` +
+  `var m=document.querySelector('meta[name="theme-color"]');` +
+  `if(m)m.setAttribute("content",${JSON.stringify(THEME_COLOR.dark)})}}catch(e){}})();`;
 
 export function readStoredTheme(): Theme {
   try {
@@ -40,6 +48,28 @@ export function applyTheme(theme: Theme) {
   if (typeof document === "undefined") return;
   if (theme === "dark") document.documentElement.setAttribute(THEME_ATTR, "dark");
   else document.documentElement.removeAttribute(THEME_ATTR);
+  syncThemeColorMeta();
+}
+
+/** Makes <meta name="theme-color"> match the data-theme attribute. Called from applyTheme,
+ *  and by the observer below on every attribute change, so the two can never drift. */
+export function syncThemeColorMeta() {
+  if (typeof document === "undefined") return;
+  const theme: Theme = document.documentElement.getAttribute(THEME_ATTR) === "dark" ? "dark" : "light";
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) { meta = document.createElement("meta"); meta.setAttribute("name", "theme-color"); document.head.appendChild(meta); }
+  if (meta.getAttribute("content") !== THEME_COLOR[theme]) meta.setAttribute("content", THEME_COLOR[theme]);
+}
+
+/** Keeps the title-bar colour following data-theme for the life of the page (covers an
+ *  unsaved preview from Settings and any re-render that rewrites the meta tag). Returns
+ *  the disconnect function; call once from the app shell. */
+export function startThemeColorSync(): () => void {
+  if (typeof document === "undefined") return () => {};
+  syncThemeColorMeta();
+  const obs = new MutationObserver(syncThemeColorMeta);
+  obs.observe(document.documentElement, { attributes: true, attributeFilter: [THEME_ATTR] });
+  return () => obs.disconnect();
 }
 
 /** Persist + apply. Only ever called from the owner-only toggle in Settings. */
