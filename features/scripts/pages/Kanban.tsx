@@ -1144,15 +1144,15 @@ function FileUploadButton({ draft, onUploaded }: { draft: ScriptDraft; onUploade
   return (
     <>
       <input ref={inputRef} type="file" accept="video/*,image/*" multiple className="hidden" onChange={handleFiles} />
-      {error && <p className="text-[9px] text-red-500 truncate">{error}</p>}
+      {error && <p className="text-[9px] text-danger-500 truncate">{error}</p>}
       <button
         onClick={() => inputRef.current?.click()}
         disabled={progress !== null}
         title="Upload raw content"
         className={`px-2 py-1 text-[10px] font-semibold rounded-lg transition-colors ${
           existing.length > 0
-            ? "text-green-600 bg-green-50 hover:bg-green-100"
-            : "text-slate-500 bg-slate-100 hover:bg-slate-200"
+            ? "text-ok-600 bg-ok-50 hover:bg-ok-100"
+            : "text-ink-500 bg-surface-3 hover:bg-surface-4"
         }`}>
         {progress !== null ? `${progress}%` : existing.length > 0 ? `📎 ${existing.length}` : "⬆ Upload"}
       </button>
@@ -1188,17 +1188,17 @@ function VideoShareLink({ url, draftId }: { url: string; draftId?: number }) {
     <div className="mt-2 space-y-2">
       <div className="flex items-center gap-2">
         <input readOnly value={url} onFocus={(e) => e.currentTarget.select()}
-          className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-500 truncate" />
+          className="flex-1 min-w-0 border border-line-hard rounded-lg px-2 py-1.5 text-[11px] text-ink-500 truncate" />
         <button
           onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ } }}
-          className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">
+          className="px-2.5 py-1.5 text-[11px] font-semibold bg-surface-3 text-ink-600 rounded-lg hover:bg-surface-4 whitespace-nowrap">
           {copied ? "✓" : "🔗 Video"}
         </button>
         <button onClick={() => setShowQR((s) => !s)}
-          className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱</button>
+          className="px-2.5 py-1.5 text-[11px] font-semibold bg-surface-3 text-ink-600 rounded-lg hover:bg-surface-4 whitespace-nowrap">📱</button>
       </div>
       {showQR && (
-        <div className="flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3">
+        <div className="flex flex-col items-center gap-1 bg-surface border border-line-hard rounded-xl p-3">
           <QRCodeSVG value={url} size={140} />
           <p className="text-[10px] text-faint">Scan to open the raw video</p>
         </div>
@@ -1209,15 +1209,15 @@ function VideoShareLink({ url, draftId }: { url: string; draftId?: number }) {
           <button
             onClick={async () => { const u = await getReviewUrl(); if (u) { try { await navigator.clipboard.writeText(u); setReviewCopied(true); setTimeout(() => setReviewCopied(false), 1500); } catch { /* ignore */ } } }}
             disabled={minting}
-            className="flex-1 px-2.5 py-1.5 text-[11px] font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap disabled:opacity-50">
+            className="flex-1 px-2.5 py-1.5 text-[11px] font-semibold bg-ok-600 text-on-status rounded-lg hover:bg-ok-700 whitespace-nowrap disabled:opacity-50">
             {minting ? "…" : reviewCopied ? "✓ Review link copied" : "✅ Copy review link (approve from phone)"}
           </button>
           <button onClick={async () => { await getReviewUrl(); setReviewQR((s) => !s); }}
-            className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱</button>
+            className="px-2.5 py-1.5 text-[11px] font-semibold bg-surface-3 text-ink-600 rounded-lg hover:bg-surface-4 whitespace-nowrap">📱</button>
         </div>
       )}
       {reviewQR && reviewUrl && (
-        <div className="flex flex-col items-center gap-1 bg-white border border-slate-200 rounded-xl p-3">
+        <div className="flex flex-col items-center gap-1 bg-surface border border-line-hard rounded-xl p-3">
           <QRCodeSVG value={reviewUrl} size={140} />
           <p className="text-[10px] text-faint">Scan to review + approve on your phone</p>
         </div>
@@ -1251,15 +1251,15 @@ function EditedVideoUploadButton({ draft, onUploaded }: { draft: ScriptDraft; on
 
   return (
     <div className="space-y-1">
-      {error && <p className="text-[9px] text-red-500">{error}</p>}
+      {error && <p className="text-[9px] text-danger-500">{error}</p>}
       <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
       <button
         onClick={() => inputRef.current?.click()}
         disabled={progress !== null}
         className={`w-full py-1.5 text-[10px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 ${
           hasVideo
-            ? "text-green-700 bg-green-100 hover:bg-green-200"
-            : "text-orange-600 bg-orange-50 hover:bg-orange-100"
+            ? "text-ok-700 bg-ok-100 hover:bg-ok-200"
+            : "text-hue-orange-600 bg-hue-orange-50 hover:bg-hue-orange-100"
         }`}>
         {progress !== null ? `Uploading ${progress}%` : hasVideo ? "✓ Edited video uploaded · Replace" : "⬆ Upload Edited Video"}
       </button>
@@ -1319,7 +1319,7 @@ function ExampleReelPlayer({ reelId, storedUrl, thumbnail, igLink, onDetails }:
               ? <video src={videoSrc(stored)} preload="metadata" muted playsInline className="w-full h-full object-cover" />
               : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />}
           <div className="absolute inset-0 flex items-center justify-center bg-black/25 group-hover:bg-black/35 transition-colors">
-            <span className="w-12 h-12 rounded-full bg-white/90 text-ink flex items-center justify-center text-lg shadow-lg">▶</span>
+            <span className="w-12 h-12 rounded-full bg-surface/90 text-ink flex items-center justify-center text-lg shadow-lg">▶</span>
           </div>
         </button>
       ) : loading ? (
@@ -1335,7 +1335,7 @@ function ExampleReelPlayer({ reelId, storedUrl, thumbnail, igLink, onDetails }:
         <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-4 text-center">
           <p className="text-white/60 text-[11px]">Couldn&apos;t load the video here.</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => { triedRefresh.current = false; resolve(true); }} className="bg-white/90 text-ink text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
+            <button onClick={() => { triedRefresh.current = false; resolve(true); }} className="bg-surface/90 text-ink text-[11px] font-semibold px-3 py-1 rounded-full">Retry</button>
             {igLink && <a href={igLink} target="_blank" rel="noopener noreferrer" className="text-white/70 text-[11px] font-medium px-3 py-1 rounded-full border border-white/20">Watch on Instagram ↗</a>}
           </div>
         </div>
@@ -1382,19 +1382,19 @@ function ExampleDetailPanel({ reelId, storedUrl, thumbnail, igLink, onClose }:
 
   const stats = [
     { label: "Views", value: info?.views, icon: "▶", color: "bg-accent-tint text-accent-strong" },
-    { label: "Likes", value: info?.likes, icon: "♥", color: "bg-pink-50 text-pink-700" },
-    { label: "Comments", value: info?.comments, icon: "💬", color: "bg-slate-50 text-ink-2" },
+    { label: "Likes", value: info?.likes, icon: "♥", color: "bg-hue-pink-50 text-hue-pink-700" },
+    { label: "Comments", value: info?.comments, icon: "💬", color: "bg-surface-2 text-ink-2" },
   ].filter((s) => s.value != null);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-end bg-black/40" onClick={onClose}>
-      <div className={`w-[460px] max-w-full h-full bg-white flex flex-col o-elev-pop overflow-hidden transform transition-transform duration-300 ease-out ${mounted ? "translate-x-0" : "translate-x-full"}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`w-[460px] max-w-full h-full bg-surface flex flex-col o-elev-pop overflow-hidden transform transition-transform duration-300 ease-out ${mounted ? "translate-x-0" : "translate-x-full"}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line flex-shrink-0">
           <div>
             <p className="text-sm font-semibold text-ink">{info?.handle ? `@${info.handle}` : "Reference reel"}</p>
             {info?.postedAt && <p className="text-[10px] text-faint">{new Date(info.postedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>}
           </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-faint">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-3 text-faint">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 pb-0">
@@ -1425,7 +1425,7 @@ function ExampleDetailPanel({ reelId, storedUrl, thumbnail, igLink, onClose }:
               </div>
               {transcript
                 ? <div className="bg-accent-tint border border-accent-tint rounded-xl p-3.5 text-sm text-ink-2 leading-relaxed max-h-52 overflow-y-auto">{transcript}</div>
-                : <div className="bg-slate-50 border border-dashed border-line rounded-xl p-4 text-center">
+                : <div className="bg-surface-2 border border-dashed border-line rounded-xl p-4 text-center">
                     {transcribing
                       ? <div className="flex flex-col items-center gap-2"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /><p className="text-xs text-faint">Transcribing audio…</p></div>
                       : <p className="text-xs text-faint">{reelId ? "Click to auto-transcribe via Whisper" : "No transcript available for this example."}</p>}
@@ -1467,7 +1467,7 @@ function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUplo
   }
   return (
     <div>
-      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">🎬 Example to copy</label>
+      <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">🎬 Example to copy</label>
       {hasExample ? (
         <ExampleReelPlayer
           reelId={d0.exampleReelId ?? null}
@@ -1477,7 +1477,7 @@ function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUplo
           onDetails={d0.exampleReelId ? () => setShowDetails(true) : undefined}
         />
       ) : (
-        <p className="text-xs text-slate-400 italic mb-1.5">No example yet — add a reference recording for whoever films this.</p>
+        <p className="text-xs text-ink-400 italic mb-1.5">No example yet — add a reference recording for whoever films this.</p>
       )}
       {showDetails && (
         <ExampleDetailPanel
@@ -1493,31 +1493,31 @@ function ExampleVideoSection({ draft, onUploaded }: { draft: ScriptDraft; onUplo
       {/* Instagram (or other) link to the reference reel — paste it so whoever films can
           open the real post directly. */}
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-[11px] text-slate-400 flex-shrink-0">📎 IG link</span>
+        <span className="text-[11px] text-ink-400 flex-shrink-0">📎 IG link</span>
         <input value={igLink}
           onChange={(e) => setIgLink(e.target.value)}
           onBlur={(e) => saveIgLink(e.target.value)}
           placeholder="paste the Instagram reel link…"
-          className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          className="flex-1 border border-line-hard rounded-lg px-2.5 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-accent-400" />
         {igLink.trim() && (
           <a href={igLink} target="_blank" rel="noopener noreferrer"
-            className="text-[11px] font-semibold text-pink-600 hover:text-pink-800 flex-shrink-0">↗ Open</a>
+            className="text-[11px] font-semibold text-hue-pink-600 hover:text-hue-pink-800 flex-shrink-0">↗ Open</a>
         )}
       </div>
 
       <div className="flex items-center gap-2">
         <button onClick={() => inputRef.current?.click()} disabled={progress !== null}
-          className="text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg">
+          className="text-[11px] font-semibold text-warn-700 bg-warn-50 hover:bg-warn-100 px-2.5 py-1 rounded-lg">
           {progress !== null ? `Uploading ${progress}%…` : draft.exampleVideoUrl ? "Replace example" : "⬆ Upload example"}
         </button>
         {(igLink.trim() || draft.exampleVideoUrl) && (
           <button onClick={copyLink} title="Copy the reference link"
-            className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${copied ? "text-emerald-700 bg-emerald-50" : "text-indigo-700 bg-indigo-50 hover:bg-indigo-100"}`}>
+            className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${copied ? "text-hue-emerald-700 bg-hue-emerald-50" : "text-accent-700 bg-accent-50 hover:bg-accent-100"}`}>
             {copied ? "✓ Copied" : igLink.trim() ? "🔗 Copy IG link" : "🔗 Copy link"}
           </button>
         )}
         {draft.exampleVideoUrl && (
-          <button onClick={() => onUploaded(null)} className="text-[11px] text-slate-400 hover:text-red-500 ml-auto">Remove</button>
+          <button onClick={() => onUploaded(null)} className="text-[11px] text-ink-400 hover:text-danger-500 ml-auto">Remove</button>
         )}
       </div>
     </div>
@@ -1533,26 +1533,26 @@ function SaveIdeaButton({ draft, interval, onSave }: { draft: ScriptDraft; inter
     <>
       <button onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         title="Save as idea for later"
-        className="px-2 py-1 text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100">
+        className="px-2 py-1 text-[10px] font-semibold text-warn-600 bg-warn-50 rounded-lg hover:bg-warn-100">
         💡
       </button>
       {open && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={(e) => { e.stopPropagation(); setOpen(false); }}>
-          <div className="bg-white rounded-2xl o-elev-pop w-full max-w-xs p-5" onClick={(e) => e.stopPropagation()}>
-            <p className="text-sm font-bold text-slate-800 mb-1">💡 Save as idea</p>
-            <p className="text-xs text-slate-500 mb-4 line-clamp-1">{draft.title}</p>
-            <label className="text-xs font-semibold text-slate-600">Resurface in how many weeks?</label>
+          <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-xs p-5" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-bold text-ink-800 mb-1">💡 Save as idea</p>
+            <p className="text-xs text-ink-500 mb-4 line-clamp-1">{draft.title}</p>
+            <label className="text-xs font-semibold text-ink-600">Resurface in how many weeks?</label>
             <div className="flex items-center gap-2 mt-2 mb-4">
               <input type="number" min={1} max={52} value={weeks} autoFocus
                 onChange={(e) => setWeeks(parseInt(e.target.value) || 1)}
-                className="w-20 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-              <span className="text-xs text-slate-500">weeks</span>
+                className="w-20 border border-line-hard rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-warn-400" />
+              <span className="text-xs text-ink-500">weeks</span>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setOpen(false)}
-                className="flex-1 py-2 text-xs font-medium text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200">Cancel</button>
+                className="flex-1 py-2 text-xs font-medium text-ink-500 bg-surface-3 rounded-lg hover:bg-surface-4">Cancel</button>
               <button onClick={() => { onSave(weeks); setOpen(false); }}
-                className="flex-1 py-2 text-xs font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600">Save idea</button>
+                className="flex-1 py-2 text-xs font-semibold text-on-status bg-warn-500 rounded-lg hover:bg-warn-600">Save idea</button>
             </div>
           </div>
         </div>
@@ -1716,12 +1716,12 @@ function DraftDetailPanel({
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/30" onClick={onClose} />
-      <div className="w-[680px] max-w-[92vw] bg-white shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-[680px] max-w-[92vw] bg-surface shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-line flex items-start justify-between flex-shrink-0">
           <div>
-            <p className="text-xs font-semibold text-indigo-500 mb-0.5">{draft.concept ? ((draft.concept as any).conceptType ? `${(draft.concept as any).conceptType} · ${draft.concept.name}` : draft.concept.name) : ""}</p>
-            <h3 className="text-sm font-bold text-slate-800">{draft.title}</h3>
+            <p className="text-xs font-semibold text-accent-500 mb-0.5">{draft.concept ? ((draft.concept as any).conceptType ? `${(draft.concept as any).conceptType} · ${draft.concept.name}` : draft.concept.name) : ""}</p>
+            <h3 className="text-sm font-bold text-ink-800">{draft.title}</h3>
             <p className="text-[10px] text-faint mt-0.5">{draft.weekLabel}{draft.dayLabel ? ` · ${draft.dayLabel}` : ""}</p>
           </div>
           <div className="flex items-center gap-3 ml-4">
@@ -1730,29 +1730,29 @@ function DraftDetailPanel({
                 {navList.indexOf(draft.id) + 1} / {navList.length} · ◄ ►
               </span>
             )}
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
+            <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-lg leading-none">×</button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {draft.rejectionFeedback && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">↩ {inStage ? "Sent back — needs changes" : "Feedback from whoever sent this back"}</p>
-              <p className="text-sm text-amber-800">{draft.rejectionFeedback}</p>
+            <div className="bg-warn-50 border border-warn-200 rounded-xl px-4 py-3">
+              <p className="text-[10px] font-semibold text-warn-600 uppercase tracking-wide mb-1">↩ {inStage ? "Sent back — needs changes" : "Feedback from whoever sent this back"}</p>
+              <p className="text-sm text-warn-800">{draft.rejectionFeedback}</p>
             </div>
           )}
           {hookOptions.length > 1 && (
-            <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-4 py-3">
-              <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide mb-2">♻️ Hook options — pick the one to record</p>
+            <div className="rounded-xl border border-hue-purple-200 bg-hue-purple-50/60 px-4 py-3">
+              <p className="text-[10px] font-semibold text-hue-purple-600 uppercase tracking-wide mb-2">♻️ Hook options — pick the one to record</p>
               <div className="space-y-1.5">
                 {hookOptions.map((h, i) => {
                   const active = (hook || "").trim() === h.trim();
                   return (
                     <button key={i} onClick={() => selectHook(h)}
                       className={`w-full text-left text-xs px-3 py-2 rounded-lg border transition-all flex items-start gap-2 ${
-                        active ? "bg-white border-purple-400 ring-1 ring-purple-300 text-slate-800" : "bg-white/70 border-slate-200 text-slate-600 hover:border-purple-300"
+                        active ? "bg-surface border-hue-purple-400 ring-1 ring-hue-purple-300 text-ink-800" : "bg-surface/70 border-line-hard text-ink-600 hover:border-hue-purple-300"
                       }`}>
-                      <span className={`mt-0.5 w-3.5 h-3.5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] ${active ? "bg-purple-600 text-white" : "border border-slate-300"}`}>
+                      <span className={`mt-0.5 w-3.5 h-3.5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] ${active ? "bg-hue-purple-600 text-on-status" : "border border-line-harder"}`}>
                         {active && "✓"}
                       </span>
                       <span>{h}</span>
@@ -1765,7 +1765,7 @@ function DraftDetailPanel({
           {isTextOverlay ? (
             /* Text-hook + B-roll format: no spoken script — just the on-screen text. */
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Text Hook · on-screen text</label>
+              <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Text Hook · on-screen text</label>
               <textarea rows={8} value={script}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -1781,14 +1781,14 @@ function DraftDetailPanel({
                     setPrevScript(e.target.value);
                   }
                 }}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent-500 resize-none" />
               <p className="text-[10px] text-faint mt-1">on-screen text cards · {script.split(" ").filter(Boolean).length} words</p>
             </div>
           ) : (
             <>
               {/* Hook */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Text Hook</label>
+                <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Text Hook</label>
                 <input value={hook}
                   onChange={(e) => { setHook(e.target.value); onScriptUpdated(script, e.target.value); }}
                   onBlur={(e) => {
@@ -1799,12 +1799,12 @@ function DraftDetailPanel({
                       setPrevHook(e.target.value);
                     }
                   }}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500" />
               </div>
 
               {/* Script */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Script</label>
+                <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Script</label>
                 <textarea rows={8} value={script}
                   onChange={(e) => { setScript(e.target.value); onScriptUpdated(e.target.value, hook || null); }}
                   onBlur={(e) => {
@@ -1815,7 +1815,7 @@ function DraftDetailPanel({
                       setPrevScript(e.target.value);
                     }
                   }}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                  className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent-500 resize-none" />
                 <p className="text-[10px] text-faint mt-1">{script.split(" ").filter(Boolean).length} words</p>
               </div>
             </>
@@ -1824,7 +1824,7 @@ function DraftDetailPanel({
           {/* Translate to Dutch — one click, keeps tone + format. */}
           {!isClient && (
             <button onClick={translateToDutch} disabled={translating || !script.trim()}
-              className="w-full py-2 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 disabled:opacity-50 flex items-center justify-center gap-1.5">
+              className="w-full py-2 text-xs font-semibold text-hue-orange-700 bg-hue-orange-50 border border-hue-orange-200 rounded-lg hover:bg-hue-orange-100 disabled:opacity-50 flex items-center justify-center gap-1.5">
               {translating ? "Translating…" : "🇳🇱 Translate script to Dutch"}
             </button>
           )}
@@ -1832,7 +1832,7 @@ function DraftDetailPanel({
           {/* Schedule to calendar — owner only */}
           {inStage && !isClient && (
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Schedule to Calendar</label>
+              <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Schedule to Calendar</label>
               <input
                 type="date"
                 defaultValue={draft.scheduledDate ?? ""}
@@ -1843,10 +1843,10 @@ function DraftDetailPanel({
                     body: JSON.stringify({ scheduledDate: e.target.value || null }),
                   });
                 }}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
               />
               {draft.scheduledDate && (
-                <p className="text-[10px] text-indigo-500 mt-1">📅 Scheduled for {draft.scheduledDate} — visible on Content Scheduling</p>
+                <p className="text-[10px] text-accent-500 mt-1">📅 Scheduled for {draft.scheduledDate} — visible on Content Scheduling</p>
               )}
             </div>
           )}
@@ -1871,7 +1871,7 @@ function DraftDetailPanel({
                 {/* Raw content — only while recording/editing (hidden once the cut is done) */}
                 {inStage && !isCheckStage && !afterEdit && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Raw Content</label>
+                    <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Raw Content</label>
                     <RawContentUpload draft={draft} onUploaded={onUploaded} />
                   </div>
                 )}
@@ -1879,7 +1879,7 @@ function DraftDetailPanel({
                 {/* Finished video — uploaded on Edit, viewed on every stage after Edit (checks, Schedule, …) */}
                 {inStage && (isEditStage || afterEdit) && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Finished Video</label>
+                    <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Finished Video</label>
                     {isEditStage ? (
                       <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
                     ) : draft.editedVideoUrl ? (
@@ -1887,7 +1887,7 @@ function DraftDetailPanel({
                         <video src={videoSrc(draft.editedVideoUrl)} controls className="w-full h-full object-contain" />
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-400 italic">No finished video uploaded yet.</p>
+                      <p className="text-xs text-ink-400 italic">No finished video uploaded yet.</p>
                     )}
                     {draft.editedVideoUrl && <VideoShareLink url={draft.editedVideoUrl} draftId={draft.id} />}
                   </div>
@@ -1900,7 +1900,7 @@ function DraftDetailPanel({
           {/* Chat refine — only in Ideas stage */}
           {!inStage && (
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+              <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">
                 Refine with Claude
               </label>
               {messages.length > 0 && (
@@ -1908,8 +1908,8 @@ function DraftDetailPanel({
                   {messages.map((m, i) => (
                     <div key={i} className={`text-xs px-3 py-2 rounded-lg ${
                       m.role === "user"
-                        ? "bg-indigo-50 text-indigo-800 ml-6"
-                        : "bg-slate-50 text-slate-700 mr-6"
+                        ? "bg-accent-50 text-accent-800 ml-6"
+                        : "bg-surface-2 text-ink-700 mr-6"
                     }`}>
                       <pre className="whitespace-pre-wrap font-sans">{m.content}</pre>
                     </div>
@@ -1923,10 +1923,10 @@ function DraftDetailPanel({
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); refine(); } }}
                   placeholder="Make the hook funnier, shorter, more Dutch…"
-                  className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="flex-1 border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
                 />
                 <button onClick={refine} disabled={refining || !chatInput.trim()}
-                  className="px-4 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                  className="px-4 py-2 text-xs font-semibold bg-accent-600 text-on-accent rounded-lg hover:bg-accent-700 disabled:opacity-50">
                   {refining ? "…" : "Send"}
                 </button>
               </div>
@@ -1935,15 +1935,15 @@ function DraftDetailPanel({
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Notes</label>
+            <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Notes</label>
             <div className="space-y-2 mb-2">
-              {notes.length === 0 && <p className="text-xs text-slate-400">No notes yet.</p>}
+              {notes.length === 0 && <p className="text-xs text-ink-400">No notes yet.</p>}
               {notes.map((n) => (
-                <div key={n.id} className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  {n.content && <p className="text-xs text-slate-700 whitespace-pre-wrap">{n.content}</p>}
+                <div key={n.id} className="bg-warn-50 border border-warn-100 rounded-lg px-3 py-2">
+                  {n.content && <p className="text-xs text-ink-700 whitespace-pre-wrap">{n.content}</p>}
                   {n.imageUrl && (
                     <a href={n.imageUrl} target="_blank" rel="noopener noreferrer" className={n.content ? "block mt-1.5" : "block"}>
-                      <img src={imgSrc(n.imageUrl)} alt="note attachment" className="rounded-lg max-h-48 border border-amber-200" />
+                      <img src={imgSrc(n.imageUrl)} alt="note attachment" className="rounded-lg max-h-48 border border-warn-200" />
                     </a>
                   )}
                   <p className="text-[10px] text-faint mt-1">{n.author} · {new Date(n.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
@@ -1955,10 +1955,10 @@ function DraftDetailPanel({
             {(noteImg || noteImgUploading) && (
               <div className="mb-2 flex items-center gap-2">
                 {noteImgUploading ? (
-                  <span className="text-xs text-slate-400">Uploading image…</span>
+                  <span className="text-xs text-ink-400">Uploading image…</span>
                 ) : (
                   <div className="relative inline-block">
-                    <img src={imgSrc(noteImg)} alt="" className="h-16 rounded-lg border border-slate-200" />
+                    <img src={imgSrc(noteImg)} alt="" className="h-16 rounded-lg border border-line-hard" />
                     <button onClick={() => setNoteImg(null)}
                       className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black/60 text-white text-[9px] flex items-center justify-center">✕</button>
                   </div>
@@ -1976,18 +1976,18 @@ function DraftDetailPanel({
                   if (img) { const f = img.getAsFile(); if (f) { e.preventDefault(); uploadNoteImage(f); } }
                 }}
                 placeholder="Add a note… (paste a screenshot too)"
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                className="flex-1 border border-line-hard rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warn-400" />
               <button onClick={() => noteImgRef.current?.click()} title="Attach screenshot"
-                className="px-3 py-2 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">📎</button>
+                className="px-3 py-2 text-sm bg-surface-3 text-ink-600 rounded-lg hover:bg-surface-4">📎</button>
               <button onClick={addNote} disabled={noteImgUploading}
-                className="px-3 py-2 text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50">Add</button>
+                className="px-3 py-2 text-xs font-semibold bg-warn-500 text-on-status rounded-lg hover:bg-warn-600 disabled:opacity-50">Add</button>
             </div>
           </div>
 
           {/* Change history */}
           {inStage && changes.length > 0 && (
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Change History</label>
+              <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Change History</label>
               <div className="space-y-2">
                 {changes.map((c) => {
                   // Find exact changed region only — no surrounding context
@@ -1998,19 +1998,19 @@ function DraftDetailPanel({
                   const beforeSnip = c.before.slice(i, j > 0 ? -j : undefined).trim();
                   const afterSnip = c.after.slice(i, j > 0 ? -j : undefined).trim();
                   return (
-                    <div key={c.id} className="border border-slate-200 rounded-lg overflow-hidden text-xs">
-                      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200">
-                        <span className="font-semibold text-slate-600 capitalize">{c.field} edited</span>
-                        <span className="text-slate-400">{c.author} · {new Date(c.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                    <div key={c.id} className="border border-line-hard rounded-lg overflow-hidden text-xs">
+                      <div className="flex items-center justify-between px-3 py-1.5 bg-surface-2 border-b border-line-hard">
+                        <span className="font-semibold text-ink-600 capitalize">{c.field} edited</span>
+                        <span className="text-ink-400">{c.author} · {new Date(c.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
-                      <div className="grid grid-cols-2 divide-x divide-slate-200">
-                        <div className="px-3 py-2 bg-red-50">
-                          <p className="text-[10px] font-semibold text-red-400 mb-1">Removed</p>
-                          <p className="text-slate-600 whitespace-pre-wrap">{beforeSnip || "—"}</p>
+                      <div className="grid grid-cols-2 divide-x divide-line-hard">
+                        <div className="px-3 py-2 bg-danger-50">
+                          <p className="text-[10px] font-semibold text-danger-400 mb-1">Removed</p>
+                          <p className="text-ink-600 whitespace-pre-wrap">{beforeSnip || "—"}</p>
                         </div>
-                        <div className="px-3 py-2 bg-green-50">
-                          <p className="text-[10px] font-semibold text-green-500 mb-1">Added</p>
-                          <p className="text-slate-600 whitespace-pre-wrap">{afterSnip || "—"}</p>
+                        <div className="px-3 py-2 bg-ok-50">
+                          <p className="text-[10px] font-semibold text-ok-500 mb-1">Added</p>
+                          <p className="text-ink-600 whitespace-pre-wrap">{afterSnip || "—"}</p>
                         </div>
                       </div>
                     </div>
@@ -2022,19 +2022,19 @@ function DraftDetailPanel({
         </div>
 
         {/* Actions */}
-        <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 space-y-2">
+        <div className="px-6 py-4 border-t border-line-soft flex-shrink-0 space-y-2">
           {onOpenChat && (
             <div className="relative">
               <button
                 onClick={() => setShowChatPicker((s) => !s)}
-                className="w-full py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 text-sm font-semibold text-ink-700 bg-surface-3 rounded-xl hover:bg-surface-4 transition-colors flex items-center justify-center gap-2"
               >
                 💬 Talk about this reel
               </button>
               {showChatPicker && (
-                <div className="absolute bottom-full mb-2 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div className="absolute bottom-full mb-2 left-0 right-0 bg-surface border border-line-hard rounded-xl shadow-xl z-50 overflow-hidden">
                   <div className="px-3 py-2 border-b border-line">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Talk to...</p>
+                    <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-wide">Talk to...</p>
                   </div>
                   {(() => {
                     const ctx = { id: draft.id, title: draft.title, hook: draft.hook, script: draft.script, caption: draft.caption };
@@ -2046,13 +2046,13 @@ function DraftDetailPanel({
                       return (
                         <button
                           onClick={() => { setShowChatPicker(false); onOpenChat({ ...ctx, channel }); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface-2 text-left"
                         >
                           <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: "#6366f1" }}>
                             {ownerName[0]?.toUpperCase()}
                           </div>
                           <div>
-                            <span className="text-sm text-slate-700">{ownerName}</span>
+                            <span className="text-sm text-ink-700">{ownerName}</span>
                             <span className="text-[10px] text-faint ml-1.5">owner</span>
                           </div>
                         </button>
@@ -2063,13 +2063,13 @@ function DraftDetailPanel({
                         {/* Client option */}
                         <button
                           onClick={() => { setShowChatPicker(false); onOpenChat({ ...ctx, channel: "client" }); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface-2 text-left"
                         >
                           <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: clientData?.color ?? "#6366f1" }}>
                             {clientData ? clientData.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() : "C"}
                           </div>
                           <div>
-                            <span className="text-sm text-slate-700">{clientData?.name ?? "Client"}</span>
+                            <span className="text-sm text-ink-700">{clientData?.name ?? "Client"}</span>
                             <span className="text-[10px] text-faint ml-1.5">client</span>
                           </div>
                         </button>
@@ -2078,12 +2078,12 @@ function DraftDetailPanel({
                           <button
                             key={m.id}
                             onClick={() => { setShowChatPicker(false); onOpenChat({ ...ctx, channel: `member:${m.id}` }); }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left"
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-surface-2 text-left"
                           >
                             <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0" style={{ backgroundColor: m.color }}>
                               {m.name[0]?.toUpperCase()}
                             </div>
-                            <span className="text-sm text-slate-700">{m.name}{m.role ? ` · ${m.role}` : ""}</span>
+                            <span className="text-sm text-ink-700">{m.name}{m.role ? ` · ${m.role}` : ""}</span>
                           </button>
                         ))}
                       </>
@@ -2096,11 +2096,11 @@ function DraftDetailPanel({
           {/* Jump straight to any stage — skip steps you don't need (e.g. no filming needed) */}
           {onMoveToStage && !isClient && stages.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 whitespace-nowrap">⤳ Jump to stage</span>
+              <span className="text-xs text-ink-500 whitespace-nowrap">⤳ Jump to stage</span>
               <select
                 value={draft.stageId ?? ""}
                 onChange={(e) => { const v = e.target.value; onMoveToStage(v === "" ? null : parseInt(v)); }}
-                className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                className="flex-1 border border-line-hard rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent-500 bg-surface">
                 <option value="">💡 Ideas (not started)</option>
                 {stages.map((s, i) => (
                   <option key={s.id} value={s.id}>{i + 1}. {s.name}</option>
@@ -2114,21 +2114,21 @@ function DraftDetailPanel({
             const idx = stages.findIndex((s) => s.id === draft.stageId);
             const prevName = idx > 0 ? stages[idx - 1]?.name : (isClient ? ownerName : "Ideas");
             return showSendBack ? (
-              <div className="space-y-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                <p className="text-[11px] font-semibold text-amber-700">↩ {isClient && idx === 0 ? `Send back to ${ownerName}` : `Send back to ${prevName}`} — why? (your feedback)</p>
+              <div className="space-y-2 bg-warn-50 border border-warn-200 rounded-xl p-3">
+                <p className="text-[11px] font-semibold text-warn-700">↩ {isClient && idx === 0 ? `Send back to ${ownerName}` : `Send back to ${prevName}`} — why? (your feedback)</p>
                 <textarea value={sendBackReason} onChange={(e) => setSendBackReason(e.target.value)} rows={3} autoFocus
                   placeholder={isClient ? "e.g. I don't want to record this — hook feels off, doesn't fit me…" : "e.g. re-cut the hook, audio is low, wrong clip at 0:08…"}
-                  className="w-full border border-amber-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none" />
+                  className="w-full border border-warn-200 rounded-lg px-3 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-warn-300 resize-none" />
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => { setShowSendBack(false); setSendBackReason(""); }} className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-lg">Cancel</button>
+                  <button onClick={() => { setShowSendBack(false); setSendBackReason(""); }} className="px-3 py-1.5 text-xs font-medium text-ink-500 hover:bg-surface-3 rounded-lg">Cancel</button>
                   <button onClick={() => { if (sendBackReason.trim()) { onSendBack(sendBackReason.trim()); setShowSendBack(false); setSendBackReason(""); } }}
                     disabled={!sendBackReason.trim()}
-                    className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50">↩ Send back</button>
+                    className="px-3 py-1.5 text-xs font-semibold text-on-status bg-warn-500 rounded-lg hover:bg-warn-600 disabled:opacity-50">↩ Send back</button>
                 </div>
               </div>
             ) : (
               <button onClick={() => setShowSendBack(true)}
-                className="w-full py-2 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100">
+                className="w-full py-2 text-sm font-semibold text-warn-700 bg-warn-50 border border-warn-200 rounded-xl hover:bg-warn-100">
                 {isClient ? `↩ Send back to ${ownerName} (with feedback)` : "↩ Send back a stage (with a note)"}
               </button>
             );
@@ -2137,36 +2137,36 @@ function DraftDetailPanel({
               // Whoever is assigned to this stage (via Assign Stages) just reviews and either
               // sends it back or pushes it through — no separate approval collection gates it.
               <button onClick={onProceed}
-                className="w-full py-2.5 text-sm font-semibold text-white rounded-xl transition-colors bg-indigo-600 hover:bg-indigo-700">
+                className="w-full py-2.5 text-sm font-semibold text-on-accent rounded-xl transition-colors bg-accent-600 hover:bg-accent-700">
                 {nextStage ? `→ Proceed to ${nextStage.name}` : "✓ Mark as Done"}
               </button>
           ) : (
             <div className="flex gap-2">
               <button onClick={onAccept}
-                className="flex-1 py-2 text-sm font-semibold text-white bg-green-500 rounded-xl hover:bg-green-600">
+                className="flex-1 py-2 text-sm font-semibold text-on-status bg-ok-500 rounded-xl hover:bg-ok-600">
                 ✓ Accept
               </button>
               {onReplace && !draft.clientAuthored && (
                 <button onClick={onReplace}
-                  className="px-4 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100">
+                  className="px-4 py-2 text-sm font-semibold text-accent-600 bg-accent-50 rounded-xl hover:bg-accent-100">
                   🔄 Replace
                 </button>
               )}
               <button onClick={onReject}
-                className="px-4 py-2 text-sm font-semibold text-red-500 bg-red-50 rounded-xl hover:bg-red-100">
+                className="px-4 py-2 text-sm font-semibold text-danger-500 bg-danger-50 rounded-xl hover:bg-danger-100">
                 ✗ Reject
               </button>
             </div>
           )}
           {!inStage && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">💡 Save idea, resurface in</span>
+              <span className="text-xs text-ink-500">💡 Save idea, resurface in</span>
               <input type="number" min={1} max={52} value={saveWeeks}
                 onChange={(e) => setSaveWeeks(parseInt(e.target.value) || 1)}
-                className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-amber-400" />
-              <span className="text-xs text-slate-500">weeks</span>
+                className="w-14 border border-line-hard rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-warn-400" />
+              <span className="text-xs text-ink-500">weeks</span>
               <button onClick={() => onSaveAsIdea(saveWeeks)}
-                className="ml-auto px-3 py-1.5 text-xs font-semibold text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100">
+                className="ml-auto px-3 py-1.5 text-xs font-semibold text-warn-600 bg-warn-50 rounded-lg hover:bg-warn-100">
                 Save
               </button>
             </div>
