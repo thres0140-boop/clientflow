@@ -89,21 +89,21 @@ function DraggableCard({ draft, onClick, selected = false, notify = false, days,
 // ─── Card content ────────────────────────────────────────────────────────────
 function CardContent({ draft, selected = false, notify = false, days, highlight = false }: { draft: ScriptDraft; selected?: boolean; notify?: boolean; days?: string[]; highlight?: boolean }) {
   return (
-    <div className={`relative bg-white rounded-2xl border p-3.5 o-elev hover:o-elev-lift transition-all duration-200 select-none ${
-      highlight ? "ring-2 ring-accent border-accent o-elev-lift" : notify ? "ring-2 ring-red-400 border-red-400" : selected ? "ring-2 ring-accent border-accent" : draft.isSavedIdea ? "border-amber-200 bg-amber-50/40" : "border-line"
+    <div className={`relative bg-surface rounded-2xl border p-3.5 o-elev hover:o-elev-lift transition-all duration-200 select-none ${
+      highlight ? "ring-2 ring-accent border-accent o-elev-lift" : notify ? "ring-2 ring-danger-400 border-danger-400" : selected ? "ring-2 ring-accent border-accent" : draft.isSavedIdea ? "border-warn-200 bg-warn-50/40" : "border-line"
     }`}>
       {notify && (
-        <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow ring-2 ring-white" title="Sent back — needs changes">
+        <span className="absolute -top-1.5 -right-1.5 z-10 min-w-[18px] h-[18px] px-1 rounded-full bg-danger-500 text-on-status text-[10px] font-bold flex items-center justify-center shadow ring-2 ring-surface" title="Sent back — needs changes">
           ↩ 1
         </span>
       )}
       {draft.isSavedIdea && (
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full mb-2">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-warn-600 bg-warn-100 px-2 py-0.5 rounded-full mb-2">
           ↩ Returning idea
         </span>
       )}
       {draft.clientAuthored && (
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full mb-2 ml-1">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-info-600 bg-info-100 px-2 py-0.5 rounded-full mb-2 ml-1">
           ✍️ Client-written
         </span>
       )}
@@ -115,7 +115,7 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
             {draft.concept.name}
           </span>
           {(draft as any).isRemix && (
-            <span className="inline-flex items-center text-[9px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">♻️ Remixed</span>
+            <span className="inline-flex items-center text-[9px] font-bold text-hue-purple-700 bg-hue-purple-100 px-1.5 py-0.5 rounded-full">♻️ Remixed</span>
           )}
         </p>
       )}
@@ -123,7 +123,7 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
         {fmtSchedule(draft.scheduledDate) ? (
           // Scheduled → show the real posting date (weekday + day of month), not "Week 23".
           <>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold text-[9px]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent-100 text-accent-600 font-semibold text-[9px]">
               📅 {fmtSchedule(draft.scheduledDate)}
             </span>
             {(() => {
@@ -134,9 +134,9 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
               const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
               if (t < startToday.getTime()) return null;
               return (draft as any).zernioBooked ? (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-bold text-[9px]">✓ Scheduled</span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-ok-100 text-ok-700 font-bold text-[9px]">✓ Scheduled</span>
               ) : (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold text-[9px]">🕓 Planned</span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-warn-100 text-warn-700 font-bold text-[9px]">🕓 Planned</span>
               );
             })()}
           </>
@@ -146,22 +146,22 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
             <span>{draft.weekLabel}</span>
             {days && days.length > 0 ? (
               days.map((d) => (
-                <span key={d} className="inline-block px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-500 font-semibold text-[9px]">{d}</span>
+                <span key={d} className="inline-block px-1.5 py-0.5 rounded-full bg-accent-50 text-accent-500 font-semibold text-[9px]">{d}</span>
               ))
             ) : draft.dayLabel ? (
               <span>· {draft.dayLabel}</span>
             ) : (
-              <span className="text-amber-500">· no date</span>
+              <span className="text-warn-500">· no date</span>
             )}
           </>
         )}
       </p>
       {draft.hook && (
-        <p className="text-[11px] text-slate-600 mt-1.5 line-clamp-2 italic">"{draft.hook}"</p>
+        <p className="text-[11px] text-ink-600 mt-1.5 line-clamp-2 italic">"{draft.hook}"</p>
       )}
-      <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-3 leading-relaxed">{draft.script}</p>
+      <p className="text-[10px] text-ink-500 mt-1.5 line-clamp-3 leading-relaxed">{draft.script}</p>
       {(() => { const n = JSON.parse(draft.rawContentUrls || "[]").length; return n > 0 ? (
-        <div className="mt-2 flex items-center gap-1 text-[10px] text-green-600 font-medium">
+        <div className="mt-2 flex items-center gap-1 text-[10px] text-ok-600 font-medium">
           <span>📎</span>
           <span>{n} file{n > 1 ? "s" : ""} uploaded</span>
         </div>
@@ -174,7 +174,7 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
 function DroppableColumn({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
   const { isOver, setNodeRef } = useDroppable({ id });
   return (
-    <div ref={setNodeRef} className={`${className} transition-colors ${isOver ? "bg-indigo-50/60" : ""}`}>
+    <div ref={setNodeRef} className={`${className} transition-colors ${isOver ? "bg-accent-50/60" : ""}`}>
       {children}
     </div>
   );
@@ -538,17 +538,17 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
         <div className="text-5xl mb-4">📋</div>
-        <h2 className="text-xl font-semibold text-slate-700 mb-2">Select a client</h2>
-        <p className="text-slate-400 text-sm mb-6">Choose a client from the sidebar to open their kanban board</p>
+        <h2 className="text-xl font-semibold text-ink-700 mb-2">Select a client</h2>
+        <p className="text-ink-400 text-sm mb-6">Choose a client from the sidebar to open their kanban board</p>
         <div className="flex flex-wrap gap-3 justify-center">
           {clients.map((c) => (
             <button key={c.id} onClick={() => onSelectClient(c.id)}
-              className="flex items-center gap-2.5 px-4 py-2.5 bg-white border border-slate-200 rounded-xl hover:shadow-sm transition-all">
+              className="flex items-center gap-2.5 px-4 py-2.5 bg-surface border border-line-hard rounded-xl hover:shadow-sm transition-all">
               <div className="w-7 h-7 rounded-lg text-xs font-bold text-white flex items-center justify-center"
                 style={{ backgroundColor: c.color }}>
                 {c.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
               </div>
-              <span className="text-sm font-medium text-slate-700">{c.name}</span>
+              <span className="text-sm font-medium text-ink-700">{c.name}</span>
             </button>
           ))}
         </div>
@@ -561,7 +561,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
       {/* Header */}
       <div className="flex items-center justify-between mb-5 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl text-sm font-semibold text-white flex items-center justify-center ring-1 ring-black/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(17,17,19,0.12)]"
+          <div className="w-9 h-9 rounded-xl text-sm font-semibold text-white flex items-center justify-center ring-1 ring-shade/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(17,17,19,0.12)]"
             style={{ backgroundColor: client.color }}>
             {client.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
           </div>
@@ -578,36 +578,36 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
             return (
               <div className="relative ml-2">
                 <button onClick={() => setGoalOpen((o) => !o)}
-                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-line bg-white hover:bg-black/[0.02] o-elev">
+                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-line bg-surface hover:bg-shade/[0.02] o-elev">
                   <span className="text-sm">🎯</span>
                   <div className="text-left">
-                    <p className="text-[11px] font-bold text-slate-700 leading-none">{produced} / {goal} <span className="font-normal text-slate-400">in production</span></p>
-                    <div className="w-28 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                      <div className={`h-full rounded-full ${remaining === 0 ? "bg-emerald-500" : "bg-accent"}`} style={{ width: `${pct}%` }} />
+                    <p className="text-[11px] font-bold text-ink-700 leading-none">{produced} / {goal} <span className="font-normal text-ink-400">in production</span></p>
+                    <div className="w-28 h-1 bg-surface-3 rounded-full mt-1 overflow-hidden">
+                      <div className={`h-full rounded-full ${remaining === 0 ? "bg-hue-emerald-500" : "bg-accent"}`} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
-                  <span className={`text-[11px] font-bold ${remaining > 0 ? "text-amber-600" : "text-emerald-600"}`}>{remaining > 0 ? `${remaining} left` : "✓ done"}</span>
+                  <span className={`text-[11px] font-bold ${remaining > 0 ? "text-warn-600" : "text-hue-emerald-600"}`}>{remaining > 0 ? `${remaining} left` : "✓ done"}</span>
                 </button>
                 {goalOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setGoalOpen(false)} />
-                    <div className="absolute left-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-3 space-y-2.5">
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Total scripts goal for the period</p>
+                    <div className="absolute left-0 mt-2 w-72 bg-surface border border-line-hard rounded-xl shadow-xl z-50 p-3 space-y-2.5">
+                      <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-wide">Total scripts goal for the period</p>
                       <div className="flex gap-2">
                         {[["7", "1 week"], ["14", "2 weeks"], ["30", "1 month"]].map(([n, lbl]) => (
                           <button key={n} onClick={() => saveGoal(parseInt(n))}
-                            className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${goal === parseInt(n) ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+                            className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${goal === parseInt(n) ? "bg-accent-600 text-on-accent border-accent-600" : "border-line-hard text-ink-600 hover:bg-surface-2"}`}>
                             {n}<span className="block text-[8px] font-normal opacity-80">{lbl}</span>
                           </button>
                         ))}
                         <input type="number" min={1} value={goal} onChange={(e) => saveGoal(parseInt(e.target.value) || 1)}
                           title="Custom total"
-                          className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                          className="w-14 border border-line-hard rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-accent-400" />
                       </div>
 
                       {/* Per-concept targets */}
-                      <div className="pt-1 border-t border-slate-100">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Needed per concept</p>
+                      <div className="pt-1 border-t border-line-soft">
+                        <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-wide mb-1.5">Needed per concept</p>
                         <div className="space-y-1.5 max-h-56 overflow-y-auto">
                           {concepts.length === 0 ? (
                             <p className="text-[10px] text-faint">No concepts yet.</p>
@@ -618,13 +618,13 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
                             const label = (c as any).conceptType ? `${(c as any).conceptType} · ${c.name}` : c.name;
                             return (
                               <div key={c.id} className="flex items-center gap-2">
-                                <span className="text-[11px] text-slate-600 flex-1 truncate" title={label}>{label}</span>
-                                <span className={`text-[10px] font-semibold ${target > 0 ? (left === 0 ? "text-emerald-600" : "text-amber-600") : "text-slate-400"}`}>
+                                <span className="text-[11px] text-ink-600 flex-1 truncate" title={label}>{label}</span>
+                                <span className={`text-[10px] font-semibold ${target > 0 ? (left === 0 ? "text-hue-emerald-600" : "text-warn-600") : "text-ink-400"}`}>
                                   {inProd}/{target || "–"}{target > 0 && left > 0 ? ` · ${left} left` : target > 0 && left === 0 ? " ✓" : ""}
                                 </span>
                                 <input type="number" min={0} value={target || ""} placeholder="0"
                                   onChange={(e) => saveGoalConcept(c.id, parseInt(e.target.value) || 0)}
-                                  className="w-12 border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                                  className="w-12 border border-line-hard rounded-lg px-1.5 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-accent-400" />
                               </div>
                             );
                           })}
@@ -646,7 +646,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
             <select
               value={conceptFilter}
               onChange={(e) => setConceptFilter(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-              className="px-3 py-2 text-xs font-medium text-ink-2 bg-white border border-line rounded-lg hover:bg-black/[0.02] focus:outline-none focus:ring-2 focus:ring-accent/40 max-w-[200px]"
+              className="px-3 py-2 text-xs font-medium text-ink-2 bg-surface border border-line rounded-lg hover:bg-shade/[0.02] focus:outline-none focus:ring-2 focus:ring-accent/40 max-w-[200px]"
             >
               <option value="all">All concepts</option>
               {concepts.map((c) => (
@@ -658,7 +658,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
             <select
               value={dayFilter}
               onChange={(e) => setDayFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-medium text-ink-2 bg-white border border-line rounded-lg hover:bg-black/[0.02] focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="px-3 py-2 text-xs font-medium text-ink-2 bg-surface border border-line rounded-lg hover:bg-shade/[0.02] focus:outline-none focus:ring-2 focus:ring-accent/40"
             >
               <option value="all">All days</option>
               {availableDays.map((d) => (
@@ -706,7 +706,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
           {/* Idea column — hidden for assignees */}
           {!activeProfile && (
             <DroppableColumn id="idea-column"
-              className="flex-shrink-0 w-64 bg-white border border-line rounded-2xl o-elev overflow-hidden flex flex-col">
+              className="flex-shrink-0 w-64 bg-surface border border-line rounded-2xl o-elev overflow-hidden flex flex-col">
               <div className="px-4 py-3 border-b border-line">
                 <div className="flex items-center gap-2">
                   <span className="text-base">💡</span>
@@ -730,13 +730,13 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
                       <div className="flex gap-1.5 mt-1.5">
                         <button onClick={() => moveDraft(draft.id, stages[0]?.id ?? null)}
                           disabled={stages.length === 0}
-                          className="flex-1 py-1 text-[10px] font-semibold text-green-600 bg-green-50 rounded-lg hover:bg-green-100 disabled:opacity-40">
+                          className="flex-1 py-1 text-[10px] font-semibold text-ok-600 bg-ok-50 rounded-lg hover:bg-ok-100 disabled:opacity-40">
                           ✓ Accept
                         </button>
                         <SaveIdeaButton draft={draft} interval={client.generationInterval}
                           onSave={(weeks) => saveAsIdea(draft.id, weeks)} />
                         <button onClick={() => rejectDraft(draft.id)}
-                          className="px-2 py-1 text-[10px] font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100">
+                          className="px-2 py-1 text-[10px] font-semibold text-danger-500 bg-danger-50 rounded-lg hover:bg-danger-100">
                           ✗
                         </button>
                       </div>
@@ -749,16 +749,16 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
 
           {/* Workflow stage columns */}
           {visibleStages.length === 0 && !activeProfile ? (
-            <div className="flex-shrink-0 w-56 flex flex-col items-center justify-center text-center py-8 bg-white border border-dashed border-slate-300 rounded-2xl">
-              <p className="text-xs text-slate-400 mb-3">No stages set up yet</p>
+            <div className="flex-shrink-0 w-56 flex flex-col items-center justify-center text-center py-8 bg-surface border border-dashed border-line-harder rounded-2xl">
+              <p className="text-xs text-ink-400 mb-3">No stages set up yet</p>
               <button onClick={() => setShowStageManager(true)}
-                className="text-xs text-indigo-600 hover:underline font-medium">
+                className="text-xs text-accent-600 hover:underline font-medium">
                 + Add stages
               </button>
             </div>
           ) : visibleStages.length === 0 && activeProfile ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-              <p className="text-slate-400 text-sm">No stages assigned to you yet.</p>
+              <p className="text-ink-400 text-sm">No stages assigned to you yet.</p>
             </div>
           ) : (
             visibleStages.map((stage) => {
@@ -767,7 +767,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
               const nextStage = stageIdx < stages.length - 1 ? stages[stageIdx + 1] : null;
               return (
                 <DroppableColumn key={stage.id} id={String(stage.id)}
-                  className="flex-shrink-0 w-64 bg-white border border-line rounded-2xl o-elev overflow-hidden flex flex-col">
+                  className="flex-shrink-0 w-64 bg-surface border border-line rounded-2xl o-elev overflow-hidden flex flex-col">
                   <div className="px-4 py-3 border-b border-line"
                     style={{ borderTopWidth: 2, borderTopColor: stage.color }}>
                     <div className="flex items-center gap-2">
@@ -816,7 +816,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
                               onPointerDown={(e) => e.stopPropagation()}
                               onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${draft.title}"?\n\nThis permanently removes the reel and can't be undone.`)) deleteOnly(draft); }}
                               title="Delete this reel"
-                              className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-red-600 hover:border-red-300 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                              className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-surface border border-line-hard shadow-sm text-ink-400 hover:text-danger-600 hover:border-danger-300 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
                               ✕
                             </button>
                           )}
@@ -835,7 +835,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
                               onClick={() => proceedToNextStage(draft)}
                               disabled={!draft.editedVideoUrl}
                               title={!draft.editedVideoUrl ? "Upload edited video first" : ""}
-                              className="w-full py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed">
+                              className="w-full py-1 text-[10px] font-semibold text-accent-600 bg-accent-50 rounded-lg hover:bg-accent-100 disabled:opacity-40 disabled:cursor-not-allowed">
                               → Check 1
                             </button>
                           </div>
@@ -843,12 +843,12 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => { const i = stages.findIndex((s) => s.id === draft.stageId); const prev = i > 0 ? stages[i - 1] : null; if (prev) moveDraft(draft.id, prev.id); }}
-                              className="flex-1 py-1 text-[10px] font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100">
+                              className="flex-1 py-1 text-[10px] font-semibold text-danger-500 bg-danger-50 rounded-lg hover:bg-danger-100">
                               ↩ Send back
                             </button>
                             <button
                               onClick={() => proceedToNextStage(draft)}
-                              className="flex-1 py-1 text-[10px] font-semibold text-green-600 bg-green-50 rounded-lg hover:bg-green-100">
+                              className="flex-1 py-1 text-[10px] font-semibold text-ok-600 bg-ok-50 rounded-lg hover:bg-ok-100">
                               {nextStage ? `→ ${nextStage.name}` : "✓ Done"}
                             </button>
                           </div>
@@ -863,7 +863,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
                             }} />
                             <button
                               onClick={() => proceedToNextStage(draft)}
-                              className="flex-1 py-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100">
+                              className="flex-1 py-1 text-[10px] font-semibold text-accent-600 bg-accent-50 rounded-lg hover:bg-accent-100">
                               {nextStage ? `→ ${nextStage.name}` : "✓ Done"}
                             </button>
                           </div>

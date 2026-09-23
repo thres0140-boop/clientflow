@@ -176,6 +176,11 @@ A `bg-slate-700 text-white hover:bg-slate-800` neutral button (not media) →
   exists only to match the fill uses the fill's token, not a `line-*` token.
 - **Placeholder gradients behind a thumbnail** (`bg-gradient-to-br from-slate-800
   to-slate-900`) are media backdrops and stay literal, like `bg-slate-900` tiles.
+- **A ring that separates a badge from the card it sits on** (`ring-2 ring-white` on a
+  count badge) matches the surface: `ring-surface`. Same for `ring-offset-surface`.
+- `hover:border-slate-400` → `hover:border-line-focus` (same slate-400 line token as the
+  focus ring). `text-slate-300` / `text-slate-900` → `text-ink-300` / `text-ink-900`.
+- `violet` is a categorical hue like the others (`hue-violet-*`).
 - `teal` is a categorical hue like the others: `bg-teal-50 text-teal-700` →
   `bg-hue-teal-50 text-hue-teal-700`.
 

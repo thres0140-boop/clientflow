@@ -148,6 +148,26 @@
   --color-hue-orange-800: oklch(47% 0.157 37.304);
   --color-hue-teal-50: oklch(98.4% 0.014 180.72);
   --color-hue-teal-700: oklch(51.1% 0.096 186.391);
+  /* Kanban (3c) grades */
+  --color-hue-purple-100: oklch(94.6% 0.033 307.174);
+  --color-hue-purple-300: oklch(82.7% 0.119 306.383);
+  --color-hue-purple-400: oklch(71.4% 0.203 305.504);
+  --color-hue-purple-600: oklch(55.8% 0.288 302.321);
+  --color-hue-purple-700: oklch(49.6% 0.265 301.924);
+  --color-hue-orange-50: oklch(98% 0.016 73.684);
+  --color-hue-orange-200: oklch(90.1% 0.076 70.697);
+  --color-hue-orange-300: oklch(83.7% 0.128 66.29);
+  --color-hue-orange-400: oklch(75% 0.183 55.934);
+  --color-hue-violet-50: oklch(96.9% 0.016 293.756);
+  --color-hue-violet-200: oklch(89.4% 0.057 293.283);
+  --color-hue-violet-400: oklch(70.2% 0.183 293.541);
+  --color-hue-violet-500: oklch(60.6% 0.25 292.717);
+  --color-hue-violet-600: oklch(54.1% 0.281 293.009);
+  --color-hue-violet-700: oklch(49.1% 0.27 292.581);
+  --color-accent-200: oklch(87% 0.065 274.039);
+  --color-accent-300: oklch(78.5% 0.115 274.713);
+  --color-ink-300: oklch(86.9% 0.022 252.894);             /* = slate-300 text */
+  --color-ink-900: oklch(20.8% 0.042 265.755);             /* = slate-900 text */
   --color-accent-50: oklch(96.2% 0.018 272.314);
   --color-accent-100: oklch(93% 0.034 272.788);
   --color-accent-400: oklch(67.3% 0.182 276.935);
@@ -330,6 +350,25 @@
   --color-hue-orange-800: #fed7aa;
   --color-hue-teal-50: rgba(20, 184, 166, 0.10);
   --color-hue-teal-700: #5eead4;
+  --color-hue-purple-100: rgba(168, 85, 247, 0.18);
+  --color-hue-purple-300: rgba(168, 85, 247, 0.45);
+  --color-hue-purple-400: #c084fc;
+  --color-hue-purple-600: #c084fc;
+  --color-hue-purple-700: #d8b4fe;
+  --color-hue-orange-50: rgba(249, 115, 22, 0.10);
+  --color-hue-orange-200: rgba(249, 115, 22, 0.32);
+  --color-hue-orange-300: rgba(249, 115, 22, 0.45);
+  --color-hue-orange-400: #fb923c;
+  --color-hue-violet-50: rgba(139, 92, 246, 0.10);
+  --color-hue-violet-200: rgba(139, 92, 246, 0.32);
+  --color-hue-violet-400: #a78bfa;
+  --color-hue-violet-500: #8b5cf6;
+  --color-hue-violet-600: #a78bfa;
+  --color-hue-violet-700: #c4b5fd;
+  --color-accent-200: rgba(34, 197, 94, 0.32);
+  --color-accent-300: rgba(34, 197, 94, 0.45);
+  --color-ink-300: #4a524a;
+  --color-ink-900: #f2f5f2;
   --color-accent-50: rgba(34, 197, 94, 0.10);
   --color-accent-100: rgba(34, 197, 94, 0.18);
   --color-accent-400: #4ade80;
