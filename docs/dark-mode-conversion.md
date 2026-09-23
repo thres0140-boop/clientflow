@@ -200,6 +200,18 @@ Name them by what they paint. Do not map them to the nearest `ok-100`.
 The hairline between sidebar and content is `inset -1px 0 0 var(--color-nav-edge)`:
 `transparent` in light (invisible, no layout change), a faint white line in dark.
 
+### Third-party components with their own stylesheet (Phase 4 rule)
+
+A component that ships its own CSS (Excalidraw on the Strategy Board) never sees the
+tokens. Theme it through its own API instead, bound to **the theme on screen**:
+`useLiveTheme()` in `shared/theme.ts` reads the `data-theme` attribute (not
+localStorage, so an unsaved preview in Settings is mirrored) and re-renders on attribute
+changes via a MutationObserver. The board passes it as Excalidraw's `theme` prop, and
+its in-canvas theme toggle is disabled: the theme is one owner-level setting, and a
+member/client session must not be able to switch a canvas dark from inside it. The
+vendored `public/excalidraw.css` is byte-identical to the package's production
+stylesheet, so it carries Excalidraw's own dark theme; re-vendor it on every upgrade.
+
 ## Step 3: inline `style={{ }}` colours
 
 Inline styles ignore the theme exactly like hardcoded utilities. Convert them the same way,

@@ -58,7 +58,7 @@ const to8 = (s) => s.replace(/\s+/g, "")
   .replace(/#([0-9a-f]{3,4})\b/gi, (m, h) => h.length <= 4 ? "#" + [...h].map((c) => c + c).join("") : m)
   .replace(/^white$/i, "#ffffff").replace(/^black$/i, "#000000").toLowerCase();
 
-const esc = (u) => "." + u.replace(/[:\/.%\[\]]/g, (ch) => "\\" + ch);
+const esc = (u) => "." + u.replace(/[:\/.%\[\]#]/g, (ch) => "\\" + ch);
 function decls(u) {
   const e = esc(u), res = [];
   for (let m; (m = ruleRe.exec(out)); ) { const sel = m[1].trim(); const at = sel.indexOf(e); if (at >= 0 && !/[\w-]/.test(sel.charAt(at + e.length)) && (at === 0 || !/[\w-]/.test(sel.charAt(at - 1)))) res.push(...m[2].split(";").map((x) => x.trim()).filter(Boolean)); }

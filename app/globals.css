@@ -168,6 +168,7 @@
   --color-chart-amber: #f59e0b;
   --color-chart-green: #10b981;
   --color-chart-empty: #cbd5e1;                     /* v3 slate-300: empty chart bar */
+  --color-board-loading: #f8f9fa;                   /* Strategy Board placeholder while Excalidraw loads (its light canvas chrome) */
 
   /* single restrained accent (refined indigo-navy, pairs with the nav) */
   --color-accent: #3d4aa3;
@@ -344,6 +345,7 @@
   --color-chart-amber: #f59e0b;
   --color-chart-green: #10b981;
   --color-chart-empty: #333a33;
+  --color-board-loading: #121212;                   /* Excalidraw's own dark canvas */
 
   /* depth: black shadows vanish on a near-black canvas, so depth comes from the
      lighter surface + an outer hairline, with a deeper drop for floating layers */

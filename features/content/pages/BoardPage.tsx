@@ -5,6 +5,7 @@ import { ReelDetailPanel, type IGReel } from "@/features/instagram/pages/Instagr
 import { useCallback, useEffect, useRef, useState, Component, ReactNode, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import { Client } from "@/shared/types";
+import { useLiveTheme } from "@/shared/theme";
 
 // Catches any render crash from the board (Excalidraw) and shows the REAL error instead of
 // the browser's blank "page couldn't load" screen, so we can see what's actually wrong.
@@ -65,6 +66,7 @@ export default function BoardPage({ clients, selectedClientId, sidebarCollapsed 
 
 function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: number }) {
   const apiRef = useRef<ExcalApi | null>(null);
+  const liveTheme = useLiveTheme();
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Last snapped size of each video tile — lets us lock resizing to the 9:16 reel aspect ratio.
   const snapDims = useRef<Record<string, { w: number; h: number }>>({});
@@ -195,11 +197,10 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
         const elements = Array.isArray(data.elements)
           ? data.elements.filter((e: any) => e && [e.x, e.y, e.width, e.height].every((n: any) => typeof n === "number" && Number.isFinite(n))) // eslint-disable-line @typescript-eslint/no-explicit-any
           : [];
-        // Restore only the SAFE view settings (theme, background) so dark mode persists —
-        // but NOT the crash-prone scroll/zoom values.
+        // Restore only the SAFE view settings (background) — NOT the crash-prone scroll/zoom
+        // values, and NOT the theme: the board follows the app theme via the `theme` prop.
         const a = data.appState || {};
         const appState: Record<string, unknown> = {};
-        if (a.theme) appState.theme = a.theme;
         if (a.viewBackgroundColor) appState.viewBackgroundColor = a.viewBackgroundColor;
         return { elements, appState, files: data.files || undefined };
       }
@@ -313,9 +314,14 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
           excalidrawAPI={(api) => { apiRef.current = api; setReady(true); }}
           initialData={getInitialData}
           onChange={handleChange}
+          // Follows the app theme (the live data-theme attribute, so an unsaved preview in
+          // Settings is mirrored too). The in-canvas toggle is off: the theme is one app-wide
+          // owner setting, and a member/client session must never be able to switch the
+          // board dark from inside the canvas.
+          theme={liveTheme}
           UIOptions={{
             canvasActions: {
-              toggleTheme: true,
+              toggleTheme: false,
               saveToActiveFile: false,
               saveAsImage: true,
             },
@@ -591,7 +597,7 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
 
 function BoardSkeleton() {
   return (
-    <div className="absolute inset-0 left-[280px] flex items-center justify-center bg-[#f8f9fa]">
+    <div className="absolute inset-0 left-[280px] flex items-center justify-center bg-board-loading">
       <div className="flex flex-col items-center gap-3 text-ink-400">
         <div className="w-8 h-8 border-2 border-line-harder border-t-indigo-500 rounded-full animate-spin" />
         <p className="text-sm">Loading board…</p>
