@@ -87,23 +87,23 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
         </div>
         <button
           onClick={() => tab === "members" ? setShowAdd(true) : setShowAddCreator(true)}
-          className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong"
+          className="bg-accent text-on-accent px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong"
         >
           + Add {tab === "members" ? "Member" : "Creator"}
         </button>
       </div>
 
       {/* Tab toggle */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-surface-3 p-1 rounded-xl w-fit">
         <button
           onClick={() => setTab("members")}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === "members" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === "members" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}
         >
           🤝 Team Members
         </button>
         <button
           onClick={() => setTab("creators")}
-          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === "creators" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === "creators" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}
         >
           🎬 Creators
         </button>
@@ -111,13 +111,13 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
 
       {tab === "members" ? (
         team.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-line p-14 text-center">
+          <div className="bg-surface rounded-2xl border border-line p-14 text-center">
             <div className="text-4xl mb-3">🤝</div>
             <p className="text-muted text-sm mb-4">No team members yet.</p>
-            <button onClick={() => setShowAdd(true)} className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong">+ Add Member</button>
+            <button onClick={() => setShowAdd(true)} className="bg-accent text-on-accent px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong">+ Add Member</button>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-line overflow-hidden">
+          <div className="bg-surface rounded-2xl border border-line overflow-hidden">
             {team.map((member, idx) => {
               const pages = parseAccess(member.pageAccess);
               const isFullAccess = member.pageAccess === "all" || pages.length === ALL_PAGES.length;
@@ -142,7 +142,7 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-tint text-accent-strong text-[10px] font-medium rounded-full">✦ Full Access</span>
                     ) : (
                       ALL_PAGES.filter((p) => pages.includes(p.id)).map((p) => (
-                        <span key={p.id} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-100 text-ink-2 text-[10px] font-medium rounded-full">{p.icon} {p.label}</span>
+                        <span key={p.id} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-surface-3 text-ink-2 text-[10px] font-medium rounded-full">{p.icon} {p.label}</span>
                       ))
                     )}
                   </div>
@@ -158,14 +158,14 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
       ) : (
         /* Creators tab */
         creators.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-line p-14 text-center">
+          <div className="bg-surface rounded-2xl border border-line p-14 text-center">
             <div className="text-4xl mb-3">🎬</div>
             <p className="text-muted text-sm mb-1">No creators yet.</p>
             <p className="text-xs text-faint mb-4">Creators are the content makers linked to your clients.</p>
-            <button onClick={() => setShowAddCreator(true)} className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong">+ Add Creator</button>
+            <button onClick={() => setShowAddCreator(true)} className="bg-accent text-on-accent px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong">+ Add Creator</button>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-line overflow-hidden">
+          <div className="bg-surface rounded-2xl border border-line overflow-hidden">
             {creators.map((creator, idx) => (
               <div key={creator.id} className={`flex items-center gap-4 px-5 py-4 ${idx !== 0 ? "border-t border-line" : ""}`}>
                 {/* Avatar */}
@@ -192,8 +192,8 @@ export default function TeamPage({ clients, selectedClientId }: Props) {
                 </div>
                 {/* Actions */}
                 <div className="flex-shrink-0 flex gap-2">
-                  <button onClick={() => setEditingCreator(creator)} className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
-                  <button onClick={() => deleteCreator(creator.id)} className="px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">Remove</button>
+                  <button onClick={() => setEditingCreator(creator)} className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4">Edit</button>
+                  <button onClick={() => deleteCreator(creator.id)} className="px-3 py-1.5 text-xs font-medium text-danger-500 bg-danger-50 rounded-lg hover:bg-danger-100">Remove</button>
                 </div>
               </div>
             ))}
@@ -218,15 +218,15 @@ function MemberActions({ member, onEdit, onDelete }: { member: TeamMember; onEdi
     return (
       <div className="flex items-center gap-2">
         <span className="text-xs text-faint">Sure?</span>
-        <button onClick={() => { onDelete(); setConfirming(false); }} className="px-3 py-1.5 text-xs font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600">Yes</button>
-        <button onClick={() => setConfirming(false)} className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200">No</button>
+        <button onClick={() => { onDelete(); setConfirming(false); }} className="px-3 py-1.5 text-xs font-semibold text-on-status bg-danger-500 rounded-lg hover:bg-danger-600">Yes</button>
+        <button onClick={() => setConfirming(false)} className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4">No</button>
       </div>
     );
   }
   return (
     <div className="flex gap-2">
-      <button onClick={onEdit} className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200">Edit</button>
-      <button onClick={() => setConfirming(true)} className="px-3 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">Remove</button>
+      <button onClick={onEdit} className="px-3 py-1.5 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4">Edit</button>
+      <button onClick={() => setConfirming(true)} className="px-3 py-1.5 text-xs font-medium text-danger-500 bg-danger-50 rounded-lg hover:bg-danger-100">Remove</button>
     </div>
   );
 }
@@ -336,13 +336,13 @@ function MemberModal({ member, clientId, client, onClose, onSaved }: { member?: 
 
         {/* Type toggle — only shown when adding new */}
         {!member && (
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+          <div className="flex gap-1 bg-surface-3 p-1 rounded-xl">
             <button type="button" onClick={() => switchType("team")}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${!isClient ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
+              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${!isClient ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
               🤝 Team
             </button>
             <button type="button" onClick={() => switchType("client")}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${isClient ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
+              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${isClient ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
               🎬 Client
             </button>
           </div>
@@ -359,7 +359,7 @@ function MemberModal({ member, clientId, client, onClose, onSaved }: { member?: 
             <div className="grid grid-cols-2 gap-2">
               {TEAM_ROLES.map((r) => (
                 <button key={r.label} type="button" onClick={() => onRoleChange(r.label)}
-                  className={`py-2 px-3 rounded-lg border text-sm font-medium text-left transition-all ${form.role === r.label ? "bg-accent-tint border-accent text-accent-strong" : "bg-slate-50 border-line text-ink-2 hover:bg-slate-100"}`}>
+                  className={`py-2 px-3 rounded-lg border text-sm font-medium text-left transition-all ${form.role === r.label ? "bg-accent-tint border-accent text-accent-strong" : "bg-surface-2 border-line text-ink-2 hover:bg-surface-3"}`}>
                   {r.label}
                 </button>
               ))}
@@ -384,16 +384,16 @@ function MemberModal({ member, clientId, client, onClose, onSaved }: { member?: 
                 { key: "use", label: "✏️ Use" },
               ];
               return (
-                <div key={page.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-line">
+                <div key={page.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-surface-2 border border-line">
                   <span className="flex items-center gap-1.5 text-xs font-medium text-ink-2 truncate">
                     <span>{page.icon}</span>{page.label}
                   </span>
-                  <div className="flex gap-0.5 bg-white rounded-md border border-line p-0.5 flex-shrink-0">
+                  <div className="flex gap-0.5 bg-surface rounded-md border border-line p-0.5 flex-shrink-0">
                     {OPTIONS.map((o) => (
                       <button key={o.key} type="button" onClick={() => setPageState(page.id, o.key)}
                         className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
                           st === o.key
-                            ? (o.key === "off" ? "bg-slate-200 text-ink-2" : o.key === "view" ? "bg-amber-100 text-amber-700" : "bg-accent text-white")
+                            ? (o.key === "off" ? "bg-surface-4 text-ink-2" : o.key === "view" ? "bg-warn-100 text-warn-700" : "bg-accent text-on-accent")
                             : "text-faint hover:text-ink-2"
                         }`}>
                         {o.label}
@@ -412,15 +412,15 @@ function MemberModal({ member, clientId, client, onClose, onSaved }: { member?: 
             <label className="block text-xs font-medium text-ink-2 mb-2">Color</label>
             <div className="flex flex-wrap gap-2">
               {MEMBER_COLORS.map((c) => (
-                <button key={c} type="button" onClick={() => set("color", c)} className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`} style={{ backgroundColor: c }} />
+                <button key={c} type="button" onClick={() => set("color", c)} className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-line-focus scale-110" : ""}`} style={{ backgroundColor: c }} />
               ))}
             </div>
           </div>
         )}
 
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-xl hover:bg-accent-strong">{member ? "Save Changes" : (isClient ? "Add Client" : "Add Member")}</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-surface-3 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-accent text-on-accent rounded-xl hover:bg-accent-strong">{member ? "Save Changes" : (isClient ? "Add Client" : "Add Member")}</button>
         </div>
       </form>
     </Modal>
@@ -465,7 +465,7 @@ function CreatorModal({ clients, creator, onClose, onSaved }: { clients: Client[
         <div>
           <label className="block text-xs font-medium text-ink-2 mb-1">Instagram Handle</label>
           <div className="flex items-center border border-line rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-accent">
-            <span className="px-3 text-sm text-faint bg-slate-50 border-r border-line py-2">@</span>
+            <span className="px-3 text-sm text-faint bg-surface-2 border-r border-line py-2">@</span>
             <input value={form.instagramHandle} onChange={(e) => set("instagramHandle", e.target.value)} placeholder="username" className="flex-1 px-3 py-2 text-sm focus:outline-none" />
           </div>
         </div>
@@ -481,13 +481,13 @@ function CreatorModal({ clients, creator, onClose, onSaved }: { clients: Client[
           <label className="block text-xs font-medium text-ink-2 mb-2">Color</label>
           <div className="flex flex-wrap gap-2">
             {MEMBER_COLORS.map((c) => (
-              <button key={c} type="button" onClick={() => set("color", c)} className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : ""}`} style={{ backgroundColor: c }} />
+              <button key={c} type="button" onClick={() => set("color", c)} className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "ring-2 ring-offset-2 ring-line-focus scale-110" : ""}`} style={{ backgroundColor: c }} />
             ))}
           </div>
         </div>
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-xl hover:bg-accent-strong">{creator ? "Save Changes" : "Add Creator"}</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-surface-3 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-accent text-on-accent rounded-xl hover:bg-accent-strong">{creator ? "Save Changes" : "Add Creator"}</button>
         </div>
       </form>
     </Modal>
@@ -511,13 +511,13 @@ function InviteLinkModal({ url, onClose }: { url: string; onClose: () => void })
           <p className="text-xs text-muted">They&apos;ll use it to set their password and access their portal. The link expires in 7 days.</p>
         </div>
         <div className="flex items-center gap-2">
-          <input readOnly value={url} className="flex-1 border border-line rounded-lg px-3 py-2 text-xs text-ink-2 bg-slate-50 focus:outline-none" />
-          <button onClick={copy} className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${copied ? "bg-green-600 text-white" : "bg-accent text-white hover:bg-accent-strong"}`}>
+          <input readOnly value={url} className="flex-1 border border-line rounded-lg px-3 py-2 text-xs text-ink-2 bg-surface-2 focus:outline-none" />
+          <button onClick={copy} className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${copied ? "bg-ok-600 text-on-status" : "bg-accent text-on-accent hover:bg-accent-strong"}`}>
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
         <div className="flex justify-end pt-1">
-          <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-100 text-ink-2 rounded-xl hover:bg-slate-200">Done</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm bg-surface-3 text-ink-2 rounded-xl hover:bg-surface-4">Done</button>
         </div>
       </div>
     </Modal>

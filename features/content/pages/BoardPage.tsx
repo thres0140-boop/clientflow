@@ -14,12 +14,12 @@ class BoardErrorBoundary extends Component<{ children: ReactNode }, { error: Err
   render() {
     if (this.state.error) {
       return (
-        <div className="absolute inset-0 flex items-center justify-center p-6 bg-slate-50">
-          <div className="max-w-lg w-full bg-white border border-red-200 rounded-2xl p-5 shadow">
-            <p className="text-sm font-bold text-red-600 mb-1">The board hit an error</p>
-            <p className="text-xs text-slate-500 mb-3">Your content is safe in the database. Here&apos;s the actual error (screenshot this for support):</p>
-            <pre className="text-[11px] text-slate-700 bg-slate-100 rounded-lg p-3 whitespace-pre-wrap break-words max-h-60 overflow-auto">{String(this.state.error?.message || this.state.error)}{"\n\n"}{String(this.state.error?.stack || "").slice(0, 800)}</pre>
-            <button onClick={() => location.reload()} className="mt-3 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">Reload</button>
+        <div className="absolute inset-0 flex items-center justify-center p-6 bg-surface-2">
+          <div className="max-w-lg w-full bg-surface border border-danger-200 rounded-2xl p-5 shadow">
+            <p className="text-sm font-bold text-danger-600 mb-1">The board hit an error</p>
+            <p className="text-xs text-ink-500 mb-3">Your content is safe in the database. Here&apos;s the actual error (screenshot this for support):</p>
+            <pre className="text-[11px] text-ink-700 bg-surface-3 rounded-lg p-3 whitespace-pre-wrap break-words max-h-60 overflow-auto">{String(this.state.error?.message || this.state.error)}{"\n\n"}{String(this.state.error?.stack || "").slice(0, 800)}</pre>
+            <button onClick={() => location.reload()} className="mt-3 px-4 py-2 text-sm font-semibold text-on-accent bg-accent-600 rounded-lg hover:bg-accent-700">Reload</button>
           </div>
         </div>
       );
@@ -54,7 +54,7 @@ export default function BoardPage({ clients, selectedClientId, sidebarCollapsed 
 
   if (!client) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm transition-[left] duration-200" style={{ left: leftOffset }}>
+      <div className="absolute inset-0 flex items-center justify-center text-ink-400 text-sm transition-[left] duration-200" style={{ left: leftOffset }}>
         Select a client to open their board
       </div>
     );
@@ -272,8 +272,8 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
       {/* Save indicator */}
       <div className="absolute top-2 right-4 z-20 pointer-events-none">
         <span className={`text-[10px] font-medium transition-opacity ${
-          saveState === "saving" ? "text-slate-400 opacity-100"
-          : saveState === "saved" ? "text-green-600 opacity-100"
+          saveState === "saving" ? "text-ink-400 opacity-100"
+          : saveState === "saved" ? "text-ok-600 opacity-100"
           : "opacity-0"
         }`}>
           {saveState === "saving" ? "Saving…" : "✓ Saved"}
@@ -284,7 +284,7 @@ function BoardCanvas({ client, leftOffset }: { client: Client; leftOffset: numbe
           doesn't cover it. */}
       <button
         onClick={() => setPickerOpen(true)}
-        className="absolute top-2.5 z-20 flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow"
+        className="absolute top-2.5 z-20 flex items-center gap-1.5 bg-accent-600 hover:bg-accent-700 text-on-accent text-xs font-semibold px-3 py-1.5 rounded-lg shadow"
         style={{ left: leftOffset + 64 }}
       >
         🎬 Add video
@@ -380,10 +380,10 @@ function BoardReelDetail({ tile, client, onClose }: {
   // No reel id (older tile / own upload) → minimal fallback player.
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-end bg-black/40" onClick={onClose}>
-      <div className={`w-[460px] max-w-full h-full bg-white flex flex-col o-elev-pop overflow-hidden transform transition-transform duration-300 ease-out ${mounted ? "translate-x-0" : "translate-x-full"}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`w-[460px] max-w-full h-full bg-surface flex flex-col o-elev-pop overflow-hidden transform transition-transform duration-300 ease-out ${mounted ? "translate-x-0" : "translate-x-full"}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line flex-shrink-0">
           <p className="text-sm font-semibold text-ink">{tile.handle ? `@${tile.handle}` : "Reference video"}</p>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-faint">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-3 text-faint">✕</button>
         </div>
         <div className="relative bg-slate-900 aspect-[9/16] max-h-80 w-full flex items-center justify-center overflow-hidden">
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -544,31 +544,31 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[82vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-800">Add a video to the board</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-2xl max-h-[82vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-line-soft flex items-center justify-between">
+          <h2 className="text-base font-bold text-ink-800">Add a video to the board</h2>
+          <button onClick={onClose} className="text-ink-400 hover:text-ink-600 text-xl leading-none">×</button>
         </div>
         <div className="px-5 pt-3 flex gap-2">
           {([["mine", "📹 My videos"], ["competitors", "🔍 Competitor reels"]] as [typeof tab, string][]).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg ${tab === id ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg ${tab === id ? "bg-accent-600 text-on-accent" : "bg-surface-3 text-ink-600 hover:bg-surface-4"}`}>
               {label}
             </button>
           ))}
         </div>
         <div className="p-5 overflow-y-auto">
           {loading ? (
-            <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+            <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-accent-500 border-t-transparent rounded-full animate-spin" /></div>
           ) : items.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-8">
+            <p className="text-sm text-ink-400 text-center py-8">
               {tab === "mine" ? "No finished videos yet." : "No competitor reels yet — track competitors first."}
             </p>
           ) : (
             <div className="grid grid-cols-3 gap-2">
               {items.map((it) => (
                 <button key={it.key} onClick={() => onPick(it)}
-                  className="text-left bg-slate-50 border border-slate-200 rounded-xl overflow-hidden hover:border-indigo-400 hover:shadow transition-all">
+                  className="text-left bg-surface-2 border border-line-hard rounded-xl overflow-hidden hover:border-accent-400 hover:shadow transition-all">
                   <div className="aspect-[9/16] bg-slate-900 flex items-center justify-center">
                     {it.thumb
                       // eslint-disable-next-line @next/next/no-img-element
@@ -576,8 +576,8 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
                       : <span className="text-2xl opacity-40">🎬</span>}
                   </div>
                   <div className="p-2">
-                    <p className="text-[11px] font-semibold text-slate-700 truncate">{it.label}</p>
-                    {it.sub && <p className="text-[10px] text-slate-400 truncate">{it.sub}</p>}
+                    <p className="text-[11px] font-semibold text-ink-700 truncate">{it.label}</p>
+                    {it.sub && <p className="text-[10px] text-ink-400 truncate">{it.sub}</p>}
                   </div>
                 </button>
               ))}
@@ -592,8 +592,8 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
 function BoardSkeleton() {
   return (
     <div className="absolute inset-0 left-[280px] flex items-center justify-center bg-[#f8f9fa]">
-      <div className="flex flex-col items-center gap-3 text-slate-400">
-        <div className="w-8 h-8 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
+      <div className="flex flex-col items-center gap-3 text-ink-400">
+        <div className="w-8 h-8 border-2 border-line-harder border-t-indigo-500 rounded-full animate-spin" />
         <p className="text-sm">Loading board…</p>
       </div>
     </div>

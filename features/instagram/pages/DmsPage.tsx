@@ -382,19 +382,19 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
         </div>
         <div className="flex items-center gap-3">
           {/* View toggle */}
-          <div className="flex gap-0.5 bg-slate-100 rounded-xl p-1">
+          <div className="flex gap-0.5 bg-surface-3 rounded-xl p-1">
             <button onClick={() => setView("pipeline")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "pipeline" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "pipeline" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
               📊 Pipeline
             </button>
             <button onClick={() => setView("inbox")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "inbox" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "inbox" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
               💬 Instagram Inbox
             </button>
           </div>
           {view === "pipeline" && (
             <button onClick={() => { setEditLead(null); setShowAdd(true); }}
-              className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong">
+              className="bg-accent text-on-accent px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong">
               + Add Lead
             </button>
           )}
@@ -406,30 +406,30 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
         <div className="flex flex-col flex-1 min-h-0 gap-4">
           {/* Date controls */}
           <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
-            <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
+            <div className="flex gap-0.5 bg-surface-3 rounded-lg p-0.5">
               {(["day","week","2weeks","month","all"] as Period[]).map((p) => (
                 <button key={p} onClick={() => {
                   setPeriod(p);
                   if (p === "day") { const t = new Date(); t.setHours(0,0,0,0); setStartDate(t); }
                   else if (p !== "all") setStartDate(getMonday(new Date()));
                 }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
                   {p === "day" ? "Day" : p === "week" ? "1 Week" : p === "2weeks" ? "2 Weeks" : p === "month" ? "Month" : "All time"}
                 </button>
               ))}
             </div>
             {period !== "all" && (
               <>
-                <div className="flex items-center bg-white border border-line rounded-lg overflow-hidden">
-                  <button onClick={() => setStartDate((d) => addDays(d, -days))} className="px-3 py-2 hover:bg-slate-50 text-muted border-r border-line">‹</button>
+                <div className="flex items-center bg-surface border border-line rounded-lg overflow-hidden">
+                  <button onClick={() => setStartDate((d) => addDays(d, -days))} className="px-3 py-2 hover:bg-surface-2 text-muted border-r border-line">‹</button>
                   <span className="px-4 text-sm font-medium text-ink-2 whitespace-nowrap">{rangeLabel(startDate, days)}</span>
-                  <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-slate-50 text-muted border-l border-line">›</button>
+                  <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-surface-2 text-muted border-l border-line">›</button>
                 </div>
                 <button onClick={() => {
                   if (period === "day") { const t = new Date(); t.setHours(0,0,0,0); setStartDate(t); }
                   else setStartDate(getMonday(new Date()));
                 }}
-                  className="px-3 py-2 text-xs border border-line rounded-lg text-muted hover:bg-slate-50 bg-white">Now</button>
+                  className="px-3 py-2 text-xs border border-line rounded-lg text-muted hover:bg-surface-2 bg-surface">Now</button>
               </>
             )}
             <span className="text-xs text-faint">{filtered.length} lead{filtered.length !== 1 ? "s" : ""}</span>
@@ -491,7 +491,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
 
       {/* ── INBOX VIEW ─────────────────────────────────────────────────── */}
       {view === "inbox" && (
-        <div className="bg-white rounded-2xl border border-line overflow-hidden flex-1 min-h-0">
+        <div className="bg-surface rounded-2xl border border-line overflow-hidden flex-1 min-h-0">
           <div className="flex h-full">
             {/* Left: conversation list */}
             <div className="w-80 flex-shrink-0 border-r border-line flex flex-col">
@@ -521,18 +521,18 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                         </p>
                         <button
                           onClick={onGoToSettings}
-                          className="mt-3 px-4 py-2 text-xs font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong"
+                          className="mt-3 px-4 py-2 text-xs font-semibold bg-accent text-on-accent rounded-lg hover:bg-accent-strong"
                         >
                           Go to Settings →
                         </button>
                       </>
                     ) : (
                       <>
-                        <p className="text-xs font-semibold text-red-500">Could not load inbox</p>
+                        <p className="text-xs font-semibold text-danger-500">Could not load inbox</p>
                         <p className="text-[11px] text-faint leading-relaxed">{inboxError}</p>
                       </>
                     )}
-                    <button onClick={loadInbox} className="mt-2 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-strong">Retry</button>
+                    <button onClick={loadInbox} className="mt-2 px-3 py-1.5 text-xs bg-accent text-on-accent rounded-lg hover:bg-accent-strong">Retry</button>
                   </div>
                 ) : inboxLoading && conversations.length === 0 ? (
                   <div className="p-8 text-center text-faint text-xs">Loading conversations…</div>
@@ -543,9 +543,9 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                 ) : (
                   filteredConvs.map((conv) => (
                     <button key={conv.id} onClick={() => setSelectedConv(conv)}
-                      className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-slate-50 hover:bg-slate-50 transition-colors ${selectedConv?.id === conv.id ? "bg-accent-tint border-l-2 border-l-accent" : ""}`}>
+                      className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-line-softer hover:bg-surface-2 transition-colors ${selectedConv?.id === conv.id ? "bg-accent-tint border-l-2 border-l-accent" : ""}`}>
                       {/* Avatar */}
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-on-accent text-sm font-bold flex-shrink-0 overflow-hidden">
                         {conv.avatar ? <img src={conv.avatar} alt={conv.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} /> : (conv.name?.[0]?.toUpperCase() ?? "?")}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -557,7 +557,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                         {conv.snippet && <p className="text-xs text-faint mt-0.5 truncate">{conv.snippet}</p>}
                       </div>
                       {conv.unreadCount != null && conv.unreadCount > 0 && (
-                        <div className="w-5 h-5 bg-accent rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 mt-1">
+                        <div className="w-5 h-5 bg-accent rounded-full flex items-center justify-center text-on-accent text-[10px] font-bold flex-shrink-0 mt-1">
                           {conv.unreadCount}
                         </div>
                       )}
@@ -579,9 +579,9 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
             ) : (
               <div className="flex-1 flex flex-col min-w-0">
                 {/* Thread header */}
-                <div className="px-5 py-3.5 border-b border-line flex items-center justify-between flex-shrink-0 bg-white">
+                <div className="px-5 py-3.5 border-b border-line flex items-center justify-between flex-shrink-0 bg-surface">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-white text-sm font-bold overflow-hidden">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-on-accent text-sm font-bold overflow-hidden">
                       {selectedConv.avatar ? <img src={selectedConv.avatar} alt={selectedConv.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} /> : selectedConv.name?.[0]?.toUpperCase()}
                     </div>
                     <div>
@@ -607,8 +607,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                       <div key={msg.id} className={`flex ${msg.isOwn ? "justify-end" : "justify-start"}`}>
                         <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                           msg.isOwn
-                            ? "bg-accent text-white rounded-br-sm"
-                            : "bg-slate-100 text-ink rounded-bl-sm"
+                            ? "bg-accent text-on-accent rounded-br-sm"
+                            : "bg-surface-3 text-ink rounded-bl-sm"
                         }`}>
                           <p>{msg.text}</p>
                           <p className={`text-[10px] mt-1 ${msg.isOwn ? "text-accent-tint" : "text-faint"}`}>
@@ -623,7 +623,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                 </div>
 
                 {/* Reply input */}
-                <div className="px-4 py-3 border-t border-line flex-shrink-0 bg-white">
+                <div className="px-4 py-3 border-t border-line flex-shrink-0 bg-surface">
                   <div className="flex items-end gap-2">
                     <textarea
                       value={replyText}
@@ -636,7 +636,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
                     <button
                       onClick={sendReply}
                       disabled={!replyText.trim() || sending}
-                      className="px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded-xl hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                      className="px-4 py-2.5 bg-accent text-on-accent text-sm font-semibold rounded-xl hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
                     >
                       {sending ? "…" : "Send"}
                     </button>
@@ -673,7 +673,7 @@ function KanbanCol({ statusVal, meta, col, activeDragId, onEdit, onDelete }: {
     <div className="flex flex-col gap-2 flex-1 min-w-0 min-h-0">
       <div className={`flex items-center justify-between px-3 py-2 rounded-lg border flex-shrink-0 ${meta.bg} ${meta.border}`}>
         <span className={`text-xs font-semibold ${meta.text} truncate`}>{meta.label}</span>
-        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 ${meta.text} ml-1 flex-shrink-0`}>{col.length}</span>
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full bg-surface/70 ${meta.text} ml-1 flex-shrink-0`}>{col.length}</span>
       </div>
       <div
         ref={setNodeRef}
@@ -725,14 +725,14 @@ function LeadCardInner({ lead, onEdit, onDelete }: {
   lead: DmLead; onEdit?: () => void; onDelete?: () => void;
 }) {
   return (
-    <div className="bg-white border border-line rounded-xl p-3 shadow-sm select-none group">
+    <div className="bg-surface border border-line rounded-xl p-3 shadow-sm select-none group">
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-ink truncate">{lead.name}</p>
           {lead.handle && <p className="text-[10px] text-faint truncate">@{lead.handle.replace(/^@/, "")}</p>}
           {lead.date && <p className="text-[10px] text-faint mt-0.5">{lead.date.slice(5).replace("-", "/")}</p>}
           {(lead as any).source === "cta" && (
-            <p className="text-[10px] font-medium text-orange-500 mt-1">⚡ CTA inbound</p>
+            <p className="text-[10px] font-medium text-hue-orange-500 mt-1">⚡ CTA inbound</p>
           )}
           {lead.status === "link_sent" && (lead as any).linkSentAt && (
             <p className="text-[10px] font-medium text-accent mt-1">🔗 Link sent {timeAgoShort((lead as any).linkSentAt)}</p>
@@ -741,7 +741,7 @@ function LeadCardInner({ lead, onEdit, onDelete }: {
         {(onEdit || onDelete) && (
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             {onEdit   && <button onPointerDown={(e) => e.stopPropagation()} onClick={onEdit}   className="p-0.5 text-faint hover:text-ink-2 rounded text-xs">✏</button>}
-            {onDelete && <button onPointerDown={(e) => e.stopPropagation()} onClick={onDelete} className="p-0.5 text-faint hover:text-red-500 rounded text-xs">✕</button>}
+            {onDelete && <button onPointerDown={(e) => e.stopPropagation()} onClick={onDelete} className="p-0.5 text-faint hover:text-danger-500 rounded text-xs">✕</button>}
           </div>
         )}
       </div>
@@ -776,7 +776,7 @@ function LeadModal({ selectedClientId, lead, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-md">
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <h2 className="text-base font-semibold text-ink">{lead ? "Edit Lead" : "Add Lead"}</h2>
           <button onClick={onClose} className="text-faint hover:text-ink-2">✕</button>
@@ -804,7 +804,7 @@ function LeadModal({ selectedClientId, lead, onClose, onSaved }: {
             <div className="flex flex-wrap gap-1.5">
               {DM_STATUSES.map((s) => (
                 <button key={s.value} type="button" onClick={() => set("status", s.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${form.status === s.value ? `${s.bg} ${s.text} ${s.border}` : "bg-white text-faint border-line"}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${form.status === s.value ? `${s.bg} ${s.text} ${s.border}` : "bg-surface text-faint border-line"}`}>
                   {s.label}
                 </button>
               ))}
@@ -816,8 +816,8 @@ function LeadModal({ selectedClientId, lead, onClose, onSaved }: {
               className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none" />
           </div>
           <div className="flex justify-end gap-3 pt-1">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
-            <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-strong">{lead ? "Save" : "Add Lead"}</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-surface-3 rounded-lg">Cancel</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-accent text-on-accent rounded-lg hover:bg-accent-strong">{lead ? "Save" : "Add Lead"}</button>
           </div>
         </form>
       </div>

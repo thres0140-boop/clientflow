@@ -354,12 +354,12 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
     const lr   = linkRate(ds);
     const br   = bookingRateFn(ds);
     const ring = isCompare ? "border-accent-tint" : "border-line";
-    const head = isCompare ? "bg-accent-tint/50 border-accent-tint" : "bg-slate-50 border-line";
-    const foot = isCompare ? "bg-accent-tint/30 border-accent-tint" : "bg-slate-50 border-line";
-    const stickyHead = isCompare ? "bg-accent-tint/50" : "bg-slate-50";
+    const head = isCompare ? "bg-accent-tint/50 border-accent-tint" : "bg-surface-2 border-line";
+    const foot = isCompare ? "bg-accent-tint/30 border-accent-tint" : "bg-surface-2 border-line";
+    const stickyHead = isCompare ? "bg-accent-tint/50" : "bg-surface-2";
 
     return (
-      <div className={`bg-white rounded-xl border overflow-x-auto ${ring}`}>
+      <div className={`bg-surface rounded-xl border overflow-x-auto ${ring}`}>
         <table className="text-sm min-w-full">
           <thead>
             <tr className={`border-b ${head}`}>
@@ -371,7 +371,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
               ))}
               {visibleCols.map((c) => (
                 <th key={c.key} className={`px-3 py-2.5 text-right text-xs font-semibold whitespace-nowrap ${
-                  c.group === "dm" ? "text-blue-500" : c.group === "booking" ? "text-accent" : isCompare ? "text-accent" : "text-muted"
+                  c.group === "dm" ? "text-info-500" : c.group === "booking" ? "text-accent" : isCompare ? "text-accent" : "text-muted"
                 }`}>{c.label}</th>
               ))}
             </tr>
@@ -384,8 +384,8 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                 : auto.concepts.length === 1 ? auto.concepts[0] : "Multiple";
 
               return (
-                <tr key={date} className="hover:bg-slate-50/50 group">
-                  <td className={`px-3 py-2 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 ${isCompare ? "text-accent" : ""}`}>
+                <tr key={date} className="hover:bg-surface-2/50 group">
+                  <td className={`px-3 py-2 sticky left-0 z-10 bg-surface group-hover:bg-surface-2/50 ${isCompare ? "text-accent" : ""}`}>
                     <span className="font-medium text-ink-2 text-xs whitespace-nowrap">{shortDay(date)}</span>
                   </td>
                   {/* Concept (auto from scheduled content) + reel link */}
@@ -396,7 +396,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                           {conceptLabel}
                         </span>
                       ) : (
-                        <span className="text-slate-200 text-xs">—</span>
+                        <span className="text-ink-200 text-xs">—</span>
                       )}
                     </div>
                   </td>
@@ -411,7 +411,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                             value={man.videoLink ?? (auto.videoUrl || "")}
                             onChange={(e) => handleLinkChange(date, e.target.value)}
                             placeholder="paste reel link"
-                            className="w-full text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-accent rounded px-2 py-1 placeholder-slate-200 text-ink-2 min-w-[90px]"
+                            className="w-full text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-accent rounded px-2 py-1 placeholder-ink-200 text-ink-2 min-w-[90px]"
                           />
                           {linkVal && (
                             <a href={linkVal} target="_blank" rel="noopener noreferrer"
@@ -424,7 +424,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                   {/* Auto stats from TrackedVideo */}
                   {(["views","likes","shares"] as const).map((f) => (
                     <td key={f} className="px-3 py-2 text-right">
-                      <span className={`text-xs font-medium ${auto[f] > 0 ? (isCompare ? "text-accent" : "text-ink-2") : "text-slate-200"}`}>
+                      <span className={`text-xs font-medium ${auto[f] > 0 ? (isCompare ? "text-accent" : "text-ink-2") : "text-ink-200"}`}>
                         {auto[f] > 0 ? fmtN(auto[f]) : "—"}
                       </span>
                     </td>
@@ -435,7 +435,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                       const v = dmCount(date, c.key);
                       return (
                         <td key={c.key} className="px-3 py-2 text-right">
-                          <span className={`text-xs font-medium ${v > 0 ? (c.group === "dm" ? "text-blue-600" : "text-accent") : "text-slate-200"}`}>
+                          <span className={`text-xs font-medium ${v > 0 ? (c.group === "dm" ? "text-info-600" : "text-accent") : "text-ink-200"}`}>
                             {v > 0 ? v : "—"}
                           </span>
                         </td>
@@ -449,7 +449,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                           value={man[c.key] ?? ""}
                           onChange={(e) => handleManualChange(date, c.key, e.target.value)}
                           placeholder="—"
-                          className="w-full text-right text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-accent rounded px-2 py-1 placeholder-slate-200 min-w-[58px] text-ink-2"
+                          className="w-full text-right text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-accent rounded px-2 py-1 placeholder-ink-200 min-w-[58px] text-ink-2"
                         />
                       </td>
                     );
@@ -475,7 +475,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                 const t = manualSum(ds, c.key);
                 return (
                   <td key={c.key} className={`px-3 py-2.5 text-right text-xs font-bold ${
-                    c.group === "dm" ? "text-blue-600" : c.group === "booking" ? "text-accent" : isCompare ? "text-accent" : "text-ink"
+                    c.group === "dm" ? "text-info-600" : c.group === "booking" ? "text-accent" : isCompare ? "text-accent" : "text-ink"
                   }`}>{t > 0 ? t : "—"}</td>
                 );
               })}
@@ -483,7 +483,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
             {/* Rates row */}
             {(showDMs || showBooking) && (ar !== null || lr !== null || br !== null) && (
               <tr className={`border-t border-dashed ${isCompare ? "border-accent-tint" : "border-line"}`}>
-                <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 ${isCompare ? "text-accent bg-white" : "text-faint bg-white"}`}>Rate</td>
+                <td className={`px-3 py-1.5 text-xs sticky left-0 z-10 ${isCompare ? "text-accent bg-surface" : "text-faint bg-surface"}`}>Rate</td>
                 <td /><td /><td /><td /><td />
                 {visibleCols.map((c) => {
                   let rate: string | null = null;
@@ -547,11 +547,11 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                   autoFocus value={bookingLink} onChange={(e) => setBookingLink(e.target.value)}
                   placeholder="https://cal.com/..." className="border border-line rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-accent"
                 />
-                <button onClick={saveBL} className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-medium hover:bg-accent-strong">Save</button>
-                <button onClick={() => setEditingBL(false)} className="px-3 py-1.5 text-muted hover:bg-slate-100 rounded-lg text-xs">Cancel</button>
+                <button onClick={saveBL} className="px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-strong">Save</button>
+                <button onClick={() => setEditingBL(false)} className="px-3 py-1.5 text-muted hover:bg-surface-3 rounded-lg text-xs">Cancel</button>
               </>
             ) : (
-              <button onClick={() => setEditingBL(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-line rounded-lg text-ink-2 hover:bg-slate-50 text-xs">
+              <button onClick={() => setEditingBL(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-line rounded-lg text-ink-2 hover:bg-surface-2 text-xs">
                 🔗 {bookingLink ? "Edit booking link" : "Add booking link"}
               </button>
             )}
@@ -560,10 +560,10 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 bg-surface-3 rounded-lg p-1 w-fit">
         {(["general", "concept"] as MainTab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === t ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === t ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
             {t === "general" ? "📊 General Analytics" : "💡 Concept Analytics"}
           </button>
         ))}
@@ -583,39 +583,39 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
           {/* Controls */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Period */}
-            <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
+            <div className="flex gap-0.5 bg-surface-3 rounded-lg p-0.5">
               {(["week","2weeks","month"] as Period[]).map((p) => (
                 <button key={p} onClick={() => { setPeriod(p); setStartDate(getMonday(new Date())); }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${period === p ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
                   {p === "week" ? "1 Week" : p === "2weeks" ? "2 Weeks" : "Month"}
                 </button>
               ))}
             </div>
 
             {/* Date nav */}
-            <div className="flex items-center bg-white border border-line rounded-lg overflow-hidden">
-              <button onClick={() => setStartDate((d) => addDays(d, -days))} className="px-3 py-2 hover:bg-slate-50 text-muted border-r border-line">‹</button>
+            <div className="flex items-center bg-surface border border-line rounded-lg overflow-hidden">
+              <button onClick={() => setStartDate((d) => addDays(d, -days))} className="px-3 py-2 hover:bg-surface-2 text-muted border-r border-line">‹</button>
               <span className="px-4 text-sm font-medium text-ink-2 whitespace-nowrap">{rangeLabel(startDate, days)}</span>
-              <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-slate-50 text-muted border-l border-line">›</button>
+              <button onClick={() => setStartDate((d) => addDays(d, days))}  className="px-3 py-2 hover:bg-surface-2 text-muted border-l border-line">›</button>
             </div>
 
             <button onClick={() => setStartDate(getMonday(new Date()))}
-              className="px-3 py-2 text-xs border border-line rounded-lg text-muted hover:bg-slate-50 bg-white">
+              className="px-3 py-2 text-xs border border-line rounded-lg text-muted hover:bg-surface-2 bg-surface">
               Now
             </button>
 
             <button onClick={() => setCompareMode((v) => !v)}
-              className={`px-3 py-2 text-xs rounded-lg border font-medium transition-colors ${compareMode ? "bg-accent text-white border-accent" : "bg-white border-line text-ink-2 hover:bg-slate-50"}`}>
+              className={`px-3 py-2 text-xs rounded-lg border font-medium transition-colors ${compareMode ? "bg-accent text-on-accent border-accent" : "bg-surface border-line text-ink-2 hover:bg-surface-2"}`}>
               ⇔ Compare prev period
             </button>
 
             <div className="ml-auto flex items-center gap-2">
               <button onClick={() => setShowDMs((v) => !v)}
-                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${showDMs ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-line text-faint"}`}>
+                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${showDMs ? "bg-info-50 border-info-200 text-info-700" : "bg-surface border-line text-faint"}`}>
                 💬 DMs
               </button>
               <button onClick={() => setShowBooking((v) => !v)}
-                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${showBooking ? "bg-accent-tint border-accent-tint text-accent-strong" : "bg-white border-line text-faint"}`}>
+                className={`px-3 py-1.5 text-xs rounded-lg border font-medium ${showBooking ? "bg-accent-tint border-accent-tint text-accent-strong" : "bg-surface border-line text-faint"}`}>
                 📅 Booking
               </button>
             </div>
@@ -623,16 +623,16 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
           </div>
 
           {!selectedClientId ? (
-            <div className="bg-white rounded-xl border border-line p-12 text-center text-faint text-sm">
+            <div className="bg-surface rounded-xl border border-line p-12 text-center text-faint text-sm">
               Select a client to view analytics
             </div>
           ) : (
             <div className="space-y-3">
               {/* Legend */}
               <div className="flex items-center gap-4 text-xs text-faint">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-slate-300 inline-block" /> Views/Likes/Shares auto-tracked from videos</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-surface-5 inline-block" /> Views/Likes/Shares auto-tracked from videos</span>
                 <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-accent inline-block" /> Concepts auto from scheduled content</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-blue-300 inline-block" /> DMs & Booking — enter manually</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-info-300 inline-block" /> DMs & Booking — enter manually</span>
               </div>
 
               {renderTable(dates)}
@@ -677,9 +677,9 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
           </div>
 
           {!selectedClientId ? (
-            <div className="bg-white rounded-xl border border-line p-12 text-center text-faint text-sm">Select a client</div>
+            <div className="bg-surface rounded-xl border border-line p-12 text-center text-faint text-sm">Select a client</div>
           ) : conceptLabels.length === 0 ? (
-            <div className="bg-white rounded-xl border border-line p-12 text-center text-faint text-sm">
+            <div className="bg-surface rounded-xl border border-line p-12 text-center text-faint text-sm">
               No concept-tagged posts yet in this window. Once posts go live with a concept, their performance shows here.
             </div>
           ) : (
@@ -695,13 +695,13 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
                 })
                 .sort((a, b) => b.avg - a.avg)
                 .map(({ label, reels, total, avg, delta }) => (
-                  <div key={label} className="flex items-center gap-4 bg-white border border-line rounded-xl px-4 py-3">
+                  <div key={label} className="flex items-center gap-4 bg-surface border border-line rounded-xl px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-ink truncate">{label}</p>
                       <p className="text-[11px] text-faint">{reels.length} post{reels.length !== 1 ? "s" : ""} · {fmtN(total)} total views</p>
                     </div>
                     {delta !== null && (
-                      <div className={`text-right flex-shrink-0 ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      <div className={`text-right flex-shrink-0 ${delta >= 0 ? "text-hue-emerald-600" : "text-danger-500"}`}>
                         <p className="text-sm font-bold">{delta >= 0 ? "▲" : "▼"} {Math.abs(delta * 100).toFixed(0)}%</p>
                         <p className="text-[10px] text-faint">vs prev</p>
                       </div>
@@ -737,7 +737,7 @@ function ConceptReelsModal({ label, reels, onClose }: { label: string; reels: an
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-[640px] max-w-[94vw] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl o-elev-pop w-[640px] max-w-[94vw] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-ink">🎬 {label}</h3>
@@ -777,7 +777,7 @@ function ConceptReelsModal({ label, reels, onClose }: { label: string; reels: an
               className="max-w-full max-h-full rounded-lg bg-black" />
           ) : (
             <a href={play.permalink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-              className="px-4 py-2 bg-white rounded-lg text-sm font-semibold text-ink-2">Open on Instagram ↗</a>
+              className="px-4 py-2 bg-surface rounded-lg text-sm font-semibold text-ink-2">Open on Instagram ↗</a>
           )}
         </div>
       )}
