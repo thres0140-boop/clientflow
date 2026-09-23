@@ -13,10 +13,9 @@
  *      any non-owner session (covers client-side navigation after login).
  *
  * This module is imported by both server (layout) and client code — keep it free of
- * browser-only and server-only imports.
+ * browser-only and server-only imports, and of React hooks (a hook import here breaks the
+ * server build of app/layout.tsx). The live-theme hook lives in shared/useLiveTheme.ts.
  */
-
-import { useSyncExternalStore } from "react";
 
 export const THEME_KEY = "cf_theme";
 export const THEME_ATTR = "data-theme";
@@ -50,20 +49,4 @@ export function setStoredTheme(theme: Theme) {
     else localStorage.removeItem(THEME_KEY);
   } catch { /* ignore */ }
   applyTheme(theme);
-}
-
-/** The theme currently ON SCREEN: the data-theme attribute, not localStorage. An unsaved
- *  preview in Settings changes the attribute without writing storage, and anything that
- *  mirrors the theme (e.g. the Excalidraw board) must follow what is visible. Re-renders on
- *  attribute changes via a MutationObserver; "light" during SSR and for every non-owner. */
-export function useLiveTheme(): Theme {
-  return useSyncExternalStore(subscribeToTheme, readLiveTheme, () => "light");
-}
-function readLiveTheme(): Theme {
-  return document.documentElement.getAttribute(THEME_ATTR) === "dark" ? "dark" : "light";
-}
-function subscribeToTheme(onChange: () => void) {
-  const obs = new MutationObserver(onChange);
-  obs.observe(document.documentElement, { attributes: true, attributeFilter: [THEME_ATTR] });
-  return () => obs.disconnect();
 }

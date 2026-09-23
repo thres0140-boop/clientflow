@@ -227,7 +227,7 @@ The hairline between sidebar and content is `inset -1px 0 0 var(--color-nav-edge
 
 A component that ships its own CSS (Excalidraw on the Strategy Board) never sees the
 tokens. Theme it through its own API instead, bound to **the theme on screen**:
-`useLiveTheme()` in `shared/theme.ts` reads the `data-theme` attribute (not
+`useLiveTheme()` in `shared/useLiveTheme.ts` (a client-only module; `shared/theme.ts` must stay hook-free because the server layout imports it) reads the `data-theme` attribute (not
 localStorage, so an unsaved preview in Settings is mirrored) and re-renders on attribute
 changes via a MutationObserver. The board passes it as Excalidraw's `theme` prop, and
 its in-canvas theme toggle is disabled: the theme is one owner-level setting, and a

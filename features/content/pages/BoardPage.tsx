@@ -5,7 +5,7 @@ import { ReelDetailPanel, type IGReel } from "@/features/instagram/pages/Instagr
 import { useCallback, useEffect, useRef, useState, Component, ReactNode, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import { Client } from "@/shared/types";
-import { useLiveTheme } from "@/shared/theme";
+import { useLiveTheme } from "@/shared/useLiveTheme";
 
 // Catches any render crash from the board (Excalidraw) and shows the REAL error instead of
 // the browser's blank "page couldn't load" screen, so we can see what's actually wrong.
