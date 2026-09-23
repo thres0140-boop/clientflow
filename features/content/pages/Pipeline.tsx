@@ -397,7 +397,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
               ))}
               <button
                 onClick={() => setShowAdd(true)}
-                className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong transition-colors"
+                className="bg-accent text-on-accent px-4 py-2 rounded-xl text-sm font-semibold hover:bg-accent-strong transition-colors"
               >
                 + Add Content
               </button>
@@ -407,36 +407,36 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
       </div>
 
       {/* ── CALENDAR (both modes share the same view) ────────── */}
-      <div className="bg-white rounded-2xl border border-line overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-line overflow-hidden">
         {/* Calendar toolbar */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-line">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-bold text-ink">{calendarHeader()}</h2>
-            <div className="flex items-center bg-slate-100 rounded-md p-0.5 text-xs">
+            <div className="flex items-center bg-surface-3 rounded-md p-0.5 text-xs">
               <button
                 onClick={() => { setCalView("month"); setOffset(0); }}
-                className={`px-2.5 py-1 rounded transition-all ${calView === "month" ? "bg-white text-ink-2 shadow-sm font-medium" : "text-faint"}`}
+                className={`px-2.5 py-1 rounded transition-all ${calView === "month" ? "bg-surface text-ink-2 shadow-sm font-medium" : "text-faint"}`}
               >
                 Month
               </button>
               <button
                 onClick={() => { setCalView("week"); setOffset(0); }}
-                className={`px-2.5 py-1 rounded transition-all ${calView === "week" ? "bg-white text-ink-2 shadow-sm font-medium" : "text-faint"}`}
+                className={`px-2.5 py-1 rounded transition-all ${calView === "week" ? "bg-surface text-ink-2 shadow-sm font-medium" : "text-faint"}`}
               >
                 Week
               </button>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={calendarPrev} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-muted">‹</button>
-            <button onClick={calendarToday} className="px-2.5 h-7 text-xs font-medium text-muted hover:bg-slate-100 rounded-lg">Today</button>
-            <button onClick={calendarNext} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-muted">›</button>
+            <button onClick={calendarPrev} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-3 text-muted">‹</button>
+            <button onClick={calendarToday} className="px-2.5 h-7 text-xs font-medium text-muted hover:bg-surface-3 rounded-lg">Today</button>
+            <button onClick={calendarNext} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-3 text-muted">›</button>
           </div>
         </div>
 
         {/* Day headers — in template mode each header gets one concept picker PER enabled platform
             (each lane only offers that platform's concepts). */}
-        <div className="grid grid-cols-7 border-b border-line bg-slate-50">
+        <div className="grid grid-cols-7 border-b border-line bg-surface-2">
           {DAYS.map((d, i) => (
             <div key={d} className="border-r border-line last:border-r-0 px-2 py-2">
               <div className="flex items-center justify-center gap-1.5 flex-wrap">
@@ -451,7 +451,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                       key={p}
                       onClick={() => saveDayTemplate(p, { ...map, [i]: null })}
                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium text-white hover:opacity-80 transition-opacity"
-                      style={{ backgroundColor: "#6366f1" }}
+                      style={{ backgroundColor: "var(--color-accent-legacy)" }}
                       title={`${multi ? `${PLATFORM_LABEL[p]} · ` : ""}Click to remove`}
                     >
                       <span className="truncate max-w-[90px]">{badge(p)}{conceptLabel(conceptId)}</span>
@@ -461,14 +461,14 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                     <div key={p} className="relative">
                       <button onClick={() => setOpenTemplateDay(openTemplateDay === pickerKey ? null : pickerKey)}
                         title={multi ? `Set ${PLATFORM_LABEL[p]} concept` : undefined}
-                        className={`${multi ? "px-1 min-w-4" : "w-4"} h-4 rounded-full bg-slate-200 hover:bg-accent text-muted hover:text-white text-[10px] font-bold flex items-center justify-center transition-colors leading-none`}>
+                        className={`${multi ? "px-1 min-w-4" : "w-4"} h-4 rounded-full bg-surface-4 hover:bg-accent text-muted hover:text-on-accent text-[10px] font-bold flex items-center justify-center transition-colors leading-none`}>
                         {multi ? `${PLATFORM_BADGE[p]}+` : "+"}
                       </button>
                       {openTemplateDay === pickerKey && (
                         <>
                           {/* click-away backdrop */}
                           <div className="fixed inset-0 z-10" onClick={() => setOpenTemplateDay(null)} />
-                          <div className="absolute top-5 left-0 z-20 bg-white border border-line rounded-xl o-elev-lift py-1 min-w-[160px] max-h-64 overflow-y-auto">
+                          <div className="absolute top-5 left-0 z-20 bg-surface border border-line rounded-xl o-elev-lift py-1 min-w-[160px] max-h-64 overflow-y-auto">
                             {multi && <p className="px-3 py-1 text-[10px] font-semibold text-faint uppercase tracking-wide">{PLATFORM_BADGE[p]} {PLATFORM_LABEL[p]}</p>}
                             {laneConcepts.length === 0 ? (
                               <p className="px-3 py-2 text-xs text-faint">No {multi ? `${PLATFORM_LABEL[p]} ` : ""}concepts yet</p>
@@ -504,7 +504,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                 return (
                   <div
                     key={idx}
-                    className={`min-h-[100px] border-r border-b border-line last:border-r-0 p-1.5 transition-colors ${isToday ? "bg-accent-tint/40" : ""} ${!date ? "bg-slate-50/50" : ""} ${isDragTarget ? "bg-accent-tint/60 ring-2 ring-inset ring-accent" : ""}`}
+                    className={`min-h-[100px] border-r border-b border-line last:border-r-0 p-1.5 transition-colors ${isToday ? "bg-accent-tint/40" : ""} ${!date ? "bg-surface-2/50" : ""} ${isDragTarget ? "bg-accent-tint/60 ring-2 ring-inset ring-accent" : ""}`}
                     onDragOver={date && canEdit ? (e) => { e.preventDefault(); setDragOverDate(date); } : undefined}
                     onDragLeave={() => setDragOverDate(null)}
                     onDrop={date && canEdit ? () => handleCalendarDrop(date) : undefined}
@@ -512,7 +512,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                     {date && (
                       <>
                         <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-accent text-white" : "text-muted"}`}>
+                          <span className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-accent text-on-accent" : "text-muted"}`}>
                             {date.slice(8).replace(/^0/, "")}
                           </span>
                           {/* Calendar mode: tag picker per individual date */}
@@ -523,7 +523,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                               <button
                                 onClick={() => setDateTag(date, null)}
                                 className="text-[9px] px-1 py-0.5 rounded font-medium text-white hover:opacity-70 truncate max-w-[60px]"
-                                style={{ backgroundColor: "#6366f1" }}
+                                style={{ backgroundColor: "var(--color-accent-legacy)" }}
                                 title="Click to remove tag"
                               >
                                 {conceptLabel(tagConcept.id, tagConcept.name)}
@@ -532,12 +532,12 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                               <div className="relative">
                                 <button
                                   onClick={() => setOpenDatePicker(openDatePicker === date ? null : date)}
-                                  className="w-4 h-4 rounded-full bg-slate-100 hover:bg-accent-tint text-faint hover:text-accent text-[10px] font-bold flex items-center justify-center transition-colors"
+                                  className="w-4 h-4 rounded-full bg-surface-3 hover:bg-accent-tint text-faint hover:text-accent text-[10px] font-bold flex items-center justify-center transition-colors"
                                 >
                                   +
                                 </button>
                                 {openDatePicker === date && (
-                                  <div className="absolute top-5 right-0 z-30 bg-white border border-line rounded-xl o-elev-lift py-1 min-w-[150px]">
+                                  <div className="absolute top-5 right-0 z-30 bg-surface border border-line rounded-xl o-elev-lift py-1 min-w-[150px]">
                                     {concepts.length === 0 ? (
                                       <p className="px-3 py-2 text-xs text-faint">No concepts yet</p>
                                     ) : concepts.map((c) => (
@@ -570,17 +570,17 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                                 onClick={(isClient && onOpenInKanban) ? undefined : () => setSelected(piece)}
                                 className="w-full text-left rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight hover:opacity-90 transition-opacity truncate"
                                 style={isPosted ? {
-                                  backgroundColor: "#dcfce7",
+                                  backgroundColor: "var(--color-chip-posted-bg)",
                                   borderLeft: "2px solid #16a34a",
-                                  color: "#15803d",
+                                  color: "var(--color-chip-posted-ink)",
                                 } : {
                                   backgroundColor: (piece.client?.color || "#6366f1") + "20",
                                   borderLeft: `2px solid ${piece.client?.color || "#6366f1"}`,
-                                  color: "#1e293b",
+                                  color: "var(--color-chip-ink)",
                                 }}
                               >
                                 <div className="truncate">{badge(platformOf(piece))}{piece.title}</div>
-                                {isPosted && <div className="text-[8px] font-semibold text-green-600 mt-0.5">✓ Posted</div>}
+                                {isPosted && <div className="text-[8px] font-semibold text-ok-600 mt-0.5">✓ Posted</div>}
                               </button>
                             );
                           })}
@@ -602,20 +602,20 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                               className={`w-full rounded-md px-1.5 py-1 text-[10px] font-medium leading-tight group/draft relative ${movable ? "cursor-grab active:cursor-grabbing" : ""}`}
                               style={solid
                                 ? { backgroundColor: st.color, color: "#fff" }
-                                : { backgroundColor: st.color + "15", borderLeft: `2px solid ${st.color}`, color: "#1e293b" }}
+                                : { backgroundColor: st.color + "15", borderLeft: `2px solid ${st.color}`, color: "var(--color-chip-ink)" }}
                             >
                               <button onClick={() => (!canEdit || solid) ? openDraft(draft) : setPendingDrop({ draft, date })} className="w-full text-left" title={st.label}>
                                 <div className="truncate font-semibold pr-4">{st.key === "booked" ? "🔒 " : st.key === "posted" ? "✓ " : ""}{badge(platformOf(draft))}{draft.title}</div>
                                 {draft.concept && <div className={`truncate text-[9px] ${solid ? "text-white/80" : "opacity-70"}`}>💡 {conceptLabel(draft.conceptId, draft.concept.name)}</div>}
                                 <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                  {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <span className={`rounded px-1 text-[9px] font-semibold ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-ink-2"}`}>🕐 {t}</span> : null; })()}
+                                  {(() => { const t = draft.scheduledDate?.match(/T(\d{2}:\d{2})/)?.[1]; return t ? <span className={`rounded px-1 text-[9px] font-semibold ${solid ? "bg-white/20 text-white" : "bg-surface-3 text-ink-2"}`}>🕐 {t}</span> : null; })()}
                                   {!solid && <span className="rounded px-1 text-[9px]" style={{ backgroundColor: st.color + "22", color: st.color }}>{st.label}</span>}
-                                  {draft.stage && <span className={`rounded px-1 text-[9px] ${solid ? "bg-white/20 text-white" : "bg-slate-100 text-muted"}`}>📍 {draft.stage.name}</span>}
+                                  {draft.stage && <span className={`rounded px-1 text-[9px] ${solid ? "bg-white/20 text-white" : "bg-surface-3 text-muted"}`}>📍 {draft.stage.name}</span>}
                                 </div>
                               </button>
                               <button
                                 onClick={() => unscheduleDraft(draft.id)}
-                                className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${solid ? "text-white/70 hover:text-white" : "text-faint hover:text-red-500"}`}
+                                className={`absolute top-0.5 right-0.5 opacity-0 group-hover/draft:opacity-100 transition-all leading-none text-[11px] w-4 h-4 flex items-center justify-center ${solid ? "text-white/70 hover:text-white" : "text-faint hover:text-danger-500"}`}
                                 title="Remove from calendar"
                               >×</button>
                             </div>
@@ -647,13 +647,13 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                   >
                     <div className={`text-center mb-2`}>
                       <p className="text-[10px] font-semibold text-faint uppercase">{DAYS[i]}</p>
-                      <span className={`text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full mx-auto ${isToday ? "bg-accent text-white" : "text-ink-2"}`}>
+                      <span className={`text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full mx-auto ${isToday ? "bg-accent text-on-accent" : "text-ink-2"}`}>
                         {d.getDate()}
                       </span>
                     </div>
                     {/* Template hint — one per platform with a concept that day */}
                     {templateHints.map((h) => (
-                      <div key={h.platform} className="mb-2 px-2 py-1 rounded-lg text-[10px] text-muted bg-slate-50 border border-dashed border-line text-center truncate">
+                      <div key={h.platform} className="mb-2 px-2 py-1 rounded-lg text-[10px] text-muted bg-surface-2 border border-dashed border-line text-center truncate">
                         💡 {badge(h.platform)}{conceptLabel(h.concept.id, h.concept.name)}
                       </div>
                     ))}
@@ -666,18 +666,18 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                             onClick={(isClient && onOpenInKanban) ? undefined : () => setSelected(piece)}
                             className="w-full text-left rounded-lg px-2 py-2 text-xs hover:opacity-90 transition-opacity"
                             style={isPosted ? {
-                              backgroundColor: "#dcfce7",
+                              backgroundColor: "var(--color-chip-posted-bg)",
                               borderLeft: "3px solid #16a34a",
                             } : {
                               backgroundColor: (piece.client?.color || "#6366f1") + "18",
                               borderLeft: `3px solid ${piece.client?.color || "#6366f1"}`,
                             }}
                           >
-                            <p className={`font-semibold truncate leading-snug ${isPosted ? "text-green-800" : "text-ink"}`}>{badge(platformOf(piece))}{piece.title}</p>
-                            {piece.concept && <p className={`truncate text-[10px] mt-0.5 ${isPosted ? "text-green-600" : "text-faint"}`}>💡 {conceptLabel(piece.conceptId, piece.concept.name)}</p>}
+                            <p className={`font-semibold truncate leading-snug ${isPosted ? "text-ok-800" : "text-ink"}`}>{badge(platformOf(piece))}{piece.title}</p>
+                            {piece.concept && <p className={`truncate text-[10px] mt-0.5 ${isPosted ? "text-ok-600" : "text-faint"}`}>💡 {conceptLabel(piece.conceptId, piece.concept.name)}</p>}
                             <div className="mt-1">
                               {isPosted
-                                ? <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-100 rounded px-1.5 py-0.5">✓ Posted</span>
+                                ? <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-ok-700 bg-ok-100 rounded px-1.5 py-0.5">✓ Posted</span>
                                 : <StatusBadge status={piece.status} />
                               }
                             </div>
@@ -708,7 +708,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                           </button>
                           <button
                             onClick={() => unscheduleDraft(draft.id)}
-                            className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${solid ? "text-white/70 hover:text-white" : "text-faint hover:text-red-500"}`}
+                            className={`absolute top-1 right-1 opacity-0 group-hover/wdraft:opacity-100 transition-all text-sm leading-none ${solid ? "text-white/70 hover:text-white" : "text-faint hover:text-danger-500"}`}
                             title="Remove from calendar"
                           >×</button>
                         </div>
@@ -732,11 +732,11 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
       {/* ── Schedule Board: drag staged drafts onto the calendar ──
           Owner-only, and only when they can edit — view-only members never see it. */}
       {selectedClientId && !isClient && canEdit && (
-        <div className="bg-white rounded-2xl border border-line overflow-hidden">
+        <div className="bg-surface rounded-2xl border border-line overflow-hidden">
           <div className="px-5 py-3 border-b border-line flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-ink-2">Schedule Board</h2>
-              <span className="text-[10px] text-faint bg-slate-100 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] text-faint bg-surface-3 px-2 py-0.5 rounded-full">
                 drag onto calendar to schedule
               </span>
             </div>
@@ -748,10 +748,10 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                 ⚙ Columns
               </button>
               {boardColumnPicker && (
-                <div className="absolute right-16 top-full mt-1 bg-white border border-line rounded-xl o-elev-lift z-50 p-3 min-w-[180px]" onClick={(e) => e.stopPropagation()}>
+                <div className="absolute right-16 top-full mt-1 bg-surface border border-line rounded-xl o-elev-lift z-50 p-3 min-w-[180px]" onClick={(e) => e.stopPropagation()}>
                   <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2">Show columns</p>
                   {allColumnKeys.map((col) => (
-                    <label key={col} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-slate-50 rounded px-1">
+                    <label key={col} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-surface-2 rounded px-1">
                       <input
                         type="checkbox"
                         checked={boardColumns.includes(col)}
@@ -816,7 +816,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
                             onDragStart={canEdit ? () => handleDraftDragStart(draft.id) : undefined}
                             onDragEnd={() => { setDragDraftId(null); setDragOverDate(null); }}
                             onClick={() => setSelectedDraft(draft)}
-                            className={`rounded-lg border border-line bg-slate-50 px-2.5 py-2 cursor-pointer ${canEdit ? "active:cursor-grabbing hover:border-accent hover:bg-accent-tint" : ""} transition-colors select-none`}
+                            className={`rounded-lg border border-line bg-surface-2 px-2.5 py-2 cursor-pointer ${canEdit ? "active:cursor-grabbing hover:border-accent hover:bg-accent-tint" : ""} transition-colors select-none`}
                           >
                             <p className="text-xs font-semibold text-ink truncate leading-snug">{draft.title}</p>
                             {draft.concept && (
@@ -957,13 +957,13 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
   const [cancelling, setCancelling] = useState(false);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-lg max-h-[85vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
             {draft.concept && <p className="text-xs font-semibold text-accent mb-0.5">💡 {draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name}</p>}
             <h2 className="text-base font-bold text-ink">{draft.title}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {draft.stage && <span className="text-[10px] bg-slate-100 text-muted rounded-full px-2 py-0.5">📍 {draft.stage.name}</span>}
+              {draft.stage && <span className="text-[10px] bg-surface-3 text-muted rounded-full px-2 py-0.5">📍 {draft.stage.name}</span>}
               <span className="text-[10px] text-faint">{draft.weekLabel}</span>
             </div>
           </div>
@@ -972,18 +972,18 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
         {draft.hook && (
           <div>
             <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Text Hook</p>
-            <p className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
+            <p className="text-sm text-ink-2 bg-surface-2 rounded-lg px-3 py-2">{draft.hook}</p>
           </div>
         )}
         <div>
           <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Script</p>
-          <pre className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.script}</pre>
+          <pre className="text-sm text-ink-2 bg-surface-2 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.script}</pre>
           <p className="text-[10px] text-faint mt-1">{draft.script.split(" ").filter(Boolean).length} words</p>
         </div>
         {draft.caption && (
           <div>
             <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Caption</p>
-            <pre className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.caption}</pre>
+            <pre className="text-sm text-ink-2 bg-surface-2 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed">{draft.caption}</pre>
           </div>
         )}
         {draft.editedVideoUrl && (
@@ -1009,7 +1009,7 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
                 {raw.map((url, i) => (
                   /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url)
                     ? <video key={i} src={url} controls className="w-full rounded-lg bg-slate-900 max-h-60 object-contain" />
-                    : <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block text-xs text-accent hover:underline truncate bg-slate-50 rounded-lg px-3 py-2">📎 {url.split("/").pop()}</a>
+                    : <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block text-xs text-accent hover:underline truncate bg-surface-2 rounded-lg px-3 py-2">📎 {url.split("/").pop()}</a>
                 ))}
               </div>
             </div>
@@ -1020,7 +1020,7 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
           const hasTime = draft.scheduledDate.includes("T");
           const when = dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) + (hasTime ? ` at ${dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "");
           return (
-          <div className="flex items-center gap-2 text-xs text-muted bg-slate-50 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-muted bg-surface-2 rounded-lg px-3 py-2">
             <span>📅</span>
             <span>{draft.zernioBooked ? `Scheduled to auto-post · ${when}` : `Planned · ${when} (not yet confirmed)`}</span>
           </div>
@@ -1029,7 +1029,7 @@ function ScriptDraftModal({ draft, onClose, onCancelScheduled }: { draft: Script
           <button
             onClick={async () => { if (!confirm("Cancel this scheduled post? It will be removed from auto-posting on Zernio too.")) return; setCancelling(true); try { await onCancelScheduled(); } finally { setCancelling(false); } }}
             disabled={cancelling}
-            className="w-full py-2.5 text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 disabled:opacity-50">
+            className="w-full py-2.5 text-sm font-semibold text-danger-600 bg-danger-50 border border-danger-200 rounded-xl hover:bg-danger-100 disabled:opacity-50">
             {cancelling ? "Cancelling…" : "✕ Cancel scheduled post"}
           </button>
         )}
@@ -1044,7 +1044,7 @@ function PlanTimeModal({ date, onClose, onPlan }: { date: string; onClose: () =>
   const pretty = new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div>
           <h2 className="text-base font-bold text-ink">Plan for {pretty}</h2>
           <p className="text-xs text-faint mt-0.5">Pick the time you want this to go out.</p>
@@ -1055,9 +1055,9 @@ function PlanTimeModal({ date, onClose, onPlan }: { date: string; onClose: () =>
             className="w-full border border-line rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div className="flex gap-2 justify-end pt-1">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-muted hover:bg-slate-100 rounded-lg">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-3 rounded-lg">Cancel</button>
           <button onClick={() => onPlan(time || "09:00")} disabled={!time}
-            className="px-4 py-2 text-sm font-semibold text-white bg-accent rounded-lg hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed">
+            className="px-4 py-2 text-sm font-semibold text-on-accent bg-accent rounded-lg hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed">
             Plan it
           </button>
         </div>
@@ -1144,7 +1144,7 @@ function ConfirmScheduleModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-line flex items-start justify-between">
           <div>
             {draft.concept && <p className="text-xs font-semibold text-accent mb-0.5">💡 {draft.concept.conceptType ? `${draft.concept.conceptType} · ${draft.concept.name}` : draft.concept.name}</p>}
@@ -1159,14 +1159,14 @@ function ConfirmScheduleModal({
           {draft.hook && (
             <div>
               <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Hook</p>
-              <p className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2">{draft.hook}</p>
+              <p className="text-sm text-ink-2 bg-surface-2 rounded-lg px-3 py-2">{draft.hook}</p>
             </div>
           )}
 
           {/* Script (read-only, collapsed) */}
           <div>
             <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Script</p>
-            <pre className="text-sm text-ink-2 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">{draft.script}</pre>
+            <pre className="text-sm text-ink-2 bg-surface-2 rounded-lg px-3 py-2 whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">{draft.script}</pre>
           </div>
 
           {/* Finished video preview */}
@@ -1188,14 +1188,14 @@ function ConfirmScheduleModal({
                   className="flex-1 min-w-0 border border-line rounded-lg px-2 py-1.5 text-[11px] text-muted truncate" />
                 <button
                   onClick={async () => { try { await navigator.clipboard.writeText(videoUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); } catch { /* ignore */ } }}
-                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200 whitespace-nowrap">
+                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-surface-3 text-ink-2 rounded-lg hover:bg-surface-4 whitespace-nowrap">
                   {linkCopied ? "✓" : "🔗 Video"}
                 </button>
                 <button onClick={() => setShowVideoQR((s) => !s)} title="Show QR to open on phone"
-                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200 whitespace-nowrap">📱</button>
+                  className="px-2.5 py-1.5 text-[11px] font-semibold bg-surface-3 text-ink-2 rounded-lg hover:bg-surface-4 whitespace-nowrap">📱</button>
               </div>
               {showVideoQR && (
-                <div className="flex flex-col items-center gap-1 bg-white border border-line rounded-xl p-3 mt-2">
+                <div className="flex flex-col items-center gap-1 bg-surface border border-line rounded-xl p-3 mt-2">
                   <QRCodeSVG value={videoUrl} size={140} />
                   <p className="text-[10px] text-faint">Scan to open the video on your phone</p>
                 </div>
@@ -1235,7 +1235,7 @@ function ConfirmScheduleModal({
               onChange={(e) => setCaption(e.target.value)}
               rows={4}
               placeholder={genCaption ? "✨ Generating caption…" : `Write your ${platformLabel} caption here…`}
-              className="w-full text-sm text-ink-2 bg-slate-50 border border-line rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full text-sm text-ink-2 bg-surface-2 border border-line rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
 
@@ -1256,7 +1256,7 @@ function ConfirmScheduleModal({
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <label className="block text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Date</label>
-                <div className="text-sm text-ink-2 bg-slate-50 border border-line rounded-lg px-3 py-2">{date}</div>
+                <div className="text-sm text-ink-2 bg-surface-2 border border-line rounded-lg px-3 py-2">{date}</div>
               </div>
               <div className="w-32">
                 <label className="block text-[10px] font-semibold text-faint uppercase tracking-wide mb-1">Time (local)</label>
@@ -1275,7 +1275,7 @@ function ConfirmScheduleModal({
           )}
 
           {igStatus && (
-            <p className={`text-sm font-medium text-center ${igStatus.includes("✓") ? "text-green-600" : igStatus.includes("Failed") ? "text-red-500" : "text-accent"}`}>
+            <p className={`text-sm font-medium text-center ${igStatus.includes("✓") ? "text-ok-600" : igStatus.includes("Failed") ? "text-danger-500" : "text-accent"}`}>
               {igStatus}
             </p>
           )}
@@ -1285,7 +1285,7 @@ function ConfirmScheduleModal({
           <button
             onClick={() => handle(false)}
             disabled={loading}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-line text-sm font-semibold text-ink-2 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            className="flex-1 px-4 py-2.5 rounded-xl border border-line text-sm font-semibold text-ink-2 hover:bg-surface-2 disabled:opacity-50 transition-colors"
           >
             Save to Calendar
           </button>
@@ -1304,7 +1304,7 @@ function ConfirmScheduleModal({
           })()}
         </div>
         {!canPost && (
-          <p className="px-6 pb-4 text-[11px] text-amber-600 text-center">
+          <p className="px-6 pb-4 text-[11px] text-warn-600 text-center">
             🔒 Not ready to schedule — move this to the <span className="font-semibold">{lastStageName}</span> stage in the Kanban (it&apos;s in {draft.stage?.name ? `"${draft.stage.name}"` : "an earlier stage"}) before you can book the auto-post. You can still keep it planned here.
           </p>
         )}
@@ -1435,7 +1435,7 @@ function PostModal({ clientId, platform, onClose, onPosted }: { clientId: number
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl o-elev-pop w-full max-w-lg max-h-[92vh] overflow-y-auto"
+        className="bg-surface rounded-2xl o-elev-pop w-full max-w-lg max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -1453,11 +1453,11 @@ function PostModal({ clientId, platform, onClose, onPosted }: { clientId: number
             <p className="text-[10px] font-semibold text-faint uppercase tracking-wide mb-2">Video / Photo</p>
             <input ref={fileRef} type="file" accept="video/*,image/*" className="hidden" onChange={handleFile} />
             {mediaUrl ? (
-              <div className="flex items-center gap-3 bg-green-50 rounded-xl px-4 py-3">
-                <span className="text-green-500 text-lg">✓</span>
+              <div className="flex items-center gap-3 bg-ok-50 rounded-xl px-4 py-3">
+                <span className="text-ok-500 text-lg">✓</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-green-700 truncate">{mediaName}</p>
-                  <p className="text-[10px] text-green-500 truncate">{mediaUrl}</p>
+                  <p className="text-sm font-medium text-ok-700 truncate">{mediaName}</p>
+                  <p className="text-[10px] text-ok-500 truncate">{mediaUrl}</p>
                 </div>
                 <button
                   onClick={() => { setMediaUrl(null); setMediaName(""); }}
@@ -1494,7 +1494,7 @@ function PostModal({ clientId, platform, onClose, onPosted }: { clientId: number
               onChange={(e) => setCaption(e.target.value)}
               rows={5}
               placeholder="Write your caption, add hashtags…"
-              className="w-full text-sm text-ink-2 bg-slate-50 border border-line rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full text-sm text-ink-2 bg-surface-2 border border-line rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
 
@@ -1538,15 +1538,15 @@ function PostModal({ clientId, platform, onClose, onPosted }: { clientId: number
 
           {/* Status */}
           {status === "done" && (
-            <div className="flex items-center gap-2 bg-green-50 rounded-xl px-4 py-3">
-              <span className="text-green-500">✓</span>
-              <p className="text-sm font-medium text-green-700">
+            <div className="flex items-center gap-2 bg-ok-50 rounded-xl px-4 py-3">
+              <span className="text-ok-500">✓</span>
+              <p className="text-sm font-medium text-ok-700">
                 {postedNow ? `Sent to ${platformLabel} — should appear shortly!` : `Scheduled for ${scheduleDate} at ${scheduleTime}`}
               </p>
             </div>
           )}
           {(status === "error" || errorMsg) && (
-            <p className="text-sm text-red-500 font-medium">{errorMsg}</p>
+            <p className="text-sm text-danger-500 font-medium">{errorMsg}</p>
           )}
         </div>
 
@@ -1557,7 +1557,7 @@ function PostModal({ clientId, platform, onClose, onPosted }: { clientId: number
               onClick={() => handlePost(false)}
               disabled={isLoading || !mediaUrl}
               title={!mediaUrl ? "Upload media first" : ""}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-line text-sm font-semibold text-ink-2 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-line text-sm font-semibold text-ink-2 hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {status === "posting" ? "Scheduling…" : "🗓 Schedule"}
             </button>
@@ -1575,7 +1575,7 @@ function PostModal({ clientId, platform, onClose, onPosted }: { clientId: number
           <div className="px-6 py-4 border-t border-line">
             <button
               onClick={onClose}
-              className="w-full px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent-strong transition-colors"
+              className="w-full px-4 py-2.5 rounded-xl bg-accent text-on-accent text-sm font-semibold hover:bg-accent-strong transition-colors"
             >
               Done
             </button>
@@ -1608,7 +1608,7 @@ function PlanModeSelector({ current, onChange }: { current: PlanningMode; onChan
     <div className="relative">
       <button
         onClick={() => { setPending(current); setOpen((o) => !o); }}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-white hover:bg-slate-50 text-sm font-medium text-ink-2 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-surface hover:bg-surface-2 text-sm font-medium text-ink-2 transition-colors"
       >
         <span>{currentMode.icon}</span>
         <span>{currentMode.label}</span>
@@ -1616,7 +1616,7 @@ function PlanModeSelector({ current, onChange }: { current: PlanningMode; onChan
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-line rounded-2xl o-elev-lift z-40 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1.5 w-64 bg-surface border border-line rounded-2xl o-elev-lift z-40 overflow-hidden">
           <div className="px-4 py-3 border-b border-line">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Planning Mode</p>
           </div>
@@ -1625,7 +1625,7 @@ function PlanModeSelector({ current, onChange }: { current: PlanningMode; onChan
               <button
                 key={m.value}
                 onClick={() => setPending(m.value)}
-                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${pending === m.value ? "bg-accent-tint border border-accent-tint" : "hover:bg-slate-50 border border-transparent"}`}
+                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${pending === m.value ? "bg-accent-tint border border-accent-tint" : "hover:bg-surface-2 border border-transparent"}`}
               >
                 <span className="text-lg mt-0.5">{m.icon}</span>
                 <div>
@@ -1639,14 +1639,14 @@ function PlanModeSelector({ current, onChange }: { current: PlanningMode; onChan
           <div className="px-3 pb-3 flex gap-2">
             <button
               onClick={() => setOpen(false)}
-              className="flex-1 py-2 text-sm text-muted hover:bg-slate-100 rounded-lg transition-colors"
+              className="flex-1 py-2 text-sm text-muted hover:bg-surface-3 rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={confirm}
               disabled={pending === current}
-              className="flex-1 py-2 text-sm font-semibold bg-accent text-white rounded-lg hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-2 text-sm font-semibold bg-accent text-on-accent rounded-lg hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Apply
             </button>
@@ -1830,8 +1830,8 @@ function AddContentModal({
             className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
         <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-slate-100 rounded-lg">Cancel</button>
-          <button type="submit" className="px-4 py-2 text-sm bg-accent text-white rounded-xl hover:bg-accent-strong">Save</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-2 hover:bg-surface-3 rounded-lg">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm bg-accent text-on-accent rounded-xl hover:bg-accent-strong">Save</button>
         </div>
       </form>
     </Modal>
@@ -1953,11 +1953,11 @@ function ContentDetailModal({
         <div className="flex flex-wrap gap-2">
           <StatusBadge status={piece.status} />
           {showPlatform && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-ink-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-3 text-ink-2">
               {platformBadge} {platformLabel}
             </span>
           )}
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-ink-2">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-3 text-ink-2">
             {CONTENT_ICONS[piece.contentType]} {piece.contentType}
           </span>
           {piece.client && (
@@ -1976,7 +1976,7 @@ function ContentDetailModal({
             const dateStr = dt.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
             const timeStr = hasTime ? dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : null;
             return (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-ink-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-3 text-ink-2">
                 📅 {dateStr}{timeStr && <><span className="text-faint">·</span><span className="font-semibold text-accent">🕐 {timeStr}</span></>}
               </span>
             );
@@ -1984,7 +1984,7 @@ function ContentDetailModal({
         </div>
 
         {stages.length > 0 && (
-          <div className="bg-slate-50 rounded-xl p-4">
+          <div className="bg-surface-2 rounded-xl p-4">
             <p className="text-xs font-semibold text-muted mb-3">WORKFLOW PROGRESS</p>
             <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
               {stages.map((stage, i) => {
@@ -1994,17 +1994,17 @@ function ContentDetailModal({
                   <div key={stage.id} className="flex items-center gap-1.5 flex-shrink-0">
                     <div className="flex flex-col items-center">
                       <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${isDone ? "bg-green-500 border-green-500 text-white" : isCurrent ? "border-2 text-white" : "bg-white border-line-2 text-faint"}`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${isDone ? "bg-ok-500 border-ok-500 text-on-status" : isCurrent ? "border-2 text-white" : "bg-surface border-line-2 text-faint"}`}
                         style={isCurrent ? { backgroundColor: stage.color, borderColor: stage.color } : {}}
                       >
                         {isDone ? "✓" : i + 1}
                       </div>
-                      <span className={`text-[10px] mt-1 font-medium max-w-[56px] text-center leading-tight ${isCurrent ? "text-ink" : isDone ? "text-green-600" : "text-faint"}`}>
+                      <span className={`text-[10px] mt-1 font-medium max-w-[56px] text-center leading-tight ${isCurrent ? "text-ink" : isDone ? "text-ok-600" : "text-faint"}`}>
                         {stage.name}
                       </span>
                     </div>
                     {i < stages.length - 1 && (
-                      <div className={`w-8 h-0.5 flex-shrink-0 ${isDone ? "bg-green-400" : "bg-slate-200"}`} />
+                      <div className={`w-8 h-0.5 flex-shrink-0 ${isDone ? "bg-ok-400" : "bg-surface-4"}`} />
                     )}
                   </div>
                 );
@@ -2012,7 +2012,7 @@ function ContentDetailModal({
             </div>
 
             {currentStage && (
-              <div className="border border-line rounded-lg p-3 bg-white space-y-2">
+              <div className="border border-line rounded-lg p-3 bg-surface space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: currentStage.color }}>
                     {currentStageIndex + 1}
@@ -2079,14 +2079,14 @@ function ContentDetailModal({
         {piece.hook && (
           <div>
             <p className="text-xs font-semibold text-faint mb-1 uppercase tracking-wide">Text Hook</p>
-            <div className="bg-accent-tint border border-accent-tint rounded-xl px-4 py-3 text-sm font-medium text-indigo-800">{piece.hook}</div>
+            <div className="bg-accent-tint border border-accent-tint rounded-xl px-4 py-3 text-sm font-medium text-accent-800">{piece.hook}</div>
           </div>
         )}
 
         {piece.script && (
           <div>
             <p className="text-xs font-semibold text-faint mb-1 uppercase tracking-wide">Script</p>
-            <pre className="bg-slate-50 border border-line rounded-xl px-4 py-3 text-sm font-mono whitespace-pre-wrap text-ink-2">{piece.script}</pre>
+            <pre className="bg-surface-2 border border-line rounded-xl px-4 py-3 text-sm font-mono whitespace-pre-wrap text-ink-2">{piece.script}</pre>
           </div>
         )}
 
@@ -2095,7 +2095,7 @@ function ContentDetailModal({
             <p className="text-xs font-semibold text-faint uppercase tracking-wide">Caption</p>
             <div className="flex items-center gap-2">
               {caption && (
-                <button onClick={copyCaption} className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-ink-2 hover:bg-slate-200 transition-colors">
+                <button onClick={copyCaption} className="text-xs px-2.5 py-1 rounded-lg bg-surface-3 text-ink-2 hover:bg-surface-4 transition-colors">
                   {copied ? "✓ Copied!" : "Copy"}
                 </button>
               )}
@@ -2122,7 +2122,7 @@ function ContentDetailModal({
               {igPosting ? <><span className="animate-spin inline-block">⟳</span> Posting…</> : `${platformBadge} Post to ${platformLabel} Now`}
             </button>
             {igPostMsg && (
-              <p className={`text-xs font-medium text-center ${igPostMsg.ok ? "text-green-600" : "text-red-500"}`}>
+              <p className={`text-xs font-medium text-center ${igPostMsg.ok ? "text-ok-600" : "text-danger-500"}`}>
                 {igPostMsg.text}
               </p>
             )}
@@ -2134,7 +2134,7 @@ function ContentDetailModal({
           <div className="flex flex-wrap gap-2">
             {STATUSES.map((s) => (
               <button key={s.value} onClick={() => onStatusChange(s.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${piece.status === s.value ? `${s.bg} ${s.text} border-transparent` : "bg-white text-ink-2 border-line hover:bg-slate-50"}`}>
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${piece.status === s.value ? `${s.bg} ${s.text} border-transparent` : "bg-surface text-ink-2 border-line hover:bg-surface-2"}`}>
                 {s.label}
               </button>
             ))}
@@ -2142,8 +2142,8 @@ function ContentDetailModal({
         </div>
 
         <div className="flex justify-between pt-2 border-t border-line">
-          <button onClick={onDelete} className="text-sm text-red-500 hover:text-red-700">Delete</button>
-          <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-100 text-ink-2 rounded-lg hover:bg-slate-200">Close</button>
+          <button onClick={onDelete} className="text-sm text-danger-500 hover:text-danger-700">Delete</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm bg-surface-3 text-ink-2 rounded-lg hover:bg-surface-4">Close</button>
         </div>
       </div>
     </Modal>

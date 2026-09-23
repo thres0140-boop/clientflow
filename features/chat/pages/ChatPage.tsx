@@ -338,7 +338,7 @@ export default function ChatPage({ clients, selectedClientId, isOwnerSession = f
                       <span className="text-[10px] text-faint px-1">{displayName}</span>
                     )}
                     <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${isMe ? "text-white rounded-bl-sm" : "bg-surface-3 text-ink rounded-br-sm"}`}
-                      style={isMe ? { backgroundColor: "var(--color-bubble-me)" } : {}}>
+                      style={isMe ? { backgroundColor: "var(--color-accent-legacy)" } : {}}>
                       {renderContent(msg.content, isOwnerMsg)}
                     </div>
                     <div className={`flex items-center gap-2 px-1 ${!isMe ? "flex-row-reverse" : ""}`}>

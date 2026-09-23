@@ -160,7 +160,7 @@
   --color-line-harder: oklch(86.9% 0.022 252.894);         /* = slate-300 border */
   --color-shade: #000;                              /* black-at-alpha used as a hover shade or ring on a theme surface (NOT media scrims) */
   --color-fill-neutral: #e2e8f0;                    /* v3 slate-200 hex used inline for a 'no client' pill */
-  --color-bubble-me: #6366f1;                       /* own chat bubble */
+  --color-accent-legacy: #6366f1;                   /* v3 indigo-500 used inline for UI pills: own chat bubble, day-template pills, date tags */
   --color-chip-ink: #1e293b;                        /* v3 slate-800 hex: text on a tinted calendar chip */
   --color-chip-posted-bg: #dcfce7;                  /* v3 green-100 hex: posted calendar chip */
   --color-chip-posted-ink: #15803d;                 /* v3 green-700 hex: posted calendar chip text */
@@ -336,7 +336,7 @@
   --color-line-harder: rgba(255, 255, 255, 0.16);
   --color-shade: #fff;
   --color-fill-neutral: #272d27;
-  --color-bubble-me: #16a34a;
+  --color-accent-legacy: #16a34a;
   --color-chip-ink: #e8ece8;
   --color-chip-posted-bg: rgba(34, 197, 94, 0.18);
   --color-chip-posted-ink: #86efac;

@@ -168,7 +168,18 @@ A `bg-slate-700 text-white hover:bg-slate-800` neutral button (not media) →
 Old Tailwind v3 hexes typed inline (`#dcfce7`, `#15803d`, `#1e293b`, `#e2e8f0`,
 `#6366f1` as a chat bubble, chart status hexes) are NOT byte-equal to any v4 token, so
 each gets its own exact token: `chip-posted-bg`, `chip-posted-ink`, `chip-ink`,
-`fill-neutral`, `bubble-me`, `chart-red` / `chart-amber` / `chart-green` / `chart-empty`.
+`fill-neutral`, `accent-legacy` (the v3 indigo `#6366f1` used for UI pills such as the own
+chat bubble, day-template pills and date tags — NOT the `#6366f1` fallback for a record
+without a colour, which is identity and stays literal), `chart-red` / `chart-amber` /
+`chart-green` / `chart-empty`.
+
+**Saturated status hexes in computed inline styles stay literal.** Pipeline's
+`STATUS` metadata (`#16a34a` posted, `#2563eb` booked, `#f97316`, `#eab308`, `#ef4444`,
+`#a855f7`) is applied as `backgroundColor: st.color` and as `st.color + "15"` (a hex
+alpha suffix), which cannot take a `var()`. These are saturated and read the same on both
+canvases, like identity colours. Only their light-only pastel companions (`#dcfce7`,
+`#15803d`, `#1e293b`) get tokens. Glass on top of a SOLID status chip (`bg-white/20
+text-white`, `text-white/80`) stays literal for the same reason.
 Name them by what they paint. Do not map them to the nearest `ok-100`.
 
 ### Sidebar (navy in light, canvas-family near-black in dark)
