@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Client, PLATFORMS } from "@/shared/types";
 import Modal from "@/shared/ui/Modal";
 import ClientAvatar from "@/shared/ui/ClientAvatar";
-import { readStoredTheme, setStoredTheme, type Theme } from "@/shared/theme";
+import { applyTheme, readStoredTheme, setStoredTheme, type Theme } from "@/shared/theme";
 
 // ─── Connection status badge ──────────────────────────────────────────────────
 function ConnBadge({ label, ok, warn }: { label: string; ok: boolean; warn?: boolean }) {
@@ -22,14 +22,34 @@ function ConnBadge({ label, ok, warn }: { label: string; ok: boolean; warn?: boo
 // Dark mode is the owner's own preference: persisted in localStorage (cf_theme) and
 // applied via data-theme on <html>. Member/client sessions never see this section and
 // are forced light by app/page.tsx + app/layout.tsx regardless of what is stored.
+//
+// Preview-then-confirm: clicking Light/Dark previews the theme live but writes nothing.
+// Save persists it; Cancel (or leaving Settings) restores the saved theme, so the app is
+// never left in a theme that was not confirmed.
 function AppearanceSection() {
   // Only mounts client-side (after the session resolves), so reading storage in the
   // initialiser is safe and avoids a light→dark flicker of the control itself.
-  const [theme, setTheme] = useState<Theme>(() => readStoredTheme());
+  const [saved, setSaved] = useState<Theme>(() => readStoredTheme());
+  const [preview, setPreview] = useState<Theme>(saved);
+  const dirty = preview !== saved;
+
+  // Leaving the page with an unconfirmed preview reverts to whatever is actually saved.
+  // (A full reload reverts by itself: the pre-paint script only reads localStorage.)
+  useEffect(() => () => { applyTheme(readStoredTheme()); }, []);
 
   function choose(next: Theme) {
-    setTheme(next);
-    setStoredTheme(next); // persists cf_theme and sets data-theme on <html>
+    setPreview(next);
+    applyTheme(next); // live preview only — nothing persisted
+  }
+  function save() {
+    if (!dirty) return;
+    setStoredTheme(preview); // persists cf_theme and (re)applies data-theme
+    setSaved(preview);
+  }
+  function cancel() {
+    if (!dirty) return;
+    setPreview(saved);
+    applyTheme(saved);
   }
 
   const OPTIONS: { value: Theme; label: string; hint: string }[] = [
@@ -43,34 +63,47 @@ function AppearanceSection() {
         <h2 className="text-base font-semibold text-ink-2">Appearance</h2>
         <p className="text-xs text-faint mt-0.5">Only applies to your own session — team members and clients always see the light theme.</p>
       </div>
-      <div className="o-card-flat p-1.5 inline-flex gap-1" role="radiogroup" aria-label="Theme">
-        {OPTIONS.map((o) => {
-          const active = theme === o.value;
-          return (
-            <button
-              key={o.value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => choose(o.value)}
-              className={`flex items-start gap-3 text-left rounded-[var(--radius-md)] px-3.5 py-2.5 transition-colors ${
-                active ? "bg-accent-tint text-ink" : "text-muted hover:bg-surface-2 hover:text-ink-2"
-              }`}
-            >
-              <span
-                aria-hidden
-                className={`mt-0.5 w-8 h-8 rounded-lg border shrink-0 ${active ? "border-accent" : "border-line-2"}`}
-                style={{ background: o.value === "dark" ? "#0a0c0a" : "#f6f6f4" }}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="o-card-flat p-1.5 inline-flex gap-1" role="radiogroup" aria-label="Theme">
+          {OPTIONS.map((o) => {
+            const active = preview === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => choose(o.value)}
+                className={`flex items-start gap-3 text-left rounded-[var(--radius-md)] px-3.5 py-2.5 transition-colors ${
+                  active ? "bg-accent-tint text-ink" : "text-muted hover:bg-surface-2 hover:text-ink-2"
+                }`}
               >
-                <span className="block w-3 h-1.5 mt-2 ml-2 rounded-sm" style={{ background: o.value === "dark" ? "#22c55e" : "#3d4aa3" }} />
-              </span>
-              <span>
-                <span className="block text-sm font-medium">{o.label}</span>
-                <span className="block text-[11px] text-faint">{o.hint}</span>
-              </span>
-            </button>
-          );
-        })}
+                <span
+                  aria-hidden
+                  className={`mt-0.5 w-8 h-8 rounded-lg border shrink-0 ${active ? "border-accent" : "border-line-2"}`}
+                  style={{ background: o.value === "dark" ? "#0a0c0a" : "#f6f6f4" }}
+                >
+                  <span className="block w-3 h-1.5 mt-2 ml-2 rounded-sm" style={{ background: o.value === "dark" ? "#22c55e" : "#3d4aa3" }} />
+                </span>
+                <span>
+                  <span className="block text-sm font-medium">{o.label}</span>
+                  <span className="block text-[11px] text-faint">{o.hint}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={save} disabled={!dirty} className="o-btn o-btn-accent disabled:opacity-50 disabled:cursor-not-allowed">
+            Save
+          </button>
+          <button type="button" onClick={cancel} disabled={!dirty} className="o-btn o-btn-ghost disabled:opacity-50 disabled:cursor-not-allowed">
+            Cancel
+          </button>
+          {dirty && (
+            <span className="text-xs text-warn-700" role="status">Previewing {preview} — not saved yet</span>
+          )}
+        </div>
       </div>
     </section>
   );
