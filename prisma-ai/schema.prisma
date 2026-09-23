@@ -1,0 +1,624 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// AI-business product schema (ordoagency.com/ai) — a DELIBERATE COPY of
+// prisma/schema.prisma bound to a SEPARATE Neon database and generated into a
+// SEPARATE client (app/generated/prisma-ai/client).
+//
+// Rules:
+//   • Only ai/db/prisma.ts may import the generated client. Every /ai route goes
+//     through that module. The build-time boundary check enforces this.
+//   • The two schemas will drift; that is accepted. A model change for the AI
+//     side is made HERE, then `npm run db:ai:diff` produces the DDL to apply.
+//   • Bootstrap DDL for an empty database: prisma-ai/init.sql (generated from
+//     this file with `prisma migrate diff --from-empty`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../app/generated/prisma-ai/client"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("AI_POSTGRES_PRISMA_URL")
+  directUrl = env("AI_POSTGRES_URL_NON_POOLING")
+}
+
+// A workspace groups clients (e.g. "OPT") so the owner can switch between separate sets of
+// clients. Owner-side organisation only — team/client logins are unaffected.
+model Workspace {
+  id        Int      @id @default(autoincrement())
+  name      String
+  color     String   @default("#3d4aa3")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  clients   Client[]
+}
+
+model Client {
+  id                 Int      @id @default(autoincrement())
+  workspaceId        Int?
+  name               String
+  platform           String
+  profileUrl         String?
+  color              String   @default("#6366f1")
+  notes              String?
+  captionStyle       String?
+  captionGuidelines  String?
+  dayTemplate        String?
+  language           String   @default("nl")
+  scriptAlternatives Int      @default(5)
+  generationInterval Int      @default(2)
+  createdAt          DateTime @default(now())
+
+  bookingLink           String?
+  scriptRules           String?
+  ctaKeyword            String?  // e.g. "regie" — inbound DMs containing this are flagged as CTA leads
+  isTestAccount         Boolean  @default(false)
+  hideFromHq            Boolean  @default(false)
+  instagramEnabled      Boolean  @default(true)   // per-client Instagram toggle (on by default)
+  tiktokEnabled         Boolean  @default(false)  // per-client TikTok toggle
+  tiktokHandle          String?  // the client's own TikTok @handle (for own-profile analytics)
+  tiktokProfileData     String?  // cached JSON { profile, videos } of the last own-profile scrape (avoids re-scraping on every open)
+  tiktokProfileAt       DateTime? // when the own-profile cache was last refreshed
+  // Official TikTok Login Kit connection (OAuth) — first-party stats via the Display API.
+  tiktokAccessToken     String?
+  tiktokRefreshToken    String?
+  tiktokTokenExpiresAt  DateTime?
+  tiktokOpenId          String?
+  tiktokScope           String?
+  // TikTok via Zernio — the account connected in Zernio, linked for organic analytics.
+  tiktokZernioAccountId String?
+  tiktokZernioUsername  String?
+  tiktokZernioProfileId String?
+
+  workspace             Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  concepts              Concept[]
+  contentPieces         ContentPiece[]
+  trackedVideos         TrackedVideo[]
+  workflowStages        WorkflowStage[]
+  scriptDrafts          ScriptDraft[]
+  creators              Creator[]
+  messages              Message[]
+  competitors           Competitor[]
+  board                 Board?
+  instagramConnection   InstagramConnection?
+  analyticsEntries      AnalyticsEntry[]
+  dmLeads               DmLead[]
+  conceptFeedbacks      ConceptFeedback[]
+  teamMembers           TeamMember[]
+}
+
+model InstagramConnection {
+  id                Int      @id @default(autoincrement())
+  clientId          Int      @unique
+  accessToken       String
+  igUserId          String
+  igUsername        String?
+  followers         Int?
+  unipileAccountId  String?
+  zernioAccountId   String?
+  zernioProfileId   String?
+  profilePictureUrl String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+
+model Creator {
+  id              Int      @id @default(autoincrement())
+  clientId        Int
+  platform        String   @default("instagram")
+  name            String
+  email           String?
+  instagramHandle String?
+  color           String   @default("#6366f1")
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workflowStages WorkflowStage[]
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  content   String
+  author    String   @default("owner")
+  channel   String   @default("client") // "client" | "member:{id}"
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model TeamMember {
+  id                Int       @id @default(autoincrement())
+  clientId          Int?
+  name              String
+  email             String?
+  role              String?
+  color             String    @default("#6366f1")
+  pageAccess        String    @default("all")
+  viewOnlyPages     String    @default("") // comma-separated page ids the member can VIEW but not edit
+  isClientAccount   Boolean   @default(false)
+  passwordHash      String?
+  inviteToken       String?   @unique
+  inviteTokenExpiry DateTime?
+  createdAt         DateTime  @default(now())
+
+  client           Client?         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  stageAssignments WorkflowStage[]
+  notifications    Notification[]
+  stageCompletions StageHistory[]
+}
+
+model PushSubscription {
+  id             Int      @id @default(autoincrement())
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  subscriberType String   @default("owner") // "owner" | "member"
+  memberId       Int?
+  clientId       Int?
+  createdAt      DateTime @default(now())
+}
+
+model WorkflowStage {
+  id                Int      @id @default(autoincrement())
+  clientId          Int?
+  platform          String   @default("instagram")
+  name              String
+  order             Int
+  color             String   @default("#6366f1")
+  assignedToId      Int?
+  assignedCreatorId Int?
+  assignedToOwner   Boolean  @default(false)
+  assignedToClient  Boolean  @default(false)
+  assignees         String   @default("[]")
+  createdAt         DateTime @default(now())
+
+  client          Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedTo      TeamMember?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedCreator Creator?       @relation(fields: [assignedCreatorId], references: [id], onDelete: SetNull)
+  history         StageHistory[]
+  drafts          ScriptDraft[]
+}
+
+model StageHistory {
+  id            Int       @id @default(autoincrement())
+  contentId     Int
+  stageId       Int
+  completedAt   DateTime?
+  completedById Int?
+  notes         String?
+  rawContentUrl String?
+  createdAt     DateTime  @default(now())
+
+  content     ContentPiece  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  stage       WorkflowStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  completedBy TeamMember?   @relation(fields: [completedById], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  memberId  Int
+  contentId Int
+  stageId   Int
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  member  TeamMember   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  content ContentPiece @relation(fields: [contentId], references: [id], onDelete: Cascade)
+}
+
+model Competitor {
+  id            Int      @id @default(autoincrement())
+  clientId      Int
+  platform      String   @default("instagram")
+  handle        String
+  name          String?
+  niche         String?
+  tags          String?  // comma-separated custom tags for grouping + filtering reels
+  followerCount Int?
+  followingCount Int?
+  postCount     Int?
+  bio           String?
+  profilePicUrl String?
+  verified      Boolean?
+  lastProfileSyncAt DateTime?
+  notes         String?
+  profileUrl    String?
+  createdAt     DateTime @default(now())
+  lastScrapedAt DateTime?
+  lastScrapeError String?
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reels  CompetitorReel[]
+}
+
+// Discovered profiles from the Competitor Finder crawl, pending owner review.
+// Accept → promoted into a Competitor row; reject → kept so we don't resurface it.
+model CompetitorCandidate {
+  id            Int      @id @default(autoincrement())
+  clientId      Int
+  platform      String   @default("instagram")
+  handle        String
+  name          String?
+  followerCount Int?
+  profilePicUrl String?
+  matched       String?  // why it matched (the keyword / seed it came from)
+  bio           String?  // pulled during enrichment
+  gender        String?  // male | female | unknown (AI-inferred)
+  language      String?  // ISO code, e.g. nl | en (AI-inferred from bio)
+  status        String   @default("pending") // pending | accepted | rejected
+  createdAt     DateTime @default(now())
+
+  @@unique([clientId, platform, handle])
+  @@index([clientId, platform, status])
+}
+
+// Provenance-aware example pool the script generator studies. `scriptExamples`
+// on Concept stays the human-curated / reel-pulled set (trusted); this table adds
+// accepted-but-unproven drafts (recent context) and performance-promoted winners.
+model ConceptExample {
+  id            Int      @id @default(autoincrement())
+  conceptId     Int
+  source        String   // human_seed | accepted_draft | proven_winner
+  text          String
+  hookKey       String?  // first-line hash for dedup
+  scriptDraftId Int?
+  reelShortcode String?
+  format        String?  // talking_head | text_overlay | broll (for reel-derived examples)
+  views         Int?
+  createdAt     DateTime @default(now())
+
+  concept Concept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@index([conceptId, source])
+}
+
+// A competitor's reel, scraped + persisted. Stats live in snapshots over time.
+model CompetitorReel {
+  id            Int       @id @default(autoincrement())
+  competitorId  Int
+  platform      String    @default("instagram")
+  shortcode     String
+  caption       String?
+  thumbnailUrl  String?
+  mediaUrl      String?
+  mediaUrlAt    DateTime?
+  cachedVideoUrl String?  // permanent R2 copy of the mp4 (IG urls expire) — capture-once
+  transcript    String?   // permanent Whisper transcript — captured once, never re-fetched
+  transcriptAt  DateTime?
+  captureStatus String?   // null/pending = not captured yet, done, unavailable (gave up)
+  captureTries  Int       @default(0)
+  permalink     String?
+  postedAt      DateTime?
+  firstSeenAt   DateTime  @default(now())
+  lastScrapedAt DateTime  @default(now())
+  format        String?   // talking_head | text_overlay | broll | other (vision-classified)
+
+  competitor Competitor               @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  snapshots  CompetitorReelSnapshot[]
+
+  @@unique([competitorId, shortcode])
+}
+
+// Point-in-time stats for a reel — one row per scrape, so we can detect "exploded".
+model CompetitorReelSnapshot {
+  id           Int      @id @default(autoincrement())
+  reelId       Int
+  capturedAt   DateTime @default(now())
+  viewCount    Int?
+  likeCount    Int?
+  commentCount Int?
+
+  reel CompetitorReel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+
+  @@index([reelId, capturedAt])
+}
+
+// Daily snapshot of a client's own OFFICIAL TikTok stats (via the connected Display API), so we can
+// chart follower/likes/views growth over time. One row per client per day.
+// Cached output of the TikTok Instructions engine (the daily views-maximizing playbook) per client.
+model TikTokInstructions {
+  id          Int      @id @default(autoincrement())
+  clientId    Int      @unique
+  data        String   // JSON: { keep, test, copy, stop, summary, stats }
+  generatedAt DateTime @default(now())
+}
+
+// Links a TikTok video (by its Zernio/TikTok post id) to a Concept — the basis for per-concept
+// performance rollups and the Instructions recommendation engine.
+model TikTokVideoConcept {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  videoId   String   // the Zernio post id (or TikTok video id) shown in the analytics table
+  conceptId Int
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, videoId])
+  @@index([clientId, conceptId])
+}
+
+model TikTokDailySnapshot {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  day            String   // YYYY-MM-DD
+  followerCount  Int?
+  followingCount Int?
+  likesCount     Int?
+  videoCount     Int?
+  totalViews     Int?     // sum of recent videos' views (reach proxy; TikTok profile-views aren't API-accessible)
+  capturedAt     DateTime @default(now())
+
+  @@unique([clientId, day])
+  @@index([clientId, day])
+}
+
+model Board {
+  id        Int      @id @default(autoincrement())
+  clientId  Int      @unique
+  snapshot  String   @default("{}")
+  pendingVideos String @default("[]")  // videos queued from elsewhere (e.g. the IG tab); the board materializes them client-side on open
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Concept {
+  id             Int      @id @default(autoincrement())
+  clientId       Int?
+  platform       String   @default("instagram")
+  name           String
+  conceptType    String?
+  hookType       String?
+  textHook       String?
+  audioHook      String?
+  videoType      String?
+  angle          String?
+  structure      String?
+  guidelines     String?
+  exampleUrl     String?
+  reelUrls       String?  // JSON array of reel permalinks attached to this concept
+  postDays       String?  // comma-separated weekdays this concept posts on (e.g. "Mon,Thu") — fed to the generator
+  textOverlay    Boolean  @default(false) // B-roll + on-screen text (no voiceover) — AI writes text hooks, not spoken scripts
+  scriptExamples       String?
+  scriptRules          String?
+  aiMemory             String?
+  memoryUpdatedAt      DateTime?
+  conversationHistory  String   @default("[]")
+  timesUsed            Int      @default(0)
+  isIdea         Boolean  @default(false)
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  // Client-owned concept: the client writes the scripts themselves (no AI gen).
+  clientOwned        Boolean  @default(false)
+  clientQuota        Int?     // how many scripts the client must write per cycle
+  clientIntervalDays Int?     // cycle length in days (7 = weekly, 14 = biweekly, 28 = ~monthly)
+  clientAnchor       String?  // YYYY-MM-DD — first due date; cycles repeat every intervalDays from here
+
+  client           Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contentPieces    ContentPiece[]
+  trackedVideos    TrackedVideo[]
+  scriptDrafts     ScriptDraft[]
+  analyticsEntries AnalyticsEntry[]
+  feedbacks        ConceptFeedback[]
+  examples         ConceptExample[]
+}
+
+model ScriptDraft {
+  id          Int      @id @default(autoincrement())
+  clientId    Int
+  platform    String   @default("instagram")
+  conceptId   Int
+  stageId     Int?
+  title       String
+  hook        String?
+  script      String
+  caption     String?
+  weekLabel   String
+  dayLabel    String?
+  status      String   @default("pending")
+  isSavedIdea     Boolean  @default(false)
+  resurfaceAt     String?
+  rawContentUrl      String?
+  rawContentUrls     String   @default("[]")
+  editedVideoUrl     String?
+  uploadToken        String?  @unique
+  checkReviewerIds   String   @default("[]")
+  scheduledDate      String?
+  zernioBooked       Boolean  @default(false)
+  zernioPostId       String?
+  clientAuthored     Boolean  @default(false)
+  isRemix            Boolean  @default(false)
+  hookAlternatives   String   @default("[]")
+  rejectionFeedback  String?
+  exampleVideoUrl    String?  // reference recording for the person filming to copy
+  exampleLink        String?  // Instagram (or other) link to the reference reel
+  exampleReelId      Int?     // source CompetitorReel id — lets the card re-resolve a fresh playable url + stats/transcript, like the IG tab
+  exampleThumbnail   String?  // poster image for the example preview
+  generatedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  client  Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept Concept        @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  stage   WorkflowStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  notes   DraftNote[]
+  changes DraftChange[]
+  reviews DraftReview[]
+}
+
+model DraftReview {
+  id           Int      @id @default(autoincrement())
+  draftId      Int
+  reviewerName String
+  reviewerId   Int?
+  status       String   @default("pending")
+  comment      String?
+  createdAt    DateTime @default(now())
+  draft        ScriptDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+}
+
+model ContentPiece {
+  id             Int      @id @default(autoincrement())
+  clientId       Int
+  conceptId      Int?
+  title          String
+  script         String?
+  contentType    String   @default("video")
+  status         String   @default("scripted")
+  platform       String?
+  scheduledDate  String?
+  hook           String?
+  caption        String?
+  notes          String?
+  currentStageId Int?
+  rawContentUrl  String?
+  igMediaId      String?
+  zernioPostId   String?
+  createdAt      DateTime @default(now())
+
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept       Concept?       @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  stageHistory  StageHistory[]
+  notifications Notification[]
+}
+
+model TrackedVideo {
+  id         Int      @id @default(autoincrement())
+  clientId   Int
+  conceptId  Int?
+  title      String
+  url        String?
+  views      Int      @default(0)
+  likes      Int      @default(0)
+  comments   Int      @default(0)
+  shares     Int      @default(0)
+  saves      Int      @default(0)
+  hookUsed   String?
+  hookType   String?
+  datePosted String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept Concept? @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+}
+
+model AnalyticsEntry {
+  id               Int      @id @default(autoincrement())
+  clientId         Int
+  date             String   // YYYY-MM-DD
+  conceptId        Int?
+  views            Int      @default(0)
+  likes            Int      @default(0)
+  shares           Int      @default(0)
+  follows          Int      @default(0)
+  messagesSent     Int      @default(0)
+  messagesAnswered Int      @default(0)
+  linksSent        Int      @default(0)
+  bookedCalls      Int      @default(0)
+  videoLink        String?  // reel/video URL for the day (auto-detected or pasted manually)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  concept Concept? @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, date])
+}
+
+model DraftNote {
+  id        Int      @id @default(autoincrement())
+  draftId   Int
+  content   String
+  imageUrl  String?
+  author    String
+  createdAt DateTime @default(now())
+
+  draft ScriptDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+}
+
+model DraftChange {
+  id        Int      @id @default(autoincrement())
+  draftId   Int
+  field     String
+  before    String
+  after     String
+  author    String
+  createdAt DateTime @default(now())
+
+  draft ScriptDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+}
+
+model DmLead {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  name      String
+  handle    String?
+  status    String   @default("messaged") // messaged | link_sent | booked | showed | no_show | closed
+  date      String?  // YYYY-MM-DD date first messaged
+  repliedAt String?  // YYYY-MM-DD date the prospect first replied (null = no reply yet)
+  source    String?  // "cta" = inbound from a CTA keyword DM, else null/outbound
+  convId    String?  // Zernio conversation id — primary dedup key (handles anonymous DMs)
+  linkSentAt String? // ISO timestamp the booking link was actually sent (from the message)
+  bookedAt   String? // YYYY-MM-DD the call was booked
+  lastConvTime String? // Zernio conversation updatedTime at last message-scan (skip refetch if unchanged)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ConceptFeedback {
+  id            Int      @id @default(autoincrement())
+  conceptId     Int
+  clientId      Int
+  title         String
+  hook          String?
+  scriptSnippet String?
+  reasonType    String   // others_better | wrong_angle | hook_bad | too_long | too_short | off_brand | custom
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  concept Concept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+// Immutable activity log — the foundation for the Headquarters digest + future feed/trends.
+// Nothing else writes cross-client "X happened at T" rows, and this can't be backfilled.
+model ActivityEvent {
+  id        Int      @id @default(autoincrement())
+  clientId  Int?
+  actor     String   // who did it (client name, member name, "Owner", "System")
+  type      String   // script_submitted | stage_moved | footage_uploaded | accepted | scheduled | posted | remixed
+  title     String?  // short human label
+  detail    String?  // extra context (e.g. "→ Edit")
+  draftId   Int?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([clientId, createdAt])
+}
+
+// Nightly per-reel play-count snapshots — captures history so trend lines become possible.
+// Can't be backfilled, so capture starts now even before the charts are built.
+model ReelSnapshot {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  reelId    String   // Instagram media id
+  plays     Int      @default(0)
+  likes     Int      @default(0)
+  comments  Int      @default(0)
+  takenAt   String   // YYYY-MM-DD (one row per reel per day)
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, reelId, takenAt])
+  @@index([clientId, takenAt])
+}

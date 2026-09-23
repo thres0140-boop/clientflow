@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma generate --schema prisma-ai/schema.prisma && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:ai:generate": "prisma generate --schema prisma-ai/schema.prisma",
+    "db:ai:init-sql": "prisma migrate diff --from-empty --to-schema-datamodel prisma-ai/schema.prisma --script",
+    "db:ai:diff": "prisma migrate diff --from-url \"$AI_POSTGRES_URL_NON_POOLING\" --to-schema-datamodel prisma-ai/schema.prisma --script"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
