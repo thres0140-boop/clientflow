@@ -61,7 +61,7 @@ const to8 = (s) => s.replace(/\s+/g, "")
 const esc = (u) => "." + u.replace(/[:\/.%\[\]]/g, (ch) => "\\" + ch);
 function decls(u) {
   const e = esc(u), res = [];
-  for (let m; (m = ruleRe.exec(out)); ) { const sel = m[1].trim(); if (sel === e || sel.startsWith(e + ":") || sel.startsWith(e + " ")) res.push(...m[2].split(";").map((x) => x.trim()).filter(Boolean)); }
+  for (let m; (m = ruleRe.exec(out)); ) { const sel = m[1].trim(); const at = sel.indexOf(e); if (at >= 0 && !/[\w-]/.test(sel.charAt(at + e.length)) && (at === 0 || !/[\w-]/.test(sel.charAt(at - 1)))) res.push(...m[2].split(";").map((x) => x.trim()).filter(Boolean)); }
   ruleRe.lastIndex = 0;
   return res.map((d) => to8(resolve(d))).sort().join(" | ");
 }

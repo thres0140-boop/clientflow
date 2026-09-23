@@ -181,21 +181,21 @@ function ProfileTab({ client, refreshClients, embedded }: { client: Client; refr
   }
 
   const connectBanner = ttLinked ? (
-    <div className="bg-white rounded-xl border border-line px-4 py-3 flex items-center gap-3 flex-wrap">
-      <span className="text-xs font-semibold text-green-700 bg-green-50 px-2 py-1 rounded-full">✓ TikTok connected via Zernio</span>
+    <div className="bg-surface rounded-xl border border-line px-4 py-3 flex items-center gap-3 flex-wrap">
+      <span className="text-xs font-semibold text-ok-700 bg-ok-50 px-2 py-1 rounded-full">✓ TikTok connected via Zernio</span>
       {ttUsername && <span className="text-xs text-muted">@{ttUsername}</span>}
       <span className="text-xs text-faint">— follower growth, video &amp; profile views show in the Analytics tab.</span>
-      <button onClick={disconnectTikTokZernio} className="ml-auto text-xs text-faint hover:text-red-500">Disconnect</button>
+      <button onClick={disconnectTikTokZernio} className="ml-auto text-xs text-faint hover:text-danger-500">Disconnect</button>
     </div>
   ) : ttPicker ? (
-    <div className="bg-white rounded-xl border border-line px-4 py-3">
+    <div className="bg-surface rounded-xl border border-line px-4 py-3">
       <p className="text-xs font-semibold text-ink-2 mb-2">Pick this client&apos;s TikTok account (connected in Zernio):</p>
       {ttBusy ? <p className="text-xs text-faint">Loading accounts…</p>
         : ttAccounts.length === 0 ? <p className="text-xs text-faint">No TikTok accounts found in Zernio. Connect the account in Zernio first, then try again.</p>
         : <div className="space-y-1.5">
             {ttAccounts.map((acc: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
               const id = acc._id ?? acc.id; const uname = acc.username ?? acc.displayName ?? acc.name ?? id;
-              return <button key={id} onClick={() => linkTikTokAccount(acc)} className="w-full text-left px-3 py-2 bg-white border border-line rounded-lg text-xs hover:bg-accent-tint hover:border-accent transition-colors"><span className="font-semibold">@{uname}</span><span className="text-faint ml-2">{id}</span></button>;
+              return <button key={id} onClick={() => linkTikTokAccount(acc)} className="w-full text-left px-3 py-2 bg-surface border border-line rounded-lg text-xs hover:bg-accent-tint hover:border-accent transition-colors"><span className="font-semibold">@{uname}</span><span className="text-faint ml-2">{id}</span></button>;
             })}
           </div>}
       <button onClick={() => { setTtPicker(false); setTtAccounts([]); }} className="text-[10px] text-faint hover:text-ink-2 mt-2">Cancel</button>
@@ -203,7 +203,7 @@ function ProfileTab({ client, refreshClients, embedded }: { client: Client; refr
   ) : (
     <div className="bg-black text-white rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
       <span className="text-sm">🎵 Connect this client&apos;s TikTok via <b>Zernio</b> for official analytics — follower growth, video &amp; profile views, per-video stats.</span>
-      <button onClick={openTikTokPicker} className="ml-auto px-3 py-1.5 bg-white text-ink text-xs font-semibold rounded-lg hover:opacity-90">Connect TikTok</button>
+      <button onClick={openTikTokPicker} className="ml-auto px-3 py-1.5 bg-surface text-ink text-xs font-semibold rounded-lg hover:opacity-90">Connect TikTok</button>
     </div>
   );
 
@@ -231,7 +231,7 @@ function ProfileTab({ client, refreshClients, embedded }: { client: Client; refr
     return (
       <div className="space-y-4">
       {connectBanner}
-      <div className="bg-white rounded-2xl border border-line p-16 flex flex-col items-center text-center gap-5">
+      <div className="bg-surface rounded-2xl border border-line p-16 flex flex-col items-center text-center gap-5">
         <div className="w-16 h-16 rounded-2xl bg-black flex items-center justify-center text-2xl o-elev-lift">🎵</div>
         <div>
           <h2 className="text-lg font-bold text-ink mb-1">Connect {client.name}&apos;s TikTok</h2>
@@ -249,14 +249,14 @@ function ProfileTab({ client, refreshClients, embedded }: { client: Client; refr
     <div className="space-y-5">
       {connectBanner}
       {/* Profile header */}
-      <div className="bg-white rounded-2xl border border-line px-6 py-5 flex items-center gap-6">
+      <div className="bg-surface rounded-2xl border border-line px-6 py-5 flex items-center gap-6">
         {profile?.avatarUrl
           ? <img src={imgSrc(profile.avatarUrl)} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0 shadow" />
           : <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0 shadow bg-black">🎵</div>}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <h2 className="text-base font-bold text-ink">@{profile?.handle || handle}</h2>
-            {profile?.verified && <span className="text-[10px] bg-blue-100 text-blue-600 font-semibold px-1.5 py-0.5 rounded-full">Verified</span>}
+            {profile?.verified && <span className="text-[10px] bg-info-100 text-info-600 font-semibold px-1.5 py-0.5 rounded-full">Verified</span>}
           </div>
           <p className="text-xs text-faint line-clamp-1">{profile?.nickname || profile?.bio || client.name}</p>
         </div>
@@ -274,7 +274,7 @@ function ProfileTab({ client, refreshClients, embedded }: { client: Client; refr
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <div className="text-right">
-            <button onClick={() => load(true)} disabled={loading} className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-muted hover:text-ink-2 disabled:opacity-50">
+            <button onClick={() => load(true)} disabled={loading} className="text-xs px-3 py-1.5 rounded-lg bg-surface-3 text-muted hover:text-ink-2 disabled:opacity-50">
               {loading ? "Refreshing…" : "↻ Refresh"}
             </button>
             {updatedAt && <p className="text-[10px] text-faint mt-1">Updated {timeAgo(updatedAt)}</p>}
@@ -284,9 +284,9 @@ function ProfileTab({ client, refreshClients, embedded }: { client: Client; refr
       </div>
 
       {error === "not_found"
-        ? <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center text-amber-700 text-sm">Couldn't find <b>@{handle}</b>. Check the handle is correct and public.</div>
+        ? <div className="bg-warn-50 border border-warn-200 rounded-xl p-8 text-center text-warn-700 text-sm">Couldn't find <b>@{handle}</b>. Check the handle is correct and public.</div>
         : error
-        ? <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-700 text-sm">
+        ? <div className="bg-warn-50 border border-warn-200 rounded-xl p-6 text-center text-warn-700 text-sm">
             Couldn't load TikTok data ({error}). Make sure the RapidAPI TikTok scraper is subscribed.
           </div>
         : loading && videos.length === 0
@@ -310,7 +310,7 @@ function VideoGrid({ videos, embedded }: { videos: TTVideo[]; embedded?: boolean
       <div className="flex gap-1 w-fit">
         {([["recent", "Recent"], ["best", "Top views"]] as [typeof sort, string][]).map(([id, label]) => (
           <button key={id} onClick={() => setSort(id)}
-            className={`px-3 py-1 rounded-lg text-xs font-medium ${sort === id ? "bg-accent text-white" : "bg-white border border-line text-muted"}`}>{label}</button>
+            className={`px-3 py-1 rounded-lg text-xs font-medium ${sort === id ? "bg-accent text-on-accent" : "bg-surface border border-line text-muted"}`}>{label}</button>
         ))}
       </div>
       <div {...gridProps(embedded, "gap-1.5")}>
@@ -330,7 +330,7 @@ function VideoTile({ v, playing, onOpen, onClose }: { v: TTVideo; playing: boole
       {v.coverUrl && <img src={imgSrc(v.coverUrl)} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
       <div className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-        <span className="w-11 h-11 rounded-full bg-white/95 text-ink flex items-center justify-center text-lg">▶</span>
+        <span className="w-11 h-11 rounded-full bg-surface/95 text-ink flex items-center justify-center text-lg">▶</span>
       </div>
       {v.createdAt && <span className="absolute top-1.5 right-1.5 z-10 text-[10px] font-medium text-white/90 bg-black/40 rounded px-1.5 py-0.5">{timeAgo(new Date(v.createdAt).getTime())}</span>}
       <div className="absolute bottom-0 left-0 right-0 p-2 text-white pointer-events-none">
@@ -513,10 +513,10 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 bg-white border border-line rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-surface border border-line rounded-xl p-1 w-fit">
         {([["list", "📋 List"], ["reels", "🎬 Reels"], ["find", "🔎 Find"]] as [CompSubTab, string][]).map(([id, label]) => (
           <button key={id} onClick={() => setSubTab(id)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${subTab === id ? "bg-accent text-white" : "text-muted hover:text-ink-2"}`}>{label}</button>
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${subTab === id ? "bg-accent text-on-accent" : "text-muted hover:text-ink-2"}`}>{label}</button>
         ))}
       </div>
 
@@ -534,28 +534,28 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
             <div className="flex gap-2">
               {competitors.length > 0 && (
                 syncProgress ? (
-                  <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium bg-slate-100 rounded-lg">
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs font-medium bg-surface-3 rounded-lg">
                     <span className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                     <span className="text-ink-2 tabular-nums">Syncing {syncProgress.done}/{syncProgress.total}</span>
-                    <button onClick={() => { stopSync.current = true; }} className="text-red-500 hover:text-red-600 ml-1">Stop</button>
+                    <button onClick={() => { stopSync.current = true; }} className="text-danger-500 hover:text-danger-600 ml-1">Stop</button>
                   </div>
                 ) : (
                   <button onClick={() => syncAll(false)}
                     title="Pulls each competitor's latest videos + follower/view counts (only ones that are new or out of date)."
-                    className="px-3 py-2 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200">
+                    className="px-3 py-2 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4">
                     ↻ Sync data
                   </button>
                 )
               )}
-              <button onClick={() => { setShowImport((s) => !s); setImportResult(null); }} className="px-3 py-2 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200">⬆ Import</button>
-              <button onClick={() => setShowAdd(true)} className="px-3 py-2 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent-strong">+ Add</button>
+              <button onClick={() => { setShowImport((s) => !s); setImportResult(null); }} className="px-3 py-2 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4">⬆ Import</button>
+              <button onClick={() => setShowAdd(true)} className="px-3 py-2 text-xs font-medium bg-accent text-on-accent rounded-lg hover:bg-accent-strong">+ Add</button>
             </div>
           </div>
 
-          {syncMsg && <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{syncMsg}</div>}
+          {syncMsg && <div className="text-xs text-warn-700 bg-warn-50 border border-warn-200 rounded-lg px-3 py-2">{syncMsg}</div>}
 
           {showImport && (
-            <div className="bg-white border border-line rounded-xl p-4 space-y-3">
+            <div className="bg-surface border border-line rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-ink-2">Bulk import competitors</p>
@@ -573,7 +573,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
                 className="w-full border border-line rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-accent resize-y" />
               <div className="flex items-center gap-2">
                 <button onClick={() => runImport(importText)} disabled={importing || !importText.trim()}
-                  className="px-4 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:bg-accent-strong disabled:opacity-50">
+                  className="px-4 py-2 bg-accent text-on-accent text-sm font-semibold rounded-lg hover:bg-accent-strong disabled:opacity-50">
                   {importing ? "Importing…" : `Import ${importText.trim() ? `(${parseImport(importText).length})` : ""}`}
                 </button>
                 <button onClick={() => { setShowImport(false); setImportText(""); setImportResult(null); }} className="px-3 py-2 text-sm text-muted hover:text-ink-2">Close</button>
@@ -583,13 +583,13 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
           )}
 
           {showAdd && (
-            <form onSubmit={(e) => { e.preventDefault(); add(draft); }} className="flex gap-2 bg-white border border-line rounded-xl p-3">
-              <div className="flex-1 flex items-center bg-slate-50 border border-line rounded-lg px-3">
+            <form onSubmit={(e) => { e.preventDefault(); add(draft); }} className="flex gap-2 bg-surface border border-line rounded-xl p-3">
+              <div className="flex-1 flex items-center bg-surface-2 border border-line rounded-lg px-3">
                 <span className="text-faint text-sm">@</span>
                 <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="competitor TikTok handle"
                   className="flex-1 bg-transparent px-1 py-2 text-sm outline-none" />
               </div>
-              <button disabled={adding || !draft.trim()} className="px-4 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:bg-accent-strong disabled:opacity-50">
+              <button disabled={adding || !draft.trim()} className="px-4 py-2 bg-accent text-on-accent text-sm font-semibold rounded-lg hover:bg-accent-strong disabled:opacity-50">
                 {adding ? "Adding…" : "Add"}
               </button>
               <button type="button" onClick={() => { setShowAdd(false); setDraft(""); }} className="px-3 py-2 text-sm text-muted hover:text-ink-2">Cancel</button>
@@ -599,13 +599,13 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
           {loading ? (
             <div className="flex items-center justify-center h-40 text-faint text-sm">Loading…</div>
           ) : competitors.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-line p-12 text-center">
+            <div className="bg-surface rounded-2xl border border-dashed border-line p-12 text-center">
               <div className="text-3xl mb-2">🔍</div>
               <p className="text-sm text-muted">No competitors tracked yet.</p>
               <p className="text-xs text-faint mt-1">Add a TikTok handle to pull their recent videos and stats.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-line overflow-hidden">
+            <div className="bg-surface rounded-2xl border border-line overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-line text-left text-[11px] font-semibold text-faint uppercase tracking-wide">
@@ -633,17 +633,17 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
       {subTab === "reels" && (
         <div className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+            <div className="flex gap-1 bg-surface-3 rounded-lg p-0.5">
               {([["recent", "🆕 Recent"], ["best", "🏆 Top"], ["viral", "🚀 Viral"]] as [typeof sort, string][]).map(([id, label]) => (
                 <button key={id} onClick={() => setSort(id)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${sort === id ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>{label}</button>
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${sort === id ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>{label}</button>
               ))}
             </div>
             {sort === "viral" && (
               <div className="flex items-center gap-1">
                 {[7, 14, 30].map((d) => (
                   <button key={d} onClick={() => setViralDays(d)}
-                    className={`px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors ${viralDays === d ? "bg-accent text-white border-accent" : "bg-white text-muted border-line hover:border-line-2"}`}>{d}d</button>
+                    className={`px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors ${viralDays === d ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line hover:border-line-2"}`}>{d}d</button>
                 ))}
                 <input type="number" min={1} max={365} value={viralDays}
                   onChange={(e) => setViralDays(Math.max(1, Math.min(365, Number(e.target.value) || 7)))}
@@ -673,17 +673,17 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
                   className="w-44 border border-line rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-accent" />
               )}
               {creatorOpen && !creatorFilter && (
-                <div className="absolute right-0 top-full mt-1 w-60 max-h-64 overflow-y-auto bg-white border border-line rounded-xl o-elev-lift z-[100] py-1">
+                <div className="absolute right-0 top-full mt-1 w-60 max-h-64 overflow-y-auto bg-surface border border-line rounded-xl o-elev-lift z-[100] py-1">
                   {competitors
                     .filter((c) => c.handle.toLowerCase().includes(creatorSearch.toLowerCase()) || (c.name || "").toLowerCase().includes(creatorSearch.toLowerCase()))
                     .sort((a, b) => a.handle.localeCompare(b.handle))
                     .slice(0, 60)
                     .map((c) => (
                       <button key={c.id} onMouseDown={() => { setCreatorFilter(c.handle); setCreatorOpen(false); }}
-                        className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-slate-50 flex items-center gap-2">
+                        className="w-full text-left px-3 py-1.5 text-xs text-ink-2 hover:bg-surface-2 flex items-center gap-2">
                         {c.profilePicUrl
                           ? <img src={imgSrc(c.profilePicUrl)} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-                          : <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-faint flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</span>}
+                          : <span className="w-5 h-5 rounded-full bg-surface-3 flex items-center justify-center text-[8px] font-bold text-faint flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</span>}
                         <span className="truncate">@{c.handle}</span>
                       </button>
                     ))}
@@ -694,7 +694,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
               )}
             </div>
             <button onClick={() => syncAll(false)} disabled={refreshing}
-              className="ml-auto px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded-lg hover:bg-accent-strong disabled:opacity-50">
+              className="ml-auto px-3 py-1.5 bg-accent text-on-accent text-xs font-semibold rounded-lg hover:bg-accent-strong disabled:opacity-50">
               {syncProgress ? `Syncing ${syncProgress.done}/${syncProgress.total}…` : "↻ Refresh now"}
             </button>
           </div>
@@ -703,10 +703,10 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[10px] font-semibold text-faint uppercase tracking-wide mr-0.5">🏷 Tags</span>
               <button onClick={() => setTagFilter("")}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tagFilter === "" ? "bg-accent text-white border-accent" : "bg-white text-muted border-line"}`}>All</button>
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tagFilter === "" ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>All</button>
               {allTags.map((t) => (
                 <button key={t} onClick={() => setTagFilter(tagFilter.toLowerCase() === t.toLowerCase() ? "" : t)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tagFilter.toLowerCase() === t.toLowerCase() ? "bg-accent text-white border-accent" : "bg-accent-tint text-accent-strong border-transparent hover:border-accent"}`}>{t}</button>
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tagFilter.toLowerCase() === t.toLowerCase() ? "bg-accent text-on-accent border-accent" : "bg-accent-tint text-accent-strong border-transparent hover:border-accent"}`}>{t}</button>
               ))}
             </div>
           )}
@@ -714,7 +714,7 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
           {loading ? (
             <div className="flex items-center justify-center h-40 text-faint text-sm">Loading…</div>
           ) : shown.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-line p-16 flex flex-col items-center gap-3 text-center">
+            <div className="bg-surface rounded-2xl border border-dashed border-line p-16 flex flex-col items-center gap-3 text-center">
               <div className="text-3xl">🎬</div>
               <div>
                 <p className="text-sm font-semibold text-ink-2">{competitors.length === 0 ? "Add competitors first" : sort === "viral" ? `No videos in the last ${viralDays} days` : "No videos yet"}</p>
@@ -741,11 +741,11 @@ function CompetitorsTab({ client, embedded }: { client: Client; embedded?: boole
 // Small live-sync indicator shown on each row while a bulk sync runs.
 function SyncBadge({ status }: { status?: SyncState }) {
   if (!status) return null;
-  if (status === "pending") return <span className="text-[10px] font-medium text-faint bg-slate-100 px-1.5 py-0.5 rounded-full">queued</span>;
+  if (status === "pending") return <span className="text-[10px] font-medium text-faint bg-surface-3 px-1.5 py-0.5 rounded-full">queued</span>;
   if (status === "syncing") return <span className="inline-flex items-center gap-1 text-[10px] font-medium text-accent bg-accent-tint px-1.5 py-0.5 rounded-full"><span className="w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />syncing</span>;
-  if (status === "done") return <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">✓ synced</span>;
-  if (status === "nodata") return <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full" title="No data came back — the account may not exist, be private, or the API returned nothing (often quota).">no data</span>;
-  return <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full" title="Scrape failed (likely rate-limited)">failed</span>;
+  if (status === "done") return <span className="text-[10px] font-semibold text-ok-600 bg-ok-50 px-1.5 py-0.5 rounded-full">✓ synced</span>;
+  if (status === "nodata") return <span className="text-[10px] font-semibold text-warn-600 bg-warn-50 px-1.5 py-0.5 rounded-full" title="No data came back — the account may not exist, be private, or the API returned nothing (often quota).">no data</span>;
+  return <span className="text-[10px] font-semibold text-danger-500 bg-danger-50 px-1.5 py-0.5 rounded-full" title="Scrape failed (likely rate-limited)">failed</span>;
 }
 
 // ─── Competitor Finder: TikTok's public API login-gates all discovery (account search, followings,
@@ -755,7 +755,7 @@ function FinderTab({ client }: { client: Client }) {
   void client;
   return (
     <div className="max-w-2xl">
-      <div className="bg-white border border-line rounded-2xl p-6">
+      <div className="bg-surface border border-line rounded-2xl p-6">
         <div className="text-2xl mb-2">🔎</div>
         <h3 className="text-base font-bold text-ink mb-1">Auto-find isn't available for TikTok</h3>
         <p className="text-sm text-muted leading-relaxed">
@@ -781,16 +781,16 @@ function FinderTab({ client }: { client: Client }) {
 function CompetitorRow({ c, allTags, onSaved, onDelete, onView, status }: { c: Competitor; allTags: string[]; onSaved: () => void; onDelete: () => void; onView: () => void; status?: SyncState }) {
   const url = `https://www.tiktok.com/@${c.handle}`;
   return (
-    <tr className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
+    <tr className="border-b border-line-softer last:border-0 hover:bg-surface-2/60 transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           {c.profilePicUrl
-            ? <img src={imgSrc(c.profilePicUrl)} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-slate-100" />
-            : <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-faint text-xs font-bold flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</div>}
+            ? <img src={imgSrc(c.profilePicUrl)} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0 bg-surface-3" />
+            : <div className="w-9 h-9 rounded-full bg-surface-3 flex items-center justify-center text-faint text-xs font-bold flex-shrink-0">{c.handle.slice(0, 2).toUpperCase()}</div>}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <button onClick={onView} className="text-sm font-bold text-ink hover:text-accent truncate" title="View profile in ORDO">@{c.handle}</button>
-              {c.verified && <span className="text-blue-500 text-xs" title="Verified">✔</span>}
+              {c.verified && <span className="text-info-500 text-xs" title="Verified">✔</span>}
               <SyncBadge status={status} />
             </div>
             {c.name && <p className="text-xs text-faint truncate max-w-[220px]">{c.name}</p>}
@@ -804,8 +804,8 @@ function CompetitorRow({ c, allTags, onSaved, onDelete, onView, status }: { c: C
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1.5">
           <button onClick={onView} className="px-2.5 py-1.5 text-xs font-medium text-accent bg-accent-tint rounded-lg hover:bg-accent-tint">View profile</button>
-          <a href={url} target="_blank" rel="noopener noreferrer" title="Open on TikTok" className="px-2 py-1.5 text-xs font-medium text-ink-2 bg-slate-100 rounded-lg hover:bg-slate-200">↗</a>
-          <button onClick={onDelete} className="px-2.5 py-1.5 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100">✕</button>
+          <a href={url} target="_blank" rel="noopener noreferrer" title="Open on TikTok" className="px-2 py-1.5 text-xs font-medium text-ink-2 bg-surface-3 rounded-lg hover:bg-surface-4">↗</a>
+          <button onClick={onDelete} className="px-2.5 py-1.5 text-xs font-medium text-danger-500 bg-danger-50 rounded-lg hover:bg-danger-100">✕</button>
         </div>
       </td>
     </tr>
@@ -845,12 +845,12 @@ function TagCell({ c, allTags, onSaved }: { c: Competitor; allTags: string[]; on
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-line rounded-xl o-elev-lift z-50 p-2" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute left-0 top-full mt-1 w-56 bg-surface border border-line rounded-xl o-elev-lift z-50 p-2" onClick={(e) => e.stopPropagation()}>
             {current.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-2">
                 {current.map((t) => (
                   <span key={t} className="flex items-center gap-1 px-2 py-0.5 bg-accent-tint text-accent-strong text-[10px] rounded-full font-semibold">
-                    {t}<button onClick={() => save(current.filter((x) => x !== t))} className="hover:text-red-500">✕</button>
+                    {t}<button onClick={() => save(current.filter((x) => x !== t))} className="hover:text-danger-500">✕</button>
                   </span>
                 ))}
               </div>
@@ -861,7 +861,7 @@ function TagCell({ c, allTags, onSaved }: { c: Competitor; allTags: string[]; on
               className="w-full border border-line rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-accent mb-1" />
             {canCreate && <button onClick={() => add(input)} className="w-full text-left px-2 py-1 text-[11px] font-medium text-accent hover:bg-accent-tint rounded-md">＋ Create “{input.trim()}”</button>}
             <div className="max-h-40 overflow-y-auto">
-              {suggestions.map((t) => <button key={t} onClick={() => add(t)} className="w-full text-left px-2 py-1 text-[11px] text-ink-2 hover:bg-slate-50 rounded-md">🏷 {t}</button>)}
+              {suggestions.map((t) => <button key={t} onClick={() => add(t)} className="w-full text-left px-2 py-1 text-[11px] text-ink-2 hover:bg-surface-2 rounded-md">🏷 {t}</button>)}
               {suggestions.length === 0 && !canCreate && <p className="px-2 py-1.5 text-[10px] text-faint">No tags yet — type above to create one.</p>}
             </div>
           </div>
@@ -877,12 +877,12 @@ function CompetitorProfileModal({ c, reels, onClose }: { c: Competitor; reels: C
   const [playingId, setPlayingId] = useState<string | null>(null);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl o-elev-pop w-full max-w-3xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-line flex items-center justify-between sticky top-0 bg-white z-10">
+      <div className="bg-surface rounded-2xl o-elev-pop w-full max-w-3xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-line flex items-center justify-between sticky top-0 bg-surface z-10">
           <div className="flex items-center gap-3 min-w-0">
             {c.profilePicUrl
-              ? <img src={imgSrc(c.profilePicUrl)} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0 bg-slate-100" />
-              : <div className="w-11 h-11 rounded-full bg-slate-100 flex-shrink-0" />}
+              ? <img src={imgSrc(c.profilePicUrl)} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0 bg-surface-3" />
+              : <div className="w-11 h-11 rounded-full bg-surface-3 flex-shrink-0" />}
             <div className="min-w-0">
               <a href={`https://www.tiktok.com/@${c.handle}`} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-ink hover:text-accent">@{c.handle} <span className="text-xs font-normal text-faint">↗</span></a>
               <p className="text-xs text-faint truncate">{c.followerCount != null ? `${fmt(c.followerCount)} followers` : ""}{c.name ? ` · ${c.name}` : ""}</p>
@@ -912,12 +912,12 @@ function CompReelTile({ r, viralX, playing, onOpen, onClose }: { r: CompReel; vi
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
       {/* play affordance on hover */}
       <div className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-        <span className="w-11 h-11 rounded-full bg-white/95 text-ink flex items-center justify-center text-lg">▶</span>
+        <span className="w-11 h-11 rounded-full bg-surface/95 text-ink flex items-center justify-center text-lg">▶</span>
       </div>
       {r.handle && <span className="absolute top-1.5 left-1.5 z-10 text-[10px] font-semibold text-white/90 bg-black/40 rounded px-1.5 py-0.5">@{r.handle}</span>}
       <div className="absolute top-1.5 right-1.5 z-10 flex flex-col items-end gap-1">
         {r.timestamp && <span className="text-[10px] font-medium text-white/90 bg-black/40 rounded px-1.5 py-0.5">{timeAgo(new Date(r.timestamp).getTime())}</span>}
-        {viralX != null && <span className="text-[10px] font-bold text-white bg-rose-500 rounded px-1.5 py-0.5 shadow" title="Views per day since it was posted (how fast it's pulling views)">🔥 {fmt(Math.round(viralX))}/day</span>}
+        {viralX != null && <span className="text-[10px] font-bold text-on-status bg-hue-rose-500 rounded px-1.5 py-0.5 shadow" title="Views per day since it was posted (how fast it's pulling views)">🔥 {fmt(Math.round(viralX))}/day</span>}
       </div>
       <div className="absolute bottom-0 left-0 right-0 p-2 text-white pointer-events-none">
         <div className="flex items-baseline gap-2">

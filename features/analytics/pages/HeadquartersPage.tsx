@@ -48,8 +48,8 @@ function ago(iso: string): string {
 }
 function agoMs(ms: number | null): string { return ms ? ago(new Date(ms).toISOString()) : "—"; }
 
-const DOT = { red: "bg-red-500", yellow: "bg-amber-400", green: "bg-emerald-500" } as const;
-const RING = { red: "border-red-200 bg-red-50/50", yellow: "border-amber-200 bg-amber-50/40", green: "border-line bg-white" } as const;
+const DOT = { red: "bg-danger-500", yellow: "bg-warn-400", green: "bg-hue-emerald-500" } as const;
+const RING = { red: "border-danger-200 bg-danger-50/50", yellow: "border-warn-200 bg-warn-50/40", green: "border-line bg-surface" } as const;
 const FUNNEL_COLORS = ["#6366f1", "#7c3aed", "#9333ea", "#c026d3", "#db2777", "#e11d48"];
 
 // ── Charts (dependency-free) ───────────────────────────────────────────────
@@ -60,7 +60,7 @@ function StageFunnel({ stages }: { stages: { name: string; count: number }[] }) 
       {stages.map((s, i) => (
         <div key={s.name} className="flex items-center gap-2">
           <span className="text-[11px] text-muted w-24 text-right flex-shrink-0 truncate">{s.name}</span>
-          <div className="flex-1 h-5 bg-slate-100 rounded-md overflow-hidden">
+          <div className="flex-1 h-5 bg-surface-3 rounded-md overflow-hidden">
             <div className="h-full rounded-md flex items-center justify-end pr-1.5 text-[10px] font-bold text-white transition-all"
               style={{ width: `${Math.max(8, (s.count / max) * 100)}%`, backgroundColor: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }}>
               {s.count}
@@ -80,7 +80,7 @@ function WorkloadBars({ workload, onOpen }: { workload: HQ["charts"]["workload"]
         <button key={w.id} onClick={() => onOpen(w.id)} className="w-full flex items-center gap-2 group">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${DOT[w.health]}`} />
           <span className="text-[11px] text-ink-2 w-20 text-right flex-shrink-0 truncate group-hover:text-ink">{w.name}</span>
-          <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden">
+          <div className="flex-1 h-4 bg-surface-3 rounded overflow-hidden">
             <div className="h-full rounded transition-all" style={{ width: `${Math.max(6, (w.count / max) * 100)}%`, backgroundColor: w.color }} />
           </div>
           <span className="text-[11px] font-semibold text-muted w-6 flex-shrink-0">{w.count}</span>
@@ -93,8 +93,8 @@ function WorkloadBars({ workload, onOpen }: { workload: HQ["charts"]["workload"]
 function ContentRunway({ rows, onOpen, redDays, yellowDays }: { rows: HQ["charts"]["runway"]; onOpen: (id: number) => void; redDays: number; yellowDays: number }) {
   const max = Math.max(10, ...rows.map((r) => Math.max(r.runwayDays, r.plannedRunwayDays)));
   const fmtDate = (s: string | null) => s ? new Date(s + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—";
-  const barColor = (d: number) => d <= 0 ? "#cbd5e1" : d < redDays ? "#ef4444" : d <= yellowDays ? "#f59e0b" : "#10b981";
-  const daysColor = (d: number) => d <= 0 ? "text-faint" : d < redDays ? "text-red-600" : d <= yellowDays ? "text-amber-600" : "text-emerald-600";
+  const barColor = (d: number) => d <= 0 ? "var(--color-chart-empty)" : d < redDays ? "var(--color-chart-red)" : d <= yellowDays ? "var(--color-chart-amber)" : "var(--color-chart-green)";
+  const daysColor = (d: number) => d <= 0 ? "text-faint" : d < redDays ? "text-danger-600" : d <= yellowDays ? "text-warn-600" : "text-hue-emerald-600";
   if (!rows.length) return <p className="text-xs text-faint">No clients.</p>;
   return (
     <div className="space-y-2.5">
@@ -104,9 +104,9 @@ function ContentRunway({ rows, onOpen, redDays, yellowDays }: { rows: HQ["charts
           <button key={r.id} onClick={() => onOpen(r.id)} className="w-full text-left group">
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-ink-2 w-16 text-right flex-shrink-0 truncate group-hover:text-ink">{r.name}</span>
-              <div className="flex-1 h-4 bg-slate-100 rounded overflow-hidden relative">
+              <div className="flex-1 h-4 bg-surface-3 rounded overflow-hidden relative">
                 {/* planned reach (lighter, behind) */}
-                <div className="absolute inset-y-0 left-0 rounded bg-slate-300/70" style={{ width: `${Math.min(100, (r.plannedRunwayDays / max) * 100)}%` }} />
+                <div className="absolute inset-y-0 left-0 rounded bg-surface-5/70" style={{ width: `${Math.min(100, (r.plannedRunwayDays / max) * 100)}%` }} />
                 {/* scheduled / locked-in (solid, on top) */}
                 <div className="absolute inset-y-0 left-0 rounded transition-all" style={{ width: `${Math.max(r.runwayDays > 0 ? 4 : 0, (r.runwayDays / max) * 100)}%`, backgroundColor: barColor(r.runwayDays) }} />
               </div>
@@ -130,16 +130,16 @@ function HealthRing({ red, yellow, green }: { red: number; yellow: number; green
   return (
     <div className="flex items-center gap-4">
       <div className="relative w-24 h-24 flex-shrink-0">
-        <div className="w-24 h-24 rounded-full" style={{ background: `conic-gradient(#ef4444 0 ${redDeg}deg, #f59e0b ${redDeg}deg ${yelDeg}deg, #10b981 ${yelDeg}deg 360deg)` }} />
-        <div className="absolute inset-[14px] bg-white rounded-full flex flex-col items-center justify-center">
+        <div className="w-24 h-24 rounded-full" style={{ background: `conic-gradient(var(--color-chart-red) 0 ${redDeg}deg, var(--color-chart-amber) ${redDeg}deg ${yelDeg}deg, var(--color-chart-green) ${yelDeg}deg 360deg)` }} />
+        <div className="absolute inset-[14px] bg-surface rounded-full flex flex-col items-center justify-center">
           <span className="text-xl font-bold text-ink">{red + yellow + green}</span>
           <span className="text-[9px] text-faint -mt-0.5">clients</span>
         </div>
       </div>
       <div className="space-y-1.5 text-xs">
-        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> <span className="font-semibold text-ink-2">{red}</span> <span className="text-faint">act today</span></p>
-        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" /> <span className="font-semibold text-ink-2">{yellow}</span> <span className="text-faint">watch</span></p>
-        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> <span className="font-semibold text-ink-2">{green}</span> <span className="text-faint">on track</span></p>
+        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-danger-500" /> <span className="font-semibold text-ink-2">{red}</span> <span className="text-faint">act today</span></p>
+        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-warn-400" /> <span className="font-semibold text-ink-2">{yellow}</span> <span className="text-faint">watch</span></p>
+        <p className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-hue-emerald-500" /> <span className="font-semibold text-ink-2">{green}</span> <span className="text-faint">on track</span></p>
       </div>
     </div>
   );
@@ -147,9 +147,9 @@ function HealthRing({ red, yellow, green }: { red: number; yellow: number; green
 
 function StatCard({ value, label, tone }: { value: number; label: string; tone: "red" | "amber" | "emerald" | "indigo" | "slate" }) {
   const map = {
-    red: "border-red-200 bg-red-50 text-red-600", amber: "border-amber-200 bg-amber-50 text-amber-600",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-600", indigo: "border-accent-tint bg-accent-tint text-accent",
-    slate: "border-line bg-white text-ink-2",
+    red: "border-danger-200 bg-danger-50 text-danger-600", amber: "border-warn-200 bg-warn-50 text-warn-600",
+    emerald: "border-hue-emerald-200 bg-hue-emerald-50 text-hue-emerald-600", indigo: "border-accent-tint bg-accent-tint text-accent",
+    slate: "border-line bg-surface text-ink-2",
   }[tone];
   return (
     <div className={`rounded-xl border px-4 py-3 ${map}`}>
@@ -232,7 +232,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
       `${summary.yellow ? ` · ${summary.yellow} to watch` : ""} · ${summary.green} on track`;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50">
+    <div className="flex-1 overflow-y-auto bg-surface-2">
       <div className="px-6 lg:px-10 py-7 w-full">
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
@@ -242,16 +242,16 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
-              <button onClick={() => setManageOpen((o) => !o)} className="px-3 py-2 text-xs font-medium text-ink-2 bg-white border border-line rounded-lg hover:bg-slate-50">⚙ Clients</button>
+              <button onClick={() => setManageOpen((o) => !o)} className="px-3 py-2 text-xs font-medium text-ink-2 bg-surface border border-line rounded-lg hover:bg-surface-2">⚙ Clients</button>
               {manageOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setManageOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-64 bg-white border border-line rounded-xl o-elev-lift z-50 p-2 max-h-[60vh] overflow-y-auto">
+                  <div className="absolute right-0 mt-2 w-64 bg-surface border border-line rounded-xl o-elev-lift z-50 p-2 max-h-[60vh] overflow-y-auto">
                     <p className="text-[10px] font-semibold text-faint uppercase tracking-wide px-2 py-1.5">Show in Headquarters</p>
                     {(clients || []).map((c) => {
                       const shown = !(c as any).hideFromHq;
                       return (
-                        <label key={c.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                        <label key={c.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-surface-2 cursor-pointer">
                           <input type="checkbox" checked={shown} onChange={(e) => toggleClient(c, !e.target.checked)} className="rounded" />
                           <span className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ backgroundColor: c.color }}>{c.name.slice(0, 1).toUpperCase()}</span>
                           <span className={`text-xs truncate ${shown ? "text-ink-2" : "text-faint line-through"}`}>{c.name}</span>
@@ -263,11 +263,11 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
               )}
             </div>
             <div className="relative">
-              <button onClick={() => setSettingsOpen((o) => !o)} className="px-3 py-2 text-xs font-medium text-ink-2 bg-white border border-line rounded-lg hover:bg-slate-50">⚙ Thresholds</button>
+              <button onClick={() => setSettingsOpen((o) => !o)} className="px-3 py-2 text-xs font-medium text-ink-2 bg-surface border border-line rounded-lg hover:bg-surface-2">⚙ Thresholds</button>
               {settingsOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-72 bg-white border border-line rounded-xl o-elev-lift z-50 p-3 space-y-3">
+                  <div className="absolute right-0 mt-2 w-72 bg-surface border border-line rounded-xl o-elev-lift z-50 p-3 space-y-3">
                     <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">Headquarters thresholds</p>
                     {([
                       ["runwayRed", "Runway 🔴 below (days)"],
@@ -289,7 +289,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                 </>
               )}
             </div>
-            <button onClick={load} className="px-3 py-2 text-xs font-medium text-ink-2 bg-white border border-line rounded-lg hover:bg-slate-50">↻ Refresh</button>
+            <button onClick={load} className="px-3 py-2 text-xs font-medium text-ink-2 bg-surface border border-line rounded-lg hover:bg-surface-2">↻ Refresh</button>
           </div>
         </div>
 
@@ -305,28 +305,28 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
 
         {/* Charts band */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-7">
-          <div className="rounded-2xl border border-line bg-white p-5">
+          <div className="rounded-2xl border border-line bg-surface p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-muted mb-3">Pipeline — where the work sits</p>
             <StageFunnel stages={charts.stageDistribution} />
           </div>
-          <div className="rounded-2xl border border-line bg-white p-5">
+          <div className="rounded-2xl border border-line bg-surface p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-muted mb-1">Content runway — how long we're covered</p>
             <div className="flex items-center gap-3 text-[10px] text-faint mb-3">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> scheduled</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-slate-300" /> planned</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-hue-emerald-500" /> scheduled</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-surface-5" /> planned</span>
               <span>· 🔴 &lt;{thr.runwayRed}d · 🟡 ≤{thr.runwayYellow}d</span>
             </div>
             <ContentRunway rows={charts.runway} onOpen={(id) => onOpenKanban(id)} redDays={thr.runwayRed} yellowDays={thr.runwayYellow} />
           </div>
-          <div className="rounded-2xl border border-line bg-white p-5">
+          <div className="rounded-2xl border border-line bg-surface p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-muted mb-3">Client health</p>
             <HealthRing red={summary.red} yellow={summary.yellow} green={summary.green} />
           </div>
         </div>
 
         {summary.red === 0 && (
-          <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/60 px-5 py-4 text-center">
-            <p className="text-sm font-semibold text-emerald-700">✨ All clear — nothing needs you right now.</p>
+          <div className="mb-6 rounded-xl border border-hue-emerald-200 bg-hue-emerald-50/60 px-5 py-4 text-center">
+            <p className="text-sm font-semibold text-hue-emerald-700">✨ All clear — nothing needs you right now.</p>
           </div>
         )}
 
@@ -342,13 +342,13 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                 {blockingMe.slice(0, 14).map((b) => (
                   <button key={b.draftId} onClick={() => setReview({ draftId: b.draftId, clientId: b.clientId })}
                     title="Open & review here"
-                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border border-line bg-white hover:border-accent hover:bg-accent-tint/40 transition-colors text-left">
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border border-line bg-surface hover:border-accent hover:bg-accent-tint/40 transition-colors text-left">
                     <span className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ backgroundColor: b.clientColor }} />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-ink truncate">{b.title}</p>
                       <p className="text-[11px] text-faint">{b.clientName}{b.concept ? ` · ${b.concept}` : ""}</p>
                     </div>
-                    <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">{b.stage}</span>
+                    <span className="text-[10px] font-semibold text-warn-600 bg-warn-50 px-2 py-0.5 rounded-full flex-shrink-0">{b.stage}</span>
                     <span className="text-[10px] text-faint flex-shrink-0">{b.ageDays}d</span>
                   </button>
                 ))}
@@ -356,12 +356,12 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
             )}
 
             {/* Upcoming readiness — how much of the next N days' content is at Check 1+ */}
-            <div className="mt-8 rounded-2xl border border-line bg-white p-5">
+            <div className="mt-8 rounded-2xl border border-line bg-surface p-5">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-wide text-muted">📦 Upcoming readiness</h2>
-                <div className="flex bg-slate-100 rounded-lg p-0.5 text-[10px] font-semibold">
+                <div className="flex bg-surface-3 rounded-lg p-0.5 text-[10px] font-semibold">
                   {[7, 14, 30].map((d) => (
-                    <button key={d} onClick={() => setReadyDays(d)} className={`px-2 py-1 rounded-md transition-colors ${readyDays === d ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>{d}d</button>
+                    <button key={d} onClick={() => setReadyDays(d)} className={`px-2 py-1 rounded-md transition-colors ${readyDays === d ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>{d}d</button>
                   ))}
                 </div>
               </div>
@@ -375,8 +375,8 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                       <p className="text-sm"><span className="text-2xl font-bold text-ink">{atCheck}</span> <span className="text-faint">/ {total} at Check 1+</span></p>
                       <p className="text-xs font-semibold text-muted">{pct}%</p>
                     </div>
-                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+                    <div className="w-full h-2.5 bg-surface-3 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-hue-emerald-500 transition-all" style={{ width: `${pct}%` }} />
                     </div>
                     <p className="text-[11px] text-faint mt-1.5">{behind} of {total} videos planned for the next {readyDays} days are still behind Check 1.</p>
                     {data!.readiness.byClient.filter((c) => c.behind > 0).length > 0 && (
@@ -385,7 +385,7 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                           <button key={c.id} onClick={() => onOpenKanban(c.id)} className="w-full flex items-center gap-2 text-left group">
                             <span className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ backgroundColor: c.color }}>{c.name.slice(0, 1).toUpperCase()}</span>
                             <span className="text-xs text-ink-2 flex-1 truncate group-hover:text-ink">{c.name}</span>
-                            <span className="text-[11px] text-amber-600 font-semibold flex-shrink-0">{c.behind} behind</span>
+                            <span className="text-[11px] text-warn-600 font-semibold flex-shrink-0">{c.behind} behind</span>
                             <span className="text-[10px] text-faint flex-shrink-0">{c.atCheck}/{c.total}</span>
                           </button>
                         ))}
@@ -409,8 +409,8 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-ink truncate">{c.name}</p>
                     <div className="flex flex-wrap gap-1.5 mt-1">
-                      {c.signals.length === 0 ? <span className="text-[10px] text-emerald-600 font-medium">on track</span>
-                        : c.signals.map((s, i) => <span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${s.level === "red" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{s.label}</span>)}
+                      {c.signals.length === 0 ? <span className="text-[10px] text-hue-emerald-600 font-medium">on track</span>
+                        : c.signals.map((s, i) => <span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${s.level === "red" ? "bg-danger-100 text-danger-700" : "bg-warn-100 text-warn-700"}`}>{s.label}</span>)}
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -427,9 +427,9 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-wide text-muted">📈 Client momentum</h2>
-                <div className="flex bg-slate-100 rounded-lg p-0.5 text-[10px] font-semibold">
-                  <button onClick={() => setPeriod("week")} className={`px-2.5 py-1 rounded-md transition-colors ${period === "week" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>Week</button>
-                  <button onClick={() => setPeriod("month")} className={`px-2.5 py-1 rounded-md transition-colors ${period === "month" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>Month</button>
+                <div className="flex bg-surface-3 rounded-lg p-0.5 text-[10px] font-semibold">
+                  <button onClick={() => setPeriod("week")} className={`px-2.5 py-1 rounded-md transition-colors ${period === "week" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>Week</button>
+                  <button onClick={() => setPeriod("month")} className={`px-2.5 py-1 rounded-md transition-colors ${period === "month" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>Month</button>
                 </div>
               </div>
               {momLoading ? <p className="text-xs text-faint">Calculating momentum…</p>
@@ -441,15 +441,15 @@ export default function HeadquartersPage({ clients, refreshClients, onOpenKanban
                       return (
                         <button key={m.id} onClick={() => onOpenKanban(m.id)}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors hover:shadow-sm ${
-                            m.health === "red" ? "border-red-200 bg-red-50/50" : m.health === "yellow" ? "border-amber-200 bg-amber-50/40" : m.health === "green" ? "border-emerald-200 bg-emerald-50/40" : "border-line bg-white"
+                            m.health === "red" ? "border-danger-200 bg-danger-50/50" : m.health === "yellow" ? "border-warn-200 bg-warn-50/40" : m.health === "green" ? "border-hue-emerald-200 bg-hue-emerald-50/40" : "border-line bg-surface"
                           }`}>
-                          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${m.health === "red" ? "bg-red-500" : m.health === "yellow" ? "bg-amber-400" : m.health === "green" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${m.health === "red" ? "bg-danger-500" : m.health === "yellow" ? "bg-warn-400" : m.health === "green" ? "bg-hue-emerald-500" : "bg-surface-5"}`} />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold text-ink truncate">{m.name}</p>
                             <p className="text-[10px] text-faint">{fmtK(m.curAvg)} vs {fmtK(m.prevAvg)} avg views · {m.curCount ?? 0} posts</p>
                           </div>
                           {m.delta != null ? (
-                            <span className={`text-sm font-bold flex-shrink-0 ${up ? "text-emerald-600" : "text-red-600"}`}>
+                            <span className={`text-sm font-bold flex-shrink-0 ${up ? "text-hue-emerald-600" : "text-danger-600"}`}>
                               {up ? "▲" : "▼"} {Math.abs(m.delta * 100).toFixed(0)}%
                             </span>
                           ) : (
@@ -560,7 +560,7 @@ function HQReviewDrawer({ draftId, clientId, onClose, onDone, onOpenKanban }: {
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
-      <div className="w-[620px] max-w-[94vw] bg-white o-elev-pop flex flex-col overflow-hidden">
+      <div className="w-[620px] max-w-[94vw] bg-surface o-elev-pop flex flex-col overflow-hidden">
         {loading ? (
           <div className="flex-1 flex items-center justify-center"><div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" /></div>
         ) : !draft ? (
@@ -586,15 +586,15 @@ function HQReviewDrawer({ draftId, clientId, onClose, onDone, onOpenKanban }: {
                     className="w-full max-h-[46vh] rounded-xl bg-black" />
                 </div>
               ) : (
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">No finished video uploaded yet{rawCount ? ` · ${rawCount} raw file${rawCount > 1 ? "s" : ""} attached` : ""}.</p>
+                <p className="text-xs text-warn-600 bg-warn-50 border border-warn-200 rounded-lg px-3 py-2">No finished video uploaded yet{rawCount ? ` · ${rawCount} raw file${rawCount > 1 ? "s" : ""} attached` : ""}.</p>
               )}
 
               {draft.hook && (
                 <div><p className="text-[10px] font-semibold text-muted uppercase tracking-wide mb-1">Hook</p>
-                  <p className="text-sm text-ink-2 bg-slate-50 border border-line rounded-lg px-3 py-2">{draft.hook}</p></div>
+                  <p className="text-sm text-ink-2 bg-surface-2 border border-line rounded-lg px-3 py-2">{draft.hook}</p></div>
               )}
               <div><p className="text-[10px] font-semibold text-muted uppercase tracking-wide mb-1">Script</p>
-                <pre className="text-sm text-ink-2 bg-slate-50 border border-line rounded-lg px-3 py-2 whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">{draft.script}</pre></div>
+                <pre className="text-sm text-ink-2 bg-surface-2 border border-line rounded-lg px-3 py-2 whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">{draft.script}</pre></div>
               {draft.caption && (
                 <div><p className="text-[10px] font-semibold text-muted uppercase tracking-wide mb-1">Caption</p>
                   <p className="text-sm text-ink-2 whitespace-pre-wrap">{draft.caption}</p></div>
@@ -607,16 +607,16 @@ function HQReviewDrawer({ draftId, clientId, onClose, onDone, onOpenKanban }: {
                 <div className="space-y-2">
                   <textarea autoFocus rows={2} value={note} onChange={(e) => setNote(e.target.value)}
                     placeholder="What needs fixing? (the editor sees this)"
-                    className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
+                    className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-warn-400 resize-none" />
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setSendBackOpen(false)} className="px-3 py-1.5 text-xs font-semibold text-muted hover:text-ink-2">Cancel</button>
-                    <button onClick={sendBack} disabled={busy || !note.trim()} className="px-4 py-1.5 text-xs font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50">{busy ? "Sending…" : "↩ Send back"}</button>
+                    <button onClick={sendBack} disabled={busy || !note.trim()} className="px-4 py-1.5 text-xs font-semibold text-on-status bg-warn-600 rounded-lg hover:bg-warn-700 disabled:opacity-50">{busy ? "Sending…" : "↩ Send back"}</button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setSendBackOpen(true)} disabled={busy} className="px-4 py-2.5 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 disabled:opacity-50">↩ Send back</button>
-                  <button onClick={approve} disabled={busy} className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 disabled:opacity-50">
+                  <button onClick={() => setSendBackOpen(true)} disabled={busy} className="px-4 py-2.5 text-sm font-semibold text-warn-700 bg-warn-50 border border-warn-200 rounded-xl hover:bg-warn-100 disabled:opacity-50">↩ Send back</button>
+                  <button onClick={approve} disabled={busy} className="flex-1 px-4 py-2.5 text-sm font-semibold text-on-status bg-hue-emerald-600 rounded-xl hover:bg-hue-emerald-700 disabled:opacity-50">
                     {busy ? "Working…" : `✓ Approve → ${next ? next.name : "Schedule"}`}
                   </button>
                   <button onClick={onOpenKanban} title="Open full card in Kanban" className="px-3 py-2.5 text-sm text-muted hover:text-ink-2 border border-line rounded-xl">↗</button>
