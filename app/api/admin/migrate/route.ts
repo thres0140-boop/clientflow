@@ -9,6 +9,37 @@ export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("token");
   if (!isAdminToken(secret)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  // ?inboxmirror=1 — Instagram Inbox mirror tables (ZernioConversation, ZernioMessage,
+  // ZernioWebhookEvent, ZernioSyncState). Idempotent; mirrors the models in prisma/schema.prisma.
+  if (req.nextUrl.searchParams.get("inboxmirror")) {
+    const out: Record<string, string> = {};
+    const stmts: [string, string][] = [
+      ["ZernioConversation", `CREATE TABLE IF NOT EXISTS "ZernioConversation" (
+        "id" TEXT PRIMARY KEY, "clientId" INTEGER NOT NULL, "accountId" TEXT NOT NULL,
+        "platformConversationId" TEXT, "participantId" TEXT, "participantName" TEXT, "participantUsername" TEXT, "participantPicture" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'active', "isGroup" BOOLEAN NOT NULL DEFAULT false, "url" TEXT,
+        "lastMessageText" TEXT, "lastMessageAt" TIMESTAMP(3), "lastIncomingAt" TIMESTAMP(3), "lastOutgoingAt" TIMESTAMP(3), "lastSeenAt" TIMESTAMP(3),
+        "zernioUnreadCount" INTEGER, "igIsFollower" BOOLEAN, "igIsFollowing" BOOLEAN, "igFollowerCount" INTEGER, "igIsVerified" BOOLEAN, "igFetchedAt" TIMESTAMP(3),
+        "syncedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`],
+      ["ZernioConversation_clientId_lastMessageAt_idx", `CREATE INDEX IF NOT EXISTS "ZernioConversation_clientId_lastMessageAt_idx" ON "ZernioConversation"("clientId", "lastMessageAt")`],
+      ["ZernioConversation_clientId_participantId_idx", `CREATE INDEX IF NOT EXISTS "ZernioConversation_clientId_participantId_idx" ON "ZernioConversation"("clientId", "participantId")`],
+      ["ZernioMessage", `CREATE TABLE IF NOT EXISTS "ZernioMessage" (
+        "id" TEXT PRIMARY KEY, "conversationId" TEXT NOT NULL, "clientId" INTEGER NOT NULL, "direction" TEXT NOT NULL, "text" TEXT,
+        "attachments" TEXT NOT NULL DEFAULT '[]', "senderId" TEXT, "senderName" TEXT, "senderUsername" TEXT, "sentAt" TIMESTAMP(3) NOT NULL,
+        "deliveryStatus" TEXT, "isDeleted" BOOLEAN NOT NULL DEFAULT false, "editedAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "ZernioMessage_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "ZernioConversation"("id") ON DELETE CASCADE ON UPDATE CASCADE)`],
+      ["ZernioMessage_conversationId_sentAt_idx", `CREATE INDEX IF NOT EXISTS "ZernioMessage_conversationId_sentAt_idx" ON "ZernioMessage"("conversationId", "sentAt")`],
+      ["ZernioMessage_clientId_sentAt_idx", `CREATE INDEX IF NOT EXISTS "ZernioMessage_clientId_sentAt_idx" ON "ZernioMessage"("clientId", "sentAt")`],
+      ["ZernioWebhookEvent", `CREATE TABLE IF NOT EXISTS "ZernioWebhookEvent" ("id" TEXT PRIMARY KEY, "receivedAt" TIMESTAMPTZ NOT NULL DEFAULT now())`],
+      ["ZernioSyncState", `CREATE TABLE IF NOT EXISTS "ZernioSyncState" ("clientId" INTEGER PRIMARY KEY, "cursor" TEXT, "phase" TEXT, "lastFullSyncAt" TIMESTAMP(3), "lastReconcileAt" TIMESTAMP(3), "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`],
+    ];
+    for (const [name, sql] of stmts) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ inboxmirror: out });
+  }
+
   // ?reeltest — diagnose why competitor reel videos won't play: call get_media_data with the
   // runtime RapidAPI key and show the raw response.
   // ?txtdiag=1 — find a reel with a stored video but no transcript and show exactly why the
@@ -150,6 +181,56 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     } catch (e) {
       return NextResponse.json({ error: "remixtest failed: " + (e instanceof Error ? e.message : String(e)) });
     }
+  }
+
+  // ?editor=1 — video editor tables (EditProject, RenderJob) and Client.subtitleStyle, one
+  // statement each like ?reelcols, then a read-back of information_schema so the response
+  // proves what exists rather than what was attempted. Safe to re-run.
+  if (req.nextUrl.searchParams.get("editor")) {
+    const stmts: Array<[string, string]> = [
+      ["Client.subtitleStyle", `ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "subtitleStyle" TEXT`],
+      ["EditProject", `CREATE TABLE IF NOT EXISTS "EditProject" (
+        "id" SERIAL PRIMARY KEY,
+        "draftId" INTEGER NOT NULL UNIQUE REFERENCES "ScriptDraft"("id") ON DELETE CASCADE,
+        "clientId" INTEGER NOT NULL,
+        "document" TEXT NOT NULL DEFAULT '{}',
+        "version" INTEGER NOT NULL DEFAULT 1,
+        "updatedBy" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`],
+      ["RenderJob", `CREATE TABLE IF NOT EXISTS "RenderJob" (
+        "id" SERIAL PRIMARY KEY,
+        "projectId" INTEGER NOT NULL REFERENCES "EditProject"("id") ON DELETE CASCADE,
+        "documentVersion" INTEGER NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'queued',
+        "executor" TEXT NOT NULL,
+        "executorRef" TEXT,
+        "progress" INTEGER NOT NULL DEFAULT 0,
+        "outputKey" TEXT,
+        "outputUrl" TEXT,
+        "error" TEXT,
+        "requestedBy" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "startedAt" TIMESTAMP(3),
+        "finishedAt" TIMESTAMP(3)
+      )`],
+      ["RenderJob_projectId_createdAt_idx", `CREATE INDEX IF NOT EXISTS "RenderJob_projectId_createdAt_idx" ON "RenderJob"("projectId", "createdAt")`],
+    ];
+    const out: any = {};
+    for (const [name, sql] of stmts) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    let columns: any = null;
+    try {
+      columns = await (prisma as any).$queryRawUnsafe(
+        `SELECT table_name, column_name, data_type FROM information_schema.columns
+         WHERE table_name IN ('EditProject', 'RenderJob') OR (table_name = 'Client' AND column_name = 'subtitleStyle')
+         ORDER BY table_name, ordinal_position`
+      );
+    } catch (e) { columns = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    return NextResponse.json({ editor: out, columns });
   }
 
   // ?reelcols=1 — add the capture-once columns, one statement each (multi-statement raw

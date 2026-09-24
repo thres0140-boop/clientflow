@@ -31,6 +31,7 @@ model Client {
   notes              String?
   captionStyle       String?
   captionGuidelines  String?
+  subtitleStyle      String?  // JSON CaptionStyle (features/editor/model/captionStyle.ts): the client's default on-screen caption look for the video editor
   dayTemplate        String?
   language           String   @default("nl")
   scriptAlternatives Int      @default(5)
@@ -437,6 +438,50 @@ model ScriptDraft {
   notes   DraftNote[]
   changes DraftChange[]
   reviews DraftReview[]
+  editProject EditProject?
+}
+
+// ─── Video editor ──────────────────────────────────────────────────────────────────────
+// One edit project per ScriptDraft. Its input is the draft's rawContentUrls, its output ends up
+// in the draft's editedVideoUrl (via a RenderJob). The whole timeline lives in `document` as one
+// JSON blob (EditDocument, features/editor/model/document.ts) so a reload or another device
+// gets the exact same state; `version` is bumped on every save and a save must present the
+// version it loaded, so two people editing the same project cannot silently overwrite each other.
+model EditProject {
+  id        Int      @id @default(autoincrement())
+  draftId   Int      @unique
+  clientId  Int
+  document  String   @default("{}")
+  version   Int      @default(1)
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  draft ScriptDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  jobs  RenderJob[]
+}
+
+// A render request the editor polls. Where it runs is the executor's business (`executor` names
+// the implementation, `executorRef` is its opaque handle); nothing else in the app may assume it.
+model RenderJob {
+  id              Int       @id @default(autoincrement())
+  projectId       Int
+  documentVersion Int
+  status          String    @default("queued") // queued | running | done | failed | cancelled
+  executor        String
+  executorRef     String?
+  progress        Int       @default(0)
+  outputKey       String?
+  outputUrl       String?
+  error           String?
+  requestedBy     String?
+  createdAt       DateTime  @default(now())
+  startedAt       DateTime?
+  finishedAt      DateTime?
+
+  project EditProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
 }
 
 model DraftReview {
@@ -607,4 +652,83 @@ model ReelSnapshot {
 
   @@unique([clientId, reelId, takenAt])
   @@index([clientId, takenAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Instagram Inbox mirror — a local copy of Zernio's inbox, kept fresh by the
+// zernio-inbox webhook (app/api/webhooks/zernio-inbox) and reconciled by cron.
+// Unread is computed locally: lastIncomingAt newer than BOTH lastOutgoingAt and
+// lastSeenAt. Names/usernames seen once are never downgraded to a placeholder.
+// Tables are created by the admin migrate route (?inboxmirror=1), not prisma migrate.
+// ─────────────────────────────────────────────────────────────────────────────
+model ZernioConversation {
+  id                     String    @id            // Zernio conversation id (list + every webhook agree)
+  clientId               Int
+  accountId              String                   // Zernio account id (InstagramConnection.zernioAccountId)
+  platformConversationId String?
+  participantId          String?                  // Meta IGSID — stable per user per connected account
+  participantName        String?
+  participantUsername    String?                  // only ever arrives via webhooks; never cleared once set
+  participantPicture     String?
+  status                 String    @default("active")
+  isGroup                Boolean   @default(false)
+  url                    String?
+  lastMessageText        String?
+  lastMessageAt          DateTime?
+  lastIncomingAt         DateTime?
+  lastOutgoingAt         DateTime?
+  lastSeenAt             DateTime?                // local: the owner opened the thread
+  zernioUnreadCount      Int?                     // stored for comparison, never displayed
+  igIsFollower           Boolean?                 // instagramProfile.* — lead-qualification signals, not surfaced yet
+  igIsFollowing          Boolean?
+  igFollowerCount        Int?
+  igIsVerified           Boolean?
+  igFetchedAt            DateTime?
+  syncedAt               DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  messages ZernioMessage[]
+
+  @@index([clientId, lastMessageAt])
+  @@index([clientId, participantId])
+}
+
+model ZernioMessage {
+  id             String    @id                    // Zernio message id
+  conversationId String
+  clientId       Int
+  direction      String                           // incoming | outgoing
+  text           String?
+  attachments    String    @default("[]")         // JSON array as received (url expires; refreshUrl is durable)
+  senderId       String?
+  senderName     String?
+  senderUsername String?
+  sentAt         DateTime
+  deliveryStatus String?                          // sent | delivered | read | failed | deleted
+  isDeleted      Boolean   @default(false)
+  editedAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation ZernioConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, sentAt])
+  @@index([clientId, sentAt])
+}
+
+// Dedupe ledger for Zernio deliveries (X-Zernio-Event-Id). Table already exists — created
+// on first use by app/api/webhooks/zernio; declared here so the inbox webhook can share it.
+model ZernioWebhookEvent {
+  id         String   @id
+  receivedAt DateTime @default(now()) @db.Timestamptz(6)
+}
+
+// Per-client backfill / reconcile bookkeeping for the mirror (used from step 2 on).
+model ZernioSyncState {
+  clientId         Int       @id
+  cursor           String?                        // resumable conversation cursor during backfill
+  phase            String?                        // backfill | live
+  lastFullSyncAt   DateTime?
+  lastReconcileAt  DateTime?
+  updatedAt        DateTime  @updatedAt
 }
