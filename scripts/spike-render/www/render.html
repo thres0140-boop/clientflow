@@ -1,0 +1,81 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ffmpeg.wasm render spike</title>
+<pre id="log" style="font:12px monospace;white-space:pre-wrap"></pre>
+<script type="module">
+// ?core=st|mt  &preset=veryfast|ultrafast  &threads=N  &name=<result name>  &lib=<lib dir>
+const q = new URLSearchParams(location.search);
+const core = q.get("core") || "st";
+const preset = q.get("preset") || "veryfast";
+const threads = Number(q.get("threads") || 0);
+const name = q.get("name") || `browser-${core}-${preset}`;
+const logEl = document.getElementById("log");
+const t0 = performance.now();
+const marks = {};
+const log = (m) => { logEl.textContent += `[${((performance.now() - t0) / 1000).toFixed(1)}s] ${m}\n`; };
+const post = (data) => fetch(`/result?name=${encodeURIComponent(name)}`, { method: "POST", body: JSON.stringify(data) });
+
+const info = {
+  name, core, preset, threads,
+  ua: navigator.userAgent,
+  hardwareConcurrency: navigator.hardwareConcurrency,
+  crossOriginIsolated: self.crossOriginIsolated,
+  sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
+  deviceMemory: navigator.deviceMemory ?? null,
+  jsHeapLimitMB: performance.memory ? Math.round(performance.memory.jsHeapSizeLimit / 1048576) : null,
+};
+log(JSON.stringify(info));
+
+try {
+  // Same library files TranscribePage uses (copied from public/ffmpeg); only the core differs.
+  const { FFmpeg } = await import(`/lib/index.js`);
+  const ff = new FFmpeg();
+  let lastProgress = 0;
+  ff.on("progress", ({ progress }) => { const p = Math.round(progress * 100); if (p >= lastProgress + 10) { lastProgress = p; log(`progress ${p}%`); } });
+  const logs = [];
+  ff.on("log", ({ message }) => { logs.push(message); if (logs.length < 40) log("ff: " + message); });
+
+  const base = `${location.origin}/core-${core}`;
+  marks.loadStart = performance.now();
+  await ff.load({ classWorkerURL: `${location.origin}/lib/worker.js`, coreURL: `${base}/ffmpeg-core.js`, wasmURL: `${base}/ffmpeg-core.wasm`, ...(core === "mt" ? { workerURL: `${base}/ffmpeg-core.worker.js` } : {}) });
+  marks.loadDone = performance.now();
+  log(`engine loaded in ${((marks.loadDone - marks.loadStart) / 1000).toFixed(1)}s`);
+
+  const { fetchFile } = await import(`/lib/util/index.js`);
+  marks.fetchStart = performance.now();
+  const input = await fetchFile(`/media/input.mp4`);
+  marks.fetchDone = performance.now();
+  await ff.writeFile("input.mp4", input);
+  await ff.createDir("/fonts").catch(() => {});
+  await ff.writeFile("/fonts/Roboto-Bold.ttf", await fetchFile(`/media/fonts/Roboto-Bold.ttf`));
+  await ff.writeFile("captions.ass", await fetchFile(`/media/captions.ass`));
+  log(`input ${(input.length / 1048576).toFixed(1)} MB written to wasm FS`);
+
+  // Check the build has the subtitles filter (libass) at all.
+  await ff.exec(["-hide_banner", "-filters"]);
+  const hasSubtitles = logs.some((l) => /\bsubtitles\b/.test(l));
+  const hasDrawtext = logs.some((l) => /\bdrawtext\b/.test(l));
+  log(`filters: subtitles=${hasSubtitles} drawtext=${hasDrawtext}`);
+  logs.length = 0;
+
+  const cmd = ["-hide_banner", ...(threads ? ["-threads", String(threads)] : []), "-i", "input.mp4", "-vf", "subtitles=filename=captions.ass:fontsdir=/fonts", "-c:v", "libx264", "-preset", preset, "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "copy", ...(threads ? ["-threads", String(threads)] : []), "out.mp4"];
+  log("exec: ffmpeg " + cmd.join(" "));
+  marks.execStart = performance.now();
+  const rc = await ff.exec(cmd);
+  marks.execDone = performance.now();
+  log(`exec rc=${rc} in ${((marks.execDone - marks.execStart) / 1000).toFixed(1)}s`);
+
+  let outSize = null;
+  try { const out = await ff.readFile("out.mp4"); outSize = out.length; } catch (e) { log("readFile failed: " + e); }
+  const tail = logs.slice(-6);
+
+  await post({ ...info, ok: rc === 0 && !!outSize, rc, hasSubtitles, hasDrawtext, outSizeMB: outSize ? +(outSize / 1048576).toFixed(1) : null,
+    loadS: +((marks.loadDone - marks.loadStart) / 1000).toFixed(1), fetchS: +((marks.fetchDone - marks.fetchStart) / 1000).toFixed(1),
+    execS: +((marks.execDone - marks.execStart) / 1000).toFixed(1), totalS: +((performance.now() - t0) / 1000).toFixed(1),
+    jsHeapUsedMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null, tail });
+  log("DONE");
+} catch (e) {
+  log("FAILED: " + (e && e.stack || e));
+  await post({ ...info, ok: false, error: String(e && e.message || e), totalS: +((performance.now() - t0) / 1000).toFixed(1) });
+}
+</script>

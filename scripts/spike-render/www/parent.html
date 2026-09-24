@@ -1,0 +1,11 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cenks Dashboard stand-in (no COOP/COEP)</title>
+<p>parent crossOriginIsolated: <span id="p"></span></p>
+<iframe id="f" style="width:600px;height:300px"></iframe>
+<script>
+  // The Cenks Dashboard is a plain page (no COOP/COEP) that iframes ORDO. Here ORDO = the COI-served child.
+  const q = new URLSearchParams(location.search);
+  document.getElementById("p").textContent = String(self.crossOriginIsolated);
+  document.getElementById("f").src = q.get("child") + "?name=" + encodeURIComponent(q.get("name") || "embedded") + "&parentIsolated=" + self.crossOriginIsolated;
+</script>

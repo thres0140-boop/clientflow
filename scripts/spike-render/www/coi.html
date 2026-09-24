@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>cross-origin isolation probe</title>
+<pre id="log" style="font:12px monospace"></pre>
+<script type="module">
+// Probes what cross-origin isolation (COOP+COEP) does to the things ORDO loads.
+// ?name=<result name>  &other=<origin that plays "r2.dev / Instagram CDN / Cenks Dashboard">  &cors=<origin with ACAO:*>
+const q = new URLSearchParams(location.search);
+const name = q.get("name") || "coi";
+const other = q.get("other") || "http://127.0.0.1:4100";   // cross-origin, no CORP, no CORS
+const cors = q.get("cors") || "http://127.0.0.1:4102";     // cross-origin, ACAO:* but no CORP
+const corp = q.get("corp") || "http://127.0.0.1:4103";     // cross-origin, CORP: cross-origin
+const logEl = document.getElementById("log");
+const log = (m) => (logEl.textContent += m + "\n");
+const r = { name, top: window.top === window, crossOriginIsolated: self.crossOriginIsolated, sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined", ua: navigator.userAgent, tests: {} };
+
+function tryEl(tag, src, attrs = {}) {
+  return new Promise((resolve) => {
+    const el = document.createElement(tag);
+    Object.assign(el, attrs);
+    const done = (v) => { clearTimeout(t); resolve(v); };
+    const t = setTimeout(() => done("timeout"), 8000);
+    if (tag === "video") { el.preload = "metadata"; el.onloadedmetadata = () => done("loaded"); el.onerror = () => done("error"); }
+    else { el.onload = () => done("loaded"); el.onerror = () => done("error"); }
+    el.src = src;
+    el.style.width = "40px"; document.body.appendChild(el);
+  });
+}
+async function tryFetch(url, mode) { try { const x = await fetch(url, { mode }); return `${mode}:${x.status || x.type}`; } catch (e) { return `${mode}:error`; } }
+async function tryWorkerSAB() {
+  try {
+    const sab = new SharedArrayBuffer(8);
+    const w = new Worker(URL.createObjectURL(new Blob([`onmessage=e=>{postMessage(e.data instanceof SharedArrayBuffer)}`])));
+    return await new Promise((res) => { w.onmessage = (e) => res(e.data ? "sab-to-worker-ok" : "sab-not-shared"); w.onerror = () => res("worker-error"); w.postMessage(sab); setTimeout(() => res("timeout"), 3000); });
+  } catch (e) { return "no-sab:" + e.name; }
+}
+
+r.tests.img_crossorigin_noCORP = await tryEl("img", `${other}/media/frame-native.png?x=1`);               // <img src="https://pub-xxx.r2.dev/...">
+r.tests.img_crossorigin_CORS_attr = await tryEl("img", `${cors}/media/frame-native.png?x=2`, { crossOrigin: "anonymous" }); // R2 with CORS + crossorigin attr
+r.tests.img_crossorigin_CORP = await tryEl("img", `${corp}/media/frame-native.png?x=3`);                  // CDN that sends CORP
+r.tests.video_crossorigin_noCORP = await tryEl("video", `${other}/media/input.mp4`);                        // <video src="https://pub-xxx.r2.dev/...mp4"> (ChatPage, Pipeline, InstagramPage today)
+r.tests.video_sameorigin_proxy = await tryEl("video", `/media/input.mp4`);                                  // <video src="/api/vid?u=...">
+r.tests.fetch_crossorigin_cors = await tryFetch(`${cors}/media/captions.ass`, "cors");                      // Excalidraw font fallback from esm.sh (ACAO:*)
+r.tests.fetch_crossorigin_nocors = await tryFetch(`${other}/media/captions.ass`, "no-cors");
+r.tests.iframe_sameorigin = await tryEl("iframe", `/plain.html`);                                            // /play iframe
+r.tests.iframe_crossorigin_noCOEP = await tryEl("iframe", `${other}/plain.html`);                            // a third-party iframe (Instagram oEmbed style)
+r.tests.sharedArrayBufferToWorker = await tryWorkerSAB();                                                    // what ffmpeg core-mt needs
+log(JSON.stringify(r, null, 2));
+await fetch(`/result?name=${encodeURIComponent(name)}`, { method: "POST", body: JSON.stringify(r) });
+if (window.parent !== window) window.parent.postMessage({ type: "coi-done", r }, "*");
+</script>

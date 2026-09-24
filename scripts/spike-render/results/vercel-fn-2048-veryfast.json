@@ -1,0 +1,34 @@
+{
+  "region": "iad1",
+  "node": "v24.20.0",
+  "cpus": 2,
+  "cpuModel": "Intel(R) Xeon(R) Processor @ 2.50GHz",
+  "totalMemMB": 2279,
+  "preset": "veryfast",
+  "threads": "0",
+  "inputMB": 58.1,
+  "downloadS": 1.9,
+  "fontsDirExists": true,
+  "render": {
+    "code": 0,
+    "wallS": 60.7,
+    "peakRssMB": 357,
+    "cpuS": 68,
+    "tail": [
+      "[libx264 @ 0x3cc5ecc0] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 25% 15% 36%  5%  8%  3%  3%  2%  3%",
+      "[libx264 @ 0x3cc5ecc0] i8c dc,h,v,p: 73% 10% 15%  2%",
+      "[libx264 @ 0x3cc5ecc0] Weighted P-Frames: Y:0.0% UV:0.0%",
+      "[libx264 @ 0x3cc5ecc0] kb/s:5454.04"
+    ]
+  },
+  "outMB": 40,
+  "verify": {
+    "code": 0,
+    "tail": [
+      "frame=   91 fps=0.0 q=-0.0 size=N/A time=00:00:03.03 bitrate=N/A speed=6.03x    \rframe=  192 fps=191 q=-0.0 size=N/A time=00:00:06.40 bitrate=N/A speed=6.38x    \rframe=  292 fps=194 q=-0.0 size=N/A time=00:00:09.73 bitrate=N/A speed=6.47x    \rframe=  391 fps=195 q=-0.0 size=N/A time=00:00:13.03 bitrate=N/A speed=6.51x    \rframe=  487 fps=195 q=-0.0 size=N/A time=00:00:16.23 bitrate=N/A speed=6.48x    \rframe=  589 fps=196 q=-0.0 size=N/A time=00:00:19.63 bitrate=N/A speed=6.54x    \rframe=  687 fps=196 q=-0.0 size=N/A time=00:00:22.90 bitrate=N/A speed=6.54x    \rframe=  784 fps=196 q=-0.0 size=N/A time=00:00:26.13 bitrate=N/A speed=6.53x    \rframe=  883 fps=196 q=-0.0 size=N/A time=00:00:29.43 bitrate=N/A speed=6.53x    \rframe=  986 fps=197 q=-0.0 size=N/A time=00:00:32.86 bitrate=N/A speed=6.57x    \rframe= 1083 fps=197 q=-0.0 size=N/A time=00:00:36.10 bitrate=N/A speed=6.56x    \rframe= 1182 fps=197 q=-0.0 size=N/A time=00:00:39.40 bitrate=N/A speed=6.56x    \rframe= 1282 fps=197 q=-0.0 size=N/A time=00:00:42.73 bitrate=N/A speed=6.57x    \rframe= 1383 fps=197 q=-0.0 size=N/A time=00:00:46.10 bitrate=N/A speed=6.58x    \rframe= 1481 fps=197 q=-0.0 size=N/A time=00:00:49.36 bitrate=N/A speed=6.58x    \rframe= 1580 fps=197 q=-0.0 size=N/A time=00:00:52.66 bitrate=N/A speed=6.58x    \rframe= 1683 fps=198 q=-0.0 size=N/A time=00:00:56.10 bitrate=N/A speed= 6.6x    \rframe= 1781 fps=198 q=-0.0 size=N/A time=00:00:59.36 bitrate=N/A speed=6.59x    \r[out#0/null @ 0x8467d80] video:773KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown",
+      "frame= 1800 fps=198 q=-0.0 Lsize=N/A time=00:01:00.00 bitrate=N/A speed=6.61x    "
+    ]
+  },
+  "functionRssMB": 217,
+  "ok": true
+}

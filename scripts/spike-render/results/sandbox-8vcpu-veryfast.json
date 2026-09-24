@@ -1,0 +1,41 @@
+{
+  "name": "sandbox-8vcpu-veryfast",
+  "vcpus": 8,
+  "preset": "veryfast",
+  "createS": 0.5,
+  "uploadS": 5.6,
+  "ffmpegInstallS": 2.9,
+  "env": [
+    "ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers",
+    "8",
+    "               total        used        free      shared  buff/cache   available",
+    "Mem:           16643         513       15983           0         399       16129"
+  ],
+  "measureStderr": "",
+  "measureExit": 0,
+  "rawTail": [
+    "{\"code\":0,\"wallS\":9.8,\"peakRssMB\":595,\"cpuS\":55.5,\"tail\":[\"[libx264 @ 0x6f3f540] i8c dc,h,v,p: 73%  9% 16%  2%\",\"[libx264 @ 0x6f3f540] Weighted P-Frames: Y:0.0% UV:0.0%\",\"[libx264 @ 0x6f3f540] kb/s:5488.46\"],\"outMB\":40.2,\"verify\":{\"code\":0,\"tail\":[\"frame=  549 fps=0.0 q=-0.0 size=N/A time=00:00:18.30 bitrate=N/A speed=36.6x    \\rframe= 1167 fps=1166 q=-0.0 size=N/A time=00:00:38.90 bitrate=N/A speed=38.9x    \\r[out#0/null @ 0xf767c00] video:773KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown\",\"frame= 1800 fps=1238 q=-0.0 Lsize=N/A time=00:01:00.00 bitrate=N/A speed=41.3x    \"]}}",
+    "EXIT=0"
+  ],
+  "measure": {
+    "code": 0,
+    "wallS": 9.8,
+    "peakRssMB": 595,
+    "cpuS": 55.5,
+    "tail": [
+      "[libx264 @ 0x6f3f540] i8c dc,h,v,p: 73%  9% 16%  2%",
+      "[libx264 @ 0x6f3f540] Weighted P-Frames: Y:0.0% UV:0.0%",
+      "[libx264 @ 0x6f3f540] kb/s:5488.46"
+    ],
+    "outMB": 40.2,
+    "verify": {
+      "code": 0,
+      "tail": [
+        "frame=  549 fps=0.0 q=-0.0 size=N/A time=00:00:18.30 bitrate=N/A speed=36.6x    \rframe= 1167 fps=1166 q=-0.0 size=N/A time=00:00:38.90 bitrate=N/A speed=38.9x    \r[out#0/null @ 0xf767c00] video:773KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown",
+        "frame= 1800 fps=1238 q=-0.0 Lsize=N/A time=00:01:00.00 bitrate=N/A speed=41.3x    "
+      ]
+    }
+  },
+  "ok": true,
+  "totalS": 26.9
+}

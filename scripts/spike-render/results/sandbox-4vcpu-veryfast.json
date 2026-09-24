@@ -1,0 +1,41 @@
+{
+  "name": "sandbox-4vcpu-veryfast",
+  "vcpus": 4,
+  "preset": "veryfast",
+  "createS": 0.5,
+  "uploadS": 5.7,
+  "ffmpegInstallS": 2.8,
+  "env": [
+    "ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers",
+    "4",
+    "               total        used        free      shared  buff/cache   available",
+    "Mem:            8403         474        7749           0         399        7929"
+  ],
+  "measureStderr": "",
+  "measureExit": 0,
+  "rawTail": [
+    "{\"code\":0,\"wallS\":14,\"peakRssMB\":445,\"cpuS\":46.4,\"tail\":[\"[libx264 @ 0x2b997540] i8c dc,h,v,p: 73% 10% 16%  2%\",\"[libx264 @ 0x2b997540] Weighted P-Frames: Y:0.0% UV:0.0%\",\"[libx264 @ 0x2b997540] kb/s:5471.23\"],\"outMB\":40.1,\"verify\":{\"code\":0,\"tail\":[\"frame=  359 fps=0.0 q=-0.0 size=N/A time=00:00:11.96 bitrate=N/A speed=23.9x    \\rframe=  698 fps=695 q=-0.0 size=N/A time=00:00:23.26 bitrate=N/A speed=23.2x    \\rframe= 1044 fps=694 q=-0.0 size=N/A time=00:00:34.80 bitrate=N/A speed=23.1x    \\rframe= 1405 fps=701 q=-0.0 size=N/A time=00:00:46.83 bitrate=N/A speed=23.4x    \\rframe= 1759 fps=702 q=-0.0 size=N/A time=00:00:58.63 bitrate=N/A speed=23.4x    \\r[out#0/null @ 0x1adf8440] video:773KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown\",\"frame= 1800 fps=705 q=-0.0 Lsize=N/A time=00:01:00.00 bitrate=N/A speed=23.5x    \"]}}",
+    "EXIT=0"
+  ],
+  "measure": {
+    "code": 0,
+    "wallS": 14,
+    "peakRssMB": 445,
+    "cpuS": 46.4,
+    "tail": [
+      "[libx264 @ 0x2b997540] i8c dc,h,v,p: 73% 10% 16%  2%",
+      "[libx264 @ 0x2b997540] Weighted P-Frames: Y:0.0% UV:0.0%",
+      "[libx264 @ 0x2b997540] kb/s:5471.23"
+    ],
+    "outMB": 40.1,
+    "verify": {
+      "code": 0,
+      "tail": [
+        "frame=  359 fps=0.0 q=-0.0 size=N/A time=00:00:11.96 bitrate=N/A speed=23.9x    \rframe=  698 fps=695 q=-0.0 size=N/A time=00:00:23.26 bitrate=N/A speed=23.2x    \rframe= 1044 fps=694 q=-0.0 size=N/A time=00:00:34.80 bitrate=N/A speed=23.1x    \rframe= 1405 fps=701 q=-0.0 size=N/A time=00:00:46.83 bitrate=N/A speed=23.4x    \rframe= 1759 fps=702 q=-0.0 size=N/A time=00:00:58.63 bitrate=N/A speed=23.4x    \r[out#0/null @ 0x1adf8440] video:773KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown",
+        "frame= 1800 fps=705 q=-0.0 Lsize=N/A time=00:01:00.00 bitrate=N/A speed=23.5x    "
+      ]
+    }
+  },
+  "ok": true,
+  "totalS": 32.7
+}

@@ -1,0 +1,34 @@
+{
+  "region": "iad1",
+  "node": "v24.20.0",
+  "cpus": 2,
+  "cpuModel": "Intel(R) Xeon(R) Processor @ 2.50GHz",
+  "totalMemMB": 2279,
+  "preset": "ultrafast",
+  "threads": "0",
+  "inputMB": 58.1,
+  "downloadS": 0.6,
+  "fontsDirExists": true,
+  "render": {
+    "code": 0,
+    "wallS": 29,
+    "peakRssMB": 203,
+    "cpuS": 32.4,
+    "tail": [
+      "[libx264 @ 0x36298cc0] coded y,uvDC,uvAC intra: 7.2% 12.9% 9.8% inter: 5.0% 7.8% 7.4%",
+      "[libx264 @ 0x36298cc0] i16 v,h,dc,p: 92%  6%  2%  1%",
+      "[libx264 @ 0x36298cc0] i8c dc,h,v,p: 66%  7% 26%  1%",
+      "[libx264 @ 0x36298cc0] kb/s:14771.92"
+    ]
+  },
+  "outMB": 106.6,
+  "verify": {
+    "code": 0,
+    "tail": [
+      "frame=  152 fps=0.0 q=-0.0 size=N/A time=00:00:05.06 bitrate=N/A speed=10.1x    \rframe=  309 fps=309 q=-0.0 size=N/A time=00:00:10.30 bitrate=N/A speed=10.3x    \rframe=  465 fps=310 q=-0.0 size=N/A time=00:00:15.50 bitrate=N/A speed=10.3x    \rframe=  622 fps=311 q=-0.0 size=N/A time=00:00:20.73 bitrate=N/A speed=10.4x    \rframe=  779 fps=311 q=-0.0 size=N/A time=00:00:25.96 bitrate=N/A speed=10.4x    \rframe=  934 fps=311 q=-0.0 size=N/A time=00:00:31.13 bitrate=N/A speed=10.4x    \rframe= 1090 fps=311 q=-0.0 size=N/A time=00:00:36.33 bitrate=N/A speed=10.4x    \rframe= 1246 fps=311 q=-0.0 size=N/A time=00:00:41.53 bitrate=N/A speed=10.4x    \rframe= 1402 fps=311 q=-0.0 size=N/A time=00:00:46.73 bitrate=N/A speed=10.4x    \rframe= 1557 fps=311 q=-0.0 size=N/A time=00:00:51.90 bitrate=N/A speed=10.4x    \rframe= 1714 fps=312 q=-0.0 size=N/A time=00:00:57.13 bitrate=N/A speed=10.4x    \r[out#0/null @ 0xa56e480] video:773KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown",
+      "frame= 1800 fps=312 q=-0.0 Lsize=N/A time=00:01:00.00 bitrate=N/A speed=10.4x    "
+    ]
+  },
+  "functionRssMB": 226,
+  "ok": true
+}

@@ -1,0 +1,18 @@
+{
+  "name": "chrome-mt-veryfast-try1",
+  "core": "mt",
+  "preset": "veryfast",
+  "threads": 0,
+  "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+  "hardwareConcurrency": 10,
+  "crossOriginIsolated": true,
+  "sharedArrayBuffer": true,
+  "deviceMemory": 16,
+  "jsHeapLimitMB": 4192,
+  "ok": false,
+  "error": "TypeError: Cannot read properties of undefined (reading 'startsWith')",
+  "totalS": 0.4,
+  "peakRendererRssMB": 769,
+  "peakBrowserChildrenRssMB": 1240,
+  "wallS": 1
+}

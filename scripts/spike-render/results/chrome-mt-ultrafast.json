@@ -1,0 +1,33 @@
+{
+  "name": "chrome-mt-ultrafast",
+  "core": "mt",
+  "preset": "ultrafast",
+  "threads": 0,
+  "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+  "hardwareConcurrency": 10,
+  "crossOriginIsolated": true,
+  "sharedArrayBuffer": true,
+  "deviceMemory": 16,
+  "jsHeapLimitMB": 4192,
+  "ok": true,
+  "rc": 0,
+  "hasSubtitles": true,
+  "hasDrawtext": true,
+  "outSizeMB": 106.6,
+  "loadS": 0.2,
+  "fetchS": 0.1,
+  "execS": 6.6,
+  "totalS": 6.9,
+  "jsHeapUsedMB": 108,
+  "tail": [
+    "[libx264 @ 0xe22030] mb P  I16..4:  2.3%  0.0%  0.0%  P16..4:  8.3%  0.0%  0.0%  0.0%  0.0%    skip:89.4%",
+    "[libx264 @ 0xe22030] coded y,uvDC,uvAC intra: 7.2% 12.9% 9.8% inter: 5.0% 7.8% 7.4%",
+    "[libx264 @ 0xe22030] i16 v,h,dc,p: 92%  6%  2%  1%",
+    "[libx264 @ 0xe22030] i8c dc,h,v,p: 66%  7% 26%  1%",
+    "[libx264 @ 0xe22030] kb/s:14772.63",
+    "Aborted()"
+  ],
+  "peakRendererRssMB": 922,
+  "peakBrowserChildrenRssMB": 1397,
+  "wallS": 7.1
+}

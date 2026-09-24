@@ -1,0 +1,41 @@
+{
+  "name": "sandbox-2vcpu-veryfast",
+  "vcpus": 2,
+  "preset": "veryfast",
+  "createS": 0.5,
+  "uploadS": 6.6,
+  "ffmpegInstallS": 2.8,
+  "env": [
+    "ffmpeg version 7.0.2-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2024 the FFmpeg developers",
+    "2",
+    "               total        used        free      shared  buff/cache   available",
+    "Mem:            4283         434        3653           0         398        3848"
+  ],
+  "measureStderr": "",
+  "measureExit": 0,
+  "rawTail": [
+    "{\"code\":0,\"wallS\":24.7,\"peakRssMB\":365,\"cpuS\":47.5,\"tail\":[\"[libx264 @ 0x2f45e540] i8c dc,h,v,p: 73% 10% 15%  2%\",\"[libx264 @ 0x2f45e540] Weighted P-Frames: Y:0.0% UV:0.0%\",\"[libx264 @ 0x2f45e540] kb/s:5448.79\"],\"outMB\":40,\"verify\":{\"code\":0,\"tail\":[\"frame=  212 fps=0.0 q=-0.0 size=N/A time=00:00:07.06 bitrate=N/A speed=  14x    \\rframe=  429 fps=428 q=-0.0 size=N/A time=00:00:14.30 bitrate=N/A speed=14.3x    \\rframe=  643 fps=427 q=-0.0 size=N/A time=00:00:21.43 bitrate=N/A speed=14.2x    \\rframe=  863 fps=430 q=-0.0 size=N/A time=00:00:28.76 bitrate=N/A speed=14.3x    \\rframe= 1082 fps=432 q=-0.0 size=N/A time=00:00:36.06 bitrate=N/A speed=14.4x    \\rframe= 1309 fps=435 q=-0.0 size=N/A time=00:00:43.63 bitrate=N/A speed=14.5x    \\rframe= 1533 fps=437 q=-0.0 size=N/A time=00:00:51.10 bitrate=N/A speed=14.6x    \\rframe= 1762 fps=440 q=-0.0 size=N/A time=00:00:58.73 bitrate=N/A speed=14.7x    \\r[out#0/null @ 0x10ac1b40] video:773KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown\",\"frame= 1800 fps=440 q=-0.0 Lsize=N/A time=00:01:00.00 bitrate=N/A speed=14.7x    \"]}}",
+    "EXIT=0"
+  ],
+  "measure": {
+    "code": 0,
+    "wallS": 24.7,
+    "peakRssMB": 365,
+    "cpuS": 47.5,
+    "tail": [
+      "[libx264 @ 0x2f45e540] i8c dc,h,v,p: 73% 10% 15%  2%",
+      "[libx264 @ 0x2f45e540] Weighted P-Frames: Y:0.0% UV:0.0%",
+      "[libx264 @ 0x2f45e540] kb/s:5448.79"
+    ],
+    "outMB": 40,
+    "verify": {
+      "code": 0,
+      "tail": [
+        "frame=  212 fps=0.0 q=-0.0 size=N/A time=00:00:07.06 bitrate=N/A speed=  14x    \rframe=  429 fps=428 q=-0.0 size=N/A time=00:00:14.30 bitrate=N/A speed=14.3x    \rframe=  643 fps=427 q=-0.0 size=N/A time=00:00:21.43 bitrate=N/A speed=14.2x    \rframe=  863 fps=430 q=-0.0 size=N/A time=00:00:28.76 bitrate=N/A speed=14.3x    \rframe= 1082 fps=432 q=-0.0 size=N/A time=00:00:36.06 bitrate=N/A speed=14.4x    \rframe= 1309 fps=435 q=-0.0 size=N/A time=00:00:43.63 bitrate=N/A speed=14.5x    \rframe= 1533 fps=437 q=-0.0 size=N/A time=00:00:51.10 bitrate=N/A speed=14.6x    \rframe= 1762 fps=440 q=-0.0 size=N/A time=00:00:58.73 bitrate=N/A speed=14.7x    \r[out#0/null @ 0x10ac1b40] video:773KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown",
+        "frame= 1800 fps=440 q=-0.0 Lsize=N/A time=00:01:00.00 bitrate=N/A speed=14.7x    "
+      ]
+    }
+  },
+  "ok": true,
+  "totalS": 45.6
+}

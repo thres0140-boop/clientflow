@@ -1,0 +1,1 @@
+{ "functions": { "api/render.js": { "maxDuration": 300, "memory": 2048, "includeFiles": "fonts/**" } } }
