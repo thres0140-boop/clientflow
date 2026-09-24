@@ -241,6 +241,11 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   const [hasOlder, setHasOlder]           = useState(false);
   const [loadingOlder, setLoadingOlder]   = useState(false);
   const [inboxTruncated, setInboxTruncated] = useState(false);
+  // Where the list came from: the local mirror (fresh, local unread) or the live Zernio walk (fallback).
+  const [inboxSource, setInboxSource] = useState<"mirror" | "live" | null>(null);
+  const [inboxSyncedAt, setInboxSyncedAt] = useState<string | null>(null);
+  const [mirrorStateLabel, setMirrorStateLabel] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [attaching, setAttaching]         = useState(false);
   const attachRef      = useRef<HTMLInputElement>(null);
 
@@ -279,25 +284,46 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
         // Zernio conversation object: id, participantId, participantName, participantPicture,
         // lastMessage (string), updatedTime, unreadCount, url. (participantUsername is only on
         // the search endpoint; keep it if present.)
-        const convs: Conversation[] = raw.map((c: any) => ({
-          id: String(c.id),
-          igId: c.participantId ?? null,
-          name: c.participantName ?? "Instagram User",
-          unidentified: !c.participantName || String(c.participantName).trim() === "Instagram User",
-          handle: c.participantUsername ?? null,
-          avatar: c.participantPicture ?? null,
-          snippet: typeof c.lastMessage === "string" ? c.lastMessage : (c.lastMessage?.text ?? null),
-          updatedTime: c.updatedTime ?? new Date().toISOString(),
-          unreadCount: c.unreadCount ?? 0,
-          url: c.url ?? null,
-        }));
+        const fromMirror = data.source === "mirror";
+        const convs: Conversation[] = raw.map((c: any) => {
+          const name = c.participantName ?? "Instagram User";
+          const handle = c.participantUsername ?? null; // only the mirror can have this (captured from webhooks)
+          return {
+            id: String(c.id),
+            igId: c.participantId ?? null,
+            // A captured username identifies the person even when the name is still the placeholder.
+            name: (!name || name.trim() === "Instagram User") && handle ? `@${handle}` : name,
+            unidentified: (!name || name.trim() === "Instagram User") && !handle,
+            handle,
+            avatar: c.participantPicture ?? null,
+            snippet: typeof c.lastMessage === "string" ? c.lastMessage : (c.lastMessage?.text ?? null),
+            updatedTime: c.updatedTime ?? new Date().toISOString(),
+            // Unread is LOCAL (incoming newer than both our last reply and the last open). Zernio's
+            // unreadCount is never displayed — in live fallback there is no badge at all.
+            unreadCount: fromMirror ? (c.local?.unreadCount ?? 0) : 0,
+            url: c.url ?? null,
+          };
+        });
         convs.sort((a, b) => new Date(b.updatedTime).getTime() - new Date(a.updatedTime).getTime());
         setConversations(convs);
         setInboxTruncated(!!data.pagination?.truncated);
+        setInboxSource(fromMirror ? "mirror" : "live");
+        setInboxSyncedAt(data.syncedAt ?? null);
+        const st = data.mirror?.state as string | undefined;
+        setMirrorStateLabel(fromMirror ? null : st === "backfilling" ? "mirror still backfilling" : st === "stale" ? "mirror stale, showing live" : st === "not_migrated" ? null : st === "empty" ? "mirror empty" : null);
       }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);
   }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refresh control: reconcile the mirror against Zernio's newest page (short budget), then reload.
+  async function refreshInbox() {
+    if (!selectedClientId) return;
+    setRefreshing(true);
+    try { await fetch(`/api/zernio/inbox-refresh?clientId=${selectedClientId}`); } catch { /* the reload below still runs */ }
+    setRefreshing(false);
+    loadInbox();
+  }
 
   // Server-side detection: scans Zernio convos + messages, updates leads + analytics.
   // Runs whenever the DM page opens for a client, then refreshes the cards.
@@ -717,9 +743,18 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search"
                     className="flex-1 min-w-0 bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none" />
                 </div>
-                <button onClick={loadInbox} disabled={inboxLoading} title="Refresh"
+                <button onClick={refreshInbox} disabled={inboxLoading || refreshing} title="Refresh"
                   className="w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface-2 transition-colors disabled:opacity-40 text-sm">{inboxLoading ? "…" : "↻"}</button>
               </div>
+              {inboxSource && !inboxError && (
+                <div className="px-3 pb-1 flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-faint truncate">
+                    {inboxSource === "mirror" && inboxSyncedAt ? `Synced ${timeAgo(inboxSyncedAt)} ago` : `Live from Zernio${mirrorStateLabel ? ` · ${mirrorStateLabel}` : ""}`}
+                  </span>
+                  <button onClick={refreshInbox} disabled={refreshing || inboxLoading}
+                    className="text-[10px] font-semibold text-accent hover:text-accent-strong disabled:opacity-50 flex-shrink-0">{refreshing ? "Refreshing…" : "Refresh"}</button>
+                </div>
+              )}
               {unidentifiedCount > 0 && (
                 <div className="px-3 pb-1.5 flex items-center justify-between gap-2">
                   <span className="text-[10px] text-faint truncate"
@@ -759,7 +794,11 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                       const active = selectedConv?.id === conv.id;
                       const unread = (conv.unreadCount ?? 0) > 0;
                       return (
-                        <button key={conv.id} onClick={() => setSelectedConv(conv)}
+                        <button key={conv.id} onClick={() => {
+                          setSelectedConv(conv);
+                          if (conv.unreadCount) setConversations((prev) => prev.map((c) => c.id === conv.id ? { ...c, unreadCount: 0 } : c));
+                          if (selectedClientId) fetch(`/api/zernio/conversations/${conv.id}/seen`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: selectedClientId }) }).catch(() => {});
+                        }}
                           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors ${active ? "bg-surface-2 shadow-soft" : "hover:bg-surface-2/60"}`}>
                           <Avatar src={conv.avatar} name={conv.name} className="w-9 h-9 text-[13px] flex-shrink-0" />
                           <div className="flex-1 min-w-0">

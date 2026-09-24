@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
+import { touchOutgoing } from "@/features/instagram/server/inboxMirror";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
@@ -71,6 +72,9 @@ export async function POST(
   const data = await res.json();
 
   if (res.ok) {
+    // Mirror: we just sent → the thread's unread badge clears now, not at the next reconcile.
+    touchOutgoing(parseInt(clientId), conversationId).catch(() => {});
+
     // Auto-create or promote pipeline lead when coach replies to a DM
     const today = new Date().toISOString().slice(0, 10);
     const handle = recipientHandle || null;

@@ -225,3 +225,62 @@ export async function mirrorSizes(): Promise<Record<string, { bytes: number; pre
   }
   return out;
 }
+
+// ── Reads for the inbox list ─────────────────────────────────────────────────
+// Freshness: the mirror is served only when the client's backfill is complete (phase "live")
+// and the last reconcile/full sync is within FRESH_MS. Otherwise the caller falls back to the
+// live Zernio fetch, so a cold or half-filled mirror never looks like missing conversations.
+const FRESH_MS = 45 * 60 * 1000; // three missed 15-minute reconciles
+
+export type MirrorState = "ready" | "backfilling" | "stale" | "empty" | "not_migrated";
+
+export async function mirrorState(clientId: number): Promise<{ state: MirrorState; syncedAt: Date | null; conversations: number }> {
+  if (!(await mirrorTablesExist())) return { state: "not_migrated", syncedAt: null, conversations: 0 };
+  const [state, count] = await Promise.all([
+    prisma.zernioSyncState.findUnique({ where: { clientId } }),
+    prisma.zernioConversation.count({ where: { clientId } }),
+  ]);
+  const syncedAt = later(state?.lastReconcileAt, state?.lastFullSyncAt);
+  if (!count) return { state: "empty", syncedAt, conversations: 0 };
+  if (!state || state.phase !== "live") return { state: "backfilling", syncedAt, conversations: count };
+  if (!syncedAt || Date.now() - syncedAt.getTime() > FRESH_MS) return { state: "stale", syncedAt, conversations: count };
+  return { state: "ready", syncedAt, conversations: count };
+}
+
+// The list in Zernio's own shape plus `local` (unread computed here). Unread: an incoming message
+// newer than BOTH the last outgoing one and the moment the owner last opened the thread.
+export async function readMirrorList(clientId: number) {
+  const rows = await prisma.zernioConversation.findMany({ where: { clientId }, orderBy: { lastMessageAt: "desc" } });
+  const counts = await prisma.$queryRawUnsafe<{ conversationId: string; n: number }[]>(
+    `SELECT m."conversationId", count(*)::int AS n
+       FROM "ZernioMessage" m JOIN "ZernioConversation" c ON c."id" = m."conversationId"
+      WHERE c."clientId" = $1 AND m."direction" = 'incoming' AND NOT m."isDeleted"
+        AND m."sentAt" > GREATEST(COALESCE(c."lastOutgoingAt", 'epoch'::timestamp), COALESCE(c."lastSeenAt", 'epoch'::timestamp))
+      GROUP BY 1`, clientId);
+  const countBy = new Map(counts.map((r) => [r.conversationId, Number(r.n)]));
+  return rows.map((r) => {
+    const epoch = new Date(0);
+    const unread = !!r.lastIncomingAt && r.lastIncomingAt > (r.lastOutgoingAt ?? epoch) && r.lastIncomingAt > (r.lastSeenAt ?? epoch);
+    return {
+      id: r.id, participantId: r.participantId, participantName: r.participantName ?? PLACEHOLDER,
+      participantUsername: r.participantUsername, participantPicture: r.participantPicture,
+      lastMessage: r.lastMessageText ?? "", updatedTime: (r.lastMessageAt ?? r.updatedAt).toISOString(),
+      unreadCount: null, url: r.url, isGroup: r.isGroup, status: r.status,
+      local: { unread, unreadCount: unread ? Math.max(1, countBy.get(r.id) ?? 0) : 0, lastSeenAt: r.lastSeenAt?.toISOString() ?? null },
+    };
+  });
+}
+
+// The owner opened a thread: from now on only NEWER incoming messages count as unread.
+export async function markSeen(clientId: number, conversationId: string): Promise<boolean> {
+  if (!(await mirrorTablesExist())) return false;
+  const res = await prisma.zernioConversation.updateMany({ where: { id: conversationId, clientId }, data: { lastSeenAt: new Date() } });
+  return res.count > 0;
+}
+
+// We just sent a reply: advance lastOutgoingAt so the badge clears immediately, without waiting
+// for the message.sent webhook or the next reconcile. No-op when the thread isn't mirrored.
+export async function touchOutgoing(clientId: number, conversationId: string): Promise<void> {
+  if (!(await mirrorTablesExist())) return;
+  await prisma.zernioConversation.updateMany({ where: { id: conversationId, clientId }, data: { lastOutgoingAt: new Date(), lastMessageAt: new Date() } }).catch(() => {});
+}
