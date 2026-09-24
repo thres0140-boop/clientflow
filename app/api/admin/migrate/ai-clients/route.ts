@@ -17,6 +17,7 @@ export const maxDuration = 300;
 //   GET  ?token=                 → the candidate clients (tiktokEnabled = true) with a row count
 //                                  per related table, plus the relation graph. Read-only.
 //   POST ?token=&confirm=1,2,3   → copy those clients (ids must match the candidate list exactly).
+//                                  DISABLED: requires AI_CLIENT_COPY_ENABLED=1, which is unset.
 //                                  Refuses unless the AI Client table is empty. Uses createMany
 //                                  with skipDuplicates so a partial run can be resumed. Resets
 //                                  every id sequence afterwards.
@@ -147,6 +148,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!isAdminToken(req.nextUrl.searchParams.get("token"))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // DISABLED BY DECISION (phase 3, 2026-09-24): the AI side starts empty; nothing is copied.
+  // The copy path stays for the record but cannot run unless AI_CLIENT_COPY_ENABLED=1 is set
+  // in the environment — it is unset, so this returns 403 before touching either database.
+  if (process.env.AI_CLIENT_COPY_ENABLED !== "1") {
+    return NextResponse.json({ error: "copy_disabled", message: "Client copy is disabled (AI_CLIENT_COPY_ENABLED is not set)." }, { status: 403 });
+  }
   const confirm = (req.nextUrl.searchParams.get("confirm") || "").split(",").map((s) => parseInt(s.trim())).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
   const cands = (await candidates()).map((c: any) => c.id).sort((a: number, b: number) => a - b);
   if (!confirm.length || JSON.stringify(confirm) !== JSON.stringify(cands)) {

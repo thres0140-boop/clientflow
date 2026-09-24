@@ -31,6 +31,35 @@
     {
       "path": "/api/cron/tiktok-sync",
       "schedule": "0 */4 * * *"
+    },
+
+    {
+      "path": "/ai/api/cron/sync-pipeline",
+      "schedule": "7,22,37,52 * * * *"
+    },
+    {
+      "path": "/ai/api/cron/sync-analytics",
+      "schedule": "10 * * * *"
+    },
+    {
+      "path": "/ai/api/cron/classify-competitors",
+      "schedule": "40 4,16 * * *"
+    },
+    {
+      "path": "/ai/api/cron/scrape-competitors",
+      "schedule": "45 5 * * *"
+    },
+    {
+      "path": "/ai/api/cron/snapshot-reels",
+      "schedule": "10 3 * * *"
+    },
+    {
+      "path": "/ai/api/cron/capture-reels",
+      "schedule": "2-59/5 * * * *"
+    },
+    {
+      "path": "/ai/api/cron/tiktok-sync",
+      "schedule": "10 */4 * * *"
     }
   ]
 }
