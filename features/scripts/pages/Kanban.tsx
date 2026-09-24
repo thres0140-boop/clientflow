@@ -475,8 +475,8 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
   function getNextStage(currentStageId: number): WorkflowStage | null {
     const idx = stages.findIndex((s) => s.id === currentStageId);
     if (idx < 0) return null;
-    // Skip over any *check* stage that has nobody assigned (Assign Stages) — e.g. an empty
-    // Final Check shouldn't block the flow, it just goes straight through to Schedule.
+    // Skip over a check stage that has nobody assigned (Assign Stages): an empty Final Check
+    // shouldn't block the flow, so Edit goes straight through to Schedule.
     for (let i = idx + 1; i < stages.length; i++) {
       const s = stages[i];
       const isCheck = /check/i.test(s.name);
@@ -836,7 +836,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
                               disabled={!draft.editedVideoUrl}
                               title={!draft.editedVideoUrl ? "Upload edited video first" : ""}
                               className="w-full py-1 text-[10px] font-semibold text-accent-600 bg-accent-50 rounded-lg hover:bg-accent-100 disabled:opacity-40 disabled:cursor-not-allowed">
-                              → Check 1
+                              → {getNextStage(draft.stageId!)?.name ?? "next stage"}
                             </button>
                           </div>
                         ) : /check/i.test(stage.name) ? (
@@ -1853,7 +1853,7 @@ function DraftDetailPanel({
 
           {(() => {
             const stageName = stages.find((s) => s.id === draft.stageId)?.name || "";
-            const isCheckStage = /check/i.test(stageName);   // "Check 1", "Final Check", …
+            const isCheckStage = /check/i.test(stageName);   // "Final Check" (the only check stage now)
             const isEditStage = stageName === "Edit";
             // Everything after Edit (checks, schedule, done) = view the finished cut, hide raw.
             const stageIdx = stages.findIndex((s) => s.id === draft.stageId);
