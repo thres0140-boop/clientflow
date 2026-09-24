@@ -73,6 +73,10 @@ type Conversation = {
   updatedTime: string; snippet: string | null; unreadCount: number | null;
   avatar?: string | null;
   url?: string | null; // link to the thread on Instagram, when Zernio has it
+  // Meta did not resolve the sender (story replies / reactions): participantName is missing or
+  // the placeholder "Instagram User". Keyed on the NAME only — a real person without a profile
+  // picture is still identified.
+  unidentified: boolean;
 };
 type Attachment = {
   index: number; id?: string;
@@ -228,6 +232,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   const [replyText, setReplyText]           = useState("");
   const [sending, setSending]               = useState(false);
   const [search, setSearch]                 = useState("");
+  const [showUnidentified, setShowUnidentified] = useState(false); // inbox list only; the pipeline still tracks them
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const refreshTimer   = useRef<ReturnType<typeof setInterval> | null>(null);
   const listRef        = useRef<HTMLDivElement>(null);
@@ -277,7 +282,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
         const convs: Conversation[] = raw.map((c: any) => ({
           id: String(c.id),
           igId: c.participantId ?? null,
-          name: c.participantName ?? "Unknown",
+          name: c.participantName ?? "Instagram User",
+          unidentified: !c.participantName || String(c.participantName).trim() === "Instagram User",
           handle: c.participantUsername ?? null,
           avatar: c.participantPicture ?? null,
           snippet: typeof c.lastMessage === "string" ? c.lastMessage : (c.lastMessage?.text ?? null),
@@ -580,9 +586,12 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
     return filtered.filter((l) => l.status === s).length; // terminal outcomes = current state
   };
 
+  const unidentifiedCount = conversations.filter((c) => c.unidentified).length;
+  const unidentifiedWithId = conversations.filter((c) => c.unidentified && !!c.igId).length;
   const filteredConvs = conversations.filter((c) =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.handle && c.handle.toLowerCase().includes(search.toLowerCase()))
+    (showUnidentified || !c.unidentified) &&
+    (!search || c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.handle && c.handle.toLowerCase().includes(search.toLowerCase())))
   );
 
   if (!selectedClientId) {
@@ -711,6 +720,16 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                 <button onClick={loadInbox} disabled={inboxLoading} title="Refresh"
                   className="w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface-2 transition-colors disabled:opacity-40 text-sm">{inboxLoading ? "…" : "↻"}</button>
               </div>
+              {unidentifiedCount > 0 && (
+                <div className="px-3 pb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-faint truncate"
+                    title={`Threads where Meta did not resolve the sender (story replies, reactions). ${unidentifiedWithId} of them carry a participantId. The DM Pipeline still tracks them.`}>
+                    {showUnidentified ? `${unidentifiedCount} unidentified shown` : `${unidentifiedCount} unidentified hidden`}
+                  </span>
+                  <button onClick={() => setShowUnidentified((v) => !v)}
+                    className="text-[10px] font-semibold text-accent hover:text-accent-strong flex-shrink-0">{showUnidentified ? "Hide" : "Show"}</button>
+                </div>
+              )}
 
               <div className="flex-1 overflow-y-auto px-1.5 pb-2">
                 {inboxError ? (
@@ -733,7 +752,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                 ) : inboxLoading && conversations.length === 0 ? (
                   <div className="p-8 text-center text-faint text-xs">Loading conversations…</div>
                 ) : filteredConvs.length === 0 ? (
-                  <div className="p-8 text-center text-faint text-xs">{search ? "No matches" : "No conversations yet"}</div>
+                  <div className="p-8 text-center text-faint text-xs">{search ? "No matches" : unidentifiedCount > 0 ? "Only unidentified conversations — use Show above" : "No conversations yet"}</div>
                 ) : (
                   <>
                     {filteredConvs.map((conv) => {
