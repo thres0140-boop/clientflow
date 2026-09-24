@@ -136,7 +136,7 @@ type Props = {
   collapsed?: boolean; onToggleCollapsed?: () => void;
   splitPage?: Page | null; onOpenSplit?: (page: Page) => void;
   workspaces?: Workspace[]; activeWorkspaceId?: number | null;
-  onSelectWorkspace?: (id: number) => void; onCreateWorkspace?: (name: string) => void;
+  onSelectWorkspace?: (id: number) => void; onCreateWorkspace?: (name: string) => void; onDeleteWorkspace?: (id: number) => void;
   tiktokEnabled?: boolean; instagramEnabled?: boolean; platform?: "instagram" | "tiktok"; onSelectPlatform?: (p: "instagram" | "tiktok") => void;
   onMoveClient?: (clientId: number, workspaceId: number) => void;
 };
@@ -158,7 +158,7 @@ const DIVIDER = { borderColor: "var(--color-nav-line)" };
 const STRIP_BG = "var(--color-nav-strip)";
 const NAV_BG = "var(--color-nav)";
 
-export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed, splitPage, onOpenSplit, workspaces, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, tiktokEnabled, instagramEnabled = true, platform = "instagram", onSelectPlatform, onMoveClient }: Props) {
+export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed, splitPage, onOpenSplit, workspaces, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onDeleteWorkspace, tiktokEnabled, instagramEnabled = true, platform = "instagram", onSelectPlatform, onMoveClient }: Props) {
   const [showAccount, setShowAccount] = useState(false);
   const [peeking, setPeeking] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
@@ -197,9 +197,11 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
   function toggleFolder(key: string) {
     setFoldersClosed((prev) => { const n = { ...prev, [key]: !prev[key] }; try { localStorage.setItem("cf_folders_closed", JSON.stringify(n)); } catch { /* ignore */ } return n; });
   }
-  // Owners with workspaces see only the active workspace's clients; members are unaffected.
+  // Owners with workspaces see the active workspace's clients; members are unaffected.
+  // Clients with NO workspace (e.g. left behind by a deleted workspace) show in every workspace
+  // so they can never disappear from the strip — right-click one to move it.
   const scopedClients = (session?.type === "owner" && activeWorkspaceId != null)
-    ? clients.filter((c) => c.workspaceId === activeWorkspaceId)
+    ? clients.filter((c) => c.workspaceId === activeWorkspaceId || c.workspaceId == null)
     : clients;
   const orderedClients = [...scopedClients].sort((a, b) => {
     const ia = order.indexOf(a.id), ib = order.indexOf(b.id);
@@ -322,12 +324,22 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
                 <div className="absolute left-full bottom-0 ml-1 w-52 bg-surface rounded-xl o-elev-lift z-50 p-1.5 text-ink">
                   <p className="text-[10px] font-semibold text-faint uppercase tracking-wide px-2 py-1">Workspaces</p>
                   {workspaces.map((w) => (
-                    <button key={w.id} onClick={() => { onSelectWorkspace?.(w.id); setWsMenu(false); }}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm ${w.id === activeWs.id ? "bg-accent-tint" : "hover:bg-surface-2"}`}>
-                      <span className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ backgroundColor: w.color }}>{w.name.slice(0, 2).toUpperCase()}</span>
-                      <span className="flex-1 truncate font-medium text-ink">{w.name}</span>
-                      <span className="text-[10px] text-faint">{w._count?.clients ?? ""}</span>
-                    </button>
+                    <div key={w.id} className={`group/ws w-full flex items-center gap-1 rounded-lg ${w.id === activeWs.id ? "bg-accent-tint" : "hover:bg-surface-2"}`}>
+                      <button onClick={() => { onSelectWorkspace?.(w.id); setWsMenu(false); }}
+                        className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-left text-sm">
+                        <span className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" style={{ backgroundColor: w.color }}>{w.name.slice(0, 2).toUpperCase()}</span>
+                        <span className="flex-1 truncate font-medium text-ink">{w.name}</span>
+                        <span className="text-[10px] text-faint">{w._count?.clients ?? ""}</span>
+                      </button>
+                      {/* Delete the grouping (clients survive, see onDeleteWorkspace). Hidden for the last workspace. */}
+                      {onDeleteWorkspace && workspaces.length > 1 && (
+                        <button onClick={(e) => { e.stopPropagation(); setWsMenu(false); onDeleteWorkspace(w.id); }}
+                          title={`Delete workspace "${w.name}" (its clients are kept)`}
+                          className="w-6 h-6 mr-1 rounded-md flex items-center justify-center text-[12px] text-faint opacity-0 group-hover/ws:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all flex-shrink-0">
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   ))}
                   <button onClick={() => { const n = prompt("New workspace name:"); if (n && n.trim()) onCreateWorkspace?.(n.trim()); setWsMenu(false); }}
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm text-accent hover:bg-accent-tint mt-0.5">

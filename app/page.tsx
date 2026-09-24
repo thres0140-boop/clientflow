@@ -136,15 +136,51 @@ export default function App() {
     if (ws?.id) selectWorkspace(ws.id);
   }
 
+  // Clients visible inside a workspace: its own plus any UNASSIGNED client (workspaceId null),
+  // which the sidebar shows everywhere so it can never vanish.
+  const clientsVisibleIn = (list: Client[], wsId: number | null) =>
+    list.filter((c) => c.workspaceId === wsId || c.workspaceId == null);
+
   function selectWorkspace(id: number) {
     setActiveWorkspaceId(id);
     try { localStorage.setItem("cf_active_workspace", String(id)); } catch { /* ignore */ }
     // Keep a valid client selected: if the current one isn't in this workspace, jump to its first.
     setSelectedClientId((prev) => {
-      const inWs = clients.filter((c) => c.workspaceId === id);
+      const inWs = clientsVisibleIn(clients, id);
       if (prev != null && inWs.some((c) => c.id === prev)) return prev;
       return inWs[0]?.id ?? null;
     });
+  }
+
+  // Delete a workspace = remove the grouping. Its clients are NOT deleted (Client.workspaceId is
+  // SetNull); they become unassigned and show in every workspace until moved. If the deleted one
+  // was active, fall back to another workspace and keep a valid client selected.
+  async function deleteWorkspace(id: number) {
+    const ws = workspaces.find((w) => w.id === id);
+    if (!ws) return;
+    const inside = clients.filter((c) => c.workspaceId === id);
+    const who = inside.length === 0
+      ? "It has no clients."
+      : `Its ${inside.length} client${inside.length === 1 ? "" : "s"} (${inside.map((c) => c.name).join(", ")}) will NOT be deleted — ${inside.length === 1 ? "it" : "they"} become unassigned and show in every workspace until you move ${inside.length === 1 ? "it" : "them"}.`;
+    if (!confirm(`Delete workspace "${ws.name}"?\n\n${who}\n\nThis only removes the workspace grouping; no client data is touched.`)) return;
+    const res = await fetch(`/api/workspaces/${id}`, { method: "DELETE" });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d?.error || "Couldn't delete the workspace."); return; }
+    const [wsList, clientList] = await Promise.all([
+      fetch("/api/workspaces").then((r) => r.json()).catch(() => []),
+      fetch("/api/clients").then((r) => r.json()).catch(() => []),
+    ]);
+    const nextWs: Workspace[] = Array.isArray(wsList) ? wsList : [];
+    const nextClients: Client[] = Array.isArray(clientList) ? clientList : [];
+    setWorkspaces(nextWs);
+    setClients(nextClients);
+    const nextActive = activeWorkspaceId === id || !nextWs.some((w) => w.id === activeWorkspaceId)
+      ? (nextWs[0]?.id ?? null)
+      : activeWorkspaceId;
+    setActiveWorkspaceId(nextActive);
+    try { if (nextActive != null) localStorage.setItem("cf_active_workspace", String(nextActive)); } catch { /* ignore */ }
+    const visible = clientsVisibleIn(nextClients, nextActive);
+    setSelectedClientId((prev) => (prev != null && visible.some((c) => c.id === prev)) ? prev : (visible[0]?.id ?? nextClients[0]?.id ?? null));
   }
 
   // Keep platform valid for the selected client's enabled channels (Instagram defaults on), and
@@ -501,6 +537,7 @@ export default function App() {
         activeWorkspaceId={activeWorkspaceId}
         onSelectWorkspace={selectWorkspace}
         onCreateWorkspace={createWorkspace}
+        onDeleteWorkspace={deleteWorkspace}
         tiktokEnabled={!!clients.find((c) => c.id === selectedClientId)?.tiktokEnabled}
         instagramEnabled={(clients.find((c) => c.id === selectedClientId) as { instagramEnabled?: boolean } | undefined)?.instagramEnabled !== false}
         platform={platform}
