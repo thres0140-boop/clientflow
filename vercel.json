@@ -55,6 +55,18 @@
     {
       "path": "/ai/api/cron/tiktok-sync",
       "schedule": "10 */4 * * *"
+    },
+    {
+      "path": "/api/cron/inbox-reconcile",
+      "schedule": "3,18,33,48 * * * *"
+    },
+    {
+      "path": "/api/cron/inbox-full-sync",
+      "schedule": "20 */6 * * *"
+    },
+    {
+      "path": "/api/cron/inbox-prune",
+      "schedule": "0 4 1 * *"
     }
   ]
 }
