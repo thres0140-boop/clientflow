@@ -484,6 +484,8 @@ export default function App() {
   // scroll container with padding.
   function paneEl(p: Page) {
     if (p === "board") return renderPage(p, true);
+    // The Instagram Inbox is a chat UI: it fills the pane and scrolls internally, never as a page.
+    if (p === "iginbox") return <div className="absolute inset-0 overflow-hidden flex flex-col">{renderPage(p, true)}</div>;
     return <div className="absolute inset-0 overflow-y-auto p-6">{renderPage(p, true)}</div>;
   }
 
@@ -567,7 +569,7 @@ export default function App() {
         </div>
       ) : page === "board"
         ? <>{transitioning ? null : renderPage()}</>
-        : <main className={`flex-1 ${embedded ? "p-6" : "p-8"} min-w-0 flex flex-col h-screen overflow-y-auto transition-[margin] duration-200`} style={{ marginLeft: sidebarWidth }}>
+        : <main className={`flex-1 ${page === "iginbox" ? "p-0 overflow-hidden" : `${embedded ? "p-6" : "p-8"} overflow-y-auto`} min-w-0 flex flex-col h-screen transition-[margin] duration-200`} style={{ marginLeft: sidebarWidth }}>
             {transitioning
               ? <div className="flex items-center justify-center" style={{height: "calc(100vh - 4rem)"}}><div className="w-7 h-7 border-4 border-accent-600 border-t-transparent rounded-full animate-spin" /></div>
               : renderPage()

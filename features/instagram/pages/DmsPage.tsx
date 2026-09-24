@@ -586,26 +586,27 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   );
 
   if (!selectedClientId) {
-    return <div className="flex items-center justify-center h-64 text-faint text-sm">Select a client</div>;
+    return <div className={`flex items-center justify-center text-faint text-sm ${view === "inbox" ? "h-full" : "h-64"}`}>Select a client</div>;
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">{view === "inbox" ? "Instagram Inbox" : "DM Pipeline"}</h1>
-          <p className="text-muted mt-0.5 text-sm">{client?.name}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {view === "pipeline" && (
+    <div className={view === "inbox" ? "flex flex-col flex-1 min-h-0 h-full" : "flex flex-col flex-1 min-h-0 gap-4"}>
+      {/* Header — pipeline only. The inbox is full-bleed: the sidebar already names the page and
+          the client, so the chat gets that space. */}
+      {view === "pipeline" && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-ink">DM Pipeline</h1>
+            <p className="text-muted mt-0.5 text-sm">{client?.name}</p>
+          </div>
+          <div className="flex items-center gap-3">
             <button onClick={() => { setEditLead(null); setShowAdd(true); }}
               className="bg-accent text-on-accent px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong">
               + Add Lead
             </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── PIPELINE VIEW ──────────────────────────────────────────────── */}
       {view === "pipeline" && (
@@ -697,7 +698,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
 
       {/* ── INBOX VIEW (Beeper-style) ─────────────────────────────────────── */}
       {view === "inbox" && (
-        <div className="bg-surface rounded-2xl border border-line overflow-hidden flex-1 min-h-0">
+        <div className="bg-surface overflow-hidden flex-1 min-h-0 h-full">
           <div className="flex h-full">
             {/* Left: conversation list */}
             <div className="w-80 flex-shrink-0 border-r border-line flex flex-col bg-surface">
