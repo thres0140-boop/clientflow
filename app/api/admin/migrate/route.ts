@@ -225,7 +225,9 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     let columns: any = null;
     try {
       columns = await (prisma as any).$queryRawUnsafe(
-        `SELECT table_name, column_name, data_type FROM information_schema.columns
+        // information_schema exposes these as Postgres type `name`, which the Neon driver cannot
+        // deserialize ("Failed to deserialize column of type 'name'"); cast to text.
+        `SELECT table_name::text AS table_name, column_name::text AS column_name, data_type::text AS data_type FROM information_schema.columns
          WHERE table_name IN ('EditProject', 'RenderJob') OR (table_name = 'Client' AND column_name = 'subtitleStyle')
          ORDER BY table_name, ordinal_position`
       );
