@@ -16,6 +16,7 @@ import ClientSettingsPage from "@/features/clients/pages/ClientSettingsPage";
 import DmsPage from "@/features/instagram/pages/DmsPage";
 import ContextPage from "@/features/scripts/pages/ContextPage";
 import TranscribePage from "@/features/content/pages/TranscribePage";
+import CapCutPage from "@/features/editor/pages/CapCutPage";
 import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { applyTheme, readStoredTheme, startThemeColorSync } from "@/shared/theme";
@@ -37,13 +38,14 @@ export type Page =
   | "settings"
   | "context"
   | "transcribe"
+  | "capcut"
   | "clientsettings";
 
 const PAGE_LABELS: Record<Page, string> = {
   pipeline: "Content Scheduling", kanban: "Script Kanban",
   tasks: "Script Tasks", concepts: "Concept Library", analytics: "Analytics", dms: "DM Pipeline",
   iginbox: "Instagram Inbox", instagram: "Instagram", board: "Strategy Board", team: "Team", chat: "Messages",
-  settings: "Settings", context: "AI Context", transcribe: "Transcribe", clientsettings: "Settings",
+  settings: "Settings", context: "AI Context", transcribe: "Transcribe", capcut: "CapCut", clientsettings: "Settings",
 };
 
 export type Platform = "instagram" | "tiktok";
@@ -369,7 +371,7 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","iginbox","instagram","board","team","chat","settings","context","transcribe","clientsettings"];
+    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","iginbox","instagram","board","team","chat","settings","context","transcribe","capcut","clientsettings"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
@@ -381,6 +383,9 @@ export default function App() {
     // Instagram Inbox used to live inside DM Pipeline: anyone with "dms" keeps the inbox they
     // could already use (no stored pageAccess contains "iginbox" yet).
     if (base.includes("dms") && !base.includes("iginbox")) base.push("iginbox");
+    // CapCut (the video editor) is new: anyone who can see the Script Kanban, where its Edit
+    // stage lives, gets it (no stored pageAccess contains "capcut" yet).
+    if (base.includes("kanban") && !base.includes("capcut")) base.push("capcut");
     // Client settings is owner-only — never expose it to a member login.
     return base.filter((p) => p !== "clientsettings" || session?.type === "owner");
   })();
@@ -390,6 +395,7 @@ export default function App() {
     const list = activeProfile?.viewOnlyPages ? (activeProfile.viewOnlyPages.split(",").filter(Boolean) as Page[]) : [];
     // Mirror the grandfathering above: view-only on DM Pipeline means view-only on the inbox too.
     if (list.includes("dms") && !list.includes("iginbox")) list.push("iginbox");
+    if (list.includes("kanban") && !list.includes("capcut")) list.push("capcut");
     return list;
   })();
   const pageReadOnly = viewOnlyPages.includes(page);
@@ -456,6 +462,7 @@ export default function App() {
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed || embedded} embedded={inPane} />;
       case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
       case "transcribe": return <TranscribePage />;
+      case "capcut": return <CapCutPage clients={clients} selectedClientId={selectedClientId} />;
       case "clientsettings": return <ClientSettingsPage client={clients.find((c) => c.id === selectedClientId) ?? null} refreshClients={fetchClients} onManageAll={() => setPage("settings")} />;
     }
   }

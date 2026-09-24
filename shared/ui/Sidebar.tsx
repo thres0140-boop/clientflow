@@ -6,7 +6,7 @@ import type { SessionPayload } from "@/shared/auth/session";
 import { imgSrc } from "@/shared/media/videoSrc";
 
 
-type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "iginbox" | "team" | "chat" | "settings" | "context" | "transcribe" | "clientsettings";
+type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "iginbox" | "team" | "chat" | "settings" | "context" | "transcribe" | "capcut" | "clientsettings";
 
 // Sidebar colours all resolve through the --color-nav-* tokens in globals.css (light = the
 // original navy palette verbatim, dark = near-black in the canvas family). Alpha variants
@@ -65,6 +65,12 @@ function IconTasks({ active }: { active: boolean }) {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M4.8 6l1 1 1.8-1.8M4.8 10l1 1 1.8-1.8M9.5 6.2h2.2M9.5 10.2h2.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
 
+// CapCut (the video editor): a pair of scissors.
+function IconScissors({ active }: { active: boolean }) {
+  const c = navIconColor(active);
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><circle cx="4.5" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="4.5" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M6 5.2L14 12M6 10.8L14 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>;
+}
+
 function IconTranscribe({ active }: { active: boolean }) {
   const c = navIconColor(active);
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><rect x="6" y="1.5" width="4" height="7.5" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M3.5 7.5a4.5 4.5 0 009 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M8 12v2.5M5.5 14.5h5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>;
@@ -86,6 +92,7 @@ const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   team: (a) => <IconTeam active={a} />, chat: (a) => <IconChat active={a} />,
   tasks: (a) => <IconTasks active={a} />,
   transcribe: (a) => <IconTranscribe active={a} />,
+  capcut: (a) => <IconScissors active={a} />,
   settings: (a) => <IconSettings active={a} />,
   clientsettings: (a: boolean) => <IconSettings active={a} />,
 };
@@ -102,6 +109,7 @@ const NAV_GROUPS = [
     { id: "iginbox" as Page, label: "Instagram Inbox" },
     { id: "instagram" as Page, label: "Instagram" },
     { id: "board" as Page, label: "Strategy Board" },
+    { id: "capcut" as Page, label: "CapCut" },
     { id: "transcribe" as Page, label: "Transcribe" },
   ]},
   { label: "MANAGE", items: [
@@ -131,11 +139,14 @@ const PAGE_NAV_LABEL: Record<string, string> = {
   pipeline: "Content Scheduling", kanban: "Script Kanban", tasks: "Script Tasks",
   concepts: "Concept Library", context: "AI Context", analytics: "Analytics",
   dms: "DM Pipeline", iginbox: "Instagram Inbox", instagram: "Instagram", board: "Strategy Board", transcribe: "Transcribe",
+  capcut: "CapCut",
 };
 const IG_FOLDER: Page[] = ["kanban", "tasks", "concepts", "context", "analytics", "dms", "iginbox", "instagram"];
 // Cross-platform pages under WORK. Content Scheduling merges every enabled platform into one
 // calendar, so it must NOT switch the app's active platform when opened (see CROSS_PLATFORM).
-const SHARED_WORK: Page[] = ["pipeline", "board", "transcribe"];
+const SHARED_WORK: Page[] = ["pipeline", "board"];
+// The "✂ EDITING" folder: the in-app video editor's queue and Transcribe (moved out of WORK).
+const EDIT_FOLDER: Page[] = ["capcut", "transcribe"];
 const CROSS_PLATFORM: Page[] = ["pipeline"];
 
 const DIVIDER = { borderColor: "var(--color-nav-line)" };
@@ -407,7 +418,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
             const groupHeader = (label: string) => (
               <p className="text-[10px] font-semibold px-3 mb-1.5 tracking-wider" style={{ color: navMuted(0.35) }}>{label}</p>
             );
-            // Collapsible folder header (for the Instagram folder).
+            // Collapsible folder header (for the Instagram and Editing folders).
             const folderHeader = (label: string, key: string) => (
               <button onClick={() => toggleFolder(key)}
                 className="w-full flex items-center gap-1 px-3 mb-1.5 text-[10px] font-semibold tracking-wider hover:text-nav-ink/70 transition-colors"
@@ -424,6 +435,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
             // Owner → WORK, then the collapsible Instagram folder, then MANAGE.
             if (session?.type === "owner" && igOn) {
               const igItems = IG_FOLDER.filter((id) => allowedPages.includes(id));
+              const editItems = EDIT_FOLDER.filter((id) => allowedPages.includes(id));
               return (
                 <>
                   {sharedItems.length > 0 && (
@@ -442,6 +454,16 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
                       </div>
                     )}
                   </div>
+                  {editItems.length > 0 && (
+                    <div>
+                      {folderHeader("✂ EDITING", "editing")}
+                      {!foldersClosed["editing"] && (
+                        <div className="space-y-0.5">
+                          {editItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => onNavigate(id), "ed-"))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {manage.length > 0 && (
                     <div>
                       {groupHeader("MANAGE")}
