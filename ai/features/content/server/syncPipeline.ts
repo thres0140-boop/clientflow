@@ -1,7 +1,6 @@
-import { AI_BASE } from "@/ai/slug";
 import { prisma } from "@/ai/db/prisma";
 
-const ZERNIO_BASE = `https://zernio.com${AI_BASE}/api/v1`;
+const ZERNIO_BASE = `https://zernio.com/api/v1`;
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
 const PROFILE_ID  = process.env.AI_ZERNIO_PROFILE_ID!;
 

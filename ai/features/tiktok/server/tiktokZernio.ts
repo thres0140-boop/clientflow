@@ -1,4 +1,3 @@
-import { AI_BASE } from "@/ai/slug";
 import { prisma } from "@/ai/db/prisma";
 
 // TikTok organic analytics via Zernio (https://zernio.com) — the SAME third-party platform ORDO
@@ -16,7 +15,7 @@ import { prisma } from "@/ai/db/prisma";
 //   GET /v1/analytics/tiktok/account-insights?accountId=&metricType=time_series&metrics=&since=&until=
 //        → account counter time series (follower_count, likes_count, video_count, following_count)
 
-const ZERNIO_BASE = `https://zernio.com${AI_BASE}/api/v1`;
+const ZERNIO_BASE = `https://zernio.com/api/v1`;
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
 const PROFILE_ID  = process.env.AI_ZERNIO_PROFILE_ID!;
 

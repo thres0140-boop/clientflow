@@ -1,7 +1,6 @@
-import { AI_BASE } from "@/ai/slug";
 import { NextRequest, NextResponse } from "next/server";
 
-const ZERNIO_BASE = `https://zernio.com${AI_BASE}/api/v1`;
+const ZERNIO_BASE = `https://zernio.com/api/v1`;
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
 
 // DELETE /api/zernio/posts/[postId] — cancel/delete a scheduled post in Zernio

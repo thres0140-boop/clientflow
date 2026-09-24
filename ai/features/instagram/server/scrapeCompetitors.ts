@@ -1,4 +1,3 @@
-import { AI_BASE } from "@/ai/slug";
 import { prisma } from "@/ai/db/prisma";
 import { cacheImageToR2, isR2Url } from "@/ai/shared/media/r2";
 
@@ -107,7 +106,7 @@ async function apiMediaUrlBackup(shortcode: string): Promise<string | null> {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) return null;
   try {
-    const res = await fetch(`https://${BACKUP_HOST}${AI_BASE}/api/instagram/mediaByShortcode`, {
+    const res = await fetch(`https://${BACKUP_HOST}/api/instagram/mediaByShortcode`, {
       method: "POST",
       headers: { "x-rapidapi-host": BACKUP_HOST, "x-rapidapi-key": apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({ shortcode }),

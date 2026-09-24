@@ -1,4 +1,3 @@
-import { AI_BASE } from "@/ai/slug";
 // TikTok scraping via RapidAPI — apibox "Tiktok API" (host tiktok-api23.p.rapidapi.com).
 // Public data only. Its posts endpoint keys off a user's `secUid` (not the @handle), so we
 // resolve the profile first, then page posts by secUid — that's 1 info call + N post pages,
@@ -63,7 +62,7 @@ export type TikTokVideo = {
 export async function fetchTikTokProfile(handle: string): Promise<TikTokProfile | null> {
   const username = clean(handle);
   if (!username) return null;
-  const res = await fetch(`https://${HOST}${AI_BASE}/api/user/info?uniqueId=${encodeURIComponent(username)}`, {
+  const res = await fetch(`https://${HOST}/api/user/info?uniqueId=${encodeURIComponent(username)}`, {
     headers: headers(), signal: AbortSignal.timeout(20000),
   });
   if (res.status === 429) throw new Error("rate_limited"); // over the RapidAPI plan's quota / rate limit
@@ -118,7 +117,7 @@ export async function fetchTikTokVideos(secUid: string, username = "", maxPages 
   const seen = new Set<string>();
   let cursor = "0";
   for (let page = 0; page < maxPages; page++) {
-    const res = await fetch(`https://${HOST}${AI_BASE}/api/user/posts?secUid=${encodeURIComponent(secUid)}&count=35&cursor=${cursor}`, {
+    const res = await fetch(`https://${HOST}/api/user/posts?secUid=${encodeURIComponent(secUid)}&count=35&cursor=${cursor}`, {
       headers: headers(), signal: AbortSignal.timeout(25000),
     });
     const data = await res.json().catch(() => null);
