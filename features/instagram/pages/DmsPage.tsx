@@ -94,16 +94,116 @@ type Message = {
 // Avatar that goes through /api/img (Instagram's CDN refuses cross-origin hotlinks) and falls
 // back to the initial via STATE — a broken image is logged, not hidden.
 function Avatar({ src, name, className }: { src?: string | null; name: string; className: string }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [src]);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null); // a new src resets the fallback by comparison
+  const failed = !!src && failedSrc === src;
   const initial = name?.trim()?.[0]?.toUpperCase() ?? "?";
   if (!src || failed) {
     return <div className={`${className} rounded-full bg-accent-tint text-accent-strong flex items-center justify-center font-bold select-none`}>{initial}</div>;
   }
   return (
     <img src={imgSrc(src)} alt={name} className={`${className} rounded-full object-cover bg-surface-3`}
-      onError={() => { console.warn("[inbox] avatar failed to load:", src); setFailed(true); }} />
+      onError={() => { console.warn("[inbox] avatar failed to load:", src); setFailedSrc(src); }} />
   );
+}
+
+// ── Chat helpers ──────────────────────────────────────────────────────────────
+function dayLabel(dateStr: string): string {
+  const d = new Date(dateStr), today = new Date();
+  if (isSameDay(d, today)) return "Today";
+  if (isSameDay(d, addDays(today, -1))) return "Yesterday";
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", ...(d.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}) });
+}
+function hhmm(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
+function hostOf(u: string): string { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } }
+
+// Message text with URLs linkified, and a compact link card for each distinct URL.
+function MessageText({ text, own }: { text: string; own: boolean }) {
+  const parts = text.split(URL_RE);
+  const urls = Array.from(new Set(text.match(URL_RE) ?? []));
+  return (
+    <>
+      <p className="whitespace-pre-wrap break-words">
+        {parts.map((p, i) => URL_RE.test(p) && p.startsWith("http")
+          ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 break-all">{p}</a>
+          : <span key={i}>{p}</span>)}
+      </p>
+      {urls.map((u) => (
+        <a key={u} href={u} target="_blank" rel="noopener noreferrer"
+          className={`mt-1.5 flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs ${own ? "bg-on-accent/10 hover:bg-on-accent/20" : "bg-surface-2 hover:bg-surface-4"}`}>
+          <span className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] flex-shrink-0 bg-surface/60">🔗</span>
+          <span className="min-w-0">
+            <span className="block font-semibold truncate">{hostOf(u)}</span>
+            <span className={`block truncate ${own ? "opacity-70" : "text-muted"}`}>{u.replace(/^https?:\/\/(www\.)?/, "")}</span>
+          </span>
+        </a>
+      ))}
+    </>
+  );
+}
+
+// One attachment. Instagram media urls are signed and expire; on a load error we ask our
+// refresh route (→ Zernio re-mints it) once, then render through /api/img or /api/vid.
+function AttachmentView({ a, msg, convId, clientId, own }: { a: Attachment; msg: Message; convId: string; clientId: number; own: boolean }) {
+  const base = a.url ?? a.previewUrl ?? null;
+  // Refresh state is keyed on the base url so a re-rendered attachment with a new url starts clean.
+  const [st, setSt] = useState<{ for: string | null; url: string | null; tried: boolean; dead: boolean }>({ for: base, url: base, tried: false, dead: false });
+  const cur = st.for === base ? st : { for: base, url: base, tried: false, dead: false };
+  const url = cur.url, dead = cur.dead;
+  async function refresh() {
+    if (cur.tried) { setSt({ ...cur, dead: true }); return; }
+    setSt({ ...cur, tried: true });
+    try {
+      const d = await fetch(`/api/zernio/conversations/${convId}/attachments?clientId=${clientId}&messageId=${encodeURIComponent(msg.id)}&index=${a.index}`).then((r) => r.json());
+      if (typeof d?.url === "string") setSt({ for: base, url: d.url, tried: true, dead: false }); else setSt({ ...cur, tried: true, dead: true });
+    } catch { setSt({ ...cur, tried: true, dead: true }); }
+  }
+  const kind = a.originalType ?? a.type;
+  const shareLabel = kind === "story_mention" || kind === "ig_story" || kind === "story" ? "Mentioned you in a story"
+    : kind === "ig_reel" || kind === "reel" ? "Shared a reel"
+    : kind === "ig_post" || kind === "post" ? "Shared a post" : "Shared";
+  const payload = (a.payload ?? {}) as Record<string, unknown>;
+  const linkOut = typeof payload.url === "string" ? payload.url : typeof payload.permalink === "string" ? payload.permalink : null;
+  const tile = own ? "bg-on-accent/10" : "bg-surface-2";
+
+  if (dead || !url) {
+    return <div className={`mt-1 rounded-lg px-2.5 py-2 text-[11px] ${tile} ${own ? "opacity-80" : "text-muted"}`}>{a.type === "share" ? shareLabel : `${a.type} unavailable`}{a.filename ? ` · ${a.filename}` : ""}</div>;
+  }
+  if (a.type === "image" || a.type === "sticker") {
+    return <img src={imgSrc(url)} alt={a.filename ?? "image"} onError={refresh}
+      className={`mt-1 rounded-xl object-cover bg-surface-3 ${a.type === "sticker" ? "w-24 h-24" : "max-w-[260px] max-h-[320px]"}`} />;
+  }
+  if (a.type === "video") {
+    return <video src={videoSrc(url)} poster={a.previewUrl ? imgSrc(a.previewUrl) : undefined} controls preload="metadata" onError={refresh}
+      className="mt-1 rounded-xl max-w-[260px] max-h-[320px] bg-surface-3" />;
+  }
+  if (a.type === "audio") {
+    return (
+      <div className={`mt-1 flex items-center gap-2 rounded-xl px-2.5 py-2 ${tile}`}>
+        <span className="text-sm">🎙️</span>
+        <audio src={videoSrc(url)} controls preload="metadata" onError={refresh} className="h-8 max-w-[220px]" />
+      </div>
+    );
+  }
+  if (a.type === "share") {
+    return (
+      <a href={linkOut ?? url} target="_blank" rel="noopener noreferrer" className={`mt-1 flex items-center gap-2.5 rounded-xl p-2 ${tile} hover:opacity-90`}>
+        {(a.previewUrl || a.url) && <img src={imgSrc(a.previewUrl || a.url!)} alt="" onError={refresh} className="w-14 h-14 rounded-lg object-cover bg-surface-3 flex-shrink-0" />}
+        <span className="min-w-0 text-xs">
+          <span className="block font-semibold">{shareLabel}</span>
+          <span className={`block truncate ${own ? "opacity-70" : "text-muted"}`}>{hostOf(linkOut ?? url)}</span>
+        </span>
+      </a>
+    );
+  }
+  if (a.type === "template") {
+    const title = typeof payload.title === "string" ? payload.title : "Message";
+    const subtitle = typeof payload.subtitle === "string" ? payload.subtitle : null;
+    return <div className={`mt-1 rounded-xl px-2.5 py-2 text-xs ${tile}`}><span className="block font-semibold">{title}</span>{subtitle && <span className="block opacity-80">{subtitle}</span>}</div>;
+  }
+  return <a href={url} target="_blank" rel="noopener noreferrer" className={`mt-1 flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs ${tile}`}>📎 <span className="truncate">{a.filename ?? "file"}</span></a>;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -136,6 +236,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   const [hasOlder, setHasOlder]           = useState(false);
   const [loadingOlder, setLoadingOlder]   = useState(false);
   const [inboxTruncated, setInboxTruncated] = useState(false);
+  const [attaching, setAttaching]         = useState(false);
+  const attachRef      = useRef<HTMLInputElement>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
@@ -345,6 +447,34 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
     setReplyText("");
     const failed = await sendMessage(text);
     if (failed) setReplyText(failed);
+  }
+
+  // Attach an image/video: upload to R2 through the existing presign route, then send the
+  // public URL via Zernio's attachmentUrl/attachmentType (both live on the send route).
+  async function sendAttachment(file: File) {
+    if (!selectedConv || !selectedClientId) return;
+    const type: "image" | "video" | null = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : null;
+    if (!type) { alert("Only images and videos can be sent here."); return; }
+    setAttaching(true);
+    try {
+      const pre = await fetch("/api/r2/presign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: file.name, contentType: file.type }) }).then((r) => r.json());
+      if (!pre?.uploadUrl) throw new Error(pre?.error || "Could not start upload");
+      const put = await fetch(pre.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+      if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+      const res = await fetch(`/api/zernio/conversations/${selectedConv.id}/messages`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: selectedClientId, message: replyText.trim() || undefined, attachmentUrl: pre.publicUrl, attachmentType: type, recipientName: selectedConv.name, recipientHandle: selectedConv.handle || null }),
+      });
+      const data = await res.json();
+      if (!res.ok || data?.error) throw new Error(data?.error || data?.message || "Send failed");
+      setReplyText("");
+      scrollToBottomRef.current = "smooth";
+      setTimeout(() => pollMessages(selectedConv), 1500);
+    } catch (e) {
+      alert(String(e instanceof Error ? e.message : e));
+    } finally {
+      setAttaching(false);
+    }
   }
 
   // Strip @ from handle for consistent comparison
@@ -565,42 +695,31 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
         </div>
       )}
 
-      {/* ── INBOX VIEW ─────────────────────────────────────────────────── */}
+      {/* ── INBOX VIEW (Beeper-style) ─────────────────────────────────────── */}
       {view === "inbox" && (
         <div className="bg-surface rounded-2xl border border-line overflow-hidden flex-1 min-h-0">
           <div className="flex h-full">
             {/* Left: conversation list */}
-            <div className="w-80 flex-shrink-0 border-r border-line flex flex-col">
-              {/* Search + refresh */}
-              <div className="px-3 py-3 border-b border-line flex items-center gap-2">
-                <input
-                  value={search} onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search conversations…"
-                  className="flex-1 text-sm border border-line rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent"
-                />
-                <button onClick={loadInbox} disabled={inboxLoading}
-                  className="p-1.5 text-faint hover:text-accent hover:bg-accent-tint rounded-lg transition-colors disabled:opacity-40 text-sm">
-                  {inboxLoading ? "…" : "↻"}
-                </button>
+            <div className="w-80 flex-shrink-0 border-r border-line flex flex-col bg-surface">
+              <div className="px-3 pt-3 pb-2 flex items-center gap-2">
+                <div className="flex-1 flex items-center gap-2 bg-surface-2 border border-line rounded-lg px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-accent/40">
+                  <span className="text-faint text-xs">⌕</span>
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search"
+                    className="flex-1 min-w-0 bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none" />
+                </div>
+                <button onClick={loadInbox} disabled={inboxLoading} title="Refresh"
+                  className="w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface-2 transition-colors disabled:opacity-40 text-sm">{inboxLoading ? "…" : "↻"}</button>
               </div>
 
-              {/* Conversation list */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto px-1.5 pb-2">
                 {inboxError ? (
                   <div className="p-6 text-center space-y-2">
                     {inboxError === "no_zernio_account" ? (
                       <>
                         <p className="text-3xl mb-2">🔌</p>
                         <p className="text-sm font-semibold text-ink-2">Instagram DMs not connected</p>
-                        <p className="text-[11px] text-faint leading-relaxed max-w-[200px] mx-auto mt-1">
-                          Connect this client's Instagram account in Settings to enable the DM inbox.
-                        </p>
-                        <button
-                          onClick={onGoToSettings}
-                          className="mt-3 px-4 py-2 text-xs font-semibold bg-accent text-on-accent rounded-lg hover:bg-accent-strong"
-                        >
-                          Go to Settings →
-                        </button>
+                        <p className="text-[11px] text-faint leading-relaxed max-w-[200px] mx-auto mt-1">Connect this client&apos;s Instagram account in Settings to enable the inbox.</p>
+                        <button onClick={onGoToSettings} className="mt-3 px-4 py-2 text-xs font-semibold bg-accent text-on-accent rounded-lg hover:bg-accent-strong">Go to Settings →</button>
                       </>
                     ) : (
                       <>
@@ -613,107 +732,132 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                 ) : inboxLoading && conversations.length === 0 ? (
                   <div className="p-8 text-center text-faint text-xs">Loading conversations…</div>
                 ) : filteredConvs.length === 0 ? (
-                  <div className="p-8 text-center text-faint text-xs">
-                    {search ? "No matches" : "No conversations yet"}
-                  </div>
+                  <div className="p-8 text-center text-faint text-xs">{search ? "No matches" : "No conversations yet"}</div>
                 ) : (
-                  filteredConvs.map((conv) => (
-                    <button key={conv.id} onClick={() => setSelectedConv(conv)}
-                      className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-line-softer hover:bg-surface-2 transition-colors ${selectedConv?.id === conv.id ? "bg-accent-tint border-l-2 border-l-accent" : ""}`}>
-                      {/* Avatar */}
-                      <Avatar src={conv.avatar} name={conv.name} className="w-10 h-10 text-sm flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <p className="text-sm font-semibold text-ink truncate">{conv.name}</p>
-                          <span className="text-[10px] text-faint flex-shrink-0">{timeAgo(conv.updatedTime)}</span>
-                        </div>
-                        {conv.handle && <p className="text-[11px] text-faint">@{conv.handle}</p>}
-                        {conv.snippet && <p className="text-xs text-faint mt-0.5 truncate">{conv.snippet}</p>}
-                      </div>
-                      {conv.unreadCount != null && conv.unreadCount > 0 && (
-                        <div className="w-5 h-5 bg-accent rounded-full flex items-center justify-center text-on-accent text-[10px] font-bold flex-shrink-0 mt-1">
-                          {conv.unreadCount}
-                        </div>
-                      )}
-                    </button>
-                  ))
+                  <>
+                    {filteredConvs.map((conv) => {
+                      const active = selectedConv?.id === conv.id;
+                      const unread = (conv.unreadCount ?? 0) > 0;
+                      return (
+                        <button key={conv.id} onClick={() => setSelectedConv(conv)}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors ${active ? "bg-surface-2 shadow-soft" : "hover:bg-surface-2/60"}`}>
+                          <Avatar src={conv.avatar} name={conv.name} className="w-9 h-9 text-[13px] flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <p className={`text-[13px] truncate ${unread ? "font-semibold text-ink" : "font-medium text-ink"}`}>{conv.name}</p>
+                              <span className={`text-[10px] flex-shrink-0 ${unread ? "text-accent font-semibold" : "text-faint"}`}>{timeAgo(conv.updatedTime)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`text-xs truncate ${unread ? "text-ink-2" : "text-muted"}`}>{conv.snippet || (conv.handle ? `@${conv.handle}` : "\u00a0")}</p>
+                              {unread && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-on-accent text-[10px] font-bold flex items-center justify-center flex-shrink-0">{conv.unreadCount}</span>}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {inboxTruncated && <p className="px-3 py-2 text-[10px] text-faint text-center">Showing the first 2,000 conversations.</p>}
+                  </>
                 )}
               </div>
             </div>
 
-            {/* Right: message thread */}
+            {/* Right: thread */}
             {!selectedConv ? (
-              <div className="flex-1 flex items-center justify-center text-faint text-sm">
-                <div className="text-center space-y-2">
-                  <div className="text-4xl">💬</div>
+              <div className="flex-1 flex items-center justify-center text-faint text-sm bg-canvas-2">
+                <div className="text-center space-y-1.5">
+                  <div className="text-3xl">💬</div>
                   <p className="font-medium text-ink-2">Select a conversation</p>
-                  <p className="text-xs text-faint">Click any conversation on the left to open it</p>
+                  <p className="text-xs text-faint">{conversations.length ? `${conversations.length} conversations` : ""}</p>
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col min-w-0">
-                {/* Thread header */}
-                <div className="px-5 py-3.5 border-b border-line flex items-center justify-between flex-shrink-0 bg-surface">
-                  <div className="flex items-center gap-3">
-                    <Avatar src={selectedConv.avatar} name={selectedConv.name} className="w-9 h-9 text-sm" />
-                    <div>
-                      <p className="text-sm font-semibold text-ink">{selectedConv.name}</p>
-                      {selectedConv.handle && <p className="text-xs text-faint">@{selectedConv.handle}</p>}
+              <div className="flex-1 flex flex-col min-w-0 bg-canvas-2">
+                {/* Header */}
+                <div className="px-4 py-2.5 border-b border-line flex items-center justify-between flex-shrink-0 bg-surface">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar src={selectedConv.avatar} name={selectedConv.name} className="w-8 h-8 text-xs" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink truncate">{selectedConv.name}</p>
+                      {selectedConv.handle && <p className="text-[11px] text-faint truncate">@{selectedConv.handle}</p>}
                     </div>
                   </div>
-                  <button onClick={() => addToPipeline(selectedConv)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-tint text-accent text-xs font-semibold rounded-lg hover:bg-accent-tint border border-accent-tint">
-                    + Add to Pipeline
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {selectedConv.url && (
+                      <a href={selectedConv.url} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1.5 text-xs font-medium text-muted hover:text-ink hover:bg-surface-2 rounded-lg">Open on Instagram ↗</a>
+                    )}
+                    <button onClick={() => addToPipeline(selectedConv)}
+                      className="px-3 py-1.5 bg-accent-tint text-accent-strong text-xs font-semibold rounded-lg hover:bg-accent-tint/80">+ Add to Pipeline</button>
+                  </div>
                 </div>
 
                 {/* Messages */}
-                <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4"
+                <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3"
                   onScroll={(e) => { if (e.currentTarget.scrollTop < 40 && selectedConv) loadOlder(selectedConv); }}>
-                  <div className="flex flex-col min-h-full justify-end gap-3">
-                  {loadingOlder && <div className="text-center text-faint text-[11px]">Loading older…</div>}
-                  {messagesLoading && messages.length === 0 ? (
-                    <div className="text-center text-faint text-xs">Loading messages…</div>
-                  ) : messages.length === 0 ? (
-                    <div className="text-center text-faint text-xs">No messages yet</div>
-                  ) : (
-                    messages.map((msg) => (
-                      <div key={msg.id} className={`flex ${msg.isOwn ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                          msg.isOwn
-                            ? "bg-accent text-on-accent rounded-br-sm"
-                            : "bg-surface-3 text-ink rounded-bl-sm"
-                        }`}>
-                          <p>{msg.text}</p>
-                          <p className={`text-[10px] mt-1 ${msg.isOwn ? "text-accent-tint" : "text-faint"}`}>
-                            {timeAgo(msg.createdTime)}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
+                  <div className="flex flex-col min-h-full justify-end">
+                    {loadingOlder && <div className="text-center text-faint text-[11px] py-1">Loading older…</div>}
+                    {!loadingOlder && !hasOlder && messages.length > 0 && <div className="text-center text-faint text-[10px] py-1">Beginning of conversation</div>}
+                    {messagesLoading && messages.length === 0 ? (
+                      <div className="text-center text-faint text-xs">Loading messages…</div>
+                    ) : messages.length === 0 ? (
+                      <div className="text-center text-faint text-xs">No messages yet</div>
+                    ) : (
+                      messages.map((msg, i) => {
+                        const prev = messages[i - 1], next = messages[i + 1];
+                        const newDay = !prev || !isSameDay(new Date(prev.createdTime), new Date(msg.createdTime));
+                        const GAP = 5 * 60 * 1000;
+                        const startsRun = newDay || !prev || prev.isOwn !== msg.isOwn || new Date(msg.createdTime).getTime() - new Date(prev.createdTime).getTime() > GAP;
+                        const endsRun = !next || next.isOwn !== msg.isOwn || !isSameDay(new Date(next.createdTime), new Date(msg.createdTime)) || new Date(next.createdTime).getTime() - new Date(msg.createdTime).getTime() > GAP;
+                        const own = msg.isOwn;
+                        const radius = own
+                          ? `rounded-2xl ${startsRun ? "" : "rounded-tr-md"} ${endsRun ? "" : "rounded-br-md"}`
+                          : `rounded-2xl ${startsRun ? "" : "rounded-tl-md"} ${endsRun ? "" : "rounded-bl-md"}`;
+                        return (
+                          <div key={msg.id}>
+                            {newDay && (
+                              <div className="flex justify-center my-3">
+                                <span className="text-[10px] font-medium text-faint bg-surface-2 border border-line-soft rounded-full px-2.5 py-0.5">{dayLabel(msg.createdTime)}</span>
+                              </div>
+                            )}
+                            <div className={`flex ${own ? "justify-end" : "justify-start"} ${startsRun ? "mt-2" : "mt-0.5"}`}>
+                              <div className={`max-w-[68%] px-3 py-2 text-sm leading-snug ${radius} ${own ? "bg-accent text-on-accent" : "bg-surface-3 text-ink"} ${msg.id.startsWith("opt-") ? "opacity-70" : ""}`}>
+                                {(msg.storyReply || msg.isStoryMention) && <p className={`text-[10px] mb-0.5 ${own ? "opacity-70" : "text-muted"}`}>{msg.isStoryMention ? "Mentioned you in a story" : "Replied to a story"}</p>}
+                                {msg.isDeleted ? (
+                                  <p className="italic opacity-70 text-xs">Message deleted</p>
+                                ) : (
+                                  <>
+                                    {msg.attachments.map((a) => <AttachmentView key={`${msg.id}-${a.index}`} a={a} msg={msg} convId={selectedConv.id} clientId={selectedClientId} own={own} />)}
+                                    {msg.text && <MessageText text={msg.text} own={own} />}
+                                  </>
+                                )}
+                                <span className={`inline-block float-right ml-2 mt-1 text-[10px] leading-none ${own ? "opacity-70" : "text-faint"}`}>{hhmm(msg.createdTime)}{own && msg.deliveryStatus === "read" ? " · read" : ""}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
                   </div>
                 </div>
 
-                {/* Reply input */}
-                <div className="px-4 py-3 border-t border-line flex-shrink-0 bg-surface">
+                {/* Composer */}
+                <div className="px-3 py-2.5 border-t border-line flex-shrink-0 bg-surface">
                   <div className="flex items-end gap-2">
+                    <input ref={attachRef} type="file" accept="image/*,video/*" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) sendAttachment(f); e.currentTarget.value = ""; }} />
+                    <button onClick={() => attachRef.current?.click()} disabled={attaching || sending} title="Send a photo or video"
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 disabled:opacity-40 flex-shrink-0 text-lg leading-none">{attaching ? "…" : "＋"}</button>
                     <textarea
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
-                      placeholder="Type a message… (Enter to send)"
-                      rows={2}
-                      className="flex-1 border border-line rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent"
+                      placeholder={`Message ${selectedConv.name}`}
+                      rows={1}
+                      className="flex-1 bg-surface-2 border border-line rounded-2xl px-4 py-2 text-sm text-ink placeholder:text-faint resize-none max-h-32 focus:outline-none focus:ring-2 focus:ring-accent/40"
+                      style={{ minHeight: 38 }}
                     />
-                    <button
-                      onClick={sendReply}
-                      disabled={!replyText.trim() || sending}
-                      className="px-4 py-2.5 bg-accent text-on-accent text-sm font-semibold rounded-xl hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                    >
-                      {sending ? "…" : "Send"}
-                    </button>
+                    <button onClick={sendReply} disabled={!replyText.trim() || sending} title="Send (Enter)"
+                      className="w-9 h-9 rounded-full bg-accent text-on-accent flex items-center justify-center hover:bg-accent-strong disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 text-base leading-none">{sending ? "…" : "↑"}</button>
                   </div>
                 </div>
               </div>
