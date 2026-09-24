@@ -6,6 +6,7 @@ import {
   PointerSensor, useSensor, useSensors, useDroppable, useDraggable,
 } from "@dnd-kit/core";
 import { Client, DmLead, DM_STATUSES } from "@/shared/types";
+import { imgSrc, videoSrc } from "@/shared/media/videoSrc";
 
 // One component, two sidebar pages: the shell passes `view` ("dms" → pipeline, "iginbox" → inbox)
 // so both share the fetch/state logic below.
@@ -66,16 +67,44 @@ function statusMeta(status: string) { return STATUS_MAP[status] ?? STATUS_MAP["m
 const PIPELINE_COLS = DM_STATUSES.map((s) => s.value);
 const NEXT: Record<string, string> = { messaged: "answered", answered: "link_sent", link_sent: "booked", booked: "closed" };
 
-// ── Inbox types ───────────────────────────────────────────────────────────────
+// ── Inbox types (field names are Zernio's real ones — see the OpenAPI spec) ─────────────
 type Conversation = {
   id: string; name: string; handle: string | null; igId: string | null;
   updatedTime: string; snippet: string | null; unreadCount: number | null;
   avatar?: string | null;
+  url?: string | null; // link to the thread on Instagram, when Zernio has it
+};
+type Attachment = {
+  index: number; id?: string;
+  type: "image" | "video" | "audio" | "file" | "sticker" | "share" | "template" | string;
+  originalType?: string | null;      // ig_reel | reel | ig_post | post | ig_story | story_mention …
+  url?: string | null;               // signed Meta CDN link — EXPIRES; re-mint via /attachments route
+  previewUrl?: string | null;
+  filename?: string | null;
+  payload?: Record<string, unknown> | null;
 };
 type Message = {
   id: string; text: string; fromId: string; fromName: string;
   isOwn: boolean; createdTime: string;
+  attachments: Attachment[];
+  storyReply?: boolean; isStoryMention?: boolean; isDeleted?: boolean;
+  deliveryStatus?: string | null;
 };
+
+// Avatar that goes through /api/img (Instagram's CDN refuses cross-origin hotlinks) and falls
+// back to the initial via STATE — a broken image is logged, not hidden.
+function Avatar({ src, name, className }: { src?: string | null; name: string; className: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
+  const initial = name?.trim()?.[0]?.toUpperCase() ?? "?";
+  if (!src || failed) {
+    return <div className={`${className} rounded-full bg-accent-tint text-accent-strong flex items-center justify-center font-bold select-none`}>{initial}</div>;
+  }
+  return (
+    <img src={imgSrc(src)} alt={name} className={`${className} rounded-full object-cover bg-surface-3`}
+      onError={() => { console.warn("[inbox] avatar failed to load:", src); setFailed(true); }} />
+  );
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function DmsPage({ clients, selectedClientId, onGoToSettings, view }: Props) {
@@ -101,6 +130,12 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   const [search, setSearch]                 = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const refreshTimer   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const listRef        = useRef<HTMLDivElement>(null);
+  const scrollToBottomRef = useRef<"instant" | "smooth" | null>(null);
+  const [olderCursor, setOlderCursor]     = useState<string | null>(null);
+  const [hasOlder, setHasOlder]           = useState(false);
+  const [loadingOlder, setLoadingOlder]   = useState(false);
+  const [inboxTruncated, setInboxTruncated] = useState(false);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
 
@@ -112,7 +147,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
     setLeads(Array.isArray(data) ? data : []);
   }
 
-  // Load inbox conversations via Zernio — auto-retries transient failures
+  // Load inbox conversations via Zernio — the API route follows Zernio's cursor and returns the
+  // whole inbox. Auto-retries one transient failure.
   const loadInbox = useCallback(async () => {
     if (!selectedClientId) return;
     setInboxLoading(true);
@@ -125,7 +161,6 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
 
     try {
       let data = await attempt();
-      // Retry once after a short delay if Zernio hiccupped (rate limit / transient)
       if (data?.error && data.error !== "no_zernio_account") {
         await new Promise((r) => setTimeout(r, 1500));
         data = await attempt();
@@ -133,18 +168,24 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
       if (data.error === "no_zernio_account") { setInboxError("no_zernio_account"); }
       else if (data.error) { setInboxError(data.error); }
       else {
-        const raw: any[] = data.data ?? data.conversations ?? data.items ?? [];
-        const convs = raw.map((c: any) => ({
-          id: c.id,
-          igId: c.participantId ?? c.id,
-          name: c.participantName ?? c.participant?.name ?? c.name ?? "Unknown",
-          handle: c.participantUsername ?? c.participant?.username ?? c.handle ?? "",
-          avatar: c.participantProfilePicture ?? c.participantAvatar ?? c.profilePicture ?? c.avatar ?? c.participant?.profilePicture ?? c.participant?.avatar ?? null,
-          snippet: typeof c.lastMessage === "string" ? c.lastMessage : (c.lastMessage?.text ?? c.snippet ?? ""),
-          updatedTime: c.updatedTime ?? c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
-          unreadCount: c.unreadCount ?? c.unread_count ?? 0,
+        const raw: any[] = Array.isArray(data.data) ? data.data : [];
+        // Zernio conversation object: id, participantId, participantName, participantPicture,
+        // lastMessage (string), updatedTime, unreadCount, url. (participantUsername is only on
+        // the search endpoint; keep it if present.)
+        const convs: Conversation[] = raw.map((c: any) => ({
+          id: String(c.id),
+          igId: c.participantId ?? null,
+          name: c.participantName ?? "Unknown",
+          handle: c.participantUsername ?? null,
+          avatar: c.participantPicture ?? null,
+          snippet: typeof c.lastMessage === "string" ? c.lastMessage : (c.lastMessage?.text ?? null),
+          updatedTime: c.updatedTime ?? new Date().toISOString(),
+          unreadCount: c.unreadCount ?? 0,
+          url: c.url ?? null,
         }));
+        convs.sort((a, b) => new Date(b.updatedTime).getTime() - new Date(a.updatedTime).getTime());
         setConversations(convs);
+        setInboxTruncated(!!data.pagination?.truncated);
       }
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);
@@ -164,60 +205,104 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
     if (selectedClientId) { loadInbox(); runSync(); }
   }, [selectedClientId, loadInbox, runSync]);
 
-  // Load messages for selected conversation
+  // ── Messages: paged, newest first from the API, displayed oldest → newest ──────────────
+  // Zernio message object: id, message, senderId, senderName, direction (incoming|outgoing),
+  // createdAt, attachments[], storyReply, isStoryMention, isDeleted, deliveryStatus.
+  function mapMessage(m: any): Message {
+    return {
+      id: String(m.id),
+      text: m.message ?? "",
+      fromId: m.senderId ?? "",
+      fromName: m.senderName ?? "",
+      isOwn: m.direction === "outgoing",
+      createdTime: m.createdAt ?? m.sentAt ?? "",
+      attachments: (Array.isArray(m.attachments) ? m.attachments : []).map((a: any, i: number) => ({
+        index: i, id: a.id, type: a.type ?? "file", originalType: a.originalType ?? null,
+        url: a.url ?? null, previewUrl: a.previewUrl ?? null, filename: a.filename ?? null, payload: a.payload ?? null,
+      })),
+      storyReply: !!m.storyReply, isStoryMention: !!m.isStoryMention, isDeleted: !!m.isDeleted,
+      deliveryStatus: m.deliveryStatus ?? null,
+    };
+  }
+  const byTime = (a: Message, b: Message) => new Date(a.createdTime).getTime() - new Date(b.createdTime).getTime();
+
+  async function fetchPage(convId: string, cursor?: string | null): Promise<{ msgs: Message[]; nextCursor: string | null; hasMore: boolean } | null> {
+    if (!selectedClientId) return null;
+    const u = new URL(`/api/zernio/conversations/${convId}/messages`, window.location.origin);
+    u.searchParams.set("clientId", String(selectedClientId));
+    u.searchParams.set("limit", "50");
+    u.searchParams.set("sortOrder", "desc");
+    if (cursor) u.searchParams.set("cursor", cursor);
+    const data = await fetch(u.toString()).then((r) => r.json());
+    if (data.error) { console.error("loadMessages error:", data.error); return null; }
+    return { msgs: (data.messages ?? []).map(mapMessage), nextCursor: data.pagination?.nextCursor ?? null, hasMore: !!data.pagination?.hasMore };
+  }
+
+  // Initial load for a conversation: newest 50, scroll to bottom.
   const loadMessages = useCallback(async (conv: Conversation) => {
-    if (!selectedClientId) return;
     setMessagesLoading(true);
     try {
-      const data = await fetch(`/api/zernio/conversations/${conv.id}/messages?clientId=${selectedClientId}`).then((r) => r.json());
-      if (data.error) { console.error("loadMessages error:", data.error); }
-      if (!data.error) {
-        const raw: any[] = data.messages ?? data.items ?? data.data ?? [];
-        const msgs = raw.map((m: any) => ({
-          id: m.id,
-          text: m.message ?? m.text ?? m.body ?? m.content ?? "",
-          fromId: m.senderId ?? m.sender?.id ?? m.sender_id ?? "",
-          fromName: m.senderName ?? m.sender?.name ?? m.sender_name ?? "",
-          isOwn: m.direction === "outgoing" || Boolean(m.isOwn ?? m.is_sender ?? m.isMine),
-          createdTime: m.createdAt ?? m.sentAt ?? m.timestamp ?? m.created_at ?? "",
-        }));
-        // Sort oldest-first so chat reads top-to-bottom naturally
-        msgs.sort((a, b) => new Date(a.createdTime).getTime() - new Date(b.createdTime).getTime());
-        // Keep optimistic messages that haven't synced yet
-        setMessages((prev) => {
-          const optimistics = prev.filter((m) => m.id.startsWith("opt-"));
-          const merged = [...msgs];
-          for (const opt of optimistics) {
-            if (!merged.some((m) => m.text === opt.text && m.isOwn)) merged.push(opt);
-          }
-          return merged;
-        });
+      const page = await fetchPage(conv.id);
+      if (!page) return;
+      setMessages(page.msgs.sort(byTime));
+      setOlderCursor(page.nextCursor);
+      setHasOlder(page.hasMore);
+      scrollToBottomRef.current = "instant";
 
-        // Auto-detect if booking link was already sent in this conversation
-        const bookingLink = client?.bookingLink;
-        if (bookingLink) {
-          const linkSent = msgs.some(
-            (m) => m.isOwn && m.text.includes(bookingLink)
-          );
-          if (linkSent) promoteToStatus(conv, "link_sent");
-        }
-      }
+      // Auto-detect if booking link was already sent in this conversation
+      const bookingLink = client?.bookingLink;
+      if (bookingLink && page.msgs.some((m) => m.isOwn && m.text.includes(bookingLink))) promoteToStatus(conv, "link_sent");
     } finally {
       setMessagesLoading(false);
     }
   }, [selectedClientId, client?.bookingLink]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Poll: refetch the newest page and merge by id (keeps unsynced optimistic messages).
+  const pollMessages = useCallback(async (conv: Conversation) => {
+    const page = await fetchPage(conv.id);
+    if (!page) return;
+    setMessages((prev) => {
+      const seen = new Set(page.msgs.map((m) => m.id));
+      const kept = prev.filter((m) => !seen.has(m.id) && !(m.id.startsWith("opt-") && page.msgs.some((p) => p.isOwn && p.text === m.text)));
+      const merged = [...kept, ...page.msgs].sort(byTime);
+      if (merged.length > prev.length) scrollToBottomRef.current = "smooth";
+      return merged;
+    });
+  }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Older: called when the list is scrolled to the top; prepends and preserves the viewport.
+  const loadOlder = useCallback(async (conv: Conversation) => {
+    if (!hasOlder || loadingOlder || !olderCursor) return;
+    setLoadingOlder(true);
+    const el = listRef.current;
+    const before = el ? el.scrollHeight - el.scrollTop : 0;
+    try {
+      const page = await fetchPage(conv.id, olderCursor);
+      if (!page) return;
+      setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); return [...page.msgs.filter((m) => !ids.has(m.id)), ...prev].sort(byTime); });
+      setOlderCursor(page.nextCursor);
+      setHasOlder(page.hasMore);
+      requestAnimationFrame(() => { if (el) el.scrollTop = el.scrollHeight - before; });
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [hasOlder, loadingOlder, olderCursor, selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!selectedConv) return;
-    setMessages([]);
+    setMessages([]); setOlderCursor(null); setHasOlder(false);
     loadMessages(selectedConv);
-    refreshTimer.current = setInterval(() => loadMessages(selectedConv), 10000);
+    refreshTimer.current = setInterval(() => pollMessages(selectedConv), 10000);
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
-  }, [selectedConv, loadMessages]);
+  }, [selectedConv, loadMessages, pollMessages]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom only when asked (initial load / new message), never when older messages
+  // are prepended — that would yank the reader away from what they scrolled up to read.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const how = scrollToBottomRef.current;
+    if (!how) return;
+    scrollToBottomRef.current = null;
+    messagesEndRef.current?.scrollIntoView({ behavior: how === "smooth" ? "smooth" : "auto" });
   }, [messages]);
 
   async function sendMessage(text: string) {
@@ -225,8 +310,9 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
     setSending(true);
     const optimistic: Message = {
       id: `opt-${Date.now()}`, text, fromId: "me", fromName: "You",
-      isOwn: true, createdTime: new Date().toISOString(),
+      isOwn: true, createdTime: new Date().toISOString(), attachments: [],
     };
+    scrollToBottomRef.current = "smooth";
     setMessages((prev) => [...prev, optimistic]);
     try {
       const res = await fetch(`/api/zernio/conversations/${selectedConv.id}/messages`, {
@@ -246,7 +332,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
         return text; // return so caller can restore input
       } else {
         loadLeads();
-        setTimeout(() => loadMessages(selectedConv), 1500);
+        setTimeout(() => pollMessages(selectedConv), 1500);
       }
     } finally {
       setSending(false);
@@ -535,9 +621,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                     <button key={conv.id} onClick={() => setSelectedConv(conv)}
                       className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-line-softer hover:bg-surface-2 transition-colors ${selectedConv?.id === conv.id ? "bg-accent-tint border-l-2 border-l-accent" : ""}`}>
                       {/* Avatar */}
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-on-accent text-sm font-bold flex-shrink-0 overflow-hidden">
-                        {conv.avatar ? <img src={conv.avatar} alt={conv.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} /> : (conv.name?.[0]?.toUpperCase() ?? "?")}
-                      </div>
+                      <Avatar src={conv.avatar} name={conv.name} className="w-10 h-10 text-sm flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <p className="text-sm font-semibold text-ink truncate">{conv.name}</p>
@@ -571,9 +655,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                 {/* Thread header */}
                 <div className="px-5 py-3.5 border-b border-line flex items-center justify-between flex-shrink-0 bg-surface">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-on-accent text-sm font-bold overflow-hidden">
-                      {selectedConv.avatar ? <img src={selectedConv.avatar} alt={selectedConv.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} /> : selectedConv.name?.[0]?.toUpperCase()}
-                    </div>
+                    <Avatar src={selectedConv.avatar} name={selectedConv.name} className="w-9 h-9 text-sm" />
                     <div>
                       <p className="text-sm font-semibold text-ink">{selectedConv.name}</p>
                       {selectedConv.handle && <p className="text-xs text-faint">@{selectedConv.handle}</p>}
@@ -586,8 +668,10 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4"
+                  onScroll={(e) => { if (e.currentTarget.scrollTop < 40 && selectedConv) loadOlder(selectedConv); }}>
                   <div className="flex flex-col min-h-full justify-end gap-3">
+                  {loadingOlder && <div className="text-center text-faint text-[11px]">Loading older…</div>}
                   {messagesLoading && messages.length === 0 ? (
                     <div className="text-center text-faint text-xs">Loading messages…</div>
                   ) : messages.length === 0 ? (
