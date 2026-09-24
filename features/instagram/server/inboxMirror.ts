@@ -97,7 +97,10 @@ export async function upsertConversationsFromList(clientId: number, accountId: s
       ig?.isFollower ?? null, ig?.isFollowing ?? null, ig?.followerCount ?? null, ig?.isVerified ?? null, ig ? (toDate(ig.fetchedAt) ?? new Date()) : null];
     const base = params.length;
     params.push(...vals);
-    tuples.push("(" + vals.map((_, i) => `${base + i + 1}`).join(",") + ")");
+    // $n placeholders WITH explicit casts: through the Neon driver untyped VALUES parameters
+    // arrive as int/text and Postgres refuses them for boolean / timestamp columns.
+    const CASTS = ["text", "int", "text", "text", "text", "text", "text", "boolean", "text", "text", "timestamp", "int", "boolean", "boolean", "int", "boolean", "timestamp"];
+    tuples.push("(" + vals.map((_, i) => "$" + (base + i + 1) + "::" + CASTS[i]).join(",") + ")");
   }
   await prisma.$executeRawUnsafe(`
     INSERT INTO "ZernioConversation" ("id","clientId","accountId","participantId","participantName","participantPicture","status","isGroup","url","lastMessageText","lastMessageAt","zernioUnreadCount","igIsFollower","igIsFollowing","igFollowerCount","igIsVerified","igFetchedAt","syncedAt","createdAt","updatedAt")
