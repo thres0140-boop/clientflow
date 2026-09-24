@@ -3,9 +3,12 @@ import { prisma } from "@/shared/db/prisma";
 // ─────────────────────────────────────────────────────────────────────────────
 // Instagram Inbox mirror — backfill, reconcile and prune against Zernio.
 //
-// Retention (Neon Free, 0.5 GB): messages are mirrored for a rolling 6 MONTHS and at most
-// the newest 100 per thread; conversation rows are kept forever; older messages load live on
-// scroll-up in the thread view. Attachments are stored trimmed (no payload).
+// What is mirrored: EVERY conversation row (that is what makes the list instant — ~100 list
+// requests per client), and messages ONLY for threads Zernio reports with unreadCount > 0, which
+// is the one place the local unread rule needs message direction. Zernio's unreadCount is used
+// as a SUPERSET trigger (it increments on every incoming message, it just never clears properly),
+// never as the badge. Everything else arrives by webhook; older messages load live on scroll-up.
+// Retention (Neon Free, 0.5 GB): 6 months. Attachments are stored trimmed (no payload).
 //
 // Write strategy: conversations are upserted one by one (identity fields only ever improve);
 // messages are inserted with createMany + skipDuplicates (edits/deletes/status arrive through
@@ -17,7 +20,8 @@ const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
 const PROFILE_ID  = process.env.ZERNIO_PROFILE_ID!;
 const PAGE_SIZE = 100;
 const MAX_PAGES = 30;          // 3,000 conversations per walk
-const MESSAGES_PER_THREAD = 100;
+const MESSAGES_PAGE = 25;      // per request while hunting for the last outgoing message
+const MESSAGES_MAX_PAGES = 4;  // ≤ 100 messages per thread, and usually just one request
 export const RETENTION_MONTHS = 6;
 const THROTTLE_MS = 60;
 
@@ -61,12 +65,13 @@ async function fetchConversationPage(profileId: string, accountId: string, curso
   if (!data) return null;
   return { items: (Array.isArray(data.data) ? data.data : []) as any[], nextCursor: data.pagination?.hasMore && data.pagination?.nextCursor ? String(data.pagination.nextCursor) : null };
 }
-async function fetchNewestMessages(conversationId: string, accountId: string): Promise<any[] | null> {
+async function fetchNewestMessages(conversationId: string, accountId: string, cursor: string | null): Promise<{ items: any[]; nextCursor: string | null } | null> {
   const url = new URL(`${ZERNIO_BASE}/inbox/conversations/${conversationId}/messages`);
-  url.searchParams.set("accountId", accountId); url.searchParams.set("limit", String(MESSAGES_PER_THREAD)); url.searchParams.set("sortOrder", "desc");
+  url.searchParams.set("accountId", accountId); url.searchParams.set("limit", String(MESSAGES_PAGE)); url.searchParams.set("sortOrder", "desc");
+  if (cursor) url.searchParams.set("cursor", cursor);
   const data = await zget(url);
   if (!data) return null;
-  return Array.isArray(data.messages) ? data.messages : [];
+  return { items: Array.isArray(data.messages) ? data.messages : [], nextCursor: data.pagination?.hasMore && data.pagination?.nextCursor ? String(data.pagination.nextCursor) : null };
 }
 
 // ── Writers ──────────────────────────────────────────────────────────────────
@@ -96,9 +101,21 @@ export async function upsertConversationFromList(clientId: number, accountId: st
 }
 
 // Mirror the newest page of a thread and advance the conversation's direction timestamps.
+// Mirror just enough of a thread to set lastIncomingAt and lastOutgoingAt: the newest page gives
+// the latest incoming message; we keep paging (25 at a time, at most 4 pages) only until the most
+// recent OUTGOING message is found. Usually that is one request. If 100 messages are all incoming
+// the thread is unread on any reading, and lastOutgoingAt stays unknown (null → unread).
 export async function mirrorNewestMessages(clientId: number, conversationId: string, accountId: string): Promise<number> {
-  const msgs = await fetchNewestMessages(conversationId, accountId);
-  if (!msgs) return 0;
+  const msgs: any[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < MESSAGES_MAX_PAGES; page++) {
+    const p = await fetchNewestMessages(conversationId, accountId, cursor);
+    if (!p) { if (!msgs.length) return 0; break; }
+    msgs.push(...p.items);
+    if (p.items.some((m: any) => m?.direction === "outgoing") || !p.nextCursor) break;
+    cursor = p.nextCursor;
+    await sleep(THROTTLE_MS);
+  }
   const rows = msgs.filter((m: any) => m?.id && toDate(m.createdAt ?? m.sentAt)).map((m: any) => ({
     id: String(m.id), conversationId, clientId,
     direction: m.direction === "outgoing" ? "outgoing" : "incoming",
@@ -164,7 +181,10 @@ export async function walkClient(clientId: number, opts: { budgetMs: number; dri
         const { existing, updated } = await upsertConversationFromList(clientId, conn.accountId, c);
         r.conversations++;
         const drifted = !existing || !existing.lastMessageAt || !updated || updated > existing.lastMessageAt || !existing.syncedAt;
-        if (!opts.driftOnly || drifted) {
+        // Messages only where a badge is possible: Zernio's unreadCount > 0 (a superset of truly
+        // unread). Backfill fetches those once; the full walk refetches them only when drifted.
+        const wantsMessages = (c.unreadCount ?? 0) > 0 && (!opts.driftOnly || drifted);
+        if (wantsMessages) {
           await sleep(THROTTLE_MS);
           r.messagesInserted += await mirrorNewestMessages(clientId, String(c.id), conn.accountId);
         }
@@ -197,7 +217,7 @@ export async function reconcileLight(clientId: number, budgetMs: number): Promis
       const { existing, updated } = await upsertConversationFromList(clientId, conn.accountId, c);
       r.conversations++;
       const drifted = !existing || !existing.lastMessageAt || !updated || updated > existing.lastMessageAt;
-      if (drifted) { await sleep(THROTTLE_MS); r.messagesInserted += await mirrorNewestMessages(clientId, String(c.id), conn.accountId); }
+      if (drifted && (c.unreadCount ?? 0) > 0) { await sleep(THROTTLE_MS); r.messagesInserted += await mirrorNewestMessages(clientId, String(c.id), conn.accountId); }
     } catch (e) { console.error("[inbox-mirror] reconcile error", clientId, c?.id, e instanceof Error ? e.message : e); }
   }
   await prisma.zernioSyncState.upsert({ where: { clientId }, create: { clientId, phase: "live", lastReconcileAt: new Date() }, update: { lastReconcileAt: new Date() } });
@@ -258,15 +278,23 @@ export async function readMirrorList(clientId: number) {
         AND m."sentAt" > GREATEST(COALESCE(c."lastOutgoingAt", 'epoch'::timestamp), COALESCE(c."lastSeenAt", 'epoch'::timestamp))
       GROUP BY 1`, clientId);
   const countBy = new Map(counts.map((r) => [r.conversationId, Number(r.n)]));
+  // Threads that have ANY mirrored message. For the rest, no message rows does not mean "nothing
+  // unread": fall back to Zernio's hint (unreadCount > 0) unless the owner opened the thread after
+  // its last message.
+  const withMsgs = new Set((await prisma.$queryRawUnsafe<{ conversationId: string }[]>(
+    `SELECT DISTINCT "conversationId" FROM "ZernioMessage" WHERE "clientId" = $1`, clientId)).map((r) => r.conversationId));
   return rows.map((r) => {
     const epoch = new Date(0);
-    const unread = !!r.lastIncomingAt && r.lastIncomingAt > (r.lastOutgoingAt ?? epoch) && r.lastIncomingAt > (r.lastSeenAt ?? epoch);
+    const seenAfterLast = !!r.lastSeenAt && !!r.lastMessageAt && r.lastSeenAt >= r.lastMessageAt;
+    const unread = withMsgs.has(r.id) || r.lastIncomingAt
+      ? (!!r.lastIncomingAt && r.lastIncomingAt > (r.lastOutgoingAt ?? epoch) && r.lastIncomingAt > (r.lastSeenAt ?? epoch))
+      : ((r.zernioUnreadCount ?? 0) > 0 && !seenAfterLast);
     return {
       id: r.id, participantId: r.participantId, participantName: r.participantName ?? PLACEHOLDER,
       participantUsername: r.participantUsername, participantPicture: r.participantPicture,
       lastMessage: r.lastMessageText ?? "", updatedTime: (r.lastMessageAt ?? r.updatedAt).toISOString(),
       unreadCount: null, url: r.url, isGroup: r.isGroup, status: r.status,
-      local: { unread, unreadCount: unread ? Math.max(1, countBy.get(r.id) ?? 0) : 0, lastSeenAt: r.lastSeenAt?.toISOString() ?? null },
+      local: { unread, unreadCount: unread ? Math.max(1, countBy.get(r.id) ?? (withMsgs.has(r.id) ? 0 : (r.zernioUnreadCount ?? 0))) : 0, lastSeenAt: r.lastSeenAt?.toISOString() ?? null },
     };
   });
 }

@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 // GET /api/admin/migrate/inbox-backfill?token=&clientId=<optional>
-// Resumable backfill of the Instagram Inbox mirror: newest 100 messages per thread, cursor kept
+// Resumable backfill of the Instagram Inbox mirror: every conversation row, plus messages only
+// for threads with unreadCount > 0 (just enough to set lastIncoming/OutgoingAt); cursor kept
 // in ZernioSyncState. Call it again until every client reports done — the 15-minute reconcile
 // cron also continues an unfinished backfill on its own. Returns real table sizes each time.
 export async function GET(req: NextRequest) {
