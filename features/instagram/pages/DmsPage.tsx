@@ -7,9 +7,11 @@ import {
 } from "@dnd-kit/core";
 import { Client, DmLead, DM_STATUSES } from "@/shared/types";
 
-type Props = { clients: Client[]; selectedClientId: number | null; onGoToSettings?: () => void };
-type Period = "day" | "week" | "2weeks" | "month" | "all";
+// One component, two sidebar pages: the shell passes `view` ("dms" → pipeline, "iginbox" → inbox)
+// so both share the fetch/state logic below.
 type View = "pipeline" | "inbox";
+type Props = { clients: Client[]; selectedClientId: number | null; onGoToSettings?: () => void; view: View };
+type Period = "day" | "week" | "2weeks" | "month" | "all";
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 function toYMD(d: Date): string {
@@ -76,8 +78,7 @@ type Message = {
 };
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function DmsPage({ clients, selectedClientId, onGoToSettings }: Props) {
-  const [view, setView] = useState<View>("pipeline");
+export default function DmsPage({ clients, selectedClientId, onGoToSettings, view }: Props) {
 
   // Pipeline state
   const [leads, setLeads]           = useState<DmLead[]>([]);
@@ -377,21 +378,10 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings }: P
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">DM Pipeline</h1>
+          <h1 className="text-2xl font-bold text-ink">{view === "inbox" ? "Instagram Inbox" : "DM Pipeline"}</h1>
           <p className="text-muted mt-0.5 text-sm">{client?.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* View toggle */}
-          <div className="flex gap-0.5 bg-surface-3 rounded-xl p-1">
-            <button onClick={() => setView("pipeline")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "pipeline" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
-              📊 Pipeline
-            </button>
-            <button onClick={() => setView("inbox")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === "inbox" ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink-2"}`}>
-              💬 Instagram Inbox
-            </button>
-          </div>
           {view === "pipeline" && (
             <button onClick={() => { setEditLead(null); setShowAdd(true); }}
               className="bg-accent text-on-accent px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-strong">

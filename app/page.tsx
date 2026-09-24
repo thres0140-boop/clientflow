@@ -29,6 +29,7 @@ export type Page =
   | "concepts"
   | "analytics"
   | "dms"
+  | "iginbox"
   | "instagram"
   | "board"
   | "team"
@@ -41,7 +42,7 @@ export type Page =
 const PAGE_LABELS: Record<Page, string> = {
   pipeline: "Content Scheduling", kanban: "Script Kanban",
   tasks: "Script Tasks", concepts: "Concept Library", analytics: "Analytics", dms: "DM Pipeline",
-  instagram: "Instagram", board: "Strategy Board", team: "Team", chat: "Messages",
+  iginbox: "Instagram Inbox", instagram: "Instagram", board: "Strategy Board", team: "Team", chat: "Messages",
   settings: "Settings", context: "AI Context", transcribe: "Transcribe", clientsettings: "Settings",
 };
 
@@ -368,7 +369,7 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe","clientsettings"];
+    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","iginbox","instagram","board","team","chat","settings","context","transcribe","clientsettings"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
@@ -377,14 +378,20 @@ export default function App() {
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
     // Clients always get their Script Tasks; team members only if the owner granted it.
     if (activeProfile?.isClientAccount && !base.includes("tasks")) base.push("tasks");
+    // Instagram Inbox used to live inside DM Pipeline: anyone with "dms" keeps the inbox they
+    // could already use (no stored pageAccess contains "iginbox" yet).
+    if (base.includes("dms") && !base.includes("iginbox")) base.push("iginbox");
     // Client settings is owner-only — never expose it to a member login.
     return base.filter((p) => p !== "clientsettings" || session?.type === "owner");
   })();
 
   // Pages this member may VIEW but not edit (view-only). Empty for the owner.
-  const viewOnlyPages: Page[] = activeProfile?.viewOnlyPages
-    ? (activeProfile.viewOnlyPages.split(",").filter(Boolean) as Page[])
-    : [];
+  const viewOnlyPages: Page[] = (() => {
+    const list = activeProfile?.viewOnlyPages ? (activeProfile.viewOnlyPages.split(",").filter(Boolean) as Page[]) : [];
+    // Mirror the grandfathering above: view-only on DM Pipeline means view-only on the inbox too.
+    if (list.includes("dms") && !list.includes("iginbox")) list.push("iginbox");
+    return list;
+  })();
   const pageReadOnly = viewOnlyPages.includes(page);
 
   // Arc-style collapsible sidebar (persisted). When collapsed, content goes full-width
@@ -442,7 +449,8 @@ export default function App() {
       case "settings": return <SettingsPage clients={clients} refreshClients={fetchClients} onNavigateToPipeline={(id) => { setSelectedClientId(id); setPage("pipeline"); }} defaultWorkspaceId={activeWorkspaceId} isOwner={session?.type === "owner"} />;
       case "kanban": return <Kanban clients={clients} platform={platform} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} highlightDraftId={kanbanHighlightId} onHighlightConsumed={() => setKanbanHighlightId(null)} />;
       case "tasks": return <ScriptTasksPage clients={clients} selectedClientId={selectedClientId} canSubmit={session?.type === "member"} />;
-      case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} />;
+      case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} view="pipeline" />;
+      case "iginbox":  return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} view="inbox" />;
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} embedded={inPane} />;
       // No sidebar to offset from when the app is embedded in the dashboard: the board must start at x=0.
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed || embedded} embedded={inPane} />;

@@ -6,7 +6,7 @@ import type { SessionPayload } from "@/shared/auth/session";
 import { imgSrc } from "@/shared/media/videoSrc";
 
 
-type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe" | "clientsettings";
+type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "iginbox" | "team" | "chat" | "settings" | "context" | "transcribe" | "clientsettings";
 
 // Sidebar colours all resolve through the --color-nav-* tokens in globals.css (light = the
 // original navy palette verbatim, dark = near-black in the canvas family). Alpha variants
@@ -71,10 +71,17 @@ function IconTranscribe({ active }: { active: boolean }) {
 }
 
 
+// Instagram Inbox: a speech bubble with an unread dot — distinct from DM Pipeline (bubble with
+// text lines) and Messages (bubble with three dots).
+function IconInbox({ active }: { active: boolean }) {
+  const c = navIconColor(active);
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><path d="M2 4.5C2 3.67 2.67 3 3.5 3h6.3a3.5 3.5 0 0 0 3.7 3.7v3.8c0 .83-.67 1.5-1.5 1.5H8l-3 2v-2H3.5C2.67 12 2 11.33 2 10.5v-6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><circle cx="12.5" cy="3.5" r="2" fill="currentColor"/></svg>;
+}
 const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   pipeline: (a) => <IconCalendar active={a} />, kanban: (a) => <IconKanban active={a} />,
   concepts: (a) => <IconConcepts active={a} />, context: (a) => <IconBrain active={a} />,
   analytics: (a) => <IconAnalytics active={a} />, dms: (a) => <IconDMs active={a} />,
+  iginbox: (a) => <IconInbox active={a} />,
   instagram: (a) => <IconInstagram active={a} />, board: (a) => <IconBoard active={a} />,
   team: (a) => <IconTeam active={a} />, chat: (a) => <IconChat active={a} />,
   tasks: (a) => <IconTasks active={a} />,
@@ -92,6 +99,7 @@ const NAV_GROUPS = [
     { id: "context" as Page, label: "AI Context" },
     { id: "analytics" as Page, label: "Analytics" },
     { id: "dms" as Page, label: "DM Pipeline" },
+    { id: "iginbox" as Page, label: "Instagram Inbox" },
     { id: "instagram" as Page, label: "Instagram" },
     { id: "board" as Page, label: "Strategy Board" },
     { id: "transcribe" as Page, label: "Transcribe" },
@@ -122,9 +130,9 @@ type Props = {
 const PAGE_NAV_LABEL: Record<string, string> = {
   pipeline: "Content Scheduling", kanban: "Script Kanban", tasks: "Script Tasks",
   concepts: "Concept Library", context: "AI Context", analytics: "Analytics",
-  dms: "DM Pipeline", instagram: "Instagram", board: "Strategy Board", transcribe: "Transcribe",
+  dms: "DM Pipeline", iginbox: "Instagram Inbox", instagram: "Instagram", board: "Strategy Board", transcribe: "Transcribe",
 };
-const IG_FOLDER: Page[] = ["kanban", "tasks", "concepts", "context", "analytics", "dms", "instagram"];
+const IG_FOLDER: Page[] = ["kanban", "tasks", "concepts", "context", "analytics", "dms", "iginbox", "instagram"];
 // Cross-platform pages under WORK. Content Scheduling merges every enabled platform into one
 // calendar, so it must NOT switch the app's active platform when opened (see CROSS_PLATFORM).
 const SHARED_WORK: Page[] = ["pipeline", "board", "transcribe"];

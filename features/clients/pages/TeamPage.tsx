@@ -13,6 +13,7 @@ const ALL_PAGES = [
   { id: "concepts",  label: "Concept Library",     icon: "💡" },
   { id: "analytics", label: "Analytics",           icon: "📊" },
   { id: "dms",       label: "DM Pipeline",         icon: "💌" },
+  { id: "iginbox",   label: "Instagram Inbox",     icon: "💬" },
   { id: "instagram", label: "Instagram",           icon: "📸" },
   { id: "board",     label: "Strategy Board",      icon: "🗂️" },
   { id: "transcribe",label: "Transcribe",          icon: "🎙️" },
@@ -37,7 +38,7 @@ function parseAccess(pageAccess: string): string[] {
 
 // Pages that only make sense per platform, so we don't offer permission for a channel the client
 // doesn't have enabled.
-const IG_ONLY_PAGES = new Set(["instagram", "kanban", "tasks", "dms"]);
+const IG_ONLY_PAGES = new Set(["instagram", "kanban", "tasks", "dms", "iginbox"]);
 function pagesForClient(client?: Client | null): typeof ALL_PAGES {
   const igOn = client ? (client as { instagramEnabled?: boolean }).instagramEnabled !== false : true;
   return ALL_PAGES.filter((p) => (IG_ONLY_PAGES.has(p.id) ? igOn : true));
