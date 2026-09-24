@@ -284,3 +284,16 @@ export async function touchOutgoing(clientId: number, conversationId: string): P
   if (!(await mirrorTablesExist())) return;
   await prisma.zernioConversation.updateMany({ where: { id: conversationId, clientId }, data: { lastOutgoingAt: new Date(), lastMessageAt: new Date() } }).catch(() => {});
 }
+
+// ── Label stats (how many threads have a real identity) ──────────────────────
+export async function labelStats(clientId: number): Promise<{ total: number; name: number; handleOnly: number; anonymous: number; anonymousWithId: number }> {
+  if (!(await mirrorTablesExist())) return { total: 0, name: 0, handleOnly: 0, anonymous: 0, anonymousWithId: 0 };
+  const [row] = await prisma.$queryRawUnsafe<{ total: number; name: number; handleonly: number; anonymous: number; anonymouswithid: number }[]>(
+    `SELECT count(*)::int AS total,
+            count(*) FILTER (WHERE "participantName" IS NOT NULL AND trim("participantName") <> '${PLACEHOLDER}')::int AS name,
+            count(*) FILTER (WHERE ("participantName" IS NULL OR trim("participantName") = '${PLACEHOLDER}') AND "participantUsername" IS NOT NULL)::int AS handleonly,
+            count(*) FILTER (WHERE ("participantName" IS NULL OR trim("participantName") = '${PLACEHOLDER}') AND "participantUsername" IS NULL)::int AS anonymous,
+            count(*) FILTER (WHERE ("participantName" IS NULL OR trim("participantName") = '${PLACEHOLDER}') AND "participantUsername" IS NULL AND "participantId" IS NOT NULL)::int AS anonymouswithid
+       FROM "ZernioConversation" WHERE "clientId" = $1`, clientId);
+  return { total: Number(row?.total ?? 0), name: Number(row?.name ?? 0), handleOnly: Number(row?.handleonly ?? 0), anonymous: Number(row?.anonymous ?? 0), anonymousWithId: Number(row?.anonymouswithid ?? 0) };
+}

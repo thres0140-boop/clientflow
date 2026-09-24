@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import { isAdminToken } from "@/shared/auth/adminToken";
-import { mirrorTablesExist, walkClient, mirrorSizes } from "@/features/instagram/server/inboxMirror";
+import { mirrorTablesExist, walkClient, mirrorSizes, labelStats } from "@/features/instagram/server/inboxMirror";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const budgetMs = Math.max(30_000, Math.floor(260_000 / Math.max(1, conns.length)));
   const results = [];
   for (const { clientId } of conns) {
-    try { results.push(await walkClient(clientId, { budgetMs, driftOnly: false })); }
+    try { const r = await walkClient(clientId, { budgetMs, driftOnly: false }); results.push({ ...r, labels: await labelStats(clientId) }); }
     catch (e) { results.push({ clientId, error: e instanceof Error ? e.message : String(e) }); }
   }
   return NextResponse.json({ ok: true, budgetMsPerClient: budgetMs, results, sizes: await mirrorSizes() });

@@ -77,6 +77,7 @@ type Conversation = {
   // the placeholder "Instagram User". Keyed on the NAME only — a real person without a profile
   // picture is still identified.
   unidentified: boolean;
+  labelKind?: LabelKind;
 };
 type Attachment = {
   index: number; id?: string;
@@ -94,6 +95,26 @@ type Message = {
   storyReply?: boolean; isStoryMention?: boolean; isDeleted?: boolean;
   deliveryStatus?: string | null;
 };
+
+// ── Thread labels ─────────────────────────────────────────────────────────────
+// Priority: a real participantName → a captured @username → a STABLE anonymous label derived
+// from participantId ("Instagram user · 7Q2K"). The suffix is a short hash of the id, so the same
+// person always gets the same label and two anonymous threads are told apart — unlike the bare
+// "Instagram User" placeholder. Only the first two count as "identified" for the hide toggle.
+const PLACEHOLDER_NAME = "Instagram User";
+function isPlaceholderName(n: unknown): boolean { return !n || String(n).trim() === PLACEHOLDER_NAME; }
+function anonSuffix(id: string): string {
+  let h = 2166136261; // FNV-1a, then base36, 4 chars
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h.toString(36).toUpperCase().padStart(4, "0").slice(-4);
+}
+type LabelKind = "name" | "handle" | "anonymous";
+function threadLabel(c: { participantName?: string | null; participantUsername?: string | null; participantId?: string | null }): { label: string; kind: LabelKind } {
+  if (!isPlaceholderName(c.participantName)) return { label: String(c.participantName), kind: "name" };
+  if (c.participantUsername) return { label: `@${c.participantUsername}`, kind: "handle" };
+  if (c.participantId) return { label: `Instagram user · ${anonSuffix(String(c.participantId))}`, kind: "anonymous" };
+  return { label: PLACEHOLDER_NAME, kind: "anonymous" };
+}
 
 // Avatar that goes through /api/img (Instagram's CDN refuses cross-origin hotlinks) and falls
 // back to the initial via STATE — a broken image is logged, not hidden.
@@ -286,14 +307,14 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
         // the search endpoint; keep it if present.)
         const fromMirror = data.source === "mirror";
         const convs: Conversation[] = raw.map((c: any) => {
-          const name = c.participantName ?? "Instagram User";
           const handle = c.participantUsername ?? null; // only the mirror can have this (captured from webhooks)
+          const { label, kind } = threadLabel(c);
           return {
             id: String(c.id),
             igId: c.participantId ?? null,
-            // A captured username identifies the person even when the name is still the placeholder.
-            name: (!name || name.trim() === "Instagram User") && handle ? `@${handle}` : name,
-            unidentified: (!name || name.trim() === "Instagram User") && !handle,
+            name: label,
+            labelKind: kind,
+            unidentified: kind === "anonymous", // a name or a handle is a real identity; a derived label is not
             handle,
             avatar: c.participantPicture ?? null,
             snippet: typeof c.lastMessage === "string" ? c.lastMessage : (c.lastMessage?.text ?? null),
@@ -614,6 +635,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
 
   const unidentifiedCount = conversations.filter((c) => c.unidentified).length;
   const unidentifiedWithId = conversations.filter((c) => c.unidentified && !!c.igId).length;
+  const labelCounts = { name: 0, handle: 0, anonymous: 0 };
+  for (const c of conversations) labelCounts[c.labelKind ?? "anonymous"]++;
   const filteredConvs = conversations.filter((c) =>
     (showUnidentified || !c.unidentified) &&
     (!search || c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -758,8 +781,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
               {unidentifiedCount > 0 && (
                 <div className="px-3 pb-1.5 flex items-center justify-between gap-2">
                   <span className="text-[10px] text-faint truncate"
-                    title={`Threads where Meta did not resolve the sender (story replies, reactions). ${unidentifiedWithId} of them carry a participantId. The DM Pipeline still tracks them.`}>
-                    {showUnidentified ? `${unidentifiedCount} unidentified shown` : `${unidentifiedCount} unidentified hidden`}
+                    title={`Labels: ${labelCounts.name} with a real name · ${labelCounts.handle} by @username · ${labelCounts.anonymous} anonymous (${unidentifiedWithId} of those carry a participantId and get a stable "Instagram user · XXXX" label). Anonymous threads are story replies/reactions Meta did not resolve; the DM Pipeline still tracks them.`}>
+                    {showUnidentified ? `${unidentifiedCount} anonymous shown` : `${unidentifiedCount} anonymous hidden`}
                   </span>
                   <button onClick={() => setShowUnidentified((v) => !v)}
                     className="text-[10px] font-semibold text-accent hover:text-accent-strong flex-shrink-0">{showUnidentified ? "Hide" : "Show"}</button>
@@ -787,7 +810,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                 ) : inboxLoading && conversations.length === 0 ? (
                   <div className="p-8 text-center text-faint text-xs">Loading conversations…</div>
                 ) : filteredConvs.length === 0 ? (
-                  <div className="p-8 text-center text-faint text-xs">{search ? "No matches" : unidentifiedCount > 0 ? "Only unidentified conversations — use Show above" : "No conversations yet"}</div>
+                  <div className="p-8 text-center text-faint text-xs">{search ? "No matches" : unidentifiedCount > 0 ? "Only anonymous conversations — use Show above" : "No conversations yet"}</div>
                 ) : (
                   <>
                     {filteredConvs.map((conv) => {

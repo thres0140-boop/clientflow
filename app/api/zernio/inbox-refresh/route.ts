@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mirrorState, mirrorTablesExist, reconcileLight } from "@/features/instagram/server/inboxMirror";
+import { mirrorState, mirrorTablesExist, reconcileLight, labelStats } from "@/features/instagram/server/inboxMirror";
 
 export const maxDuration = 60;
 
@@ -13,5 +13,5 @@ export async function GET(req: NextRequest) {
   const cid = parseInt(clientId);
   if (!(await mirrorTablesExist())) return NextResponse.json({ ok: true, skipped: "mirror_not_migrated", mirror: await mirrorState(cid) });
   const result = await reconcileLight(cid, 25_000);
-  return NextResponse.json({ ok: true, result, mirror: await mirrorState(cid) });
+  return NextResponse.json({ ok: true, result, mirror: await mirrorState(cid), labels: await labelStats(cid) });
 }
