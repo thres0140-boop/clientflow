@@ -421,7 +421,9 @@ export default function App() {
     return list;
   })();
 
-  function renderPage(which: Page = page, embedded = false) {
+  // `inPane`: rendered inside a split-view pane (the pane is the positioning context). Distinct
+  // from `embedded` (the whole app inside the Cenks Dashboard iframe, which has no sidebar).
+  function renderPage(which: Page = page, inPane = false) {
     // Redirect to first allowed page if current page isn't allowed
     if (!allowedPages.includes(which)) {
       if (which === page) {
@@ -441,8 +443,9 @@ export default function App() {
       case "kanban": return <Kanban clients={clients} platform={platform} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} highlightDraftId={kanbanHighlightId} onHighlightConsumed={() => setKanbanHighlightId(null)} />;
       case "tasks": return <ScriptTasksPage clients={clients} selectedClientId={selectedClientId} canSubmit={session?.type === "member"} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} />;
-      case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} embedded={embedded} />;
-      case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed} embedded={embedded} />;
+      case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} embedded={inPane} />;
+      // No sidebar to offset from when the app is embedded in the dashboard: the board must start at x=0.
+      case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed || embedded} embedded={inPane} />;
       case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
       case "transcribe": return <TranscribePage />;
       case "clientsettings": return <ClientSettingsPage client={clients.find((c) => c.id === selectedClientId) ?? null} refreshClients={fetchClients} onManageAll={() => setPage("settings")} />;

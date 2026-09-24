@@ -597,7 +597,8 @@ function VideoPicker({ clientId, onPick, onClose }: { clientId: number; onPick: 
 
 function BoardSkeleton() {
   return (
-    <div className="absolute inset-0 left-[280px] flex items-center justify-center bg-board-loading">
+    // Rendered inside the canvas container, which already carries the sidebar offset.
+    <div className="absolute inset-0 flex items-center justify-center bg-board-loading">
       <div className="flex flex-col items-center gap-3 text-ink-400">
         <div className="w-8 h-8 border-2 border-line-harder border-t-indigo-500 rounded-full animate-spin" />
         <p className="text-sm">Loading board…</p>
