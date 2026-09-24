@@ -75,32 +75,50 @@ async function fetchNewestMessages(conversationId: string, accountId: string, cu
 }
 
 // ── Writers ──────────────────────────────────────────────────────────────────
-// From the LIST shape (participantName/Picture, lastMessage string, updatedTime, unreadCount, url,
-// isGroup, instagramProfile). No username here — the list endpoint has none.
-export async function upsertConversationFromList(clientId: number, accountId: string, c: any) {
-  const id = String(c.id);
-  const existing = await prisma.zernioConversation.findUnique({ where: { id } });
-  const updated = toDate(c.updatedTime);
-  const ig = c.instagramProfile ?? null;
-  const data = {
-    clientId, accountId,
-    participantId: c.participantId ?? existing?.participantId ?? null,
-    participantName: !isPlaceholder(c.participantName) ? String(c.participantName) : (existing?.participantName ?? (c.participantName ? String(c.participantName) : null)),
-    participantPicture: c.participantPicture ?? existing?.participantPicture ?? null,
-    status: c.status ?? existing?.status ?? "active",
-    isGroup: !!c.isGroup,
-    url: c.url ?? existing?.url ?? null,
-    lastMessageText: typeof c.lastMessage === "string" && (!existing?.lastMessageAt || !updated || updated >= existing.lastMessageAt) ? c.lastMessage : (existing?.lastMessageText ?? null),
-    lastMessageAt: later(existing?.lastMessageAt, updated),
-    zernioUnreadCount: c.unreadCount ?? null,
-    ...(ig ? { igIsFollower: ig.isFollower ?? null, igIsFollowing: ig.isFollowing ?? null, igFollowerCount: ig.followerCount ?? null, igIsVerified: ig.isVerified ?? null, igFetchedAt: toDate(ig.fetchedAt) ?? new Date() } : {}),
-    syncedAt: new Date(),
-  };
-  await prisma.zernioConversation.upsert({ where: { id }, create: { id, ...data }, update: data });
-  return { existing, updated };
+// One page of conversations in TWO database round trips: read the existing lastMessageAt/syncedAt
+// for drift detection, then a single INSERT … ON CONFLICT with the identity-improve rules in SQL
+// (a real name replaces the placeholder, picture/url/participantId are never cleared, timestamps
+// only move forward). Replaces one findUnique + one upsert per row — the backfill's real cost.
+export async function upsertConversationsFromList(clientId: number, accountId: string, items: any[]): Promise<Map<string, { existing: { lastMessageAt: Date | null; syncedAt: Date | null } | null; updated: Date | null }>> {
+  const out = new Map<string, { existing: { lastMessageAt: Date | null; syncedAt: Date | null } | null; updated: Date | null }>();
+  const rows = items.filter((c) => c?.id);
+  if (!rows.length) return out;
+  const ids = rows.map((c) => String(c.id));
+  const existing = await prisma.zernioConversation.findMany({ where: { id: { in: ids } }, select: { id: true, lastMessageAt: true, syncedAt: true } });
+  const byId = new Map(existing.map((e) => [e.id, { lastMessageAt: e.lastMessageAt, syncedAt: e.syncedAt }]));
+  const params: unknown[] = [];
+  const tuples: string[] = [];
+  for (const c of rows) {
+    const ig = c.instagramProfile ?? null;
+    const updated = toDate(c.updatedTime);
+    out.set(String(c.id), { existing: byId.get(String(c.id)) ?? null, updated });
+    const vals = [String(c.id), clientId, accountId, c.participantId ?? null, c.participantName ? String(c.participantName) : null, c.participantPicture ?? null,
+      c.status ?? "active", !!c.isGroup, c.url ?? null, typeof c.lastMessage === "string" ? c.lastMessage : null, updated, c.unreadCount ?? null,
+      ig?.isFollower ?? null, ig?.isFollowing ?? null, ig?.followerCount ?? null, ig?.isVerified ?? null, ig ? (toDate(ig.fetchedAt) ?? new Date()) : null];
+    const base = params.length;
+    params.push(...vals);
+    tuples.push("(" + vals.map((_, i) => `${base + i + 1}`).join(",") + ")");
+  }
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "ZernioConversation" ("id","clientId","accountId","participantId","participantName","participantPicture","status","isGroup","url","lastMessageText","lastMessageAt","zernioUnreadCount","igIsFollower","igIsFollowing","igFollowerCount","igIsVerified","igFetchedAt","syncedAt","createdAt","updatedAt")
+    SELECT v.*, now(), now(), now() FROM (VALUES ${tuples.join(",")}) AS v("id","clientId","accountId","participantId","participantName","participantPicture","status","isGroup","url","lastMessageText","lastMessageAt","zernioUnreadCount","igIsFollower","igIsFollowing","igFollowerCount","igIsVerified","igFetchedAt")
+    ON CONFLICT ("id") DO UPDATE SET
+      "participantId" = COALESCE(EXCLUDED."participantId", "ZernioConversation"."participantId"),
+      "participantName" = CASE WHEN EXCLUDED."participantName" IS NOT NULL AND trim(EXCLUDED."participantName") <> '${PLACEHOLDER}' THEN EXCLUDED."participantName" ELSE COALESCE("ZernioConversation"."participantName", EXCLUDED."participantName") END,
+      "participantPicture" = COALESCE(EXCLUDED."participantPicture", "ZernioConversation"."participantPicture"),
+      "status" = EXCLUDED."status", "isGroup" = EXCLUDED."isGroup", "url" = COALESCE(EXCLUDED."url", "ZernioConversation"."url"),
+      "lastMessageText" = CASE WHEN "ZernioConversation"."lastMessageAt" IS NULL OR EXCLUDED."lastMessageAt" IS NULL OR EXCLUDED."lastMessageAt" >= "ZernioConversation"."lastMessageAt" THEN COALESCE(EXCLUDED."lastMessageText", "ZernioConversation"."lastMessageText") ELSE "ZernioConversation"."lastMessageText" END,
+      "lastMessageAt" = CASE WHEN "ZernioConversation"."lastMessageAt" IS NULL THEN EXCLUDED."lastMessageAt" WHEN EXCLUDED."lastMessageAt" IS NULL THEN "ZernioConversation"."lastMessageAt" ELSE GREATEST("ZernioConversation"."lastMessageAt", EXCLUDED."lastMessageAt") END,
+      "zernioUnreadCount" = EXCLUDED."zernioUnreadCount",
+      "igIsFollower" = COALESCE(EXCLUDED."igIsFollower", "ZernioConversation"."igIsFollower"),
+      "igIsFollowing" = COALESCE(EXCLUDED."igIsFollowing", "ZernioConversation"."igIsFollowing"),
+      "igFollowerCount" = COALESCE(EXCLUDED."igFollowerCount", "ZernioConversation"."igFollowerCount"),
+      "igIsVerified" = COALESCE(EXCLUDED."igIsVerified", "ZernioConversation"."igIsVerified"),
+      "igFetchedAt" = COALESCE(EXCLUDED."igFetchedAt", "ZernioConversation"."igFetchedAt"),
+      "syncedAt" = now(), "updatedAt" = now()`, ...params);
+  return out;
 }
 
-// Mirror the newest page of a thread and advance the conversation's direction timestamps.
 // Mirror just enough of a thread to set lastIncomingAt and lastOutgoingAt: the newest page gives
 // the latest incoming message; we keep paging (25 at a time, at most 4 pages) only until the most
 // recent OUTGOING message is found. Usually that is one request. If 100 messages are all incoming
@@ -175,11 +193,12 @@ export async function walkClient(clientId: number, opts: { budgetMs: number; dri
     const page = await fetchConversationPage(conn.profileId, conn.accountId, cursor);
     if (!page) break;
     r.pages++;
+    const info = await upsertConversationsFromList(clientId, conn.accountId, page.items);
+    r.conversations += info.size;
     for (const c of page.items) {
       if (Date.now() - started > opts.budgetMs) { r.budgetHit = true; break; }
       try {
-        const { existing, updated } = await upsertConversationFromList(clientId, conn.accountId, c);
-        r.conversations++;
+        const { existing, updated } = info.get(String(c.id)) ?? { existing: null, updated: null };
         const drifted = !existing || !existing.lastMessageAt || !updated || updated > existing.lastMessageAt || !existing.syncedAt;
         // Messages only where a badge is possible: Zernio's unreadCount > 0 (a superset of truly
         // unread). Backfill fetches those once; the full walk refetches them only when drifted.
@@ -211,11 +230,12 @@ export async function reconcileLight(clientId: number, budgetMs: number): Promis
   const page = await fetchConversationPage(conn.profileId, conn.accountId, null);
   if (!page) return { ...r, skipped: "conversations_failed" };
   r.pages = 1;
+  const info = await upsertConversationsFromList(clientId, conn.accountId, page.items);
+  r.conversations = info.size;
   for (const c of page.items) {
     if (Date.now() - started > budgetMs) { r.budgetHit = true; break; }
     try {
-      const { existing, updated } = await upsertConversationFromList(clientId, conn.accountId, c);
-      r.conversations++;
+      const { existing, updated } = info.get(String(c.id)) ?? { existing: null, updated: null };
       const drifted = !existing || !existing.lastMessageAt || !updated || updated > existing.lastMessageAt;
       if (drifted && (c.unreadCount ?? 0) > 0) { await sleep(THROTTLE_MS); r.messagesInserted += await mirrorNewestMessages(clientId, String(c.id), conn.accountId); }
     } catch (e) { console.error("[inbox-mirror] reconcile error", clientId, c?.id, e instanceof Error ? e.message : e); }
