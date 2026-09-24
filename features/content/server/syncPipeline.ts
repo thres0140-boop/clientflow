@@ -21,7 +21,70 @@ function normHandle(h?: string | null) {
 }
 const idx = (s: string) => DM_STATUS_ORDER.indexOf(s);
 
-export type SyncResult = { created: number; answered: number; ctaFound: number; linked: number; scanned: number; skipped?: string };
+export type SyncResult = {
+  created: number; answered: number; ctaFound: number; linked: number;
+  scanned: number;            // conversations examined this run
+  total: number;              // conversations Zernio returned (all pages, up to MAX_PAGES)
+  pages: number;              // Zernio pages fetched
+  truncated: boolean;         // more pages existed beyond MAX_PAGES
+  budgetHit: boolean;         // stopped early on the time budget; the rest is picked up next run
+  unidentified: number;       // participantName missing / "Instagram User"
+  unidentifiedWithId: number; // …of which carry a participantId
+  skipped?: string;
+};
+
+// Zernio pages conversations (default 50, max 100) with pagination.nextCursor. We follow it up to
+// MAX_PAGES so the pipeline sees the whole inbox, not page one. Per-conversation work is bounded by
+// a time budget (page load: short; cron: long) — the "unchanged since last scan" skip makes the
+// steady state cheap, and a backlog drains across successive cron runs.
+const PAGE_SIZE = 100;
+const MAX_PAGES = 20; // 2,000 conversations
+
+async function fetchAllConversations(profileId: string, accountId: string): Promise<{ items: any[]; pages: number; truncated: boolean } | null> {
+  const items: any[] = [];
+  let cursor: string | null = null;
+  let pages = 0;
+  do {
+    const url = new URL(`${ZERNIO_BASE}/inbox/conversations`);
+    url.searchParams.set("profileId", profileId);
+    url.searchParams.set("accountId", accountId);
+    url.searchParams.set("platform", "instagram");
+    url.searchParams.set("limit", String(PAGE_SIZE));
+    url.searchParams.set("sortOrder", "desc");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${ZERNIO_KEY}`, Accept: "application/json" } });
+    if (!res.ok) { if (items.length) break; return null; }
+    const data = await res.json();
+    items.push(...(Array.isArray(data?.data) ? data.data : []));
+    cursor = data?.pagination?.hasMore && data?.pagination?.nextCursor ? String(data.pagination.nextCursor) : null;
+    pages++;
+  } while (cursor && pages < MAX_PAGES);
+  return { items, pages, truncated: !!cursor };
+}
+
+// Messages: Zernio returns at most 100 per call (default oldest-first, no cursor followed). For
+// detection we need BOTH ends: the oldest page (first-message date, first reply) and — when the
+// thread is longer than one page — the newest page (booking link / CTA sent recently).
+async function fetchMessagesForDetection(conversationId: string, accountId: string): Promise<any[] | null> {
+  const get = async (sortOrder: "asc" | "desc") => {
+    const url = new URL(`${ZERNIO_BASE}/inbox/conversations/${conversationId}/messages`);
+    url.searchParams.set("accountId", accountId);
+    url.searchParams.set("limit", "100");
+    url.searchParams.set("sortOrder", sortOrder);
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${ZERNIO_KEY}`, Accept: "application/json" } });
+    if (!res.ok) return null;
+    return res.json();
+  };
+  const oldest = await get("asc");
+  if (!oldest) return null;
+  const msgs: any[] = Array.isArray(oldest?.messages) ? oldest.messages : [];
+  if (oldest?.pagination?.hasMore) {
+    const newest = await get("desc");
+    const seen = new Set(msgs.map((m) => String(m.id)));
+    for (const m of (Array.isArray(newest?.messages) ? newest.messages : [])) if (!seen.has(String(m.id))) msgs.push(m);
+  }
+  return msgs;
+}
 
 /**
  * Scan a client's Zernio conversations + messages and update DmLeads:
@@ -31,8 +94,10 @@ export type SyncResult = { created: number; answered: number; ctaFound: number; 
  *  - promote to link_sent when the booking link was sent (bumps Links Sent)
  * Safe to call from a page load or a cron. Idempotent — counters fire once per lead.
  */
-export async function syncClientPipeline(clientId: number): Promise<SyncResult> {
-  const empty: SyncResult = { created: 0, answered: 0, ctaFound: 0, linked: 0, scanned: 0 };
+export async function syncClientPipeline(clientId: number, opts: { budgetMs?: number } = {}): Promise<SyncResult> {
+  const budgetMs = opts.budgetMs ?? 15_000;
+  const started = Date.now();
+  const empty: SyncResult = { created: 0, answered: 0, ctaFound: 0, linked: 0, scanned: 0, total: 0, pages: 0, truncated: false, budgetHit: false, unidentified: 0, unidentifiedWithId: 0 };
 
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   const conn = await prisma.instagramConnection.findUnique({ where: { clientId } });
@@ -43,17 +108,10 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
   const bookingLink = (client?.bookingLink ?? "").trim();
   const today = ymd();
 
-  // 1. Conversations
-  const convUrl = new URL(`${ZERNIO_BASE}/inbox/conversations`);
-  convUrl.searchParams.set("profileId", profileId);
-  convUrl.searchParams.set("accountId", conn.zernioAccountId);
-  convUrl.searchParams.set("platform", "instagram");
-  const convRes = await fetch(convUrl.toString(), {
-    headers: { Authorization: `Bearer ${ZERNIO_KEY}`, Accept: "application/json" },
-  });
-  if (!convRes.ok) return { ...empty, skipped: "conversations_failed" };
-  const convData = await convRes.json();
-  const conversations: any[] = convData.data ?? convData.conversations ?? convData.items ?? [];
+  // 1. Conversations — every page, newest first
+  const fetched = await fetchAllConversations(profileId, conn.zernioAccountId);
+  if (!fetched) return { ...empty, skipped: "conversations_failed" };
+  const conversations: any[] = fetched.items;
 
   // 2. Existing leads — index by convId (primary) and handle (legacy fallback)
   const leads = await prisma.dmLead.findMany({ where: { clientId } });
@@ -65,9 +123,15 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
     if (h) leadByHandle.set(h, l);
   }
 
-  const r: SyncResult = { ...empty, scanned: Math.min(conversations.length, 30) };
+  const r: SyncResult = {
+    ...empty, total: conversations.length, pages: fetched.pages, truncated: fetched.truncated,
+    unidentified: conversations.filter((c) => !c.participantName || String(c.participantName).trim() === "Instagram User").length,
+    unidentifiedWithId: conversations.filter((c) => (!c.participantName || String(c.participantName).trim() === "Instagram User") && !!c.participantId).length,
+  };
 
-  for (const conv of conversations.slice(0, 30)) {
+  for (const conv of conversations) {
+    if (Date.now() - started > budgetMs) { r.budgetHit = true; break; }
+    r.scanned++;
     try {
       const convId = String(conv.id);
       const convTime = conv.updatedTime ?? conv.updatedAt ?? conv.updated_at ?? "";
@@ -110,14 +174,8 @@ export async function syncClientPipeline(clientId: number): Promise<SyncResult> 
 
       // Messages — gentle throttle to avoid bursting Zernio's rate limit
       await new Promise((res) => setTimeout(res, 120));
-      const msgUrl = new URL(`${ZERNIO_BASE}/inbox/conversations/${conv.id}/messages`);
-      msgUrl.searchParams.set("accountId", conn.zernioAccountId);
-      const msgRes = await fetch(msgUrl.toString(), {
-        headers: { Authorization: `Bearer ${ZERNIO_KEY}`, Accept: "application/json" },
-      });
-      if (!msgRes.ok) continue;
-      const msgData = await msgRes.json();
-      const messages: any[] = msgData.messages ?? msgData.data ?? msgData.items ?? [];
+      const messages = await fetchMessagesForDetection(String(conv.id), conn.zernioAccountId);
+      if (!messages) continue;
 
       const incoming = messages.filter((m: any) =>
         m.direction === "incoming" || m.isOwn === false || m.is_sender === false
