@@ -824,6 +824,12 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
                         {/* Per-card actions */}
                         {stage.name === "Edit" ? (
                           <div className="space-y-1">
+                            {/* In-app editor (Phase 2). Sits next to the upload, does not replace it: until Phase 4
+                                the editor cannot export, so "Upload Edited Video" stays the way a cut reaches the draft. */}
+                            <a href={`/edit/${draft.id}`} onClick={(e) => e.stopPropagation()}
+                              className="w-full py-1.5 text-[10px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 text-hue-violet-700 bg-hue-violet-50 hover:bg-hue-violet-100">
+                              ✂ Open in editor
+                            </a>
                             <EditedVideoUploadButton draft={draft} onUploaded={(url) => {
                               fetch(`/api/script-drafts/${draft.id}`, {
                                 method: "PUT",
@@ -1879,7 +1885,12 @@ function DraftDetailPanel({
                 {/* Finished video — uploaded on Edit, viewed on every stage after Edit (checks, Schedule, …) */}
                 {inStage && (isEditStage || afterEdit) && (
                   <div>
-                    <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1.5">Finished Video</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-ink-500 uppercase tracking-wide">Finished Video</label>
+                      {isEditStage && (
+                        <a href={`/edit/${draft.id}`} className="text-[11px] font-semibold text-hue-violet-700 hover:underline">✂ Open in editor</a>
+                      )}
+                    </div>
                     {isEditStage ? (
                       <FinishedVideoUpload draft={draft} onUploaded={onEditedVideoUploaded} />
                     ) : draft.editedVideoUrl ? (
