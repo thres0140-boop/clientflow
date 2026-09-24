@@ -101,6 +101,7 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 const clamp = (n: unknown, lo: number, hi: number, d: number) => (typeof n === "number" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d);
 const hex = (v: unknown, d: HexColor): HexColor => (typeof v === "string" && HEX.test(v) ? (v.toLowerCase() as HexColor) : d);
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- `any` is confined to coercing untrusted JSON below */
 /** Coerces any stored JSON (an older version, a partial override, garbage) into a valid style.
  *  Unknown fonts fall back to the default font; out-of-range numbers are clamped. */
 export function normalizeCaptionStyle(input: unknown, base: CaptionStyle = DEFAULT_CAPTION_STYLE): CaptionStyle {

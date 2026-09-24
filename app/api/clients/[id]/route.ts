@@ -14,6 +14,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       notes: body.notes !== undefined ? (body.notes || null) : undefined,
       captionStyle: body.captionStyle !== undefined ? (body.captionStyle || null) : undefined,
       captionGuidelines: body.captionGuidelines !== undefined ? (body.captionGuidelines || null) : undefined,
+      // Video editor: the client's default on-screen caption look (JSON CaptionStyle), set from the editor's "save as client default".
+      subtitleStyle: body.subtitleStyle !== undefined ? (body.subtitleStyle ? JSON.stringify(body.subtitleStyle) : null) : undefined,
       dayTemplate: body.dayTemplate !== undefined ? (body.dayTemplate || null) : undefined,
       bookingLink: body.bookingLink !== undefined ? (body.bookingLink || null) : undefined,
       scriptRules: body.scriptRules !== undefined ? (body.scriptRules || null) : undefined,

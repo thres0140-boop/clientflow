@@ -125,6 +125,7 @@ function transform(t: unknown): Transform {
   };
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- `any` is confined to coercing untrusted JSON below */
 /** Coerces whatever is in the column into a valid document and re-derives the invariants:
  *  main-track clips are contiguous and `at` follows from their lengths; every clip points at an
  *  asset that exists; there is exactly one main track. Garbage in → a valid empty document out,

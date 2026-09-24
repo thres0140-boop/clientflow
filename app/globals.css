@@ -159,6 +159,7 @@
   --color-hue-orange-300: oklch(83.7% 0.128 66.29);
   --color-hue-orange-400: oklch(75% 0.183 55.934);
   --color-hue-violet-50: oklch(96.9% 0.016 293.756);
+  --color-hue-violet-100: oklch(94.3% 0.029 294.588);
   --color-hue-violet-200: oklch(89.4% 0.057 293.283);
   --color-hue-violet-400: oklch(70.2% 0.183 293.541);
   --color-hue-violet-500: oklch(60.6% 0.25 292.717);
@@ -361,6 +362,7 @@
   --color-hue-orange-300: rgba(249, 115, 22, 0.45);
   --color-hue-orange-400: #fb923c;
   --color-hue-violet-50: rgba(139, 92, 246, 0.10);
+  --color-hue-violet-100: rgba(139, 92, 246, 0.18);
   --color-hue-violet-200: rgba(139, 92, 246, 0.32);
   --color-hue-violet-400: #a78bfa;
   --color-hue-violet-500: #8b5cf6;
