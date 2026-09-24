@@ -18,10 +18,22 @@ Vercel Function, because the only way to make the function fast re-prices every 
 
 ## Schema
 
-Applied with the admin migrate route's new isolated branch `GET /api/admin/migrate?editor=1&token=…`
-(single statements, `IF NOT EXISTS`, re-runnable, followed by an `information_schema` read-back so
-the response proves what exists). The same tables are declared in `prisma/schema.prisma`; those
-two hunks were swept into commit 613d129 by the Inbox-mirror session working in the same tree.
+Applied through the admin migrate route's new isolated branch, the same way `?reelcols=1` was:
+
+```
+GET https://www.ordoagency.com/api/admin/migrate?editor=1&token=<ADMIN_TOKEN>
+```
+
+Single statements, `IF NOT EXISTS`, re-runnable, followed by an `information_schema` read-back so
+the response proves what exists rather than what was attempted. A correct run answers
+`{"editor":{"Client.subtitleStyle":"ok","EditProject":"ok","RenderJob":"ok","RenderJob_projectId_createdAt_idx":"ok"},"columns":[…]}`
+with `EditProject` and `RenderJob` listed in `columns`. The branch has been in production since
+613d129. **The call itself still has to be made by the owner:** `ADMIN_TOKEN` and the database
+URLs are marked *sensitive* in Vercel, so `vercel env pull` hands out `[SENSITIVE]` placeholders
+and the session that wrote this could neither call the route nor reach Neon directly. Until it
+runs, the four editor routes fail on the missing tables and nothing else in the app is affected.
+The same tables are declared in `prisma/schema.prisma`; those two hunks were swept into commit
+613d129 by the Inbox-mirror session working in the same tree.
 
 ```
 Client.subtitleStyle   TEXT NULL       -- JSON CaptionStyle: the client's default on-screen caption look
