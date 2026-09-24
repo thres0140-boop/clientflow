@@ -20,7 +20,8 @@ const eslintConfig = defineConfig([
   },
   {
     files: ["app/**", "features/**", "shared/**"],
-    ignores: ["app/ai/**"],
+    // app/api/admin/migrate/ai-clients is the phase-3 copy bridge (see check-db-boundaries.mjs).
+    ignores: ["app/ai/**", "app/api/admin/migrate/ai-clients/**"],
     rules: { "no-restricted-imports": ["error", { patterns: [{ group: AI_ONLY_IMPORTS, message: "Agency code must never import AI product modules." }] }] },
   },
   // Override default ignores of eslint-config-next.

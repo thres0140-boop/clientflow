@@ -47,6 +47,9 @@ const AGENCY_ONLY = [
 ];
 const AI_ONLY = [/^ai\//, /^app\/ai\//, /^app\/generated\/prisma-ai\//];
 const SLUG_ALLOWED_FROM = new Set(["proxy.ts", "next.config.ts"]);
+// The ONE file allowed to see both databases: the phase-3 client-copy bridge (reads agency,
+// writes AI). It may import ai/db/prisma and nothing else from the AI tree. Remove after the copy.
+const BRIDGE_FILES = new Set(["app/api/admin/migrate/ai-clients/route.ts"]);
 
 const errors = [];
 for (const f of files) {
@@ -61,7 +64,8 @@ for (const f of files) {
       if (/^app\/generated\/prisma-ai\//.test(t) && r !== "ai/db/prisma.ts") errors.push(`${r} imports the AI generated client directly (only ai/db/prisma.ts may)`);
     } else {
       const slugOnly = t === "ai/slug" && SLUG_ALLOWED_FROM.has(r);
-      if (!slugOnly && AI_ONLY.some((re) => re.test(t))) errors.push(`${r} imports AI product module "${m[1]}"`);
+      const bridge = t === "ai/db/prisma" && BRIDGE_FILES.has(r);
+      if (!slugOnly && !bridge && AI_ONLY.some((re) => re.test(t))) errors.push(`${r} imports AI product module "${m[1]}"`);
       if (/^app\/generated\/prisma\//.test(t) && r !== "shared/db/prisma.ts") errors.push(`${r} imports the agency generated client directly (only shared/db/prisma.ts may)`);
     }
   }
