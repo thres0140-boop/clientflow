@@ -415,16 +415,6 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     return NextResponse.json(out);
   }
 
-  // Diagnostic: run the Instructions engine for the first TikTok-linked client.
-  if (req.nextUrl.searchParams.get("ttinstrtest")) {
-    const { generateInstructions } = await import("@/features/tiktok/server/tiktokInstructions");
-    const c = await (prisma as any).client.findFirst({ where: { tiktokZernioAccountId: { not: null } }, select: { id: true, name: true } });
-    if (!c) return NextResponse.json({ note: "no tiktok-linked client" });
-    const r = await generateInstructions(c.id).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
-    return NextResponse.json({ client: c.name, connected: (r as any).connected, note: (r as any).note, stats: (r as any).stats, summary: (r as any).summary,
-      counts: { keep: (r as any).keep?.length, test: (r as any).test?.length, copy: (r as any).copy?.length, stop: (r as any).stop?.length },
-      sampleKeep: (r as any).keep?.slice(0, 2), sampleCopy: (r as any).copy?.slice(0, 2) });
-  }
 
   // TikTok Instructions engine cache table.
   if (req.nextUrl.searchParams.get("ttinstructions")) {

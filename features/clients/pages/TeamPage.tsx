@@ -14,7 +14,6 @@ const ALL_PAGES = [
   { id: "analytics", label: "Analytics",           icon: "📊" },
   { id: "dms",       label: "DM Pipeline",         icon: "💌" },
   { id: "instagram", label: "Instagram",           icon: "📸" },
-  { id: "tiktok",    label: "TikTok",              icon: "🎵" },
   { id: "board",     label: "Strategy Board",      icon: "🗂️" },
   { id: "transcribe",label: "Transcribe",          icon: "🎙️" },
   { id: "team",      label: "Team",                icon: "🤝" },
@@ -37,12 +36,11 @@ function parseAccess(pageAccess: string): string[] {
 }
 
 // Pages that only make sense per platform, so we don't offer permission for a channel the client
-// doesn't have enabled (and we surface the TikTok page only when TikTok is on).
+// doesn't have enabled.
 const IG_ONLY_PAGES = new Set(["instagram", "kanban", "tasks", "dms"]);
 function pagesForClient(client?: Client | null): typeof ALL_PAGES {
   const igOn = client ? (client as { instagramEnabled?: boolean }).instagramEnabled !== false : true;
-  const ttOn = client ? !!(client as { tiktokEnabled?: boolean }).tiktokEnabled : false;
-  return ALL_PAGES.filter((p) => (p.id === "tiktok" ? ttOn : IG_ONLY_PAGES.has(p.id) ? igOn : true));
+  return ALL_PAGES.filter((p) => (IG_ONLY_PAGES.has(p.id) ? igOn : true));
 }
 
 export default function TeamPage({ clients, selectedClientId }: Props) {
@@ -240,15 +238,9 @@ function MemberModal({ member, clientId, client, onClose, onSaved }: { member?: 
   const availableSet = new Set(availableIds);
   const roleToIds = (pages: string[] | "all" | undefined): string[] => {
     if (pages === "all") return availableIds;
-    const ids = (pages ?? []).filter((id) => availableSet.has(id));
-    // On a TikTok client, any content-oriented role should include the TikTok page by default
-    // (roles are platform-agnostic, so we add it when they grant core content pages).
-    if (availableSet.has("tiktok") && ids.some((id) => ["pipeline", "concepts", "analytics", "kanban"].includes(id)) && !ids.includes("tiktok")) {
-      ids.push("tiktok");
-    }
-    return ids;
+    return (pages ?? []).filter((id) => availableSet.has(id));
   };
-  const clientDefaultIds = [...CLIENT_PAGES, "tiktok"].filter((id) => availableSet.has(id));
+  const clientDefaultIds = CLIENT_PAGES.filter((id) => availableSet.has(id));
   // Editing a client must open as a client (not default to "team" → "Editor").
   const [memberType, setMemberType] = useState<"team" | "client">(member?.isClientAccount ? "client" : "team");
 

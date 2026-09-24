@@ -16,7 +16,7 @@ export default function ClientSettingsPage({ client, refreshClients, onManageAll
     name: "", color: "#3d4aa3", language: "nl",
     generationInterval: 2, scriptAlternatives: 5,
     captionStyle: "", captionGuidelines: "", scriptRules: "",
-    bookingLink: "", ctaKeyword: "", instagramEnabled: true, tiktokEnabled: false, tiktokHandle: "",
+    bookingLink: "", ctaKeyword: "", instagramEnabled: true,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -35,8 +35,6 @@ export default function ClientSettingsPage({ client, refreshClients, onManageAll
       bookingLink: client.bookingLink || "",
       ctaKeyword: client.ctaKeyword || "",
       instagramEnabled: (client as any).instagramEnabled !== false, // default on // eslint-disable-line @typescript-eslint/no-explicit-any
-      tiktokEnabled: !!(client as any).tiktokEnabled, // eslint-disable-line @typescript-eslint/no-explicit-any
-      tiktokHandle: (client as any).tiktokHandle || "", // eslint-disable-line @typescript-eslint/no-explicit-any
     });
     setSaved(false);
   }, [client]);
@@ -102,20 +100,9 @@ export default function ClientSettingsPage({ client, refreshClients, onManageAll
         </Card>
 
         {/* Platforms */}
-        <Card title="Platforms" subtitle="Which channels this client is active on (at least one must stay on).">
+        <Card title="Platforms" subtitle="Which channels this client is active on.">
           <Toggle label="📸 Instagram" desc="Instagram pipeline, competitors & DMs." checked={form.instagramEnabled}
-            onChange={(v) => { if (!v && !form.tiktokEnabled) { alert("Enable TikTok first — a client must have at least one platform on."); return; } set("instagramEnabled", v); }} />
-          <Toggle label="🎵 TikTok" desc="TikTok pipeline (separate from Instagram)." checked={form.tiktokEnabled}
-            onChange={(v) => { if (!v && !form.instagramEnabled) { alert("Enable Instagram first — a client must have at least one platform on."); return; } set("tiktokEnabled", v); }} />
-          {form.tiktokEnabled && (
-            <div className="rounded-lg bg-surface-2 border border-line px-3 py-2.5">
-              {(client as any)?.tiktokZernioUsername ? ( // eslint-disable-line @typescript-eslint/no-explicit-any
-                <p className="text-xs text-ink-2"><span className="font-semibold text-ok-700">✓ Connected via Zernio</span> · @{(client as any).tiktokZernioUsername}</p>
-              ) : (
-                <p className="text-xs text-muted">Connect this client&apos;s TikTok on the <span className="font-semibold text-ink-2">TikTok → Profile</span> tab (one-click, via Zernio) to pull analytics.</p>
-              )}
-            </div>
-          )}
+            onChange={(v) => set("instagramEnabled", v)} />
         </Card>
 
         {/* Content generation */}

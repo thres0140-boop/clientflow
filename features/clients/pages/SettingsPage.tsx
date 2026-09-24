@@ -257,56 +257,8 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
   const [disconnecting, setDisconnecting]   = useState(false);
   const [profileId, setProfileId]           = useState((client.instagramConnection as any)?.zernioProfileId ?? "");
 
-  // TikTok (via Zernio) — same profile, separate account link stored on the Client row.
-  const [ttLinked, setTtLinked]             = useState(!!client.tiktokZernioAccountId);
-  const [ttUsername, setTtUsername]         = useState<string | null>(client.tiktokZernioUsername ?? null);
-  const [ttAccounts, setTtAccounts]         = useState<any[]>([]);
-  const [ttShowPicker, setTtShowPicker]     = useState(false);
-  const [ttLoading, setTtLoading]           = useState(false);
-  const [ttDisconnecting, setTtDisconnecting] = useState(false);
-
   const metaConnected  = !!client.instagramConnection?.accessToken;
   const zernioConnected = linked;
-
-  async function loadTikTokAccounts() {
-    if (!profileId.trim()) { alert("Paste the Zernio Profile ID first (same one as Instagram)."); return; }
-    setTtLoading(true);
-    setTtShowPicker(true);
-    try {
-      const res = await fetch(`/api/zernio/accounts?profileId=${encodeURIComponent(profileId.trim())}&platform=tiktok`);
-      const data = await res.json();
-      if (!res.ok) {
-        alert("Zernio error: " + (data?.error ?? res.status));
-        setTtShowPicker(false); setTtLoading(false); return;
-      }
-      const list = Array.isArray(data) ? data : Array.isArray(data.accounts) ? data.accounts : Array.isArray(data.data) ? data.data : [];
-      setTtAccounts(list);
-    } catch (e) { alert("Network error: " + String(e)); setTtShowPicker(false); }
-    setTtLoading(false);
-  }
-
-  async function linkTikTok(acc: any) {
-    const accountId = acc._id ?? acc.id;
-    const username = acc.username ?? acc.displayName ?? acc.name ?? null;
-    const res = await fetch("/api/zernio/tiktok-link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: client.id, zernioAccountId: accountId, username, zernioProfileId: profileId.trim() }),
-    });
-    if (!res.ok) { const err = await res.json().catch(() => ({})); alert("Failed to save: " + (err?.error ?? res.status)); return; }
-    setTtLinked(true); setTtUsername(username); setTtShowPicker(false); setTtAccounts([]);
-    onLinked?.();
-  }
-
-  async function disconnectTikTok() {
-    if (!confirm("Disconnect TikTok for this client? Its analytics will stop updating.")) return;
-    setTtDisconnecting(true);
-    try {
-      await fetch("/api/zernio/tiktok-link", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: client.id }) });
-      setTtLinked(false); setTtUsername(null); onLinked?.();
-    } catch (e) { alert(String(e)); }
-    setTtDisconnecting(false);
-  }
 
   async function disconnectZernio() {
     if (!confirm("Disconnect Zernio for this client? DMs and scheduling will stop working.")) return;
@@ -481,75 +433,6 @@ function ConnectionsSection({ client, onLinked }: { client: Client; onLinked?: (
             {metaConnected ? "Reconnect Meta ↗" : "Connect Meta Instagram ↗"}
           </a>
         </div>
-      </div>
-
-      {/* Row 3: TikTok (analytics via Zernio) */}
-      <div className="px-4 py-3 border-t border-line">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <p className="text-xs font-semibold text-ink-2">🎵 TikTok Analytics (Zernio)</p>
-              {ttLinked
-                ? <span className="text-[10px] px-1.5 py-0.5 bg-ok-100 text-ok-700 rounded-full font-medium">● Connected{ttUsername ? ` · @${ttUsername}` : ""}</span>
-                : <span className="text-[10px] px-1.5 py-0.5 bg-surface-3 text-muted rounded-full font-medium">● Not connected</span>
-              }
-            </div>
-            <p className="text-[10px] text-faint">Connect the client&apos;s TikTok in Zernio first, then pick it here. Powers the TikTok Analytics tab (follower growth, video &amp; profile views).</p>
-          </div>
-        </div>
-
-        {!ttShowPicker ? (
-          <div className="flex flex-wrap gap-2 mt-2.5">
-            <button
-              type="button"
-              onClick={loadTikTokAccounts}
-              className="px-3 py-1.5 text-[11px] font-semibold bg-accent text-on-accent rounded-lg hover:bg-accent-strong"
-            >
-              {ttLinked ? "Switch account" : "Link TikTok account here"}
-            </button>
-            {ttLinked && (
-              <button
-                type="button"
-                onClick={disconnectTikTok}
-                disabled={ttDisconnecting}
-                className="px-3 py-1.5 text-[11px] font-semibold bg-danger-50 text-danger-600 border border-danger-200 rounded-lg hover:bg-danger-100 disabled:opacity-50"
-              >
-                {ttDisconnecting ? "Disconnecting…" : "Disconnect"}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="mt-2 space-y-1.5">
-            {ttLoading ? (
-              <p className="text-[11px] text-faint">Loading accounts…</p>
-            ) : ttAccounts.length === 0 ? (
-              <p className="text-[11px] text-faint">No TikTok accounts found. Make sure the Profile ID is correct and TikTok is connected in Zernio, then try again.</p>
-            ) : (
-              ttAccounts.map((acc: any) => {
-                const id = acc._id ?? acc.id;
-                const uname = acc.username ?? acc.displayName ?? acc.name ?? id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => linkTikTok(acc)}
-                    className="w-full text-left px-3 py-2 bg-surface border border-line rounded-lg text-xs hover:bg-accent-tint hover:border-accent transition-colors"
-                  >
-                    <span className="font-semibold">@{uname}</span>
-                    <span className="text-faint ml-2">{id}</span>
-                  </button>
-                );
-              })
-            )}
-            <button
-              type="button"
-              onClick={() => { setTtShowPicker(false); setTtAccounts([]); }}
-              className="text-[10px] text-faint hover:text-ink-2"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

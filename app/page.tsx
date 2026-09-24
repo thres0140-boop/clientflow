@@ -13,8 +13,6 @@ import ScriptTasksPage from "@/features/scripts/pages/ScriptTasksPage";
 import InstagramPage from "@/features/instagram/pages/InstagramPage";
 import BoardPage from "@/features/content/pages/BoardPage";
 import ClientSettingsPage from "@/features/clients/pages/ClientSettingsPage";
-import TikTokPage from "@/features/tiktok/pages/TikTokPage";
-import TikTokInstructionsPage from "@/features/tiktok/pages/TikTokInstructionsPage";
 import DmsPage from "@/features/instagram/pages/DmsPage";
 import ContextPage from "@/features/scripts/pages/ContextPage";
 import TranscribePage from "@/features/content/pages/TranscribePage";
@@ -38,17 +36,13 @@ export type Page =
   | "settings"
   | "context"
   | "transcribe"
-  | "clientsettings"
-  | "tiktok"
-  | "tiktokcompetitors"
-  | "tiktokinstructions";
+  | "clientsettings";
 
 const PAGE_LABELS: Record<Page, string> = {
   pipeline: "Content Scheduling", kanban: "Script Kanban",
   tasks: "Script Tasks", concepts: "Concept Library", analytics: "Analytics", dms: "DM Pipeline",
   instagram: "Instagram", board: "Strategy Board", team: "Team", chat: "Messages",
   settings: "Settings", context: "AI Context", transcribe: "Transcribe", clientsettings: "Settings",
-  tiktok: "TikTok", tiktokcompetitors: "Competitors", tiktokinstructions: "Instructions",
 };
 
 export type Platform = "instagram" | "tiktok";
@@ -66,10 +60,10 @@ export default function App() {
     // Validate the stored id: a browser may still hold a page that no longer exists.
     try { const v = localStorage.getItem("cf_active_page"); return v && isPage(v) ? v : "pipeline"; } catch { return "pipeline"; }
   });
-  // Which platform's pipeline the content pages operate on (Instagram vs TikTok). Persisted so a
-  // refresh keeps you on the platform you were viewing.
+  // The platform the content pages operate on. The agency app offers Instagram only (TikTok moved
+  // to the AI product); a browser still holding a stale "tiktok" value falls back to Instagram.
   const [platform, setPlatform] = useState<Platform>(() => {
-    try { return (localStorage.getItem("cf_active_platform") as Platform) || "instagram"; } catch { return "instagram"; }
+    try { return localStorage.getItem("cf_active_platform") === "instagram" ? "instagram" : "instagram"; } catch { return "instagram"; }
   });
   // Split view: when set, a second page renders in a resizable right pane next to `page`.
   const [splitPage, setSplitPage] = useState<Page | null>(null);
@@ -183,34 +177,11 @@ export default function App() {
     setSelectedClientId((prev) => (prev != null && visible.some((c) => c.id === prev)) ? prev : (visible[0]?.id ?? nextClients[0]?.id ?? null));
   }
 
-  // Keep platform valid for the selected client's enabled channels (Instagram defaults on), and
-  // keep the active page inside the active platform's folder — so e.g. a TikTok view never lands
-  // on the Instagram-only Script Kanban. Pages not tied to a platform (WORK/MANAGE) are left alone.
+  // Instagram is the only platform the agency app offers; never let the platform state drift
+  // (the multi-platform machinery in Content Scheduling degrades to one platform on its own).
   useEffect(() => {
-    const c = clients.find((cl) => cl.id === selectedClientId);
-    const igOn = c ? (c as { instagramEnabled?: boolean }).instagramEnabled !== false : true;
-    const ttOn = !!c?.tiktokEnabled;
-
-    // Pages that only exist on one platform's folder.
-    const IG_ONLY: Page[] = ["instagram", "kanban", "tasks", "context", "dms"];
-    const TT_ONLY: Page[] = ["tiktok", "tiktokcompetitors", "tiktokinstructions"];
-
-    // Resolve the effective platform first.
-    const nextPlatform: Platform =
-      (platform === "instagram" && !igOn) ? (ttOn ? "tiktok" : "instagram")
-      : (platform === "tiktok" && !ttOn) ? (igOn ? "instagram" : "tiktok")
-      : (!igOn && ttOn) ? "tiktok"
-      : platform;
-    if (nextPlatform !== platform) setPlatform(nextPlatform);
-
-    // Bounce the page off the wrong platform's pages, always to a page that exists in the target
-    // folder. Content Scheduling ("pipeline") is cross-platform and reachable from either context.
-    setPage((p) => {
-      if (nextPlatform === "tiktok" && IG_ONLY.includes(p)) return "tiktok";
-      if (nextPlatform === "instagram" && TT_ONLY.includes(p)) return igOn ? "instagram" : "pipeline";
-      return p;
-    });
-  }, [selectedClientId, clients, platform]);
+    if (platform !== "instagram") setPlatform("instagram");
+  }, [platform]);
 
   const fetchNotifications = useCallback(async () => {
     const data = await fetch("/api/notifications").then((r) => r.json());
@@ -397,7 +368,7 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe","clientsettings","tiktok","tiktokcompetitors","tiktokinstructions"];
+    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe","clientsettings"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
@@ -406,12 +377,6 @@ export default function App() {
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
     // Clients always get their Script Tasks; team members only if the owner granted it.
     if (activeProfile?.isClientAccount && !base.includes("tasks")) base.push("tasks");
-    // TikTok Competitors + Instructions are sub-pages of TikTok — anyone with TikTok access gets
-    // them (they used to be in-page tabs, so existing members were never granted them separately).
-    if (base.includes("tiktok")) {
-      if (!base.includes("tiktokcompetitors")) base.push("tiktokcompetitors");
-      if (!base.includes("tiktokinstructions")) base.push("tiktokinstructions");
-    }
     // Client settings is owner-only — never expose it to a member login.
     return base.filter((p) => p !== "clientsettings" || session?.type === "owner");
   })();
@@ -447,13 +412,12 @@ export default function App() {
     else nav.clearAppBadge?.().catch(() => {});
   }, [unreadCount, badges.chat]);
 
-  // Platforms the selected client has switched on (Instagram defaults on). Cross-platform pages
-  // like Content Scheduling merge these; single-platform pages keep using `platform`.
+  // Platforms the selected client has switched on. The agency app offers Instagram only; Content
+  // Scheduling's multi-platform machinery degrades to a single platform (no badges) on its own.
   const enabledPlatforms: Platform[] = (() => {
-    const c = clients.find((cl) => cl.id === selectedClientId) as { instagramEnabled?: boolean; tiktokEnabled?: boolean } | undefined;
+    const c = clients.find((cl) => cl.id === selectedClientId) as { instagramEnabled?: boolean } | undefined;
     const list: Platform[] = [];
     if (!c || c.instagramEnabled !== false) list.push("instagram");
-    if (c?.tiktokEnabled) list.push("tiktok");
     return list;
   })();
 
@@ -481,9 +445,6 @@ export default function App() {
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed} embedded={embedded} />;
       case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
       case "transcribe": return <TranscribePage />;
-      case "tiktok": return <TikTokPage clients={clients} selectedClientId={selectedClientId} refreshClients={fetchClients} embedded={embedded} view="profile" />;
-      case "tiktokcompetitors": return <TikTokPage clients={clients} selectedClientId={selectedClientId} refreshClients={fetchClients} embedded={embedded} view="competitors" />;
-      case "tiktokinstructions": return <TikTokInstructionsPage clients={clients} selectedClientId={selectedClientId} />;
       case "clientsettings": return <ClientSettingsPage client={clients.find((c) => c.id === selectedClientId) ?? null} refreshClients={fetchClients} onManageAll={() => setPage("settings")} />;
     }
   }
@@ -538,7 +499,6 @@ export default function App() {
         onSelectWorkspace={selectWorkspace}
         onCreateWorkspace={createWorkspace}
         onDeleteWorkspace={deleteWorkspace}
-        tiktokEnabled={!!clients.find((c) => c.id === selectedClientId)?.tiktokEnabled}
         instagramEnabled={(clients.find((c) => c.id === selectedClientId) as { instagramEnabled?: boolean } | undefined)?.instagramEnabled !== false}
         platform={platform}
         onSelectPlatform={setPlatform}

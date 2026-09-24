@@ -29,11 +29,6 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/tiktok-sync",
-      "schedule": "0 */4 * * *"
-    },
-
-    {
       "path": "/ai/api/cron/sync-pipeline",
       "schedule": "7,22,37,52 * * * *"
     },

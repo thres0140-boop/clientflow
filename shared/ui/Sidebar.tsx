@@ -5,13 +5,8 @@ import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { imgSrc } from "@/shared/media/videoSrc";
 
-// The client's connected TikTok profile pic, if their own-profile has been scraped (cached JSON).
-function tiktokAvatar(c: Client): string | undefined {
-  try { const d = JSON.parse((c as any).tiktokProfileData || "{}"); return d?.profile?.avatarUrl || undefined; } // eslint-disable-line @typescript-eslint/no-explicit-any
-  catch { return undefined; }
-}
 
-type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe" | "clientsettings" | "tiktok" | "tiktokcompetitors" | "tiktokinstructions";
+type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe" | "clientsettings";
 
 // Sidebar colours all resolve through the --color-nav-* tokens in globals.css (light = the
 // original navy palette verbatim, dark = near-black in the canvas family). Alpha variants
@@ -75,18 +70,6 @@ function IconTranscribe({ active }: { active: boolean }) {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><rect x="6" y="1.5" width="4" height="7.5" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M3.5 7.5a4.5 4.5 0 009 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M8 12v2.5M5.5 14.5h5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>;
 }
 
-function IconTikTok({ active }: { active: boolean }) {
-  const c = navIconColor(active);
-  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><path d="M9.3 1.8v8.3a2.4 2.4 0 11-2.4-2.4c.2 0 .4 0 .55.05" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M9.3 1.8c.25 1.7 1.5 2.95 3.2 3.1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-}
-function IconSearch({ active }: { active: boolean }) {
-  const c = navIconColor(active);
-  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.3"/><path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>;
-}
-function IconCompass({ active }: { active: boolean }) {
-  const c = navIconColor(active);
-  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M10.8 5.2L9.3 9.3 5.2 10.8 6.7 6.7 10.8 5.2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>;
-}
 
 const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   pipeline: (a) => <IconCalendar active={a} />, kanban: (a) => <IconKanban active={a} />,
@@ -98,9 +81,6 @@ const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   transcribe: (a) => <IconTranscribe active={a} />,
   settings: (a) => <IconSettings active={a} />,
   clientsettings: (a: boolean) => <IconSettings active={a} />,
-  tiktok: (a) => <IconTikTok active={a} />,
-  tiktokcompetitors: (a) => <IconSearch active={a} />,
-  tiktokinstructions: (a) => <IconCompass active={a} />,
 };
 
 const NAV_GROUPS = [
@@ -113,16 +93,13 @@ const NAV_GROUPS = [
     { id: "analytics" as Page, label: "Analytics" },
     { id: "dms" as Page, label: "DM Pipeline" },
     { id: "instagram" as Page, label: "Instagram" },
-    { id: "tiktok" as Page, label: "TikTok" },
-    { id: "tiktokinstructions" as Page, label: "Instructions" },
-    { id: "tiktokcompetitors" as Page, label: "Competitors" },
     { id: "board" as Page, label: "Strategy Board" },
     { id: "transcribe" as Page, label: "Transcribe" },
   ]},
   { label: "MANAGE", items: [
     { id: "team" as Page, label: "Team" },
     { id: "chat" as Page, label: "Messages" },
-    { id: "clientsettings" as Page, label: "Settings" }, // this client's settings (incl. TikTok)
+    { id: "clientsettings" as Page, label: "Settings" }, // this client's settings
   ]},
 ];
 
@@ -137,18 +114,17 @@ type Props = {
   splitPage?: Page | null; onOpenSplit?: (page: Page) => void;
   workspaces?: Workspace[]; activeWorkspaceId?: number | null;
   onSelectWorkspace?: (id: number) => void; onCreateWorkspace?: (name: string) => void; onDeleteWorkspace?: (id: number) => void;
-  tiktokEnabled?: boolean; instagramEnabled?: boolean; platform?: "instagram" | "tiktok"; onSelectPlatform?: (p: "instagram" | "tiktok") => void;
+  instagramEnabled?: boolean; platform?: "instagram" | "tiktok"; onSelectPlatform?: (p: "instagram" | "tiktok") => void;
   onMoveClient?: (clientId: number, workspaceId: number) => void;
 };
 
-// Page lists for the per-platform folders (shown only when a client has TikTok enabled).
+// Page lists for the owner's nav folders.
 const PAGE_NAV_LABEL: Record<string, string> = {
   pipeline: "Content Scheduling", kanban: "Script Kanban", tasks: "Script Tasks",
   concepts: "Concept Library", context: "AI Context", analytics: "Analytics",
-  dms: "DM Pipeline", instagram: "Instagram", tiktok: "TikTok", tiktokcompetitors: "Competitors", tiktokinstructions: "Instructions", board: "Strategy Board", transcribe: "Transcribe",
+  dms: "DM Pipeline", instagram: "Instagram", board: "Strategy Board", transcribe: "Transcribe",
 };
 const IG_FOLDER: Page[] = ["kanban", "tasks", "concepts", "context", "analytics", "dms", "instagram"];
-const TT_FOLDER: Page[] = ["tiktok", "tiktokinstructions", "tiktokcompetitors", "concepts", "analytics"];
 // Cross-platform pages under WORK. Content Scheduling merges every enabled platform into one
 // calendar, so it must NOT switch the app's active platform when opened (see CROSS_PLATFORM).
 const SHARED_WORK: Page[] = ["pipeline", "board", "transcribe"];
@@ -158,7 +134,7 @@ const DIVIDER = { borderColor: "var(--color-nav-line)" };
 const STRIP_BG = "var(--color-nav-strip)";
 const NAV_BG = "var(--color-nav)";
 
-export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed, splitPage, onOpenSplit, workspaces, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onDeleteWorkspace, tiktokEnabled, instagramEnabled = true, platform = "instagram", onSelectPlatform, onMoveClient }: Props) {
+export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed, splitPage, onOpenSplit, workspaces, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onDeleteWorkspace, instagramEnabled = true, platform = "instagram", onSelectPlatform, onMoveClient }: Props) {
   const [showAccount, setShowAccount] = useState(false);
   const [peeking, setPeeking] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
@@ -258,7 +234,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
         {/* Client avatars + add button (Discord-style: add sits under the last project) */}
         <div className="flex flex-col items-center gap-2.5 py-3 flex-1 overflow-y-auto">
           {orderedClients.map((c) => {
-            const rawPic = (c.instagramConnection as any)?.profilePictureUrl || tiktokAvatar(c); // eslint-disable-line @typescript-eslint/no-explicit-any
+            const rawPic = (c.instagramConnection as any)?.profilePictureUrl; // eslint-disable-line @typescript-eslint/no-explicit-any
             const pic = rawPic ? imgSrc(rawPic) : undefined;
             return (
               <button key={c.id} onClick={() => onSelectClient(c.id)}
@@ -423,7 +399,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
             const groupHeader = (label: string) => (
               <p className="text-[10px] font-semibold px-3 mb-1.5 tracking-wider" style={{ color: navMuted(0.35) }}>{label}</p>
             );
-            // Collapsible folder header (for the Instagram / TikTok platform folders).
+            // Collapsible folder header (for the Instagram folder).
             const folderHeader = (label: string, key: string) => (
               <button onClick={() => toggleFolder(key)}
                 className="w-full flex items-center gap-1 px-3 mb-1.5 text-[10px] font-semibold tracking-wider hover:text-nav-ink/70 transition-colors"
@@ -434,72 +410,11 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
             );
 
             const igOn = instagramEnabled !== false;
-            const ttOn = !!tiktokEnabled;
             const manage = NAV_GROUPS.find((g) => g.label === "MANAGE")?.items.filter((i) => allowedPages.includes(i.id)) || [];
             const sharedItems = SHARED_WORK.filter((id) => allowedPages.includes(id));
 
-            // Only one platform on (owner) → flat nav for that platform (no folders needed).
-            if (session?.type === "owner" && ttOn && !igOn) {
-              const ttItems = TT_FOLDER.filter((id) => allowedPages.includes(id));
-              return (
-                <>
-                  {sharedItems.length > 0 && <div>{groupHeader("WORK")}<div className="space-y-0.5">{sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => onNavigate(id), "sh-"))}</div></div>}
-                  <div>
-                    {groupHeader("🎵 TIKTOK")}
-                    <div className="space-y-0.5">
-                      {ttItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { onSelectPlatform?.("tiktok"); onNavigate(id); }, "tt-"))}
-                    </div>
-                  </div>
-                  {manage.length > 0 && <div>{groupHeader("MANAGE")}<div className="space-y-0.5">{manage.map((item) => renderItem(item.id, item.label, currentPage === item.id, () => onNavigate(item.id), "mg-"))}</div></div>}
-                </>
-              );
-            }
-
-            // Both platforms on (owner) → split WORK into per-platform folders.
-            if (session?.type === "owner" && ttOn && igOn) {
-              const igItems = IG_FOLDER.filter((id) => allowedPages.includes(id));
-              const ttItems = TT_FOLDER.filter((id) => allowedPages.includes(id));
-              return (
-                <>
-                  {sharedItems.length > 0 && (
-                    <div>
-                      {groupHeader("WORK")}
-                      <div className="space-y-0.5">
-                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { if (!CROSS_PLATFORM.includes(id)) onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
-                      </div>
-                    </div>
-                  )}
-                  <div>
-                    {folderHeader("📸 INSTAGRAM", "instagram")}
-                    {!foldersClosed["instagram"] && (
-                      <div className="space-y-0.5">
-                        {igItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "instagram", () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "ig-"))}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    {folderHeader("🎵 TIKTOK", "tiktok")}
-                    {!foldersClosed["tiktok"] && (
-                      <div className="space-y-0.5">
-                        {ttItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "tiktok", () => { onSelectPlatform?.("tiktok"); onNavigate(id); }, "tt-"))}
-                      </div>
-                    )}
-                  </div>
-                  {manage.length > 0 && (
-                    <div>
-                      {groupHeader("MANAGE")}
-                      <div className="space-y-0.5">
-                        {manage.map((item) => renderItem(item.id, item.label, currentPage === item.id, () => onNavigate(item.id), "mg-"))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              );
-            }
-
-            // Only Instagram on (owner) → same collapsible Instagram folder as the both-platforms
-            // case, just without the TikTok folder, so the grouping doesn't change when TikTok is off.
-            if (session?.type === "owner" && igOn && !ttOn) {
+            // Owner → WORK, then the collapsible Instagram folder, then MANAGE.
+            if (session?.type === "owner" && igOn) {
               const igItems = IG_FOLDER.filter((id) => allowedPages.includes(id));
               return (
                 <>
@@ -531,9 +446,8 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
               );
             }
 
-            // Default flat nav. Hide platform-specific pages when that platform is off for the
-            // client — a TikTok-disabled client must never show the TikTok tab (to owner OR client).
-            const platformHidden = (id: Page) => ((id === "tiktok" || id === "tiktokcompetitors" || id === "tiktokinstructions") && !ttOn) || (id === "instagram" && !igOn);
+            // Default flat nav. Hide the Instagram page when Instagram is off for the client.
+            const platformHidden = (id: Page) => id === "instagram" && !igOn;
             return NAV_GROUPS.map((group) => {
               const visibleItems = group.items.filter((item) => allowedPages.includes(item.id) && !platformHidden(item.id));
               if (visibleItems.length === 0) return null;

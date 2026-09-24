@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
-import { handleFromInput } from "@/features/tiktok/server/scrapeTikTok";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,8 +21,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       isTestAccount: body.isTestAccount !== undefined ? body.isTestAccount === true : undefined,
       hideFromHq: body.hideFromHq !== undefined ? body.hideFromHq === true : undefined,
       instagramEnabled: body.instagramEnabled !== undefined ? body.instagramEnabled === true : undefined,
-      tiktokEnabled: body.tiktokEnabled !== undefined ? body.tiktokEnabled === true : undefined,
-      tiktokHandle: body.tiktokHandle !== undefined ? (handleFromInput(String(body.tiktokHandle)) || null) : undefined,
       workspaceId: body.workspaceId !== undefined ? (body.workspaceId != null ? parseInt(String(body.workspaceId)) : null) : undefined,
     } as any,
   });

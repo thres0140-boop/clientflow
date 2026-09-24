@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Client, AnalyticsEntry, ContentPiece, TrackedVideo } from "@/shared/types";
-import TikTokStudioAnalytics from "@/features/tiktok/pages/TikTokStudioAnalytics";
 
 type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void };
 type MainTab = "general" | "concept";
@@ -105,9 +104,6 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
   const [conceptReels, setConceptReels] = useState<string | null>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
-  // A TikTok-connected client with Instagram off gets only the TikTok dashboard — the IG-style
-  // per-day grid (views/likes/DMs/booking) is meaningless there.
-  const tiktokOnly = !!(client as any)?.tiktokZernioAccountId && !client?.instagramEnabled; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   useEffect(() => { setBookingLink(client?.bookingLink ?? ""); }, [client]);
 
@@ -539,7 +535,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
           <h1 className="text-2xl font-bold text-ink">Analytics</h1>
           <p className="text-muted mt-0.5 text-sm">Auto-populated from calendar · Adjust manually if needed</p>
         </div>
-        {client && !tiktokOnly && (
+        {client && (
           <div className="flex items-center gap-2">
             {editingBL ? (
               <>
@@ -572,14 +568,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
       {/* ── General tab ── */}
       {tab === "general" && (
         <div className="space-y-4">
-          {/* TikTok Studio-style analytics (Zernio) — shown for TikTok-connected clients */}
-          {client?.tiktokZernioAccountId && (
-            <>
-              <TikTokStudioAnalytics clientId={client.id} />
-              {!tiktokOnly && <div className="border-t border-line pt-1" />}
-            </>
-          )}
-          {!tiktokOnly && (<>
+          <>
           {/* Controls */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Period */}
@@ -656,7 +645,7 @@ export default function Analytics({ clients, selectedClientId, refreshClients }:
               )}
             </div>
           )}
-          </>)}
+          </>
         </div>
       )}
 
