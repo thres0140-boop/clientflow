@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { aiSchemaReady } from "@/ai/db/ready";
 import { prisma } from "@/ai/db/prisma";
 import { captureReel } from "@/ai/features/instagram/server/reelCapture";
 import { isAdminToken } from "@/shared/auth/adminToken";
@@ -15,6 +16,7 @@ export const maxDuration = 300;
 const BATCH = 12;
 
 export async function GET(req: NextRequest) {
+  if (!(await aiSchemaReady())) return NextResponse.json({ ok: true, skipped: "schema_not_applied" }); // AI DB has no schema yet → no-op
   try {
     // Allow Vercel Cron (no auth header issue) or manual trigger with the migrate token.
     const token = req.nextUrl.searchParams.get("token");

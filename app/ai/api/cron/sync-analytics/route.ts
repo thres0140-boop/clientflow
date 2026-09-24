@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { aiSchemaReady } from "@/ai/db/ready";
 import { prisma } from "@/ai/db/prisma";
 import { promoteProvenExamples } from "@/ai/features/scripts/server/conceptExamples";
 
@@ -10,6 +11,7 @@ const IG_BASE = "https://graph.instagram.com/v21.0";
 //   2. Fetch insights for all ContentPieces that have igMediaId set
 //   3. Upsert AnalyticsEntry rows with views/likes/shares (never overwrites DM/booking data)
 export async function GET(req: NextRequest) {
+  if (!(await aiSchemaReady())) return NextResponse.json({ ok: true, skipped: "schema_not_applied" }); // AI DB has no schema yet → no-op
   const connections = await prisma.instagramConnection.findMany({
     where: { accessToken: { not: "" } },
   });

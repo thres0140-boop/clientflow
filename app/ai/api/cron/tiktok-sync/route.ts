@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { aiSchemaReady } from "@/ai/db/ready";
 import { prisma } from "@/ai/db/prisma";
 import { syncTikTokCompetitor } from "@/ai/features/tiktok/server/tiktokSync";
 import { snapshotOfficial } from "@/ai/features/tiktok/server/tiktokOAuth";
@@ -12,6 +13,7 @@ export const maxDuration = 300;
 // real "going viral" growth detection). Time-boxed and batched so a big list is covered across a few
 // runs rather than one that times out. Runs on the schedule in vercel.json.
 export async function GET(req: NextRequest) {
+  if (!(await aiSchemaReady())) return NextResponse.json({ ok: true, skipped: "schema_not_applied" }); // AI DB has no schema yet → no-op
   const started = Date.now();
   const BUDGET_MS = 250_000;         // stay well under maxDuration
   const STALE_MS = 20 * 3600 * 1000; // only touch competitors not synced in the last ~20h

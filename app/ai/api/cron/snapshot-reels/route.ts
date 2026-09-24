@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { aiSchemaReady } from "@/ai/db/ready";
 import { prisma } from "@/ai/db/prisma";
 import { enrichReels } from "@/app/ai/api/instagram/media/route";
 
@@ -11,6 +12,7 @@ const FIELDS = "id,caption,media_type,media_product_type,permalink,thumbnail_url
 // client. Builds the history that trend lines need (can't be backfilled, so it runs daily).
 // One row per reel per day; re-running the same day just updates the row.
 export async function GET() {
+  if (!(await aiSchemaReady())) return NextResponse.json({ ok: true, skipped: "schema_not_applied" }); // AI DB has no schema yet → no-op
   const today = (() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

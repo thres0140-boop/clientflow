@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { aiSchemaReady } from "@/ai/db/ready";
 import { prisma } from "@/ai/db/prisma";
 import { syncClientPipeline } from "@/ai/features/content/server/syncPipeline";
 
@@ -6,6 +7,7 @@ import { syncClientPipeline } from "@/ai/features/content/server/syncPipeline";
 // Keeps every connected client's DM pipeline + analytics in sync in the background,
 // so detection isn't limited to when someone has a page open.
 export async function GET() {
+  if (!(await aiSchemaReady())) return NextResponse.json({ ok: true, skipped: "schema_not_applied" }); // AI DB has no schema yet → no-op
   const connections = await prisma.instagramConnection.findMany({
     where: { zernioAccountId: { not: null } },
     select: { clientId: true },

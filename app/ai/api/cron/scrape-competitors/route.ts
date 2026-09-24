@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { aiSchemaReady } from "@/ai/db/ready";
 import { prisma } from "@/ai/db/prisma";
 import { scrapeCompetitor, scrapeCompetitorProfile } from "@/ai/features/instagram/server/scrapeCompetitors";
 
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 // scraped < TTL ago). Sequential + per-handle try/catch so one failure can't
 // kill the run. UI never scrapes — it only reads what this writes.
 export async function GET(req: NextRequest) {
+  if (!(await aiSchemaReady())) return NextResponse.json({ ok: true, skipped: "schema_not_applied" }); // AI DB has no schema yet → no-op
   // Low default so the once-daily morning run always actually scrapes (it only skips a
   // competitor scraped within the last few hours — e.g. a manual "Refresh now" just before).
   const TTL_HOURS = parseInt(req.nextUrl.searchParams.get("ttlHours") || "6");
