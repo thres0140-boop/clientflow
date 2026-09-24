@@ -706,7 +706,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
           {/* Idea column — hidden for assignees */}
           {!activeProfile && (
             <DroppableColumn id="idea-column"
-              className="flex-shrink-0 w-64 bg-surface border border-line rounded-2xl o-elev overflow-hidden flex flex-col">
+              className="flex-1 min-w-64 bg-surface border border-line rounded-2xl o-elev overflow-hidden flex flex-col">
               <div className="px-4 py-3 border-b border-line">
                 <div className="flex items-center gap-2">
                   <span className="text-base">💡</span>
@@ -767,7 +767,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
               const nextStage = stageIdx < stages.length - 1 ? stages[stageIdx + 1] : null;
               return (
                 <DroppableColumn key={stage.id} id={String(stage.id)}
-                  className="flex-shrink-0 w-64 bg-surface border border-line rounded-2xl o-elev overflow-hidden flex flex-col">
+                  className="flex-1 min-w-64 bg-surface border border-line rounded-2xl o-elev overflow-hidden flex flex-col">
                   <div className="px-4 py-3 border-b border-line"
                     style={{ borderTopWidth: 2, borderTopColor: stage.color }}>
                     <div className="flex items-center gap-2">
