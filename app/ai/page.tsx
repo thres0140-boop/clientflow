@@ -4,7 +4,6 @@ import { AI_API, AI_BASE } from "@/ai/slug";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Sidebar from "@/ai/shared/ui/Sidebar";
 import Pipeline from "@/ai/features/content/pages/Pipeline";
-import HeadquartersPage from "@/ai/features/analytics/pages/HeadquartersPage";
 import Concepts from "@/ai/features/scripts/pages/Concepts";
 import Analytics from "@/ai/features/analytics/pages/Analytics";
 import TeamPage from "@/ai/features/clients/pages/TeamPage";
@@ -27,7 +26,6 @@ import { countUnseenSentBack } from "@/ai/features/scripts/sentBackSeen";
 import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoClientsMessage, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
 
 export type Page =
-  | "headquarters"
   | "pipeline"
   | "kanban"
   | "tasks"
@@ -47,7 +45,7 @@ export type Page =
   | "tiktokinstructions";
 
 const PAGE_LABELS: Record<Page, string> = {
-  headquarters: "Headquarters", pipeline: "Content Scheduling", kanban: "Script Kanban",
+  pipeline: "Content Scheduling", kanban: "Script Kanban",
   tasks: "Script Tasks", concepts: "Concept Library", analytics: "Analytics", dms: "DM Pipeline",
   instagram: "Instagram", board: "Strategy Board", team: "Team", chat: "Messages",
   settings: "Settings", context: "AI Context", transcribe: "Transcribe", clientsettings: "Settings",
@@ -66,7 +64,8 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     if (deepLink.page) return deepLink.page as Page;
-    try { return (localStorage.getItem("cfai_active_page") as Page) ?? "pipeline"; } catch { return "pipeline"; }
+    // Validate the stored id: a browser may still hold a page that no longer exists.
+    try { const v = localStorage.getItem("cfai_active_page"); return v && isPage(v) ? v : "pipeline"; } catch { return "pipeline"; }
   });
   // Which platform's pipeline the content pages operate on (Instagram vs TikTok). Persisted so a
   // refresh keeps you on the platform you were viewing.
@@ -302,8 +301,7 @@ export default function App() {
     }
   }, [selectedClientId, fetchTeam]);
 
-  // Persist the active page on EVERY change — including Headquarters, where no client is
-  // selected (so restarting the app reopens where you left off, not on a client profile).
+  // Persist the active page on EVERY change, so restarting the app reopens where you left off.
   useEffect(() => {
     try { localStorage.setItem("cfai_active_page", page); } catch { /* */ }
   }, [page]);
@@ -364,11 +362,11 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["headquarters","pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe","clientsettings","tiktok","tiktokcompetitors","tiktokinstructions"];
+    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","instagram","board","team","chat","settings","context","transcribe","clientsettings","tiktok","tiktokcompetitors","tiktokinstructions"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
-      : activeProfile.pageAccess.split(",").filter(Boolean) as Page[];
+      : activeProfile.pageAccess.split(",").filter(isPage); // drops ids that no longer exist
     // Always give member logins access to chat.
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
     // Clients always get their Script Tasks; team members only if the owner granted it.
@@ -379,8 +377,8 @@ export default function App() {
       if (!base.includes("tiktokcompetitors")) base.push("tiktokcompetitors");
       if (!base.includes("tiktokinstructions")) base.push("tiktokinstructions");
     }
-    // Headquarters is owner-only — never expose it to a member login.
-    return base.filter((p) => (p !== "headquarters" && p !== "clientsettings") || session?.type === "owner");
+    // Client settings is owner-only — never expose it to a member login.
+    return base.filter((p) => p !== "clientsettings" || session?.type === "owner");
   })();
 
   // Pages this member may VIEW but not edit (view-only). Empty for the owner.
@@ -435,7 +433,6 @@ export default function App() {
     }
     const props = { clients, selectedClientId, refreshClients: fetchClients };
     switch (which) {
-      case "headquarters": return <HeadquartersPage clients={clients} refreshClients={fetchClients} onOpenKanban={(clientId, draftId) => { setSelectedClientId(clientId); if (draftId) setKanbanHighlightId(draftId); setPage("kanban"); }} />;
       case "pipeline": return <Pipeline {...props} enabledPlatforms={enabledPlatforms} refreshNotifications={fetchNotifications} isClient={session?.type === "member"} readOnly={pageReadOnly} onOpenInKanban={(session?.type === "member" && activeProfile?.isClientAccount) ? (id) => { setKanbanHighlightId(id); setPage("kanban"); } : undefined} />;
       case "concepts": return <Concepts {...props} platform={platform} onAttachReels={(c) => { setAttachConcept(c); setPage("instagram"); }} />;
       case "analytics": return <Analytics {...props} />;

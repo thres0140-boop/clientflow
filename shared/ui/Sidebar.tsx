@@ -11,7 +11,7 @@ function tiktokAvatar(c: Client): string | undefined {
   catch { return undefined; }
 }
 
-type Page = "headquarters" | "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe" | "clientsettings" | "tiktok" | "tiktokcompetitors" | "tiktokinstructions";
+type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "team" | "chat" | "settings" | "context" | "transcribe" | "clientsettings" | "tiktok" | "tiktokcompetitors" | "tiktokinstructions";
 
 // Sidebar colours all resolve through the --color-nav-* tokens in globals.css (light = the
 // original navy palette verbatim, dark = near-black in the canvas family). Alpha variants
@@ -21,10 +21,6 @@ const navMuted = (alpha: number) => `rgba(var(--nav-ink-2-rgb), ${alpha})`;
 const navOverlay = (alpha: number) => `rgba(var(--nav-overlay-rgb), ${alpha})`;
 const navIconColor = (active: boolean) => (active ? NAV_INK : navMuted(0.6));
 
-function IconHQ({ active }: { active: boolean }) {
-  const c = navIconColor(active);
-  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><path d="M8 1.5L14 5v9.5H2V5L8 1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><rect x="5" y="9" width="2.2" height="5.5" fill="currentColor"/><rect x="8.8" y="7" width="2.2" height="7.5" fill="currentColor"/></svg>;
-}
 function IconCalendar({ active }: { active: boolean }) {
   const c = navIconColor(active);
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><rect x="1.5" y="2.5" width="13" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 1.5V3.5M11 1.5V3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M1.5 6H14.5" stroke="currentColor" strokeWidth="1.3"/><rect x="4" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/><rect x="7" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/><rect x="10" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/></svg>;
@@ -93,7 +89,6 @@ function IconCompass({ active }: { active: boolean }) {
 }
 
 const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
-  headquarters: (a) => <IconHQ active={a} />,
   pipeline: (a) => <IconCalendar active={a} />, kanban: (a) => <IconKanban active={a} />,
   concepts: (a) => <IconConcepts active={a} />, context: (a) => <IconBrain active={a} />,
   analytics: (a) => <IconAnalytics active={a} />, dms: (a) => <IconDMs active={a} />,
@@ -257,19 +252,6 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
       {showStrip && (
       <div className="flex flex-col h-full flex-shrink-0" style={{ width: 56, backgroundColor: STRIP_BG }}>
 
-        {/* Headquarters — pinned global view above all clients (owner only). */}
-        {session?.type !== "member" && (
-          <div className="flex flex-col items-center pt-3 pb-2.5 flex-shrink-0" style={{ borderBottom: `1px solid ${DIVIDER.borderColor}` }}>
-            <button onClick={() => { onSelectClient(null); onNavigate("headquarters"); }} title="Headquarters — overview of all clients"
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0"
-              style={{
-                backgroundColor: currentPage === "headquarters" ? "var(--color-nav-active-strong)" : navOverlay(0.06),
-                boxShadow: currentPage === "headquarters" ? "0 0 0 2px var(--color-nav-ring)" : "none",
-              }}>
-              <IconHQ active={currentPage === "headquarters"} />
-            </button>
-          </div>
-        )}
 
         {/* Client avatars + add button (Discord-style: add sits under the last project) */}
         <div className="flex flex-col items-center gap-2.5 py-3 flex-1 overflow-y-auto">
@@ -277,7 +259,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
             const rawPic = (c.instagramConnection as any)?.profilePictureUrl || tiktokAvatar(c); // eslint-disable-line @typescript-eslint/no-explicit-any
             const pic = rawPic ? imgSrc(rawPic) : undefined;
             return (
-              <button key={c.id} onClick={() => { onSelectClient(c.id); if (currentPage === "headquarters") onNavigate("kanban"); }}
+              <button key={c.id} onClick={() => onSelectClient(c.id)}
                 title={`${c.name} — drag to reorder${session?.type === "owner" && workspaces && workspaces.length > 1 ? " · right-click to move project" : ""}`}
                 draggable
                 onDragStart={() => setDragId(c.id)}
