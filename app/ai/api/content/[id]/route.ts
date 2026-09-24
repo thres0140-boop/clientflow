@@ -1,0 +1,69 @@
+import { AI_BASE } from "@/ai/slug";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/ai/db/prisma";
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await req.json();
+  const piece = await prisma.contentPiece.update({
+    where: { id: parseInt(id) },
+    data: {
+      clientId: body.clientId ? parseInt(body.clientId) : undefined,
+      conceptId: body.conceptId ? parseInt(body.conceptId) : null,
+      title: body.title,
+      script: body.script || null,
+      contentType: body.contentType || "video",
+      status: body.status || "scripted",
+      platform: body.platform || null,
+      scheduledDate: body.scheduledDate || null,
+      hook: body.hook || null,
+      caption: body.caption !== undefined ? (body.caption || null) : undefined,
+      notes: body.notes || null,
+      currentStageId: body.currentStageId !== undefined
+        ? (body.currentStageId ? parseInt(body.currentStageId) : null)
+        : undefined,
+      rawContentUrl: body.rawContentUrl !== undefined ? (body.rawContentUrl || null) : undefined,
+    },
+    include: {
+      client: { select: { name: true, color: true } },
+      concept: { select: { name: true } },
+    },
+  });
+  return NextResponse.json(piece);
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await req.json();
+  const data: Record<string, unknown> = {};
+  if (body.status !== undefined) data.status = body.status;
+  if (body.igMediaId !== undefined) data.igMediaId = body.igMediaId;
+  if (body.caption !== undefined) data.caption = body.caption;
+  if (body.scheduledDate !== undefined) data.scheduledDate = body.scheduledDate;
+  const piece = await (prisma as any).contentPiece.update({
+    where: { id: parseInt(id) },
+    data,
+  });
+  // If scheduledDate changed and post is in Zernio, sync the new time
+  if (body.scheduledDate !== undefined && piece?.zernioPostId) {
+    const base = process.env.NEXT_PUBLIC_APP_URL || "https://www.ordoagency.com";
+    fetch(`${base}${AI_BASE}/api/zernio/posts/${piece.zernioPostId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledFor: new Date(body.scheduledDate).toISOString() }),
+    }).catch(() => {});
+  }
+  return NextResponse.json(piece);
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  // Cancel in Zernio first if it has a scheduled post there
+  const piece = await (prisma as any).contentPiece.findUnique({ where: { id: parseInt(id) } });
+  if (piece?.zernioPostId) {
+    const base = process.env.NEXT_PUBLIC_APP_URL || "https://www.ordoagency.com";
+    fetch(`${base}${AI_BASE}/api/zernio/posts/${piece.zernioPostId}`, { method: "DELETE" }).catch(() => {});
+  }
+  await prisma.contentPiece.delete({ where: { id: parseInt(id) } });
+  return NextResponse.json({ ok: true });
+}

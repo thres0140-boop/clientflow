@@ -42,4 +42,9 @@ next-env.d.ts
 
 /app/generated/prisma
 /app/generated/prisma-ai
+
+# vendored agent skills written by the Neon marketplace provisioner (not app code)
+.agents/
+.claude/
+skills-lock.json
 council/

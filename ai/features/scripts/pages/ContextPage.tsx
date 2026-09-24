@@ -1,0 +1,955 @@
+"use client";
+import { AI_API } from "@/ai/slug";
+
+import { useEffect, useState, useCallback } from "react";
+import { Client, Concept } from "@/ai/shared/types";
+import { splitExamples, joinExamples } from "@/ai/features/scripts/server/exampleScripts";
+
+type ConceptFeedback = {
+  id: number;
+  conceptId: number;
+  clientId: number;
+  title: string;
+  hook: string | null;
+  scriptSnippet: string | null;
+  reasonType: string;
+  reason: string | null;
+  createdAt: string;
+  concept?: { id: number; name: string };
+};
+
+type Props = {
+  clients: Client[];
+  selectedClientId: number | null;
+};
+
+const REASON_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
+  others_better: { label: "Others were better", emoji: "🏆", color: "bg-warn-100 text-warn-700" },
+  wrong_angle:   { label: "Wrong angle / topic", emoji: "🎯", color: "bg-hue-orange-100 text-hue-orange-700" },
+  hook_bad:      { label: "Hook doesn't land",   emoji: "🪝", color: "bg-danger-100 text-danger-700" },
+  too_long:      { label: "Too long",            emoji: "📏", color: "bg-info-100 text-info-700" },
+  too_short:     { label: "Too short",           emoji: "✂️", color: "bg-hue-cyan-100 text-hue-cyan-700" },
+  off_brand:     { label: "Off-brand",           emoji: "🚫", color: "bg-surface-3 text-ink-2" },
+  custom:        { label: "Custom feedback",     emoji: "✏️", color: "bg-accent-tint text-accent-strong" },
+};
+
+const DEFAULT_RULES = `1. VOICE IS EVERYTHING
+   The #1 mistake is writing scripts that sound "written."
+   Every line must sound like the creator talking to a friend.
+   If it sounds like a copywriter wrote it → rewrite.
+
+2. DATA OVER OPINION
+   Every decision (hook formula, structure, duration, visuals, audio)
+   must be backed by the actual performance data from the videos.
+   "This hook style averaged 250K views" beats "I think this works."
+
+3. SPECIFICITY WINS
+   Vague hooks underperform. Specific trigger words, specific moments,
+   specific details — these stop the scroll.
+
+4. CONTRAST = SCROLL STOPPER
+   In most niches, the combination of calm delivery/music with hard
+   or controversial words creates the pattern interrupt that stops
+   people from scrolling. Check if this applies to your creator.
+
+5. THE SYSTEM IS ALIVE
+   After the first batch of scripts goes live, track what performs.
+   Feed the data back: kill what doesn't work, double down on what does.
+   Update the style guide, add new trigger words, remove dead concepts.
+
+6. CAPTION ≠ SCRIPT
+   This is the most common mistake. The caption must approach the
+   SAME THEME from a COMPLETELY DIFFERENT ANGLE. If the script talks
+   about the moment of weakness, the caption talks about the people
+   watching you fall. Same theme, different perspective.
+
+7. 2+ PILLARS OR KILL IT
+   Single-pillar content is generic. If a script only touches one
+   pillar, it's not specific enough to the creator. Merge pillars
+   for stronger, more unique content`;
+
+// Rules for B-roll + on-screen TEXT-HOOK reels (no voiceover). Kept in sync with
+// the server fallback in /api/script-drafts/generate.
+const TEXT_HOOK_RULES = `THIS IS A TEXT-HOOK + B-ROLL FORMAT. THERE IS NO SPOKEN SCRIPT. NO ONE TALKS.
+The reel is silent b-roll footage with short on-screen TEXT CARDS. Your output is the on-screen text only.
+
+1. SAME HOOK, NEW WORDS — THIS IS THE WHOLE JOB
+   This format reuses ONE proven hook. Every variation you write is the SAME core
+   hook idea rephrased in DIFFERENT words. Do NOT invent new topics, new angles, or
+   new themes. Same message, said a different way each time.
+
+2. FIRST, DECODE WHY IT WORKS
+   Before rewriting, identify what makes the example hook go viral:
+   - the core emotional trigger / recognition moment ("oh, that's me")
+   - the sentence shape (e.g. "Op een dag [realisation that you didn't see coming]")
+   - the turn — a calm/relatable opening that flips into a harder truth or reframe
+   Keep that exact mechanism in EVERY variation. That DNA is non-negotiable.
+
+3. ON-SCREEN TEXT, NOT SPEECH
+   Short text cards. One thought per line. 4–8 lines, ~3–9 words per line.
+   No spoken filler ("weet je", "en dan", "dus"), no flowing monologue, no
+   connective sentences that only make sense out loud. It must read as text on a screen.
+
+4. KEEP THE TURN
+   Open with the calm/relatable line, then deliver the turn. Don't lose the beat
+   that makes people stop scrolling.
+
+5. SHORT & PUNCHY
+   Every line earns its place. Cut filler. One sentence per card, max.
+
+6. CAPTION ≠ ON-SCREEN TEXT
+   The caption approaches the same theme from a completely different angle than the
+   on-screen text — it is not a repeat of the cards.`;
+
+type BlueprintDraft = {
+  hookType: string;
+  textHook: string;
+  videoType: string;
+  angle: string;
+  structure: string;
+  guidelines: string;
+};
+
+export default function ContextPage({ clients, selectedClientId }: Props) {
+  const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [feedbacks, setFeedbacks] = useState<ConceptFeedback[]>([]);
+  const [openConceptId, setOpenConceptId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [conceptRulesEditing, setConceptRulesEditing] = useState<number | null>(null);
+  const [conceptRulesText, setConceptRulesText] = useState<Record<number, string>>({});
+  const [savingConceptRules, setSavingConceptRules] = useState<number | null>(null);
+  const [blueprintEditing, setBlueprintEditing] = useState<number | null>(null);
+  const [blueprintDraft, setBlueprintDraft] = useState<Record<number, BlueprintDraft>>({});
+  const [addingExample, setAddingExample] = useState<number | null>(null);
+  const [newExampleText, setNewExampleText] = useState<Record<number, string>>({});
+  const [savingExample, setSavingExample] = useState<number | null>(null);
+  const [savingBlueprint, setSavingBlueprint] = useState<number | null>(null);
+  const [pullingExamples, setPullingExamples] = useState<number | null>(null);
+  const [capGl, setCapGl] = useState("");
+  const [genCapGl, setGenCapGl] = useState(false);
+  const [savingCapGl, setSavingCapGl] = useState(false);
+
+  const client = clients.find((c) => c.id === selectedClientId) ?? null;
+
+  // Clear on client switch; reload() fetches the fresh playbook from the server.
+  useEffect(() => { setCapGl(""); }, [selectedClientId]);
+
+  async function generateCaptionGuidelines() {
+    if (!client) return;
+    setGenCapGl(true);
+    try {
+      const d = await fetch(`${AI_API}/clients/${client.id}/caption-guidelines`, { method: "POST" }).then((r) => r.json());
+      if (d.error) { alert(d.error); return; }
+      if (d.guidelines) { setCapGl(d.guidelines); alert(`Learned a caption playbook from ${d.sampled} of ${client.name}'s reel captions.`); }
+    } catch {
+      alert("Couldn't read the captions. Try again.");
+    } finally {
+      setGenCapGl(false);
+    }
+  }
+
+  async function saveCaptionGuidelines() {
+    if (!client) return;
+    setSavingCapGl(true);
+    try {
+      await fetch(`${AI_API}/clients/${client.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...client, captionGuidelines: capGl }),
+      });
+    } finally {
+      setSavingCapGl(false);
+    }
+  }
+
+  const reload = useCallback(async () => {
+    if (!selectedClientId) return;
+    const [co, fb, cg] = await Promise.all([
+      fetch(`${AI_API}/concepts?clientId=${selectedClientId}`).then((r) => r.json()),
+      fetch(`${AI_API}/concept-feedback?clientId=${selectedClientId}`).then((r) => r.json()),
+      fetch(`${AI_API}/clients/${selectedClientId}/caption-guidelines`).then((r) => r.json()).catch(() => ({})),
+    ]);
+    setConcepts((co as Concept[]).filter((c) => !c.isIdea));
+    setFeedbacks(fb);
+    if (typeof cg?.guidelines === "string") setCapGl(cg.guidelines);
+  }, [selectedClientId]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  async function saveConceptRules(conceptId: number) {
+    setSavingConceptRules(conceptId);
+    const text = conceptRulesText[conceptId] ?? "";
+    await fetch(`${AI_API}/concepts/${conceptId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptRules: text }),
+    });
+    setConcepts((prev) => prev.map((c) => c.id === conceptId ? { ...c, scriptRules: text || null } : c));
+    setSavingConceptRules(null);
+    setConceptRulesEditing(null);
+  }
+
+  function startConceptRulesEdit(concept: Concept) {
+    setConceptRulesText((prev) => ({ ...prev, [concept.id]: concept.scriptRules ?? DEFAULT_RULES }));
+    setConceptRulesEditing(concept.id);
+  }
+
+  // Read on-screen text from every attached reel and add them as example scripts.
+  async function pullFromReels(conceptId: number) {
+    const concept = concepts.find((c) => c.id === conceptId);
+    const hasExamples = !!concept?.scriptExamples?.trim();
+    const replace = hasExamples
+      ? confirm("Replace the existing example scripts with fresh ones pulled from the attached reels?\n\nOK = replace all · Cancel = just add any new ones")
+      : false;
+    setPullingExamples(conceptId);
+    try {
+      const d = await fetch(`${AI_API}/concepts/${conceptId}/extract-examples`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replace }),
+      }).then((r) => r.json());
+      if (d.error) { alert(d.error); return; }
+      await reload();
+      alert(d.added > 0
+        ? `Added ${d.added} example${d.added !== 1 ? "s" : ""} from your attached reels (matched ${d.matched}/${d.attached}).`
+        : `No new text found (matched ${d.matched}/${d.attached} reels). They may already be added or have no readable on-screen text.`);
+    } catch {
+      alert("Couldn't pull from reels. Try again.");
+    } finally {
+      setPullingExamples(null);
+    }
+  }
+
+  // Swap the whole rule set between talking-head and viral text-hook presets.
+  async function applyRuleSet(conceptId: number, rules: string) {
+    setSavingConceptRules(conceptId);
+    await fetch(`${AI_API}/concepts/${conceptId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptRules: rules }),
+    });
+    setConcepts((prev) => prev.map((c) => c.id === conceptId ? { ...c, scriptRules: rules } : c));
+    setConceptRulesText((prev) => ({ ...prev, [conceptId]: rules }));
+    setSavingConceptRules(null);
+  }
+
+  function startBlueprintEdit(concept: Concept) {
+    setBlueprintDraft((prev) => ({
+      ...prev,
+      [concept.id]: {
+        hookType: concept.hookType ?? "",
+        textHook: concept.textHook ?? "",
+        videoType: concept.videoType ?? "",
+        angle: concept.angle ?? "",
+        structure: concept.structure ?? "",
+        guidelines: concept.guidelines ?? "",
+      },
+    }));
+    setBlueprintEditing(concept.id);
+  }
+
+  async function saveBlueprint(conceptId: number) {
+    setSavingBlueprint(conceptId);
+    const d = blueprintDraft[conceptId];
+    await fetch(`${AI_API}/concepts/${conceptId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hookType: d.hookType || null,
+        textHook: d.textHook || null,
+        videoType: d.videoType || null,
+        angle: d.angle || null,
+        structure: d.structure || null,
+        guidelines: d.guidelines || null,
+      }),
+    });
+    setConcepts((prev) => prev.map((c) => c.id === conceptId ? {
+      ...c,
+      hookType: d.hookType || null,
+      textHook: d.textHook || null,
+      videoType: d.videoType || null,
+      angle: d.angle || null,
+      structure: d.structure || null,
+      guidelines: d.guidelines || null,
+    } : c));
+    setSavingBlueprint(null);
+    setBlueprintEditing(null);
+  }
+
+  async function saveExample(concept: Concept) {
+    const text = (newExampleText[concept.id] ?? "").trim();
+    if (!text) return;
+    setSavingExample(concept.id);
+    const updated = joinExamples([...splitExamples(concept.scriptExamples), text]);
+    await fetch(`${AI_API}/concepts/${concept.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptExamples: updated }),
+    });
+    setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, scriptExamples: updated } : c));
+    setNewExampleText((prev) => ({ ...prev, [concept.id]: "" }));
+    setSavingExample(null);
+    setAddingExample(null);
+  }
+
+  async function deleteExample(concept: Concept, index: number) {
+    const parts = splitExamples(concept.scriptExamples);
+    if (index < 0 || index >= parts.length) return;
+    if (!confirm(`Delete Example ${index + 1}? This removes it from what Claude studies for this concept.`)) return;
+    parts.splice(index, 1);
+    const updated = joinExamples(parts);
+    setConcepts((prev) => prev.map((c) => c.id === concept.id ? { ...c, scriptExamples: updated } : c));
+    await fetch(`${AI_API}/concepts/${concept.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scriptExamples: updated }),
+    });
+  }
+
+  async function deleteFeedback(id: number) {
+    setDeletingId(id);
+    await fetch(`${AI_API}/concept-feedback/${id}`, { method: "DELETE" });
+    setFeedbacks((prev) => prev.filter((f) => f.id !== id));
+    setDeletingId(null);
+  }
+
+  if (!client) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-faint text-sm">Select a client to view their AI context.</p>
+      </div>
+    );
+  }
+
+  const conceptsWithFeedback = concepts.filter((c) =>
+    feedbacks.some((f) => f.conceptId === c.id)
+  );
+  const conceptsWithoutFeedback = concepts.filter((c) =>
+    !feedbacks.some((f) => f.conceptId === c.id)
+  );
+
+  function getStats(conceptId: number) {
+    const items = feedbacks.filter((f) => f.conceptId === conceptId);
+    const byType: Record<string, number> = {};
+    for (const f of items) byType[f.reasonType] = (byType[f.reasonType] || 0) + 1;
+    return { total: items.length, byType, items };
+  }
+
+  function patchDraft(id: number, key: keyof BlueprintDraft, val: string) {
+    setBlueprintDraft((prev) => ({ ...prev, [id]: { ...prev[id], [key]: val } }));
+  }
+
+  function ConceptPipeline({ concept, total, byType, items }: {
+    concept: Concept;
+    total?: number;
+    byType?: Record<string, number>;
+    items?: ConceptFeedback[];
+  }) {
+    const [openSections, setOpenSections] = useState({ blueprint: true, examples: true, edits: true, rejection: true, rules: true });
+    const toggle = (k: keyof typeof openSections) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
+    const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const [postDays, setPostDays] = useState<string[]>(
+      ((concept as any).postDays || "").split(",").map((s: string) => s.trim()).filter(Boolean)
+    );
+    async function togglePostDay(day: string) {
+      const has = postDays.includes(day);
+      const ordered = DOW.filter((x) => (has ? postDays.includes(x) && x !== day : postDays.includes(x) || x === day));
+      setPostDays(ordered);
+      await fetch(`${AI_API}/concepts/${concept.id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postDays: ordered.join(",") }),
+      });
+    }
+    const [edits, setEdits] = useState<{ id: number; field: string; before: string; after: string; author: string }[]>([]);
+    useEffect(() => {
+      fetch(`${AI_API}/draft-changes?conceptId=${concept.id}`).then((r) => r.json())
+        .then((dd) => setEdits(Array.isArray(dd) ? dd.filter((c: any) => (c.before || "").trim() !== (c.after || "").trim()) : []))
+        .catch(() => {});
+    }, [concept.id]);
+    const d = blueprintDraft[concept.id];
+    const isEditingBlueprint = blueprintEditing === concept.id;
+
+    return (
+      <div className="border-t border-line">
+        {/* Pipeline header */}
+        <div className="px-5 pt-4 pb-2">
+          <p className="text-[10px] font-semibold text-faint uppercase tracking-wide">How Claude generates scripts for this concept</p>
+          <div className="flex items-center gap-1.5 mt-2 text-[10px] text-faint">
+            <span className="px-2 py-0.5 rounded-full bg-accent-tint text-accent font-semibold">1 Blueprint</span>
+            <span>→</span>
+            <span className="px-2 py-0.5 rounded-full bg-accent-tint text-accent font-semibold">2 Example Scripts</span>
+            <span>→</span>
+            <span className="px-2 py-0.5 rounded-full bg-hue-rose-100 text-hue-rose-600 font-semibold">3 Rejection Training</span>
+            <span>→</span>
+            <span className="px-2 py-0.5 rounded-full bg-hue-emerald-100 text-hue-emerald-600 font-semibold">Claude Output</span>
+          </div>
+        </div>
+
+        {/* Posting days — fed to the generator so day-referencing scripts use the right day(s) */}
+        <div className="mx-5 mb-3 rounded-xl border border-line bg-surface-2/60 px-4 py-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p className="text-[10px] font-bold text-muted uppercase tracking-wide">📆 Posting days</p>
+              <p className="text-[10px] text-faint mt-0.5">Which day(s) this concept posts on — Claude uses these when a script mentions the day.</p>
+            </div>
+            <div className="flex items-center gap-1">
+              {DOW.map((day) => {
+                const on = postDays.includes(day);
+                return (
+                  <button key={day} onClick={() => togglePostDay(day)}
+                    className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${on ? "bg-accent text-on-accent" : "bg-surface border border-line text-muted hover:bg-surface-3"}`}>
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Step 1: Blueprint */}
+        <div className="mx-5 mb-3 rounded-xl border border-accent-tint bg-accent-tint/40 overflow-hidden">
+          <button onClick={() => toggle("blueprint")} className="w-full px-4 py-2 bg-accent-tint/60 border-b border-accent-tint flex items-center justify-between hover:bg-accent-tint/80 transition-colors">
+            <p className="text-[10px] font-bold text-accent uppercase tracking-wide">① Blueprint — the concept template Claude always follows</p>
+            <div className="flex items-center gap-2">
+              {!isEditingBlueprint && openSections.blueprint && (
+                <span onClick={(e) => { e.stopPropagation(); startBlueprintEdit(concept); }}
+                  className="text-[9px] text-accent hover:text-accent-strong font-semibold px-2 py-0.5 rounded border border-accent-tint hover:bg-accent-tint transition-colors">
+                  Edit
+                </span>
+              )}
+              <span className={`text-accent text-xs transition-transform ${openSections.blueprint ? "rotate-180" : ""}`}>▾</span>
+            </div>
+          </button>
+
+          {openSections.blueprint && (isEditingBlueprint && d ? (
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Hook Type</p>
+                  <input value={d.hookType} onChange={(e) => patchDraft(concept.id, "hookType", e.target.value)}
+                    placeholder="e.g. curiosity_gap"
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-surface" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Video Type</p>
+                  <input value={d.videoType} onChange={(e) => patchDraft(concept.id, "videoType", e.target.value)}
+                    placeholder="e.g. talking_head"
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-surface" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Text Hook</p>
+                  <input value={d.textHook} onChange={(e) => patchDraft(concept.id, "textHook", e.target.value)}
+                    placeholder="Opening text overlay"
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-surface" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Angle</p>
+                  <input value={d.angle} onChange={(e) => patchDraft(concept.id, "angle", e.target.value)}
+                    placeholder="e.g. Beginner mistakes"
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-surface" />
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Structure</p>
+                  <input value={d.structure} onChange={(e) => patchDraft(concept.id, "structure", e.target.value)}
+                    placeholder="Hook (3s) → Problem (6s) → Solution (10s) → CTA (3s)"
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent bg-surface" />
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">Guidelines</p>
+                  <textarea value={d.guidelines} onChange={(e) => patchDraft(concept.id, "guidelines", e.target.value)}
+                    rows={3} placeholder="Extra instructions for Claude..."
+                    className="w-full text-xs border border-accent-tint rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-accent bg-surface" />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setBlueprintEditing(null)}
+                  className="text-[10px] text-faint hover:text-ink-2 px-2.5 py-1 rounded border border-line transition-colors">Cancel</button>
+                <button onClick={() => saveBlueprint(concept.id)} disabled={savingBlueprint === concept.id}
+                  className="text-[10px] font-semibold text-on-accent bg-accent hover:bg-accent px-3 py-1 rounded transition-colors disabled:opacity-50">
+                  {savingBlueprint === concept.id ? "Saving…" : "Save Blueprint"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 grid grid-cols-2 gap-3">
+              {concept.hookType && (
+                <div>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Hook Type</p>
+                  <p className="text-xs text-ink-2 capitalize">{concept.hookType.replace(/_/g, " ")}</p>
+                </div>
+              )}
+              {concept.textHook && (
+                <div>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Text Hook</p>
+                  <p className="text-xs text-ink-2 italic">&ldquo;{concept.textHook}&rdquo;</p>
+                </div>
+              )}
+              {concept.videoType && (
+                <div>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Video Type</p>
+                  <p className="text-xs text-ink-2 capitalize">{concept.videoType.replace(/_/g, " ")}</p>
+                </div>
+              )}
+              {concept.angle && (
+                <div>
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Angle</p>
+                  <p className="text-xs text-ink-2">{concept.angle}</p>
+                </div>
+              )}
+              {concept.structure && (
+                <div className="col-span-2">
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Structure</p>
+                  <p className="text-xs text-ink-2 whitespace-pre-line">{concept.structure}</p>
+                </div>
+              )}
+              {concept.guidelines && (
+                <div className="col-span-2">
+                  <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-0.5">Guidelines</p>
+                  <p className="text-xs text-ink-2 whitespace-pre-line">{concept.guidelines}</p>
+                </div>
+              )}
+              {!concept.hookType && !concept.angle && !concept.structure && !concept.guidelines && (
+                <p className="col-span-2 text-xs text-faint italic">No blueprint set — click Edit to add details.</p>
+              )}
+              {/* Writing rules — collapsible */}
+              <div className="col-span-2 mt-1 border-t border-accent-tint pt-1">
+                <button onClick={() => toggle("rules")}
+                  className="w-full flex items-center justify-between py-1.5 hover:opacity-80 transition-opacity">
+                  <p className="text-[9px] font-bold text-warn-500 uppercase tracking-wide">📐 Writing Rules</p>
+                  <div className="flex items-center gap-2">
+                    {conceptRulesEditing !== concept.id && openSections.rules && (() => {
+                      const isTextHook = (concept.scriptRules ?? "") === TEXT_HOOK_RULES;
+                      const isTalking  = !concept.scriptRules || concept.scriptRules === DEFAULT_RULES;
+                      const saving = savingConceptRules === concept.id;
+                      return (
+                        <>
+                          <span onClick={(e) => { e.stopPropagation(); if (!isTalking && !saving) applyRuleSet(concept.id, DEFAULT_RULES); }}
+                            title="Spoken talking-head script rules"
+                            className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${isTalking ? "bg-accent text-on-accent border-accent cursor-default" : "text-accent border-accent-tint hover:bg-accent-tint cursor-pointer"}`}>
+                            🎙 Talking-head
+                          </span>
+                          <span onClick={(e) => { e.stopPropagation(); if (!isTextHook && !saving) applyRuleSet(concept.id, TEXT_HOOK_RULES); }}
+                            title="Viral B-roll + on-screen text-hook rules"
+                            className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${isTextHook ? "bg-hue-pink-500 text-on-status border-hue-pink-500 cursor-default" : "text-hue-pink-500 border-hue-pink-200 hover:bg-hue-pink-50 cursor-pointer"}`}>
+                            📝 Viral text-hook
+                          </span>
+                        </>
+                      );
+                    })()}
+                    {conceptRulesEditing !== concept.id && openSections.rules && (
+                      <span onClick={(e) => { e.stopPropagation(); startConceptRulesEdit(concept); }}
+                        className="text-[9px] text-warn-500 hover:text-warn-700 font-semibold px-2 py-0.5 rounded border border-warn-200 hover:bg-warn-50 transition-colors">
+                        Edit
+                      </span>
+                    )}
+                    <span className={`text-warn-400 text-xs transition-transform ${openSections.rules ? "rotate-180" : ""}`}>▾</span>
+                  </div>
+                </button>
+                {openSections.rules && (conceptRulesEditing === concept.id ? (
+                  <div className="space-y-2 mt-1">
+                    <textarea
+                      value={conceptRulesText[concept.id] ?? ""}
+                      onChange={(e) => setConceptRulesText((prev) => ({ ...prev, [concept.id]: e.target.value }))}
+                      rows={10}
+                      className="w-full text-xs text-ink-2 border border-warn-200 rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-warn-300 bg-warn-50/30 font-mono leading-relaxed"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setConceptRulesEditing(null)}
+                        className="text-[10px] text-faint hover:text-ink-2 px-2.5 py-1 rounded border border-line transition-colors">Cancel</button>
+                      <button onClick={() => saveConceptRules(concept.id)} disabled={savingConceptRules === concept.id}
+                        className="text-[10px] font-semibold text-on-status bg-warn-500 hover:bg-warn-600 px-3 py-1 rounded transition-colors disabled:opacity-50">
+                        {savingConceptRules === concept.id ? "Saving…" : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <pre className="text-xs text-ink-2 whitespace-pre-wrap font-sans leading-relaxed mt-1">{concept.scriptRules ?? DEFAULT_RULES}</pre>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Step 2: Example Scripts */}
+        <div className="mx-5 mb-3 rounded-xl border border-accent-tint bg-accent-tint/40 overflow-hidden">
+          <button onClick={() => toggle("examples")} className="w-full px-4 py-2 bg-accent-tint/60 border-b border-accent-tint flex items-center justify-between hover:bg-accent-tint/80 transition-colors">
+            <p className="text-[10px] font-bold text-accent uppercase tracking-wide">② Example Scripts — reference scripts Claude studied for this concept</p>
+            <div className="flex items-center gap-2">
+              {openSections.examples && (() => {
+                let n = 0; try { n = JSON.parse((concept as any).reelUrls || "[]").length; } catch { n = 0; }
+                if (!n) return null;
+                const busy = pullingExamples === concept.id;
+                return (
+                  <span onClick={(e) => { e.stopPropagation(); if (!busy) pullFromReels(concept.id); }}
+                    title="Read the on-screen text from all attached reels and add them as examples"
+                    className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${busy ? "text-faint border-line cursor-wait" : "text-hue-pink-600 border-hue-pink-200 hover:bg-hue-pink-50 cursor-pointer"}`}>
+                    {busy ? "Reading reels…" : `✨ Pull text from ${n} attached reel${n !== 1 ? "s" : ""}`}
+                  </span>
+                );
+              })()}
+              {openSections.examples && addingExample !== concept.id && (
+                <span onClick={(e) => { e.stopPropagation(); setAddingExample(concept.id); setNewExampleText((p) => ({ ...p, [concept.id]: "" })); }}
+                  className="text-[9px] text-accent hover:text-accent-strong font-semibold px-2 py-0.5 rounded border border-accent-tint hover:bg-accent-tint transition-colors">
+                  + Add
+                </span>
+              )}
+              <span className={`text-accent text-xs transition-transform ${openSections.examples ? "rotate-180" : ""}`}>▾</span>
+            </div>
+          </button>
+          {openSections.examples && (
+            <div className="p-4 space-y-2">
+              {concept.scriptExamples
+                ? splitExamples(concept.scriptExamples).map((ex, i) => (
+                    <div key={i} className="group bg-surface rounded-lg border border-accent-tint px-3 py-2 relative">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[9px] font-bold text-accent uppercase">Example {i + 1}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-faint">{ex.trim().split(/\s+/).filter(Boolean).length} words</span>
+                          <button
+                            onClick={() => deleteExample(concept, i)}
+                            title="Delete this example"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold text-hue-rose-400 hover:text-hue-rose-600"
+                          >🗑 Delete</button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-ink-2 whitespace-pre-line leading-relaxed">{ex.trim()}</p>
+                    </div>
+                  ))
+                : addingExample !== concept.id && (
+                    <p className="text-xs text-faint italic">No example scripts yet — click + Add to paste one.</p>
+                  )
+              }
+              {addingExample === concept.id && (
+                <div className="space-y-2 pt-1">
+                  <div>
+                    <p className="text-[9px] font-bold text-accent uppercase tracking-wide mb-1">
+                      Example {splitExamples(concept.scriptExamples).length + 1}
+                    </p>
+                    <textarea
+                      autoFocus
+                      rows={5}
+                      value={newExampleText[concept.id] ?? ""}
+                      onChange={(e) => setNewExampleText((p) => ({ ...p, [concept.id]: e.target.value }))}
+                      placeholder="Paste a script that performed well for this concept..."
+                      className="w-full text-xs text-ink-2 border border-accent-tint rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-accent bg-surface font-mono leading-relaxed"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setAddingExample(null)}
+                      className="text-[10px] text-faint hover:text-ink-2 px-2.5 py-1 rounded border border-line transition-colors">Cancel</button>
+                    <button onClick={() => saveExample(concept)} disabled={savingExample === concept.id || !(newExampleText[concept.id] ?? "").trim()}
+                      className="text-[10px] font-semibold text-on-accent bg-accent hover:bg-accent px-3 py-1 rounded transition-colors disabled:opacity-50">
+                      {savingExample === concept.id ? "Saving…" : "Save Example"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Edits Claude learns from — manual changes made to scripts in this concept */}
+        <div className="mx-5 mb-4 rounded-xl border border-hue-sky-200 bg-hue-sky-50/40 overflow-hidden">
+          <button onClick={() => toggle("edits")} className="w-full px-4 py-2 bg-hue-sky-100/60 border-b border-hue-sky-200 flex items-center justify-between hover:bg-hue-sky-100/80 transition-colors">
+            <p className="text-[10px] font-bold text-hue-sky-700 uppercase tracking-wide">
+              ✍️ Your Edits — {edits.length} change{edits.length !== 1 ? "s" : ""} Claude learns your preferences from
+            </p>
+            <span className={`text-hue-sky-400 text-xs transition-transform ${openSections.edits ? "rotate-180" : ""}`}>▾</span>
+          </button>
+          {openSections.edits && (
+            <div className="p-4 space-y-2">
+              {edits.length === 0 ? (
+                <p className="text-xs text-faint italic">No edits yet. When you tweak a script in the Kanban (e.g. swap a word), the change is logged here and fed into future generations.</p>
+              ) : edits.slice(0, 12).map((c) => (
+                <div key={c.id} className="bg-surface rounded-lg border border-hue-sky-100 px-3 py-2 text-xs">
+                  <p className="text-[9px] font-bold text-hue-sky-400 uppercase mb-1">{c.field} · {c.author}</p>
+                  <p className="text-hue-rose-500 line-through whitespace-pre-line line-clamp-2">{c.before}</p>
+                  <p className="text-hue-emerald-600 whitespace-pre-line line-clamp-2 mt-0.5">{c.after}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Step 3: Rejection Training */}
+        <div className="mx-5 mb-4 rounded-xl border border-hue-rose-200 bg-hue-rose-50/40 overflow-hidden">
+          <button onClick={() => toggle("rejection")} className="w-full px-4 py-2 bg-hue-rose-100/60 border-b border-hue-rose-200 flex items-center justify-between hover:bg-hue-rose-100/80 transition-colors">
+            <p className="text-[10px] font-bold text-hue-rose-600 uppercase tracking-wide">
+              ③ Rejection Training — {total ?? 0} signals teaching Claude what NOT to do
+            </p>
+            <span className={`text-hue-rose-400 text-xs transition-transform ${openSections.rejection ? "rotate-180" : ""}`}>▾</span>
+          </button>
+          {openSections.rejection && ((total ?? 0) > 0 && byType && items ? (
+            <>
+              <div className="px-4 py-2.5 bg-hue-rose-50 border-b border-hue-rose-100 flex items-center gap-4 flex-wrap">
+                {Object.entries(byType).map(([type, count]) => {
+                  const meta = REASON_LABELS[type];
+                  const pct = Math.round((count / (total ?? 1)) * 100);
+                  return (
+                    <div key={type} className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 bg-hue-rose-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-hue-rose-400 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${meta?.color || "bg-surface-3 text-muted"}`}>
+                        {meta?.emoji} {pct}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="divide-y divide-hue-rose-100">
+                {items.map((fb) => {
+                  const meta = REASON_LABELS[fb.reasonType];
+                  return (
+                    <div key={fb.id} className="px-4 py-2.5 flex items-start gap-3 group/fb hover:bg-hue-rose-50/50">
+                      <span className={`mt-0.5 text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0 ${meta?.color || "bg-surface-3 text-muted"}`}>
+                        {meta?.emoji} {meta?.label}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-ink-2 truncate">{fb.title}</p>
+                        {fb.hook && <p className="text-[11px] text-faint italic mt-0.5 line-clamp-1">Hook: &ldquo;{fb.hook}&rdquo;</p>}
+                        {fb.reason && <p className="text-[11px] text-hue-rose-600 mt-0.5 font-medium">💬 &ldquo;{fb.reason}&rdquo;</p>}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[10px] text-faint">
+                          {new Date(fb.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                        </span>
+                        <button onClick={() => deleteFeedback(fb.id)} disabled={deletingId === fb.id}
+                          className="opacity-0 group-hover/fb:opacity-100 text-faint hover:text-danger-400 transition-all text-sm">×</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="px-4 py-3">
+              <p className="text-xs text-faint italic">No rejections logged yet. Reject scripts with a reason in the Kanban to start training Claude on what to avoid.</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Step 4: Conversation Memory */}
+        {(() => {
+          let history: { role: string; content: string }[] = [];
+          try { history = JSON.parse((concept as any).conversationHistory || "[]"); } catch {}
+          const turns = history.length;
+          const generations = history.filter(h => h.role === "assistant").length;
+          const rejections = history.filter(h => h.role === "user" && h.content.startsWith("FEEDBACK ON REJECTED")).length;
+          return (
+            <div className="mx-5 mb-4 rounded-xl border border-hue-emerald-200 bg-hue-emerald-50/30 overflow-hidden">
+              <div className="px-4 py-2 bg-hue-emerald-100/60 border-b border-hue-emerald-200 flex items-center justify-between">
+                <p className="text-[10px] font-bold text-hue-emerald-700 uppercase tracking-wide">
+                  🧠 Conversation Memory — Claude&apos;s living context for this concept
+                </p>
+                <div className="flex items-center gap-2 text-[10px] text-hue-emerald-600">
+                  <span>{generations} generation{generations !== 1 ? "s" : ""}</span>
+                  <span>·</span>
+                  <span>{rejections} rejection{rejections !== 1 ? "s" : ""} fed back</span>
+                </div>
+              </div>
+              <div className="p-4">
+                {turns === 0 ? (
+                  <div className="text-center py-3 space-y-1">
+                    <p className="text-xs text-faint font-medium">No conversation yet.</p>
+                    <p className="text-[11px] text-faint">Generate scripts for this concept and Claude will start building memory. Every generation and rejection adds to his context — the more you use it, the sharper he gets.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {history.map((turn, i) => {
+                      const isRejection = turn.role === "user" && turn.content.startsWith("FEEDBACK ON REJECTED");
+                      const isGeneration = turn.role === "user" && turn.content.startsWith("Generate");
+                      return (
+                        <div key={i} className={`rounded-lg px-3 py-2 text-[11px] ${
+                          turn.role === "assistant"
+                            ? "bg-hue-emerald-50 border border-hue-emerald-100 text-hue-emerald-800"
+                            : isRejection
+                              ? "bg-hue-rose-50 border border-hue-rose-100 text-hue-rose-700"
+                              : "bg-surface-2 border border-line text-ink-2"
+                        }`}>
+                          <p className="font-semibold mb-0.5 text-[9px] uppercase tracking-wide opacity-60">
+                            {turn.role === "assistant" ? "📝 Claude generated" : isRejection ? "❌ Rejection fed back" : "🎬 Request"}
+                          </p>
+                          <p className="line-clamp-2 leading-relaxed">
+                            {turn.role === "assistant"
+                              ? `${(turn.content.match(/\{[\s\S]*?\}/g) || []).length} scripts generated`
+                              : turn.content.split("\n")[0]}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">AI Context</h1>
+          <p className="text-muted text-sm mt-0.5">
+            What Claude has learned per concept for {client.name}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 bg-accent-tint border border-accent-tint rounded-xl px-4 py-2">
+          <span className="text-accent text-sm">🧠</span>
+          <div>
+            <p className="text-xs font-semibold text-accent-strong">{feedbacks.length} rejection signals</p>
+            <p className="text-[10px] text-accent">across {conceptsWithFeedback.length} concepts</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="bg-surface rounded-2xl border border-line p-4">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">How it works</p>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex items-start gap-2.5">
+            <span className="text-lg mt-0.5">🪝</span>
+            <div>
+              <p className="text-xs font-semibold text-ink-2">Rejection Tracking</p>
+              <p className="text-[11px] text-faint">Every rejected script stores why it failed for that concept</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <span className="text-lg mt-0.5">🧠</span>
+            <div>
+              <p className="text-xs font-semibold text-ink-2">Automatic Learning</p>
+              <p className="text-[11px] text-faint">Claude reads this history before generating new scripts</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <span className="text-lg mt-0.5">📈</span>
+            <div>
+              <p className="text-xs font-semibold text-ink-2">Gets Better Over Time</p>
+              <p className="text-[11px] text-faint">The more you reject with reasons, the better the outputs</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Captions — learned from the client's real reel captions */}
+      <div className="bg-surface rounded-2xl border border-line overflow-hidden">
+        <div className="px-5 py-4 border-b border-line flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-ink">📝 Captions</p>
+            <p className="text-xs text-faint mt-0.5">Learn {client.name}'s caption style from their own reels, then write new captions in that style</p>
+          </div>
+          <button onClick={generateCaptionGuidelines} disabled={genCapGl}
+            className="px-3 py-2 text-xs font-semibold text-on-accent bg-accent rounded-lg hover:bg-accent-strong disabled:opacity-50">
+            {genCapGl ? "Reading reels…" : "✨ Learn from 15 reels"}
+          </button>
+        </div>
+        <div className="p-4 space-y-2">
+          <label className="block text-[10px] font-semibold text-muted uppercase tracking-wide">Caption playbook</label>
+          <textarea
+            value={capGl}
+            onChange={(e) => setCapGl(e.target.value)}
+            rows={capGl ? 14 : 4}
+            placeholder="Click “✨ Learn from 15 reels” to pull this client's recent reel captions and auto-build their caption playbook (opening style, CTA, emoji, length…). You can edit it after."
+            className="w-full text-sm text-ink-2 bg-surface-2 border border-line rounded-lg px-3 py-2 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-faint">Used when generating reel captions for this client.</p>
+            <button onClick={saveCaptionGuidelines} disabled={savingCapGl}
+              className="px-4 py-1.5 text-xs font-semibold text-on-ink bg-surface-ink-3 rounded-lg hover:bg-surface-ink-2 disabled:opacity-50">
+              {savingCapGl ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Concepts with feedback */}
+      {conceptsWithFeedback.length > 0 && (
+        <div className="space-y-3">
+          {conceptsWithFeedback.map((concept) => {
+            const { total, byType, items } = getStats(concept.id);
+            const isOpen = openConceptId === concept.id;
+            const topReasons = Object.entries(byType).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+            return (
+              <div key={concept.id} className="bg-surface rounded-2xl border border-line overflow-hidden">
+                <button
+                  onClick={() => setOpenConceptId(isOpen ? null : concept.id)}
+                  className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface-2 transition-colors text-left"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-accent-tint flex items-center justify-center flex-shrink-0">
+                    <span className="text-accent text-sm font-bold">{concept.name[0]}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-ink">
+                      {concept.conceptType && <span className="text-faint font-normal">{concept.conceptType} · </span>}
+                      {concept.name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {topReasons.map(([type, count]) => {
+                        const meta = REASON_LABELS[type];
+                        return (
+                          <span key={type} className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${meta?.color || "bg-surface-3 text-muted"}`}>
+                            {meta?.emoji} {meta?.label} ({count})
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-lg font-bold text-ink">{total}</p>
+                    <p className="text-[10px] text-faint">rejections</p>
+                  </div>
+                  <span className={`text-faint ml-2 transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
+                </button>
+                {isOpen && (
+                  <ConceptPipeline concept={concept} total={total} byType={byType} items={items} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Concepts without any feedback yet */}
+      {conceptsWithoutFeedback.length > 0 && (
+        <div className="bg-surface rounded-2xl border border-line overflow-hidden">
+          <div className="px-5 py-3 border-b border-line">
+            <h3 className="text-sm font-semibold text-muted">No feedback yet</h3>
+          </div>
+          <div className="divide-y divide-line-softer">
+            {conceptsWithoutFeedback.map((concept) => {
+              const isOpen = openConceptId === concept.id;
+              return (
+                <div key={concept.id}>
+                  <button
+                    onClick={() => setOpenConceptId(isOpen ? null : concept.id)}
+                    className="w-full px-5 py-3 flex items-center gap-3 text-left hover:bg-surface-2 cursor-pointer"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-surface-3 flex items-center justify-center flex-shrink-0">
+                      <span className="text-faint text-xs font-bold">{concept.name[0]}</span>
+                    </div>
+                    <p className="text-sm text-muted">
+                      {concept.conceptType && <span className="text-faint">{concept.conceptType} · </span>}
+                      {concept.name}
+                    </p>
+                    <span className="ml-auto text-[10px] text-faint">View pipeline</span>
+                    <span className={`text-faint text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▾</span>
+                  </button>
+                  {isOpen && <ConceptPipeline concept={concept} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {concepts.length === 0 && (
+        <div className="text-center py-20">
+          <p className="text-faint text-sm">No concepts found for {client.name}.</p>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,34 @@
+import { AI_BASE } from "@/ai/slug";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function GET(req: NextRequest) {
+  const clientId = req.nextUrl.searchParams.get("clientId");
+  if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
+
+  const appId = process.env.INSTAGRAM_APP_ID!;
+  // The redirect URI must exactly match what's registered in the Meta Instagram app.
+  // It was registered as the original Vercel deployment URL — both domains hit the
+  // same deployment so the callback works fine and redirects to ordoagency.com after.
+  const redirectUri = process.env.AI_INSTAGRAM_REDIRECT_URI || `https://clientflow-ten.vercel.app${AI_BASE}/api/auth/instagram/callback`;
+
+  const url = new URL("https://www.instagram.com/oauth/authorize");
+  url.searchParams.set("client_id", appId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  // Only request analytics scopes — DMs and publishing go through Zernio, not Meta directly.
+  // instagram_business_manage_messages + content_publish require App Review and break dev-mode OAuth.
+  url.searchParams.set("scope", "instagram_business_basic,instagram_business_manage_insights");
+  url.searchParams.set("state", clientId);
+  url.searchParams.set("response_type", "code");
+  // Force a fresh authentication instead of reusing the browser's existing Instagram web
+  // session. Without this, a stale/ambiguous session (multiple logged-in accounts) makes
+  // Instagram fail the consent with "400 Session Invalid". Meta's own generated login URL
+  // includes this param for exactly this reason.
+  url.searchParams.set("force_reauth", "true");
+
+  // Debug: return the URL as JSON if ?debug=1 is passed
+  if (req.nextUrl.searchParams.get("debug") === "1") {
+    return NextResponse.json({ redirectUri, authUrl: url.toString(), appId });
+  }
+
+  return NextResponse.redirect(url.toString());
+}

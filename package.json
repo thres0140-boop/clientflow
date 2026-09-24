@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma generate --schema prisma-ai/schema.prisma && next build",
+    "build": "node scripts/check-db-boundaries.mjs && node scripts/build-ai-migrations.mjs && prisma generate && prisma generate --schema prisma-ai/schema.prisma && next build",
+    "check:boundaries": "node scripts/check-db-boundaries.mjs",
     "start": "next start",
     "lint": "eslint",
     "db:ai:generate": "prisma generate --schema prisma-ai/schema.prisma",
