@@ -539,16 +539,16 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   return (
     <div className="editor-theme h-screen flex flex-col bg-canvas-2 text-ink overflow-hidden" style={{ height: "100dvh" }}>
       {/* Top bar: save state on the left, project name centred, actions on the right (CapCut's row) */}
-      <header className="h-14 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center px-4">
+      <header className="h-9 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center px-[9px]">
         <div className="flex items-center gap-3 min-w-0">
-          <a href={backHref} className="text-xs font-semibold text-muted hover:text-ink shrink-0">← Kanban</a>
-          <span className={`text-xs truncate ${saveState === "error" ? "text-danger-600" : saveState === "conflict" ? "text-warn-700" : "text-muted"}`}>{saveLabel}</span>
+          <a href={backHref} className="text-[11px] text-ink hover:text-ink-strong shrink-0">← Kanban</a>
+          <span className={`text-[11px] truncate ${saveState === "error" ? "text-danger-600" : saveState === "conflict" ? "text-warn-700" : "text-muted"}`}>{saveLabel}</span>
         </div>
-        <div className="text-sm font-semibold truncate px-4">{draftTitle || `Draft #${draftId}`}</div>
+        <div className="text-[12px] font-medium truncate px-4">{draftTitle || `Draft #${draftId}`}</div>
         <div className="flex items-center justify-end gap-1.5">
           <IconButton name="layout" label={`Layout presets — ${NOT_BUILT.toLowerCase()}`} disabled />
-          <button disabled title={`Share — ${NOT_BUILT.toLowerCase()}`} className="o-btn o-btn-ghost text-xs h-8 py-0 disabled:opacity-40 disabled:cursor-not-allowed"><Icon name="share" size={14} />Share</button>
-          <button className="o-btn o-btn-accent text-xs h-8 py-0" disabled title="Export arrives in Phase 4">Export</button>
+          <button disabled title={`Share — ${NOT_BUILT.toLowerCase()}`} className="h-[22px] px-2 rounded-[3px] inline-flex items-center gap-1 text-[11px] font-medium bg-surface-3 text-ink disabled:opacity-40 disabled:cursor-not-allowed"><Icon name="share" size={12} />Share</button>
+          <button className="h-[22px] px-2.5 rounded-[3px] inline-flex items-center gap-1 text-[11px] font-medium bg-accent text-on-accent disabled:opacity-50 disabled:cursor-not-allowed" disabled title="Export arrives in Phase 4"><Icon name="share" size={12} />Export</button>
         </div>
       </header>
 
@@ -566,8 +566,8 @@ export default function EditorPage({ draftId }: { draftId: number }) {
       {/* Three sibling panels in a row, each with its own header; the timeline spans the full width below.
           Under ~1000 px the page scrolls sideways rather than letting the panels collapse into slivers. */}
       <div ref={shellRef} className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
-        <div className="h-full min-w-[1040px] flex flex-col px-2.5 pb-2.5">
-          <div className="flex-1 min-h-0 flex gap-2.5">
+        <div className="h-full min-w-[1040px] flex flex-col px-[9px] pb-[9px]">
+          <div className="flex-1 min-h-0 flex gap-[7px]">
             {/* Left third: tab bar in its header, sub-nav column, content with toolbar, footer */}
             <aside className={panelCls + " w-[33%] min-w-[420px] shrink-0 min-h-0 overflow-hidden"}>
               <LeftPanel tab={tab} onTab={setTab} doc={doc} status={pb.status} thumbs={pb.thumbs} tMs={pb.tMs} selection={selection} onSelect={setSelection} onSeek={pb.seek}
@@ -577,8 +577,8 @@ export default function EditorPage({ draftId }: { draftId: number }) {
 
             {/* Centre, the largest: "Preview — <name>" header, the video, transport under it */}
             <section ref={previewBox} className={panelCls + " flex-1 min-w-[320px] min-h-0 flex flex-col"}>
-              <div className="h-[46px] shrink-0 flex items-center gap-2 px-4 border-b border-line-soft">
-                <span className="text-sm font-semibold text-ink truncate">Preview <span className="text-muted font-normal">— {draftTitle || `Draft #${draftId}`}</span></span>
+              <div className="h-[42px] shrink-0 flex items-center gap-2 px-4 bg-surface-2 rounded-t-md">
+                <span className="text-[12px] text-ink-strong truncate">Preview <span className="text-ink">— {draftTitle || `Draft #${draftId}`}</span></span>
                 <span className="flex-1" />
                 {loadingAssets.length > 0 && <span className="text-[10px] text-faint">Reading {loadingAssets.length} clip length{loadingAssets.length === 1 ? "" : "s"}…</span>}
                 {failedAssets.length > 0 && <span className="text-[10px] font-semibold text-danger-600">{failedAssets.length} clip{failedAssets.length === 1 ? "" : "s"} failed</span>}
@@ -593,7 +593,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
                   {/* Overlays on the media: black/white chrome by design (dark-mode doc, media rule). */}
                   <div className="absolute top-2 left-2 right-2 flex flex-col gap-1 pointer-events-none">
                     {failedAssets.map(({ asset, reason }) => (
-                      <div key={asset.id} className="pointer-events-auto flex items-center gap-2 text-[10px] text-white bg-black/70 rounded px-2 py-1">
+                      <div key={asset.id} className="pointer-events-auto flex items-center gap-2 text-[10px] text-white bg-black/70 rounded-[3px] px-2 py-1">
                         <span className="min-w-0 flex-1 truncate"><span className="font-semibold">{asset.name}</span> failed: {reason}</span>
                         <button onClick={() => pb.retryAsset(asset.id)} className="font-semibold underline shrink-0">Retry</button>
                         <button onClick={() => removeAssetAndClips(asset.id)} className="font-semibold underline shrink-0">Remove</button>
@@ -602,12 +602,12 @@ export default function EditorPage({ draftId }: { draftId: number }) {
                   </div>
                 </div>
               </div>
-              <div className="h-11 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center px-3 border-t border-line-soft">
-                <span className="text-xs font-mono text-ink-2 tabular-nums">{fmtTime(pb.tMs)} <span className="text-faint">/ {fmtTime(pb.durationMs)}</span></span>
-                <div className="flex items-center gap-1">
+              <div className="h-11 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center px-3">
+                <span className="text-[11px] font-mono text-ink tabular-nums"><span className="text-accent">{fmtTime(pb.tMs)}</span> <span className="text-faint">/ {fmtTime(pb.durationMs)}</span></span>
+                <div className="flex items-center gap-2">
                   <IconButton name="prevFrame" label="Previous frame (←)" onClick={() => pb.seek(pb.tMs - frameMs)} />
                   <button onClick={pb.toggle} title={pb.playing ? "Pause (space)" : "Play (space)"} aria-label={pb.playing ? "Pause" : "Play"}
-                    className="h-8 w-8 inline-flex items-center justify-center rounded-md bg-accent text-on-accent hover:bg-accent-strong"><Icon name={pb.playing ? "pause" : "play"} /></button>
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-[3px] text-ink-strong hover:bg-surface-3"><Icon name={pb.playing ? "pause" : "play"} size={16} /></button>
                   <IconButton name="nextFrame" label="Next frame (→)" onClick={() => pb.seek(pb.tMs + frameMs)} />
                 </div>
                 <div className="flex items-center justify-end gap-0.5">
@@ -620,34 +620,26 @@ export default function EditorPage({ draftId }: { draftId: number }) {
             </section>
 
             {/* Right, narrow: "Details" header, the selection's properties, a footer row */}
-            <aside className={panelCls + " w-[30%] min-w-[300px] shrink-0 min-h-0 flex flex-col"}>
-              <div className="h-[46px] shrink-0 flex items-center px-4 border-b border-line-soft">
-                <span className="text-sm font-semibold text-accent">Details</span>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 pb-6">
-                <Inspector doc={doc} selection={selection} clientId={project.clientId} onChange={onChange} onSelect={setSelection} onSaveClientDefault={saveClientDefault} />
-              </div>
-              <div className="h-11 shrink-0 flex items-center justify-end px-3 border-t border-line-soft">
-                <button disabled title={`Modify — ${NOT_BUILT.toLowerCase()}`} className="o-btn o-btn-ghost text-xs h-8 py-0 disabled:opacity-40 disabled:cursor-not-allowed">Modify</button>
-              </div>
+            <aside className={panelCls + " w-[30%] min-w-[300px] shrink-0 min-h-0 flex flex-col overflow-hidden"}>
+              <Inspector doc={doc} selection={selection} clientId={project.clientId} onChange={onChange} onSelect={setSelection} onSaveClientDefault={saveClientDefault} />
             </aside>
           </div>
 
           {/* Divider: drag to give the timeline more or less room, double-click to reset */}
           <div onPointerDown={onDividerPointerDown} onDoubleClick={resetDivider} title="Drag to resize the timeline · double-click to reset"
-            className="group h-3 shrink-0 flex items-center justify-center cursor-row-resize touch-none">
-            <span className="h-1 w-12 rounded-full bg-line-strong group-hover:bg-accent transition-colors" />
+            className="group h-[6px] shrink-0 flex items-center justify-center cursor-row-resize touch-none">
+            <span className="h-0.5 w-10 rounded-full bg-transparent group-hover:bg-accent transition-colors" />
           </div>
 
           {/* Bottom: the timeline spans the full width with its own toolbar; the tracks scroll inside it */}
           <section className={panelCls + " shrink-0 flex flex-col min-h-0"} style={{ height: timelineH }}>
-            <div className="h-10 shrink-0 flex items-center gap-1 px-2 border-b border-line-soft">
+            <div className="h-8 shrink-0 flex items-center gap-3 px-3">
               <IconButton name="plus" label={`Add at playhead — ${NOT_BUILT.toLowerCase()} (use Media's + Main)`} disabled />
-              <button disabled title={`Select mode — ${NOT_BUILT.toLowerCase()} (one mode today)`} className="h-8 px-1.5 inline-flex items-center gap-0.5 rounded-md text-ink-2 disabled:opacity-35 disabled:cursor-not-allowed"><Icon name="select" /><Icon name="chevron" size={12} /></button>
-              <span className="w-px h-5 bg-line-hard mx-1" />
+              <button disabled title={`Select mode — ${NOT_BUILT.toLowerCase()} (one mode today)`} className="h-6 px-1 inline-flex items-center gap-0.5 rounded-[3px] text-ink disabled:opacity-35 disabled:cursor-not-allowed"><Icon name="select" /><Icon name="chevron" size={10} /></button>
+              <span className="w-px h-4 bg-line-hard" />
               <IconButton name="undo" label="Undo (⌘Z)" onClick={undo} disabled={!histSize.past} />
               <IconButton name="redo" label="Redo (⌘⇧Z)" onClick={redo} disabled={!histSize.future} />
-              <span className="w-px h-5 bg-line-hard mx-1" />
+              <span className="w-px h-4 bg-line-hard" />
               <IconButton name="trimLeft" label="Trim to the left of the playhead (Q)" onClick={() => trimAtPlayhead("left")} />
               <IconButton name="split" label="Split at playhead (S)" onClick={splitAtPlayhead} />
               <IconButton name="trimRight" label="Trim to the right of the playhead (W)" onClick={() => trimAtPlayhead("right")} />
@@ -658,10 +650,10 @@ export default function EditorPage({ draftId }: { draftId: number }) {
               <IconButton name="snap" label={snap ? "Snapping on (N)" : "Snapping off (N)"} onClick={() => setSnap(!snap)} active={snap} />
               <IconButton name="link" label={`Link / unlink — ${NOT_BUILT.toLowerCase()}`} disabled />
               <IconButton name="mirror" label={`Mirror — ${NOT_BUILT.toLowerCase()}`} disabled />
-              <span className="w-px h-5 bg-line-hard mx-1" />
+              <span className="w-px h-4 bg-line-hard" />
               <IconButton name="zoomOut" label="Zoom out" onClick={() => setPxPerSec((z) => Math.max(ZOOM_MIN, z / 1.5))} />
               <input type="range" min={0} max={100} value={zoomToSlider(pxPerSec)} onChange={(e) => setPxPerSec(sliderToZoom(Number(e.target.value)))}
-                title={`${Math.round(pxPerSec)} px per second`} aria-label="Timeline zoom" className="w-28 h-8 accent-[var(--color-accent)]" />
+                title={`${Math.round(pxPerSec)} px per second`} aria-label="Timeline zoom" className="w-24 h-6 accent-[var(--color-ink-strong)]" />
               <IconButton name="zoomIn" label="Zoom in" onClick={() => setPxPerSec((z) => Math.min(ZOOM_MAX, z * 1.5))} />
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
@@ -675,7 +667,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
 }
 
 /** Every region is a floating panel: surface, hairline, the 10 px radius token, soft shadow. */
-const panelCls = "rounded-md bg-surface border border-line shadow-soft";
+const panelCls = "rounded-md bg-surface";
 
 const EMPTY_DOC: EditDocument = { v: 1, canvas: { ...DEFAULT_CANVAS }, assets: [], tracks: [{ id: "main", kind: "video", role: "main", clips: [], transitions: [] }], captionStyle: DEFAULT_CAPTION_STYLE, transcript: null };
 

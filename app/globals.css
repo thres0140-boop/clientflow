@@ -38,6 +38,8 @@
   /* second-tier surfaces & extremes — light values equal the hardcoded colours they replace */
   --color-surface-2: oklch(98.4% 0.003 247.858);   /* = slate-50: raised / hover surface */
   --color-surface-hover: #fafafa;                   /* ghost-button hover */
+  --color-well: #f6f6f4;                            /* a recessed field fill (video editor inputs); light = canvas */
+  --color-rail: #fafafa;                            /* a rail beside content (video editor track headers) */
   --color-line-strong: rgba(17, 17, 19, 0.2);      /* ghost-button hover border */
   --color-ink-strong: #000;                         /* primary-button hover */
   --color-on-ink: #fff;                             /* text on an ink-coloured surface */
@@ -231,188 +233,53 @@
 [data-theme="dark"],
 .editor-theme {
   color-scheme: dark;
+  --background: #141414;
+  --foreground: #e0e0e0;
 
-  --background: #0a0c0a;
-  --foreground: #e8ece8;
+  /* Measured from CapCut 9.4 (2x capture, 2026-09-25): page #141414 → input well #1c1c1c → panel
+     #262626 → track rail #2a2a2a → header strip #303030 → raised control #3b3b3b. */
+  --color-canvas: #141414;
+  --color-canvas-2: #141414;
+  --color-well: #1c1c1c;
+  --color-surface: #262626;
+  --color-rail: #2a2a2a;
+  --color-surface-2: #303030;
+  --color-surface-3: #3b3b3b;
+  --color-surface-4: #454545;
+  --color-surface-5: #505050;
+  --color-surface-hover: #454545;
+  --color-surface-ink: #e0e0e0;
+  --color-surface-ink-2: #d0d0d0;
+  --color-surface-ink-3: #bdbdbd;
 
-  --color-ink: #e8ece8;
-  --color-ink-2: #b9c0b9;
-  --color-muted: #8a928a;
-  --color-faint: #5f665f;
-  --color-ink-strong: #ffffff;
-  --color-on-ink: #0a0c0a;
+  --color-line: #373737;
+  --color-line-soft: #2f2f2f;
+  --color-line-softer: #2b2b2b;
+  --color-line-2: #3b3b3b;
+  --color-line-hard: #3d3d3d;
+  --color-line-harder: #474747;
+  --color-line-strong: #555555;
+  --color-line-focus: #6c6c6c;
 
-  --color-canvas: #0a0c0a;
-  --color-surface: #121512;
-  --color-surface-2: #1a1e1a;
-  --color-surface-hover: #1a1e1a;
-  --color-line: rgba(255, 255, 255, 0.07);
-  --color-line-2: rgba(255, 255, 255, 0.12);
-  --color-line-strong: rgba(255, 255, 255, 0.2);
+  --color-ink: #e0e0e0;
+  --color-ink-2: #cbcbcb;
+  --color-muted: #9d9d9d;
+  --color-faint: #6c6c6c;
+  --color-ink-strong: #fafafa;
+  --color-on-ink: #141414;
+  --color-knob: #fafafa;
+  --color-shade: #ffffff;
 
-  --color-accent: #3d6ea8;
-  --color-accent-strong: #325b8a;
-  --color-accent-tint: rgba(61, 110, 168, 0.12);
-  --color-on-accent: #ffffff;
-  --color-on-status: #0a0c0a;
-  --color-knob: #e8ece8;
+  /* CapCut's teal, where it uses it: active tab box and label, active header tab, toggles, Export, snap */
+  --color-accent: #57becb;
+  --color-accent-strong: #4aaebb;
+  --color-accent-tint: rgba(87, 190, 203, 0.16);
+  --color-on-accent: #0b2a2e;
+  --color-accent-legacy: #57becb;
 
-  --color-surface-3: #1f241f;
-  --color-surface-4: #272d27;
-  --color-surface-5: #333a33;
-  --color-line-soft: rgba(255, 255, 255, 0.05);
-  --color-line-hard: rgba(255, 255, 255, 0.10);
-  --color-line-focus: rgba(255, 255, 255, 0.35);
-  --color-ink-400: #6f776f;
-  --color-ink-500: #8a928a;
-  --color-ink-600: #a3aba3;
-  --color-ink-700: #cfd5cf;
-  --color-ink-800: #e8ece8;
-
-  /* sidebar: near-black in the canvas family, split from the content by a hairline */
-  --color-nav: #0d100d;
-  --color-nav-strip: #0a0c0a;
-  --color-nav-line: rgba(255, 255, 255, 0.07);
-  --color-nav-edge: rgba(255, 255, 255, 0.07);
-  --color-nav-ink: #e8ece8;
-  --color-nav-ink-2: #b9c0b9;
-  --color-nav-overlay: #ffffff;
-  --color-nav-active: rgba(61, 110, 168, 0.14);
-  --color-nav-active-strong: rgba(61, 110, 168, 0.22);
-  --color-nav-ring: #3d6ea8;
-  --nav-ink-2-rgb: 185,192,185;
-  --nav-overlay-rgb: 255,255,255;
-
-  /* status: translucent tints instead of pastel blocks, lighter ink for contrast */
-  --color-ok-50:  rgba(34, 197, 94, 0.10);
-  --color-ok-100: rgba(34, 197, 94, 0.18);
-  --color-ok-200: rgba(34, 197, 94, 0.32);
-  --color-ok-500: #22c55e;
-  --color-ok-600: #4ade80;
-  --color-ok-700: #86efac;
-  --color-warn-50:  rgba(245, 158, 11, 0.10);
-  --color-warn-100: rgba(245, 158, 11, 0.18);
-  --color-warn-200: rgba(245, 158, 11, 0.32);
-  --color-warn-400: #fbbf24;
-  --color-warn-500: #f59e0b;
-  --color-warn-600: #fbbf24;
-  --color-warn-700: #fcd34d;
-  --color-danger-50:  rgba(239, 68, 68, 0.10);
-  --color-danger-100: rgba(239, 68, 68, 0.18);
-  --color-danger-200: rgba(239, 68, 68, 0.32);
-  --color-danger-400: #f87171;
-  --color-danger-500: #ef4444;
-  --color-danger-600: #f87171;
-  --color-danger-700: #fca5a5;
-  --color-info-50:  rgba(59, 130, 246, 0.10);
-  --color-info-100: rgba(59, 130, 246, 0.18);
-  --color-info-200: rgba(59, 130, 246, 0.32);
-  --color-info-500: #3b82f6;
-  --color-info-600: #60a5fa;
-  --color-info-700: #93c5fd;
-
-  --color-ok-400: #4ade80;
-  --color-ok-800: #bbf7d0;
-  --color-warn-300: rgba(245, 158, 11, 0.45);
-  --color-warn-800: #fde68a;
-  --color-danger-300: rgba(239, 68, 68, 0.45);
-  --color-info-300: rgba(59, 130, 246, 0.45);
-  --color-info-400: #60a5fa;
-  --color-info-800: #bfdbfe;
-  --color-hue-emerald-50: rgba(16, 185, 129, 0.10);
-  --color-hue-emerald-100: rgba(16, 185, 129, 0.18);
-  --color-hue-emerald-200: rgba(16, 185, 129, 0.32);
-  --color-hue-emerald-500: #10b981;
-  --color-hue-emerald-600: #34d399;
-  --color-hue-emerald-700: #6ee7b7;
-  --color-hue-emerald-800: #a7f3d0;
-  --color-hue-rose-50: rgba(244, 63, 94, 0.10);
-  --color-hue-rose-100: rgba(244, 63, 94, 0.18);
-  --color-hue-rose-200: rgba(244, 63, 94, 0.32);
-  --color-hue-rose-400: #fb7185;
-  --color-hue-rose-500: #f43f5e;
-  --color-hue-rose-600: #fb7185;
-  --color-hue-rose-700: #fda4af;
-  --color-hue-sky-50: rgba(14, 165, 233, 0.10);
-  --color-hue-sky-100: rgba(14, 165, 233, 0.18);
-  --color-hue-sky-200: rgba(14, 165, 233, 0.32);
-  --color-hue-sky-400: #38bdf8;
-  --color-hue-sky-700: #7dd3fc;
-  --color-hue-cyan-100: rgba(6, 182, 212, 0.18);
-  --color-hue-cyan-700: #67e8f9;
-  --color-hue-pink-50: rgba(236, 72, 153, 0.10);
-  --color-hue-pink-100: rgba(236, 72, 153, 0.18);
-  --color-hue-pink-200: rgba(236, 72, 153, 0.32);
-  --color-hue-pink-500: #ec4899;
-  --color-hue-pink-600: #f472b6;
-  --color-hue-pink-700: #f9a8d4;
-  --color-hue-pink-800: #fbcfe8;
-  --color-hue-purple-50: rgba(168, 85, 247, 0.10);
-  --color-hue-purple-200: rgba(168, 85, 247, 0.32);
-  --color-hue-purple-800: #e9d5ff;
-  --color-hue-orange-100: rgba(249, 115, 22, 0.18);
-  --color-hue-orange-500: #f97316;
-  --color-hue-orange-700: #fdba74;
-  --color-hue-orange-600: #fb923c;
-  --color-hue-orange-800: #fed7aa;
-  --color-hue-teal-50: rgba(20, 184, 166, 0.10);
-  --color-hue-teal-700: #5eead4;
-  --color-hue-purple-100: rgba(168, 85, 247, 0.18);
-  --color-hue-purple-300: rgba(168, 85, 247, 0.45);
-  --color-hue-purple-400: #c084fc;
-  --color-hue-purple-600: #c084fc;
-  --color-hue-purple-700: #d8b4fe;
-  --color-hue-orange-50: rgba(249, 115, 22, 0.10);
-  --color-hue-orange-200: rgba(249, 115, 22, 0.32);
-  --color-hue-orange-300: rgba(249, 115, 22, 0.45);
-  --color-hue-orange-400: #fb923c;
-  --color-hue-violet-50: rgba(139, 92, 246, 0.10);
-  --color-hue-violet-100: rgba(139, 92, 246, 0.18);
-  --color-hue-violet-200: rgba(139, 92, 246, 0.32);
-  --color-hue-violet-400: #a78bfa;
-  --color-hue-violet-500: #8b5cf6;
-  --color-hue-violet-600: #a78bfa;
-  --color-hue-violet-700: #c4b5fd;
-  --color-accent-200: rgba(61, 110, 168, 0.32);
-  --color-accent-300: rgba(61, 110, 168, 0.45);
-  --color-ink-300: #4a524a;
-  --color-ink-900: #f2f5f2;
-  --color-accent-50: rgba(61, 110, 168, 0.10);
-  --color-accent-100: rgba(61, 110, 168, 0.18);
-  --color-accent-400: #5e8dc5;
-  --color-accent-500: #3d6ea8;
-  --color-accent-600: #5e8dc5;
-  --color-accent-700: #8fafd6;
-  --color-accent-800: #bccfe7;
-  --color-canvas-2: #0a0c0a;
-  --color-ink-200: #3a413a;
-  --color-surface-ink: #f2f5f2;
-  --color-surface-ink-2: #d6dbd6;
-  --color-surface-ink-3: #c4cac4;
-  --color-line-softer: rgba(255, 255, 255, 0.04);
-  --color-line-harder: rgba(255, 255, 255, 0.16);
-  --color-shade: #fff;
-  --color-fill-neutral: #272d27;
-  --color-accent-legacy: #325b8a;
-  --color-chip-ink: #e8ece8;
-  --color-chip-posted-bg: rgba(34, 197, 94, 0.18);
-  --color-chip-posted-ink: #86efac;
-  --color-chart-red: #ef4444;
-  --color-chart-amber: #f59e0b;
-  --color-chart-green: #10b981;
-  --color-chart-empty: #333a33;
-  --color-board-loading: #121212;                   /* Excalidraw's own dark canvas */
-
-  /* depth: black shadows vanish on a near-black canvas, so depth comes from the
-     lighter surface + an outer hairline, with a deeper drop for floating layers */
-  --shadow-soft: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 14px 38px rgba(0, 0, 0, 0.55);
-  --shadow-pop:  0 0 0 1px rgba(255, 255, 255, 0.06), 0 30px 70px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 20px rgba(61, 110, 168, 0.22);
-  --shadow-nav-peek: 8px 0 40px rgba(0, 0, 0, 0.75);
-  --shadow-nav-active: 0 0 16px rgba(61, 110, 168, 0.16);
-  --shadow-btn: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 18px rgba(61, 110, 168, 0.18);
-  --shadow-btn-accent: 0 0 20px rgba(61, 110, 168, 0.28);
+  --shadow-soft: none;
+  --shadow-lift: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-btn-accent: none;
 }
 [data-theme="dark"] ::selection { background: rgba(61, 110, 168, 0.32); }
 [data-theme="dark"] :focus-visible { outline-color: rgba(61, 110, 168, 0.6); }
@@ -475,8 +342,8 @@
   --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 32px rgba(0, 0, 0, 0.5);
   --shadow-btn-accent: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
-.editor-theme ::selection { background: rgba(45, 212, 191, 0.32); }
-.editor-theme :focus-visible { outline-color: rgba(45, 212, 191, 0.7); }
+.editor-theme ::selection { background: rgba(87, 190, 203, 0.32); }
+.editor-theme :focus-visible { outline-color: rgba(87, 190, 203, 0.7); }
 .editor-theme * { scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
 .editor-theme *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); background-clip: content-box; }
 .editor-theme *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.32); background-clip: content-box; }

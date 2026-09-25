@@ -352,8 +352,13 @@ components breaks the rules above:
   `accent-tint`, `on-accent`: teal), the panel shadows and the scrollbar/selection rules. Status
   and hue families are inherited from the dark block unchanged. `color-scheme: dark` makes
   native inputs match.
-- The relationship that matters is the tier order **page gap → panel → raised → raised-hover**
-  (`#1a1a1a → #262626 → #333333 → #3a3a3a`); tune values, keep the order.
+- The tiers are CapCut's, measured from a native capture on 2026-09-25, in this order:
+  **page `#141414` → input well `#1c1c1c` → panel `#262626` → track rail `#2a2a2a` → header/footer
+  strip `#303030` → raised control `#3b3b3b`**, hairline `#373737`, accent `#57becb`. Two roles
+  had no token and were minted app-wide with light and dark values (`--color-well`, a recessed
+  field fill; `--color-rail`, a rail beside content) so the editor could use `bg-well` /
+  `bg-rail` without a literal; nothing outside the editor uses them yet. Keep the order when
+  tuning.
 - Media chrome inside the editor (the black preview backdrop, white text over thumbnails, the
   failed-clip chips) stays literal, exactly as the media rule above says.
 - Scope: the editor route only. The CapCut list page in the sidebar is a normal app page on

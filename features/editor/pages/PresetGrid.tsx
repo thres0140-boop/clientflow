@@ -47,10 +47,10 @@ function PresetCard({ preset, still, active, onApply, onRemove }: { preset: Name
     document.fonts?.ready.then(paint).catch(() => {});
   }, [preset, still]);
   return (
-    <div className={`group relative rounded-md overflow-hidden border ${active ? "border-accent ring-2 ring-accent/30" : "border-line-soft"} bg-surface-2`}>
+    <div className={`group relative rounded-md overflow-hidden ${active ? "ring-1 ring-accent" : ""} bg-surface-3`}>
       <button onClick={onApply} className="block w-full text-left" title={`Apply "${preset.name}"`}>
         <canvas ref={ref} width={216} height={384} className="block w-full aspect-[9/16]" />
-        <div className="px-1.5 py-1 text-[11px] text-ink truncate">{preset.name}</div>
+        <div className="px-1.5 py-1 text-[10px] text-ink truncate">{preset.name}</div>
       </button>
       {onRemove && (
         <button onClick={onRemove} title="Remove this preset" className="absolute top-1 right-1 h-6 w-6 rounded-md bg-black/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center"><Icon name="trash" size={12} /></button>
@@ -81,14 +81,14 @@ export default function PresetGrid({ api, still }: { api: PresetsApi; still: str
       <div>
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-semibold text-ink-2">This client&apos;s</span>
-          {!naming && <button onClick={() => setNaming(true)} className="h-7 px-2.5 rounded-md text-[11px] font-semibold border border-line bg-surface text-ink-2 hover:text-ink">Save current as preset</button>}
+          {!naming && <button onClick={() => setNaming(true)} className="h-[22px] px-2 rounded-[3px] text-[11px] font-medium bg-surface-3 text-ink hover:bg-surface-4">Save current as preset</button>}
         </div>
         {naming && (
           <div className="flex items-center gap-1.5 mb-2">
             <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setNaming(false); }} placeholder="Preset name"
-              className="flex-1 h-8 rounded-md border border-line bg-surface px-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-accent" />
-            <button onClick={save} disabled={busy || !name.trim()} className="h-8 px-2.5 rounded-md text-[11px] font-semibold bg-accent text-on-accent disabled:opacity-50">Save</button>
-            <button onClick={() => setNaming(false)} className="h-8 px-2 rounded-md text-[11px] font-semibold text-muted hover:text-ink">Cancel</button>
+              className="flex-1 h-[22px] rounded-[2px] bg-well px-2 text-[11px] text-ink focus:outline-none focus:ring-1 focus:ring-accent" />
+            <button onClick={save} disabled={busy || !name.trim()} className="h-[22px] px-2 rounded-[3px] text-[11px] font-medium bg-accent text-on-accent disabled:opacity-50">Save</button>
+            <button onClick={() => setNaming(false)} className="h-[22px] px-2 rounded-[3px] text-[11px] font-medium text-muted hover:text-ink">Cancel</button>
           </div>
         )}
         {api.client.length === 0 ? (

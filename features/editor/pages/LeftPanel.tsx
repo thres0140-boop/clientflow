@@ -84,8 +84,8 @@ const SUB_NAV: Record<EditorTab, SubNav[]> = {
   templates: [{ id: "mine", label: "Mine", disabled: true }, { id: "client", label: "Per client", disabled: true }],
 };
 
-const pill = "h-8 w-full flex items-center justify-between gap-1 px-3 rounded-md text-xs font-semibold transition-colors";
-const toolBtn = "h-8 inline-flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-semibold transition-colors";
+const pill = "h-6 w-full flex items-center justify-between gap-1 px-2.5 rounded-[3px] text-[12px] font-medium transition-colors";
+const toolBtn = "h-[22px] inline-flex items-center gap-1 px-2 rounded-[3px] text-[11px] font-medium transition-colors";
 
 export default function LeftPanel(p: Props) {
   const { tab, onTab } = p;
@@ -98,32 +98,31 @@ export default function LeftPanel(p: Props) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header row = the tab bar: icon above label, quiet active state. */}
-      <div className="h-[46px] shrink-0 flex items-stretch border-b border-line-soft">
-        <div ref={tabsRef} className="flex-1 min-w-0 flex items-stretch overflow-x-auto [scrollbar-width:none] px-1">
+      {/* Header row = the tab bar, CapCut's strip: icon in a 27x22 box (filled accent when active) over a 10 px label, 100 px pitch. */}
+      <div className="h-[42px] shrink-0 flex items-stretch bg-surface-2 rounded-t-md">
+        <div ref={tabsRef} className="flex-1 min-w-0 flex items-stretch overflow-x-auto [scrollbar-width:none]">
           {EDITOR_TABS.map((t) => {
             const active = tab === t.id;
             return (
               <button key={t.id} onClick={() => onTab(t.id as EditorTab)} title={t.label}
-                className={`relative min-w-[58px] px-2 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold whitespace-nowrap transition-colors ${active ? "text-accent" : "text-muted hover:text-ink"}`}>
-                <Icon name={t.icon} />
+                className={`min-w-[100px] flex flex-col items-center justify-center gap-px text-[10px] font-medium whitespace-nowrap transition-colors ${active ? "text-accent" : "text-ink hover:text-ink-strong"}`}>
+                <span className={`h-[22px] w-[27px] rounded flex items-center justify-center ${active ? "bg-accent text-on-accent" : ""}`}><Icon name={t.icon} size={13} /></span>
                 {t.label}
-                {active && <span className="absolute left-2 right-2 bottom-0 h-0.5 rounded-full bg-accent" />}
               </button>
             );
           })}
         </div>
-        <button onClick={() => tabsRef.current?.scrollBy({ left: 160, behavior: "smooth" })} title="More tabs" aria-label="Scroll tabs"
-          className="w-6 shrink-0 flex items-center justify-center text-muted hover:text-ink border-l border-line-soft"><Icon name="chevronRight" size={14} /></button>
+        <button onClick={() => tabsRef.current?.scrollBy({ left: 200, behavior: "smooth" })} title="More tabs" aria-label="Scroll tabs"
+          className="w-5 shrink-0 flex items-center justify-center text-ink-2 hover:text-ink"><Icon name="chevronRight" size={12} /></button>
       </div>
 
       <div className="flex-1 min-h-0 flex">
         {/* Secondary nav column */}
-        <nav className="w-[124px] shrink-0 p-2 space-y-1.5 border-r border-line-soft overflow-y-auto">
+        <nav className="w-[120px] shrink-0 p-2 space-y-2 overflow-y-auto">
           {subs.map((s) => (
             <button key={s.id} onClick={() => !s.disabled && setSub(s.id)} disabled={s.disabled} title={s.disabled ? NOT_BUILT : undefined}
-              className={`${pill} ${sub === s.id && !s.disabled ? "bg-surface-3 text-accent" : "bg-surface-2 text-ink-2 hover:bg-surface-3"} disabled:opacity-40 disabled:cursor-not-allowed`}>
-              <span className="truncate">{s.label}</span><Icon name="chevron" size={12} className="shrink-0 -rotate-90 opacity-60" />
+              className={`${pill} bg-surface-3 ${sub === s.id && !s.disabled ? "text-accent" : "text-ink hover:text-ink-strong"} disabled:opacity-40 disabled:cursor-not-allowed`}>
+              <span className="truncate">{s.label}</span><Icon name="chevron" size={11} className="shrink-0 opacity-70" />
             </button>
           ))}
         </nav>
@@ -137,12 +136,12 @@ export default function LeftPanel(p: Props) {
             : (
               <>
                 <Toolbar>
-                  <button disabled title={NOT_BUILT} className={`${toolBtn} bg-surface-3 text-ink-2 disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="search" size={14} />Search</button>
+                  <button disabled title={NOT_BUILT} className={`${toolBtn} bg-surface-3 text-ink disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="search" size={12} />Search</button>
                   <span className="flex-1" />
                   <IconButton name="grid" label={NOT_BUILT} disabled /><IconButton name="sort" label={NOT_BUILT} disabled /><IconButton name="filter" label={NOT_BUILT} disabled />
                 </Toolbar>
                 <div className="flex-1 flex flex-col items-center justify-center text-center px-6 gap-2">
-                  <span className="h-10 w-10 rounded-md bg-surface-2 border border-line-soft flex items-center justify-center text-muted"><Icon name={tabDef.icon} size={18} /></span>
+                  <span className="h-9 w-9 rounded-md bg-surface-3 flex items-center justify-center text-muted"><Icon name={tabDef.icon} size={16} /></span>
                   <p className="text-sm font-semibold text-ink-2">{tabDef.label} — not built yet</p>
                   <p className="text-xs text-faint">{tabDef.blurb}</p>
                 </div>
@@ -155,10 +154,10 @@ export default function LeftPanel(p: Props) {
 }
 
 function Toolbar({ children }: { children: React.ReactNode }) {
-  return <div className="h-11 shrink-0 flex items-center gap-1.5 px-3 border-b border-line-soft">{children}</div>;
+  return <div className="h-[46px] shrink-0 flex items-center gap-1.5 px-3">{children}</div>;
 }
 function Footer({ children }: { children: React.ReactNode }) {
-  return <div className="h-11 shrink-0 flex items-center gap-2 px-3 border-t border-line-soft">{children}</div>;
+  return <div className="h-[39px] shrink-0 flex items-center gap-2 px-3 bg-surface-2 rounded-b-md">{children}</div>;
 }
 
 function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUploaded, onRetry, onRemoveAsset }: Props & { sub: string }) {
@@ -184,9 +183,9 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
       <input ref={fileRef} type="file" accept="video/*" multiple hidden onChange={(e) => { const fs = Array.from(e.target.files || []); e.target.value = ""; importFiles(fs); }} />
       <Toolbar>
         <button onClick={() => fileRef.current?.click()} disabled={pct !== null} className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4 disabled:opacity-60`}>
-          <Icon name="plus" size={14} />{pct !== null ? `${pct}%` : "Import"}
+          <span className="h-3 w-3 rounded-full bg-accent text-on-accent flex items-center justify-center"><Icon name="plus" size={9} /></span>{pct !== null ? `${pct}%` : "Import"}
         </button>
-        <button disabled title={`Record — ${NOT_BUILT.toLowerCase()}`} className={`${toolBtn} bg-surface-3 text-ink-2 disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="record" size={14} />Record</button>
+        <button disabled title={`Record — ${NOT_BUILT.toLowerCase()}`} className={`${toolBtn} bg-surface-3 text-ink disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="record" size={12} />Record</button>
         <span className="flex-1" />
         <IconButton name="search" label={NOT_BUILT} disabled />
         <IconButton name="grid" label={NOT_BUILT} disabled />
@@ -201,17 +200,17 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
           <div role="button" tabIndex={0}
             onClick={() => pct === null && fileRef.current?.click()}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); } }}
-            className={`mb-3 rounded-md border border-dashed px-3 py-3 flex items-center gap-3 cursor-pointer transition-colors ${over ? "border-accent bg-accent-tint" : "border-line-2 bg-surface-2 hover:border-line-strong"}`}>
-            <span className="h-8 w-8 rounded-md bg-surface-3 flex items-center justify-center text-ink-2 shrink-0"><Icon name="import" /></span>
+            className={`mb-3 rounded-md border border-dashed px-3 py-2.5 flex items-center gap-3 cursor-pointer transition-colors ${over ? "border-accent bg-accent-tint" : "border-line-2 bg-well hover:border-line-strong"}`}>
+            <span className="h-7 w-7 rounded bg-surface-3 flex items-center justify-center text-ink shrink-0"><Icon name="import" size={13} /></span>
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-ink">{pct !== null ? `Uploading ${pct}%` : "Import"}</div>
+              <div className="text-[11px] font-medium text-ink">{pct !== null ? `Uploading ${pct}%` : "Import"}</div>
               <div className="text-[10px] text-faint truncate">{pct !== null ? "to Cloudflare R2, in 8 MB parts" : "Drop videos here, or click"}</div>
             </div>
           </div>
         )}
         {error && <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-md mb-3">{error}</p>}
-        <div className="text-[11px] font-semibold text-ink-2 mb-2">All</div>
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2">
+        <div className="text-[11px] text-ink mb-2">All</div>
+        <ul className="grid grid-cols-[repeat(auto-fill,120px)] gap-3">
           {doc.assets.map((a) => {
             const st = status[a.id];
             const failed = st?.state === "failed";
@@ -219,10 +218,10 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
             const n = usage.get(a.id) ?? 0;
             const thumb = thumbs[a.id];
             return (
-              <li key={a.id} className={`group rounded-md border overflow-hidden ${failed ? "border-danger-200" : "border-line-soft"} bg-surface-2`}>
-                <div className="relative aspect-[9/16] bg-black">
+              <li key={a.id} className={`group w-[120px] h-[140px] rounded-md overflow-hidden flex flex-col ${failed ? "ring-1 ring-danger-500" : ""} bg-surface-3`}>
+                <div className="relative h-[90px] shrink-0 bg-black">
                   {/* Media thumbnail: black backdrop and white text over it stay literal (dark-mode doc, media rule). */}
-                  {thumb ? <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" /> : (
+                  {thumb ? <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-contain" /> : (
                     <div className="absolute inset-0 flex items-center justify-center text-white/40"><Icon name="media" size={20} /></div>
                   )}
                   {!failed && a.durationMs != null && <span className="absolute bottom-1 right-1 text-[10px] font-mono text-white bg-black/60 rounded px-1">{fmtTime(a.durationMs).replace(/\.\d+$/, "")}</span>}
@@ -236,8 +235,8 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
                     </div>
                   )}
                 </div>
-                <div className="px-1.5 py-1">
-                  <div className="text-[11px] text-ink truncate" title={a.name}>{a.name}</div>
+                <div className="px-1.5 py-1 min-h-0">
+                  <div className="text-[10px] text-ink truncate" title={a.name}>{a.name}</div>
                   {failed ? (
                     <div className="mt-1 flex gap-1">
                       <button onClick={() => onRetry(a.id)} className="h-6 px-1.5 rounded-md text-[10px] font-semibold bg-surface text-ink-2 border border-line hover:text-ink inline-flex items-center gap-1"><Icon name="retry" size={12} />Retry</button>
@@ -255,9 +254,9 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
       </div>
 
       <Footer>
-        <button disabled title={NOT_BUILT} className={`${toolBtn} px-1 text-accent disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="sparkle" size={14} />AI clipper</button>
+        <button disabled title={NOT_BUILT} className={`${toolBtn} px-1 text-accent disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="sparkle" size={12} />AI clipper</button>
         <span className="flex-1" />
-        <span className="text-[11px] text-muted">{doc.assets.length} item{doc.assets.length === 1 ? "" : "s"}</span>
+        <span className="text-[10px] text-muted">{doc.assets.length} item{doc.assets.length === 1 ? "" : "s"}</span>
         <button disabled title={NOT_BUILT} className={`${toolBtn} bg-accent text-on-accent disabled:opacity-40 disabled:cursor-not-allowed`}>Make clips</button>
       </Footer>
     </>
@@ -270,7 +269,7 @@ function TextContent({ doc, sub, selection, onSelect, onSeek, onAddText }: Props
   return (
     <>
       <Toolbar>
-        <button onClick={onAddText} className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4`}><Icon name="plus" size={14} />Add text</button>
+        <button onClick={onAddText} className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4`}><Icon name="plus" size={12} />Add text</button>
         <span className="flex-1" />
         <IconButton name="search" label={NOT_BUILT} disabled />
       </Toolbar>
@@ -310,8 +309,8 @@ function TransitionsContent({ doc, selection, transitions, onSelect }: Props) {
     return (
       <button key={type ?? "none"} onClick={() => transitions.apply(type, duration, !sel)} disabled={boundaries === 0}
         title={sel ? `Apply to the selected cut` : `Apply to every cut (${boundaries})`}
-        className={`rounded-md border p-2 text-left ${active ? "border-accent bg-accent-tint" : "border-line-soft bg-surface-2 hover:bg-surface-3"} disabled:opacity-40`}>
-        <div className="h-10 rounded bg-black flex items-center justify-center text-white text-lg">{type ? TRANSITION_GLYPH[type] : "|"}</div>
+        className={`rounded-md p-1.5 text-left ${active ? "ring-1 ring-accent bg-accent-tint" : "bg-surface-3 hover:bg-surface-4"} disabled:opacity-40`}>
+        <div className="h-9 rounded bg-black flex items-center justify-center text-white text-base">{type ? TRANSITION_GLYPH[type] : "|"}</div>
         <div className="mt-1 text-[11px] text-ink truncate">{type ? TRANSITION_LABELS[type] : "None (cut)"}</div>
       </button>
     );
@@ -320,7 +319,7 @@ function TransitionsContent({ doc, selection, transitions, onSelect }: Props) {
     <>
       <Toolbar>
         <span className="text-[11px] text-ink-2">Duration</span>
-        <input type="number" min={100} max={3000} step={50} value={duration} onChange={(e) => setDuration(Math.max(100, Number(e.target.value) || TRANSITION_DEFAULT_MS))} className="w-20 h-8 rounded-md border border-line bg-surface px-2 text-xs text-ink" aria-label="Transition duration in ms" />
+        <input type="number" min={100} max={3000} step={50} value={duration} onChange={(e) => setDuration(Math.max(100, Number(e.target.value) || TRANSITION_DEFAULT_MS))} className="w-[68px] h-[22px] rounded-[2px] bg-well px-2 text-[11px] text-ink text-center" aria-label="Transition duration in ms" />
         <span className="text-[10px] text-faint">ms · capped at half the shorter clip</span>
         <span className="flex-1" />
         <IconButton name="search" label={NOT_BUILT} disabled />
@@ -363,9 +362,9 @@ function CaptionsContent({ doc, sub, selection, onSelect, onSeek, onAddCaption, 
       <Toolbar>
         <button onClick={ac.generate} disabled={!ac.canGenerate || working} title={ac.canGenerate ? "Transcribe the main track with word timings and lay the captions out" : "Add clips to the main track first"}
           className={`${toolBtn} bg-accent text-on-accent hover:bg-accent-strong disabled:opacity-50 disabled:cursor-not-allowed`}>
-          <Icon name="sparkle" size={14} />{working ? "Generating…" : ac.hasTranscript ? "Regenerate" : "Generate captions"}
+          <Icon name="sparkle" size={12} />{working ? "Generating…" : ac.hasTranscript ? "Regenerate" : "Generate captions"}
         </button>
-        <button onClick={onAddCaption} className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4`}><Icon name="plus" size={14} />Add</button>
+        <button onClick={onAddCaption} className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4`}><Icon name="plus" size={12} />Add</button>
         <span className="flex-1" />
         <IconButton name="search" label={NOT_BUILT} disabled />
       </Toolbar>
@@ -381,7 +380,7 @@ function CaptionsContent({ doc, sub, selection, onSelect, onSeek, onAddCaption, 
               <p className={`text-[11px] rounded-md px-3 py-2 ${ac.state.phase === "error" ? "text-danger-600 bg-danger-50" : ac.state.phase === "working" ? "text-ink-2 bg-surface-2" : "text-ink-2 bg-surface-2"}`}>{ac.state.message}</p>
             )}
             <button onClick={ac.relayout} disabled={!ac.hasTranscript || working} title="Re-chunk the cached transcript with the current caption style (words per caption, max lines) and the current clips"
-              className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4 disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="retry" size={14} />Re-layout with current style</button>
+              className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4 disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="retry" size={12} />Re-layout with current style</button>
           </div>
         ) : sub === "presets" ? (
           <PresetGrid api={presets} still={still} />

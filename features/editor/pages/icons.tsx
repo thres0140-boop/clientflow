@@ -56,7 +56,7 @@ const P: Record<IconName, React.ReactNode> = {
   layout: <><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M2 8h12M7 8v5" /></>,
 };
 
-export function Icon({ name, size = 16, className }: { name: IconName; size?: number; className?: string }) {
+export function Icon({ name, size = 13, className }: { name: IconName; size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       {P[name]}
@@ -68,7 +68,7 @@ export function Icon({ name, size = 16, className }: { name: IconName; size?: nu
 export function IconButton({ name, label, onClick, disabled, active, className = "" }: { name: IconName; label: string; onClick?: () => void; disabled?: boolean; active?: boolean; className?: string }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} title={label} aria-label={label}
-      className={`h-8 w-8 inline-flex items-center justify-center rounded-md transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${active ? "bg-accent text-on-accent" : "text-ink-2 hover:bg-surface-3 hover:text-ink"} ${className}`}>
+      className={`h-6 w-6 inline-flex items-center justify-center rounded-[3px] transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${active ? "text-accent" : "text-ink hover:bg-surface-3"} ${className}`}>
       <Icon name={name} />
     </button>
   );
