@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
+import { ensureDefaultStages } from "@/features/scripts/server/ensureStages";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json();
+  const clientId = parseInt(id);
+  // Switching YouTube on seeds its workflow stages right away (idempotent), so Content
+  // Scheduling's YouTube lane has its columns before anyone opens the YouTube Kanban.
+  if (body.youtubeEnabled === true) {
+    await ensureDefaultStages(clientId, "youtube").catch((e) => console.error("[clients PUT] youtube stage seed failed", e));
+  }
   const client = await prisma.client.update({
-    where: { id: parseInt(id) },
+    where: { id: clientId },
     data: {
       name: body.name !== undefined ? body.name : undefined,
       platform: body.platform !== undefined ? body.platform : undefined,

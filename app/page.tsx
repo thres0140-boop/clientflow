@@ -506,8 +506,10 @@ export default function App() {
       case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
       case "transcribe": return <TranscribePage />;
       case "capcut": return <CapCutPage clients={clients} selectedClientId={selectedClientId} />;
-      // YouTube pages are wired in later stages; the ids, access and folder are live already.
-      case "ytkanban": return <YouTubeStub title="YouTube Kanban" blurb="The stage-based board for this client's YouTube scripts is being wired up." />;
+      // The YouTube Kanban is the Script Kanban scoped to platform=youtube: WorkflowStage, Concept
+      // and ScriptDraft are per platform, and its stages are seeded when YouTube is switched on.
+      case "ytkanban": return <Kanban clients={clients} platform="youtube" selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} highlightDraftId={kanbanHighlightId} onHighlightConsumed={() => setKanbanHighlightId(null)} />;
+      // Clipping is wired in stage 3; the id, access and folder are live already.
       case "ytclipping": return <YouTubeStub title="Clipping" blurb="Cut short clips out of a long-form YouTube video and hand them to the editor. Being wired up." />;
       case "clientsettings": return <ClientSettingsPage client={clients.find((c) => c.id === selectedClientId) ?? null} refreshClients={fetchClients} onManageAll={() => setPage("settings")} />;
     }

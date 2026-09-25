@@ -35,6 +35,9 @@ const CONTENT_ICONS: Record<string, string> = {
 };
 const PLATFORM_BADGE: Record<PlatformId, string> = { instagram: "📸", tiktok: "🎵", youtube: "▶️" };
 const PLATFORM_LABEL: Record<PlatformId, string> = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube" };
+// Platforms ORDO can post to (via Zernio). YouTube has no posting integration, so every
+// "Post to YouTube" control is hidden rather than shown and always failing.
+const POSTABLE: Record<PlatformId, boolean> = { instagram: true, tiktok: true, youtube: false };
 
 // Platform of a draft / content piece / stage / concept. A NULL or unknown platform is treated
 // as Instagram — the client's primary/legacy platform (mirrors /api/content's null handling).
@@ -386,7 +389,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
           {canEdit && <PlanModeSelector current={planMode} onChange={changePlanMode} />}
           {canEdit && (
             <>
-              {platforms.map((p) => (
+              {platforms.filter((p) => POSTABLE[p]).map((p) => (
                 <button
                   key={p}
                   onClick={() => setShowPost(p)}
@@ -896,6 +899,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
           date={pendingDrop.date}
           clientId={selectedClientId}
           canPost={!!ps.length && pendingDrop.draft.stageId === ps[ps.length - 1]?.id}
+          postable={POSTABLE[dp]}
           lastStageName={ps[ps.length - 1]?.name ?? "Schedule"}
           onClose={() => setPendingDrop(null)}
           onConfirm={async (postToIG, opts) => {
@@ -1071,13 +1075,14 @@ function PlanTimeModal({ date, onClose, onPlan }: { date: string; onClose: () =>
 interface IGOptions { caption: string; trialReel: boolean; time: string; }
 
 function ConfirmScheduleModal({
-  draft, platform, date, clientId, canPost, lastStageName, onClose, onConfirm,
+  draft, platform, date, clientId, canPost, postable = true, lastStageName, onClose, onConfirm,
 }: {
   draft: ScriptDraft;
   platform: PlatformId; // the draft's platform — drives the caption prompt, labels and Zernio target
   date: string;
   clientId: number | null;
   canPost: boolean;
+  postable?: boolean;   // false = ORDO cannot post to this platform: plan only, no Zernio controls
   lastStageName: string;
   onClose: () => void;
   onConfirm: (postToIG: boolean, opts: IGOptions) => Promise<void>;
@@ -1267,7 +1272,7 @@ function ConfirmScheduleModal({
           )}
 
           {/* Zernio posting indicator */}
-          {hasMedia && canPost && (
+          {hasMedia && canPost && postable && (
             <div className="flex items-start gap-2 bg-accent-tint rounded-xl px-4 py-3">
               <span className="text-accent mt-0.5">📡</span>
               <p className="text-[11px] text-accent-strong">Hit <span className="font-semibold">Confirm &amp; Schedule</span> to book this {platformLabel} auto-post via Zernio for {scheduleTime} on {date}.</p>
@@ -1289,7 +1294,7 @@ function ConfirmScheduleModal({
           >
             Save to Calendar
           </button>
-          {(() => {
+          {postable && (() => {
             const isFuture = new Date(`${date}T${scheduleTime || "09:00"}:00`).getTime() > Date.now() + 60_000;
             return (
             <button
@@ -1303,12 +1308,17 @@ function ConfirmScheduleModal({
             );
           })()}
         </div>
-        {!canPost && (
+        {!postable && (
+          <p className="px-6 pb-4 text-[11px] text-faint text-center">
+            {platformLabel} is published from {platformLabel} Studio, not from ORDO. This keeps the plan on the calendar.
+          </p>
+        )}
+        {postable && !canPost && (
           <p className="px-6 pb-4 text-[11px] text-warn-600 text-center">
             🔒 Not ready to schedule — move this to the <span className="font-semibold">{lastStageName}</span> stage in the Kanban (it&apos;s in {draft.stage?.name ? `"${draft.stage.name}"` : "an earlier stage"}) before you can book the auto-post. You can still keep it planned here.
           </p>
         )}
-        {canPost && !hasMedia && (
+        {postable && canPost && !hasMedia && (
           <p className="px-6 pb-4 text-[11px] text-faint text-center">
             Upload a video or photo in the Kanban stage to enable direct {platformLabel} posting.
           </p>
@@ -2110,8 +2120,8 @@ function ContentDetailModal({
             className="w-full border border-line rounded-xl px-4 py-3 text-sm text-ink-2 focus:outline-none focus:ring-2 focus:ring-accent resize-none" />
         </div>
 
-        {/* Post directly to the piece's platform */}
-        {piece.status !== "posted" && (piece.rawContentUrl || rawContentUrl) && (
+        {/* Post directly to the piece's platform (only platforms ORDO can post to) */}
+        {POSTABLE[platform] && piece.status !== "posted" && (piece.rawContentUrl || rawContentUrl) && (
           <div className="rounded-xl border border-accent-tint bg-accent-tint px-4 py-3 space-y-2">
             <p className="text-[10px] font-semibold text-accent uppercase tracking-wide">{platformLabel}</p>
             <button

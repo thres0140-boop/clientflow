@@ -568,7 +568,7 @@ export default function Kanban({ clients, platform = "instagram", selectedClient
           </div>
           <div>
             <h1 className="text-xl font-semibold text-ink">{client.name}</h1>
-            <p className="text-xs text-faint">Script Kanban · Week {WEEK_NUMBER}</p>
+            <p className="text-xs text-faint">{platform === "youtube" ? "YouTube Kanban" : "Script Kanban"} · Week {WEEK_NUMBER}</p>
           </div>
           {/* Production goal — how many scripts you want in production; fills as you drag
               Ideas → Record. Owner only. */}

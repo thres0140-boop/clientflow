@@ -579,6 +579,20 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     return NextResponse.json({ tiktokcol: out });
   }
 
+  // ?clipcol=1 — Clipping: which long-form draft a short clip was cut from. Shipped one deploy
+  // ahead of the schema field and the code that reads it. Idempotent.
+  if (req.nextUrl.searchParams.get("clipcol")) {
+    const out: any = {};
+    for (const [name, sql] of [
+      ["ScriptDraft.clipOfDraftId", `ALTER TABLE "ScriptDraft" ADD COLUMN IF NOT EXISTS "clipOfDraftId" INTEGER`],
+      ["ScriptDraft_clipOfDraftId_idx", `CREATE INDEX IF NOT EXISTS "ScriptDraft_clipOfDraftId_idx" ON "ScriptDraft"("clipOfDraftId")`],
+    ] as [string, string][]) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    return NextResponse.json({ clipcol: out });
+  }
+
   // ?youtubecol=1 — per-client YouTube toggle (YouTube Kanban + Clipping). Idempotent.
   if (req.nextUrl.searchParams.get("youtubecol")) {
     const out: any = {};
@@ -1602,6 +1616,12 @@ export async function POST(req: NextRequest) {
       ALTER TABLE "Client"
       ADD COLUMN IF NOT EXISTS "youtubeEnabled" BOOLEAN NOT NULL DEFAULT false;
     `;
+    // Clipping: the long-form draft a short clip was cut from. Same as GET ?clipcol=1.
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "ScriptDraft"
+      ADD COLUMN IF NOT EXISTS "clipOfDraftId" INTEGER;
+    `;
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ScriptDraft_clipOfDraftId_idx" ON "ScriptDraft"("clipOfDraftId");`);
     // Headquarters: activity log + nightly reel snapshots.
     await (prisma as any).$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "ActivityEvent" (
