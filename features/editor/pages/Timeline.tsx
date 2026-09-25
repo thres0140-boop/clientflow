@@ -95,7 +95,7 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
   );
 
   return (
-    <div ref={scrollRef} className="relative overflow-x-auto overflow-y-hidden bg-surface-2 border-t border-line select-none" style={{ touchAction: "none" }}
+    <div ref={scrollRef} className="relative h-full overflow-x-auto overflow-y-hidden bg-surface-2 select-none" style={{ touchAction: "none" }}
       onPointerDown={(e) => { if (e.target === e.currentTarget) onSelect(null); }}>
       <div style={{ width: LABEL_W + widthPx }} className="relative">
         {/* Ruler */}

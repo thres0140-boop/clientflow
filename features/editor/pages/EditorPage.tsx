@@ -14,6 +14,7 @@ import { readEmbedFlag } from "@/shared/embed";
 import Timeline, { fmtTime, type Selection } from "./Timeline";
 import Inspector from "./Inspector";
 import LeftPanel, { EDITOR_TABS, type EditorTab } from "./LeftPanel";
+import { Icon, IconButton } from "./icons";
 import { usePlayback } from "./usePlayback";
 
 type ProjectView = { id: number; draftId: number; clientId: number; version: number; updatedBy: string | null; updatedAt: string; document: EditDocument };
@@ -277,9 +278,9 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const failedAssets = doc.assets.filter((a) => pb.status[a.id]?.state === "failed").map((a) => ({ asset: a, reason: (pb.status[a.id] as { reason: string }).reason }));
 
   return (
-    <div className="h-screen flex flex-col bg-canvas-2 text-ink overflow-hidden">
+    <div className="h-screen flex flex-col bg-canvas-2 text-ink overflow-hidden" style={{ height: "100dvh" }}>
       {/* Header */}
-      <header className="h-12 shrink-0 flex items-center gap-3 px-3 bg-surface border-b border-line">
+      <header className="h-12 shrink-0 flex items-center gap-3 px-4 bg-surface border-b border-line">
         <a href={backHref} className="text-xs font-semibold text-muted hover:text-ink">← Kanban</a>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold truncate">{draftTitle || `Draft #${draftId}`}</div>
@@ -290,19 +291,24 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         <button className="o-btn o-btn-primary text-xs" disabled title="Export arrives in Phase 4">Export</button>
       </header>
 
-      {/* Tab bar: the shape of the finished editor. Tabs without features yet open an honest empty state. */}
-      <nav className="shrink-0 flex items-center gap-1 px-2 h-9 bg-surface border-b border-line overflow-x-auto">
-        {EDITOR_TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-3 h-7 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${tab === t.id ? "bg-accent text-on-accent" : "text-muted hover:text-ink hover:bg-surface-3"}`}>
-            {t.label}
-          </button>
-        ))}
+      {/* Tab bar: icon above label, quiet active state (tint + underline). Tabs without features open an honest empty state. */}
+      <nav className="shrink-0 flex items-stretch gap-0.5 px-2 h-[52px] bg-surface border-b border-line overflow-x-auto">
+        {EDITOR_TABS.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id as EditorTab)} title={t.label}
+              className={`relative min-w-[64px] px-2.5 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold whitespace-nowrap transition-colors ${active ? "text-accent" : "text-muted hover:text-ink"}`}>
+              <span className={`h-7 w-7 rounded-md flex items-center justify-center ${active ? "bg-accent-tint" : ""}`}><Icon name={t.icon} /></span>
+              {t.label}
+              {active && <span className="absolute left-3 right-3 bottom-0 h-0.5 rounded-full bg-accent" />}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Conflict banner */}
       {conflict && (
-        <div className="shrink-0 flex items-center gap-3 px-3 py-2 bg-warn-50 border-b border-warn-200 text-xs text-warn-700">
+        <div className="shrink-0 flex items-center gap-3 px-4 py-2 bg-warn-50 border-b border-warn-200 text-xs text-warn-700">
           <span className="font-semibold">{conflict.updatedBy || "Someone"} saved this project at {new Date(conflict.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} while you were editing.</span>
           <span className="text-warn-600">Your changes are not saved. Reload their version (loses yours) or overwrite it with yours.</span>
           <span className="flex-1" />
@@ -311,60 +317,84 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         </div>
       )}
 
-      {/* Left panel · preview · right panel */}
-      <div className="flex-1 min-h-0 flex">
-        <aside className="w-72 shrink-0 bg-surface border-r border-line overflow-y-auto">
-          <LeftPanel tab={tab} doc={doc} status={pb.status} tMs={pb.tMs} selection={selection} onSelect={setSelection} onSeek={pb.seek}
-            onAddToMain={addToMain} onAddBroll={addBroll} onUploaded={addUploadedAsset} onRetry={pb.retryAsset} onRemoveAsset={removeAssetAndClips}
-            onAddCaption={addCaptionHere} onAddText={addTextHere} />
-        </aside>
-        <div ref={previewBox} className="flex-1 min-w-0 flex flex-col items-center justify-center gap-2 p-3">
-          <div className="relative h-full max-h-full" style={{ aspectRatio: `${doc.canvas.width} / ${doc.canvas.height}` }}>
-            <canvas ref={canvasRef} width={doc.canvas.width} height={doc.canvas.height} onPointerDown={onPreviewPointerDown}
-              className="h-full w-auto max-w-full rounded-xl bg-black shadow-lift touch-none" />
-            {/* Overlays on the media: black/white chrome by design (dark-mode doc, media rule). */}
-            <div className="absolute top-2 left-2 right-2 flex flex-col gap-1 pointer-events-none">
-              {loadingAssets.length > 0 && <div className="self-start text-[10px] font-semibold text-white/80 bg-black/50 rounded px-1.5 py-0.5">Reading {loadingAssets.length} clip length{loadingAssets.length === 1 ? "" : "s"}…</div>}
-              {failedAssets.map(({ asset, reason }) => (
-                <div key={asset.id} className="pointer-events-auto flex items-center gap-2 text-[10px] text-white bg-black/70 rounded px-2 py-1">
-                  <span className="min-w-0 flex-1 truncate"><span className="font-semibold">{asset.name}</span> failed: {reason}</span>
-                  <button onClick={() => pb.retryAsset(asset.id)} className="font-semibold underline shrink-0">Retry</button>
-                  <button onClick={() => removeAssetAndClips(asset.id)} className="font-semibold underline shrink-0">Remove</button>
+      {/* Floating panels over the darker page background. Below ~1000 px the page scrolls sideways
+          rather than letting the panels collapse into slivers. */}
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+        <div className="h-full min-w-[1000px] flex flex-col gap-3 p-3">
+          <div className="flex-1 min-h-0 flex gap-3">
+            {/* Left: the active tab */}
+            <aside className={panelCls + " w-64 xl:w-72 shrink-0 overflow-y-auto overscroll-contain"}>
+              <LeftPanel tab={tab} doc={doc} status={pb.status} tMs={pb.tMs} selection={selection} onSelect={setSelection} onSeek={pb.seek}
+                onAddToMain={addToMain} onAddBroll={addBroll} onUploaded={addUploadedAsset} onRetry={pb.retryAsset} onRemoveAsset={removeAssetAndClips}
+                onAddCaption={addCaptionHere} onAddText={addTextHere} />
+            </aside>
+
+            {/* Centre: preview panel with its own header row and the playback controls under the video */}
+            <section ref={previewBox} className={panelCls + " flex-1 min-w-[320px] flex flex-col"}>
+              <div className="h-9 shrink-0 flex items-center gap-3 px-3 border-b border-line-soft">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Preview</span>
+                <span className="text-[10px] font-mono text-faint">{doc.canvas.width}×{doc.canvas.height} · {doc.canvas.fps} fps</span>
+                <span className="flex-1" />
+                {loadingAssets.length > 0 && <span className="text-[10px] text-faint">Reading {loadingAssets.length} clip length{loadingAssets.length === 1 ? "" : "s"}…</span>}
+                {failedAssets.length > 0 && <span className="text-[10px] font-semibold text-danger-600">{failedAssets.length} clip{failedAssets.length === 1 ? "" : "s"} failed</span>}
+              </div>
+              <div className="flex-1 min-h-0 flex items-center justify-center p-3">
+                <div className="relative h-full max-h-full" style={{ aspectRatio: `${doc.canvas.width} / ${doc.canvas.height}` }}>
+                  <canvas ref={canvasRef} width={doc.canvas.width} height={doc.canvas.height} onPointerDown={onPreviewPointerDown}
+                    className="h-full w-auto max-w-full rounded-lg bg-black touch-none" />
+                  {/* Overlays on the media: black/white chrome by design (dark-mode doc, media rule). */}
+                  <div className="absolute top-2 left-2 right-2 flex flex-col gap-1 pointer-events-none">
+                    {failedAssets.map(({ asset, reason }) => (
+                      <div key={asset.id} className="pointer-events-auto flex items-center gap-2 text-[10px] text-white bg-black/70 rounded px-2 py-1">
+                        <span className="min-w-0 flex-1 truncate"><span className="font-semibold">{asset.name}</span> failed: {reason}</span>
+                        <button onClick={() => pb.retryAsset(asset.id)} className="font-semibold underline shrink-0">Retry</button>
+                        <button onClick={() => removeAssetAndClips(asset.id)} className="font-semibold underline shrink-0">Remove</button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              </div>
+              <div className="h-11 shrink-0 flex items-center justify-center gap-1 px-3 border-t border-line-soft">
+                <IconButton name="prevFrame" label="Previous frame (←)" onClick={() => pb.seek(pb.tMs - frameMs)} />
+                <button onClick={pb.toggle} title={pb.playing ? "Pause (space)" : "Play (space)"} aria-label={pb.playing ? "Pause" : "Play"}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-md bg-accent text-on-accent hover:bg-accent-strong"><Icon name={pb.playing ? "pause" : "play"} /></button>
+                <IconButton name="nextFrame" label="Next frame (→)" onClick={() => pb.seek(pb.tMs + frameMs)} />
+                <span className="ml-3 text-xs font-mono text-ink-2 tabular-nums">{fmtTime(pb.tMs)} <span className="text-faint">/ {fmtTime(pb.durationMs)}</span></span>
+              </div>
+            </section>
+
+            {/* Right: properties for the selection, scrolling inside the panel */}
+            <aside className={panelCls + " w-72 xl:w-80 shrink-0 min-h-0 overflow-y-auto overscroll-contain"}>
+              <div className="p-4 pb-8">
+                <Inspector doc={doc} selection={selection} clientId={project.clientId} onChange={onChange} onSelect={setSelection} />
+              </div>
+            </aside>
+          </div>
+
+          {/* Bottom: timeline panel with its own icon toolbar */}
+          <section className={panelCls + " shrink-0 flex flex-col"} style={{ height: 292 }}>
+            <div className="h-10 shrink-0 flex items-center gap-1 px-2 border-b border-line-soft">
+              <IconButton name="undo" label="Undo (⌘Z)" onClick={undo} disabled={!histSize.past} />
+              <IconButton name="redo" label="Redo (⌘⇧Z)" onClick={redo} disabled={!histSize.future} />
+              <span className="w-px h-5 bg-line-hard mx-1" />
+              <IconButton name="split" label="Split at playhead (S)" onClick={splitAtPlayhead} />
+              <IconButton name="trash" label="Delete selection (⌫)" onClick={deleteSelected} disabled={!selection} />
+              <span className="flex-1" />
+              <IconButton name="zoomOut" label="Zoom out" onClick={() => setPxPerSec((z) => Math.max(10, z / 1.5))} />
+              <IconButton name="zoomIn" label="Zoom in" onClick={() => setPxPerSec((z) => Math.min(400, z * 1.5))} />
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => pb.seek(pb.tMs - frameMs)} className="o-btn o-btn-ghost text-xs px-2 py-1.5" title="Previous frame (←)">⏮</button>
-            <button onClick={pb.toggle} className="o-btn o-btn-accent text-xs w-20">{pb.playing ? "Pause" : "Play"}</button>
-            <button onClick={() => pb.seek(pb.tMs + frameMs)} className="o-btn o-btn-ghost text-xs px-2 py-1.5" title="Next frame (→)">⏭</button>
-            <span className="text-xs font-mono text-ink-2 w-28 text-center">{fmtTime(pb.tMs)} / {fmtTime(pb.durationMs)}</span>
-          </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
+            </div>
+          </section>
         </div>
-        <aside className="w-80 shrink-0 bg-surface border-l border-line overflow-y-auto p-3">
-          <Inspector doc={doc} selection={selection} clientId={project.clientId} onChange={onChange} onSelect={setSelection} />
-        </aside>
       </div>
-
-      {/* Timeline toolbar */}
-      <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-surface border-t border-line text-xs">
-        <button onClick={undo} disabled={!histSize.past} className="o-btn o-btn-ghost text-xs px-2 py-1.5 disabled:opacity-40" title="Undo (⌘Z)">↶</button>
-        <button onClick={redo} disabled={!histSize.future} className="o-btn o-btn-ghost text-xs px-2 py-1.5 disabled:opacity-40" title="Redo (⌘⇧Z)">↷</button>
-        <span className="w-px h-5 bg-line-hard mx-1" />
-        <button onClick={splitAtPlayhead} className="o-btn o-btn-ghost text-xs px-2 py-1.5" title="Split at playhead (S)">✂ Split</button>
-        <button onClick={deleteSelected} disabled={!selection} className="o-btn o-btn-ghost text-xs px-2 py-1.5 disabled:opacity-40" title="Delete selection (⌫)">Delete</button>
-        <span className="flex-1" />
-        <span className="text-faint">Zoom</span>
-        <button onClick={() => setPxPerSec((z) => Math.max(10, z / 1.5))} className="o-btn o-btn-ghost text-xs px-2 py-1.5">−</button>
-        <button onClick={() => setPxPerSec((z) => Math.min(400, z * 1.5))} className="o-btn o-btn-ghost text-xs px-2 py-1.5">+</button>
-      </div>
-      <div className="shrink-0 h-[248px] overflow-hidden">
-        <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
-      </div>
-
     </div>
   );
 }
+
+/** Every region is a floating panel: surface, hairline, existing radius token, soft shadow. */
+const panelCls = "rounded-xl bg-surface border border-line shadow-soft";
 
 const EMPTY_DOC: EditDocument = { v: 1, canvas: { ...DEFAULT_CANVAS }, assets: [], tracks: [{ id: "main", kind: "video", role: "main", clips: [] }], captionStyle: { v: 1, font: { family: "Roboto", weight: 700, sizePx: 72, letterSpacingPx: 0, italic: false, uppercase: true }, fill: { color: "#ffffff" }, outline: { color: "#000000", widthPx: 5 }, shadow: { color: "#000000", offsetPx: 2, opacity: 0.5 }, box: { enabled: false, color: "#000000", opacity: 0.6, paddingPx: 16 }, layout: { anchor: "bottom", align: "center", marginVPx: 420, marginHPx: 60, maxLines: 2, wordsPerCue: 2 }, highlight: { mode: "none", color: "#ffe34d" } }, transcript: null };
 
