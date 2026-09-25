@@ -85,6 +85,56 @@ export function splitClipAt(doc: EditDocument, trackId: string, tMs: Ms): EditDo
   });
 }
 
+/** Trim a clip AT a timeline time: "left" discards everything before tMs, "right" everything
+ *  after it. No-op if tMs is outside the clip or would leave it shorter than MIN_CLIP_MS. */
+export function trimClipToTime(doc: EditDocument, trackId: string, clipId: string, tMs: Ms, side: "left" | "right"): EditDocument {
+  const track = doc.tracks.find((t): t is VideoTrack => t.kind === "video" && t.id === trackId);
+  const c = track?.clips.find((x) => x.id === clipId);
+  if (!c) return doc;
+  const local = tMs - c.at;
+  const len = clipLengthMs(c);
+  // Returns the SAME document (by identity) when nothing would change, so callers can skip the undo entry.
+  if (local <= 0 || local >= len) return doc;
+  if (side === "left" ? len - local < MIN_CLIP_MS : local < MIN_CLIP_MS) return doc;
+  const cut = Math.round(local);
+  return mapClips(doc, trackId, (clips) => clips.map((x) => (x.id !== clipId ? x : side === "left" ? { ...x, inMs: x.inMs + cut, at: x.at + cut } : { ...x, outMs: x.inMs + cut })));
+}
+
+// ── snapping ──────────────────────────────────────────────────────────────────
+
+/** Every time an edge can snap to: timeline start, the playhead, and the start/end of every
+ *  clip, cue and text element except the ones being dragged. */
+export function snapCandidates(doc: EditDocument, exclude: ReadonlySet<string>, playheadMs: Ms): Ms[] {
+  const out = new Set<Ms>([0, playheadMs]);
+  for (const t of doc.tracks) {
+    if (t.kind === "video") for (const c of t.clips) { if (!exclude.has(c.id)) { out.add(c.at); out.add(c.at + clipLengthMs(c)); } }
+    else if (t.kind === "caption") for (const q of t.cues) { if (!exclude.has(q.id)) { out.add(q.startMs); out.add(q.endMs); } }
+    else for (const e of t.elements) { if (!exclude.has(e.id)) { out.add(e.startMs); out.add(e.endMs); } }
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
+/** Adjusts a drag delta so that the nearest of the moving `edges` (their times BEFORE the
+ *  drag) lands on a candidate within `thresholdMs`. Returns the delta unchanged if none is near. */
+export function snapDelta(edges: Ms[], deltaMs: Ms, candidates: Ms[], thresholdMs: Ms): Ms {
+  let best: { dist: number; adjust: Ms } | null = null;
+  for (const e of edges) {
+    const moved = e + deltaMs;
+    for (const c of candidates) {
+      const dist = Math.abs(c - moved);
+      if (dist <= thresholdMs && (!best || dist < best.dist)) best = { dist, adjust: c - moved };
+    }
+  }
+  return best ? deltaMs + best.adjust : deltaMs;
+}
+
+/** Snaps a single time (the playhead while scrubbing) to the nearest candidate within reach. */
+export function snapTime(tMs: Ms, candidates: Ms[], thresholdMs: Ms): Ms {
+  let best: Ms | null = null, bestDist = Infinity;
+  for (const c of candidates) { const d = Math.abs(c - tMs); if (d <= thresholdMs && d < bestDist) { best = c; bestDist = d; } }
+  return best ?? tMs;
+}
+
 export function deleteClip(doc: EditDocument, trackId: string, clipId: string): EditDocument {
   return mapClips(doc, trackId, (clips) => clips.filter((c) => c.id !== clipId));
 }

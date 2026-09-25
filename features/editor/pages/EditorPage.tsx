@@ -7,7 +7,7 @@
 // right, and the timeline with its own toolbar at the bottom. The playback engine is a hook.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM } from "@/features/editor/model/document";
-import { addAsset, addClip, addCue, addText, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, splitClipAt, updateClip, updateText } from "@/features/editor/model/timeline";
+import { addAsset, addClip, addCue, addText, clipAt, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, splitClipAt, trimClipToTime, updateClip, updateText } from "@/features/editor/model/timeline";
 import { clipRect, textElementAt } from "@/features/editor/render/compositor";
 import { loadAllCaptionFonts } from "@/features/editor/render/fonts";
 import { readEmbedFlag } from "@/shared/embed";
@@ -23,6 +23,20 @@ type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
 const AUTOSAVE_MS = 1500;
 const HISTORY_CAP = 100;
 
+// The divider between the upper area and the timeline: remembered per user like the other cf_* keys.
+const TIMELINE_H_KEY = "cf_editor_timeline_h";
+const SNAP_KEY = "cf_editor_snap";
+const TIMELINE_H_DEFAULT = 292;
+const TIMELINE_H_MIN = 160;          // toolbar + ruler + two rows
+const UPPER_MIN = 260;               // the preview must keep a usable height
+const ZOOM_MIN = 10, ZOOM_MAX = 400; // px per second, slider is logarithmic between these
+function readNumber(key: string, fallback: number): number {
+  try { const v = Number(localStorage.getItem(key)); return Number.isFinite(v) && v > 0 ? v : fallback; } catch { return fallback; }
+}
+function readBool(key: string, fallback: boolean): boolean {
+  try { const v = localStorage.getItem(key); return v == null ? fallback : v === "1"; } catch { return fallback; }
+}
+
 export default function EditorPage({ draftId }: { draftId: number }) {
   const [project, setProject] = useState<ProjectView | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -36,6 +50,41 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const [histSize, setHistSize] = useState({ past: 0, future: 0 });
   const [selection, setSelection] = useState<Selection>(null);
   const [pxPerSec, setPxPerSec] = useState(60);
+  const [snap, setSnapState] = useState(() => readBool(SNAP_KEY, true));
+  const setSnap = (v: boolean) => { setSnapState(v); try { localStorage.setItem(SNAP_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
+  const [timelineH, setTimelineH] = useState(() => readNumber(TIMELINE_H_KEY, TIMELINE_H_DEFAULT));
+  const shellRef = useRef<HTMLDivElement>(null);
+  const clampTimelineH = (h: number) => {
+    const shell = shellRef.current;
+    const max = shell ? Math.max(TIMELINE_H_MIN, shell.clientHeight - UPPER_MIN) : 800;
+    return Math.round(Math.min(max, Math.max(TIMELINE_H_MIN, h)));
+  };
+  /** The draggable divider: pointer capture on the handle itself, so it never fights the
+   *  timeline's own scroll or the drags on clips. Double-click resets. */
+  function onDividerPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startY = e.clientY, startH = timelineH;
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    let last = startH;
+    const move = (ev: PointerEvent) => { last = clampTimelineH(startH - (ev.clientY - startY)); setTimelineH(last); };
+    const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); try { localStorage.setItem(TIMELINE_H_KEY, String(last)); } catch { /* ignore */ } };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+  }
+  function resetDivider() { setTimelineH(TIMELINE_H_DEFAULT); try { localStorage.removeItem(TIMELINE_H_KEY); } catch { /* ignore */ } }
+  // A window that gets shorter must not let a remembered height push the preview off screen.
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setTimelineH((h) => clampTimelineH(h)));
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const zoomToSlider = (z: number) => Math.round(((Math.log(z) - Math.log(ZOOM_MIN)) / (Math.log(ZOOM_MAX) - Math.log(ZOOM_MIN))) * 100);
+  const sliderToZoom = (v: number) => Math.exp(Math.log(ZOOM_MIN) + (v / 100) * (Math.log(ZOOM_MAX) - Math.log(ZOOM_MIN)));
   const [tab, setTab] = useState<EditorTab>("media");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewBox = useRef<HTMLDivElement>(null);
@@ -189,6 +238,17 @@ export default function EditorPage({ draftId }: { draftId: number }) {
     const trackId = selection?.kind === "clip" ? selection.trackId : mainTrack(doc).id;
     commit(splitClipAt(doc, trackId, pb.tMs));
   }
+  /** Trim-to-playhead: the selected clip, else the main clip under the playhead. "left" keeps
+   *  what is after the playhead, "right" keeps what is before it. */
+  function trimAtPlayhead(side: "left" | "right") {
+    if (!doc) return;
+    let trackId: string | null = null, clipId: string | null = null;
+    if (selection?.kind === "clip") { trackId = selection.trackId; clipId = selection.id; }
+    else { const hit = clipAt(mainTrack(doc), pb.tMs); if (hit) { trackId = mainTrack(doc).id; clipId = hit.clip.id; } }
+    if (!trackId || !clipId) return;
+    const next = trimClipToTime(doc, trackId, clipId, pb.tMs, side);
+    if (next !== doc) commit(next);
+  }
   function deleteSelected() {
     if (!doc || !selection) return;
     if (selection.kind === "clip") commit(deleteClip(doc, selection.trackId, selection.id));
@@ -236,6 +296,9 @@ export default function EditorPage({ draftId }: { draftId: number }) {
       else if (e.key === "ArrowLeft") { e.preventDefault(); pb.seek(pb.tMs - (e.shiftKey ? 1000 : frameMs)); }
       else if (e.key === "ArrowRight") { e.preventDefault(); pb.seek(pb.tMs + (e.shiftKey ? 1000 : frameMs)); }
       else if (e.key.toLowerCase() === "s" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); splitAtPlayhead(); }
+      else if (e.key.toLowerCase() === "q" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); trimAtPlayhead("left"); }
+      else if (e.key.toLowerCase() === "w" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); trimAtPlayhead("right"); }
+      else if (e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); setSnap(!snap); }
       else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteSelected(); }
       else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
     };
@@ -341,8 +404,8 @@ export default function EditorPage({ draftId }: { draftId: number }) {
 
       {/* Floating panels over the darker page background. Below ~1000 px the page scrolls sideways
           rather than letting the panels collapse into slivers. */}
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
-        <div className="h-full min-w-[1000px] flex flex-col gap-3 p-3">
+      <div ref={shellRef} className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+        <div className="h-full min-w-[1000px] flex flex-col p-3">
           <div className="flex-1 min-h-0 flex gap-3">
             {/* Left: the active tab */}
             <aside className={panelCls + " w-64 xl:w-72 shrink-0 overflow-y-auto overscroll-contain"}>
@@ -393,20 +456,32 @@ export default function EditorPage({ draftId }: { draftId: number }) {
             </aside>
           </div>
 
-          {/* Bottom: timeline panel with its own icon toolbar */}
-          <section className={panelCls + " shrink-0 flex flex-col"} style={{ height: 292 }}>
+          {/* Divider: drag to give the timeline more or less room, double-click to reset */}
+          <div onPointerDown={onDividerPointerDown} onDoubleClick={resetDivider} title="Drag to resize the timeline · double-click to reset"
+            className="group h-3 shrink-0 flex items-center justify-center cursor-row-resize touch-none">
+            <span className="h-1 w-12 rounded-full bg-line-strong group-hover:bg-accent transition-colors" />
+          </div>
+
+          {/* Bottom: timeline panel with its own icon toolbar; the tracks scroll inside it */}
+          <section className={panelCls + " shrink-0 flex flex-col min-h-0"} style={{ height: timelineH }}>
             <div className="h-10 shrink-0 flex items-center gap-1 px-2 border-b border-line-soft">
               <IconButton name="undo" label="Undo (⌘Z)" onClick={undo} disabled={!histSize.past} />
               <IconButton name="redo" label="Redo (⌘⇧Z)" onClick={redo} disabled={!histSize.future} />
               <span className="w-px h-5 bg-line-hard mx-1" />
+              <IconButton name="trimLeft" label="Trim to the left of the playhead (Q)" onClick={() => trimAtPlayhead("left")} />
               <IconButton name="split" label="Split at playhead (S)" onClick={splitAtPlayhead} />
+              <IconButton name="trimRight" label="Trim to the right of the playhead (W)" onClick={() => trimAtPlayhead("right")} />
               <IconButton name="trash" label="Delete selection (⌫)" onClick={deleteSelected} disabled={!selection} />
               <span className="flex-1" />
-              <IconButton name="zoomOut" label="Zoom out" onClick={() => setPxPerSec((z) => Math.max(10, z / 1.5))} />
-              <IconButton name="zoomIn" label="Zoom in" onClick={() => setPxPerSec((z) => Math.min(400, z * 1.5))} />
+              <IconButton name="snap" label={snap ? "Snapping on (N)" : "Snapping off (N)"} onClick={() => setSnap(!snap)} active={snap} />
+              <span className="w-px h-5 bg-line-hard mx-1" />
+              <IconButton name="zoomOut" label="Zoom out" onClick={() => setPxPerSec((z) => Math.max(ZOOM_MIN, z / 1.5))} />
+              <input type="range" min={0} max={100} value={zoomToSlider(pxPerSec)} onChange={(e) => setPxPerSec(sliderToZoom(Number(e.target.value)))}
+                title={`${Math.round(pxPerSec)} px per second`} aria-label="Timeline zoom" className="w-28 h-8 accent-[var(--color-accent)]" />
+              <IconButton name="zoomIn" label="Zoom in" onClick={() => setPxPerSec((z) => Math.min(ZOOM_MAX, z * 1.5))} />
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
-              <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
+              <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} snap={snap} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
             </div>
           </section>
         </div>

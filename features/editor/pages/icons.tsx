@@ -2,7 +2,8 @@
 // so they take the text token of wherever they sit; no colours of their own.
 export type IconName =
   | "media" | "audio" | "text" | "stickers" | "effects" | "transitions" | "captions" | "filters" | "adjust" | "templates"
-  | "undo" | "redo" | "split" | "trash" | "zoomIn" | "zoomOut" | "play" | "pause" | "prevFrame" | "nextFrame" | "chevron" | "import" | "retry";
+  | "undo" | "redo" | "split" | "trash" | "zoomIn" | "zoomOut" | "play" | "pause" | "prevFrame" | "nextFrame" | "chevron" | "import" | "retry"
+  | "trimLeft" | "trimRight" | "snap";
 
 const P: Record<IconName, React.ReactNode> = {
   media: <><rect x="2" y="3.5" width="12" height="9" rx="1.5" /><path d="M6.5 6.5v3l3-1.5z" /></>,
@@ -28,6 +29,9 @@ const P: Record<IconName, React.ReactNode> = {
   chevron: <path d="M5 6.5l3 3 3-3" />,
   import: <><path d="M8 2.5v8M5 7.5l3 3 3-3" /><path d="M3 11.5v2h10v-2" /></>,
   retry: <><path d="M13 8a5 5 0 11-1.5-3.6" /><path d="M13 3v3h-3" /></>,
+  trimLeft: <><path d="M8 2.5v11" /><rect x="9.5" y="5" width="4.5" height="6" rx="1" /><path d="M2 8h4M4 6l2 2-2 2" /></>,
+  trimRight: <><path d="M8 2.5v11" /><rect x="2" y="5" width="4.5" height="6" rx="1" /><path d="M14 8h-4M12 6l-2 2 2 2" /></>,
+  snap: <><path d="M4 2.5v6a4 4 0 008 0v-6" /><path d="M4 2.5h2.5M9.5 2.5H12M4 6h2.5M9.5 6H12" /></>,
 };
 
 export function Icon({ name, size = 16, className }: { name: IconName; size?: number; className?: string }) {
