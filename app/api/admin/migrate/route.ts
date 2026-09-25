@@ -1679,6 +1679,14 @@ export async function POST(req: NextRequest) {
       ADD COLUMN IF NOT EXISTS "clipOfDraftId" INTEGER;
     `;
     await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ScriptDraft_clipOfDraftId_idx" ON "ScriptDraft"("clipOfDraftId");`);
+    // Clipping agent workflow: jobs and versioned candidates. Same statements as GET ?clipjobs=1.
+    await (prisma as any).$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "ClipJob" ("id" SERIAL PRIMARY KEY, "sourceDraftId" INTEGER NOT NULL UNIQUE, "clientId" INTEGER NOT NULL, "sourceUrl" TEXT, "status" TEXT NOT NULL DEFAULT 'open', "trigger" TEXT NOT NULL DEFAULT 'stage', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "closedAt" TIMESTAMP(3));`);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClipJob_clientId_status_idx" ON "ClipJob"("clientId","status");`);
+    await (prisma as any).$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "ClipCandidate" ("id" SERIAL PRIMARY KEY, "jobId" INTEGER NOT NULL, "chainId" INTEGER, "version" INTEGER NOT NULL DEFAULT 1, "origin" TEXT NOT NULL DEFAULT 'agent', "agentId" TEXT NOT NULL, "agentVersion" TEXT NOT NULL DEFAULT '', "targetPlatform" TEXT NOT NULL DEFAULT 'instagram', "conceptId" INTEGER, "title" TEXT NOT NULL, "reasoning" TEXT NOT NULL DEFAULT '', "confidence" DOUBLE PRECISION, "document" TEXT NOT NULL, "inMs" INTEGER NOT NULL, "outMs" INTEGER NOT NULL, "status" TEXT NOT NULL DEFAULT 'pending', "declineReasons" TEXT NOT NULL DEFAULT '[]', "declineNote" TEXT, "reviewedBy" TEXT, "reviewedAt" TIMESTAMP(3), "finalInMs" INTEGER, "finalOutMs" INTEGER, "finalDocument" TEXT, "draftId" INTEGER, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);`);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClipCandidate_jobId_idx" ON "ClipCandidate"("jobId");`);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClipCandidate_chainId_version_idx" ON "ClipCandidate"("chainId","version");`);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClipCandidate_agent_idx" ON "ClipCandidate"("agentId","agentVersion");`);
+    await (prisma as any).$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ClipCandidate_status_idx" ON "ClipCandidate"("status");`);
     // Headquarters: activity log + nightly reel snapshots.
     await (prisma as any).$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "ActivityEvent" (
