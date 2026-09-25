@@ -17,6 +17,7 @@ import DmsPage from "@/features/instagram/pages/DmsPage";
 import ContextPage from "@/features/scripts/pages/ContextPage";
 import TranscribePage from "@/features/content/pages/TranscribePage";
 import CapCutPage from "@/features/editor/pages/CapCutPage";
+import ClippingPage from "@/features/youtube/pages/ClippingPage";
 import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { applyTheme, readStoredTheme, startThemeColorSync } from "@/shared/theme";
@@ -509,8 +510,7 @@ export default function App() {
       // The YouTube Kanban is the Script Kanban scoped to platform=youtube: WorkflowStage, Concept
       // and ScriptDraft are per platform, and its stages are seeded when YouTube is switched on.
       case "ytkanban": return <Kanban clients={clients} platform="youtube" selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} highlightDraftId={kanbanHighlightId} onHighlightConsumed={() => setKanbanHighlightId(null)} />;
-      // Clipping is wired in stage 3; the id, access and folder are live already.
-      case "ytclipping": return <YouTubeStub title="Clipping" blurb="Cut short clips out of a long-form YouTube video and hand them to the editor. Being wired up." />;
+      case "ytclipping": return <ClippingPage clients={clients} selectedClientId={selectedClientId} readOnly={pageReadOnly} />;
       case "clientsettings": return <ClientSettingsPage client={clients.find((c) => c.id === selectedClientId) ?? null} refreshClients={fetchClients} onManageAll={() => setPage("settings")} />;
     }
   }
@@ -632,19 +632,6 @@ export default function App() {
             }
           </main>
       }
-    </div>
-  );
-}
-
-// Placeholder for a YouTube page whose implementation lands in a later stage.
-function YouTubeStub({ title, blurb }: { title: string; blurb: string }) {
-  return (
-    <div className="flex items-center justify-center h-[60vh]">
-      <div className="o-card p-6 max-w-sm text-center">
-        <p className="text-2xl mb-2">▶️</p>
-        <h1 className="text-base font-semibold text-ink">{title}</h1>
-        <p className="text-sm text-muted mt-1">{blurb}</p>
-      </div>
     </div>
   );
 }

@@ -124,6 +124,7 @@ export type ScriptDraft = {
   zernioPostId?: string | null;
   clientAuthored?: boolean;
   rejectionFeedback?: string | null;
+  clipOfDraftId?: number | null; // Clipping: the long-form draft this clip was cut from
   generatedAt: string;
   concept?: { name: string; color?: string; conceptType?: string | null } | null;
   client?: { name: string; color: string };

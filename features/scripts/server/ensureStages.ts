@@ -47,7 +47,7 @@ export async function ensureDefaultStages(clientId: number, platform: string) {
   const defaults = DEFAULT_STAGES_BY_PLATFORM[platform as PlatformId] ?? INSTAGRAM_STAGES;
   const standardNames = defaults.map((d) => norm(d.name));
 
-  const existing = await prisma.workflowStage.findMany({ where: { clientId, platform } as any });
+  const existing = await prisma.workflowStage.findMany({ where: { clientId, platform } });
 
   // 1. Standard stages first: update order/colour if present, create if missing. This runs
   //    BEFORE any deletion so Final Check is guaranteed to exist when drafts are moved into it.
@@ -57,7 +57,7 @@ export async function ensureDefaultStages(clientId: number, platform: string) {
       await prisma.workflowStage.update({ where: { id: match.id }, data: { order: def.order, color: def.color, name: def.name } });
     } else {
       const created = await prisma.workflowStage.create({
-        data: { clientId, platform, name: def.name, color: def.color, order: def.order } as any,
+        data: { clientId, platform, name: def.name, color: def.color, order: def.order },
       });
       existing.push(created);
     }
@@ -99,7 +99,7 @@ export async function ensureDefaultStages(clientId: number, platform: string) {
   }
 
   return prisma.workflowStage.findMany({
-    where: { clientId, platform } as any,
+    where: { clientId, platform },
     orderBy: { order: "asc" },
     include: { assignedTo: true, assignedCreator: true },
   });
