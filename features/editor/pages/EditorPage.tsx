@@ -8,14 +8,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM } from "@/features/editor/model/document";
 import { addAsset, addClip, addCue, addText, clipAt, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, splitClipAt, trimClipToTime, updateClip, updateText } from "@/features/editor/model/timeline";
-import { clipRect, textElementAt } from "@/features/editor/render/compositor";
+import { textElementAt } from "@/features/editor/render/compositor";
+import { drawChrome, type Guides, hitHandle, insideBox, type Selected, selectionBox, snapCentre } from "@/features/editor/render/chrome";
 import { loadAllCaptionFonts } from "@/features/editor/render/fonts";
 import { readEmbedFlag } from "@/shared/embed";
-import Timeline, { fmtTime, type Selection } from "./Timeline";
+import Timeline, { fmtTime, type Selection, ZOOM_MAX, ZOOM_MIN } from "./Timeline";
 import Inspector from "./Inspector";
 import LeftPanel, { type EditorTab, NOT_BUILT } from "./LeftPanel";
 import { Icon, IconButton } from "./icons";
-import { usePlayback } from "./usePlayback";
+import { type OverlayChrome, usePlayback } from "./usePlayback";
 
 type ProjectView = { id: number; draftId: number; clientId: number; version: number; updatedBy: string | null; updatedAt: string; document: EditDocument };
 type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
@@ -29,7 +30,7 @@ const SNAP_KEY = "cf_editor_snap";
 const TIMELINE_H_DEFAULT = 292;
 const TIMELINE_H_MIN = 160;          // toolbar + ruler + two rows
 const UPPER_MIN = 260;               // the preview must keep a usable height
-const ZOOM_MIN = 10, ZOOM_MAX = 400; // px per second, slider is logarithmic between these
+// Zoom bounds live in Timeline (ZOOM_MIN/ZOOM_MAX); the slider is logarithmic between them.
 function readNumber(key: string, fallback: number): number {
   try { const v = Number(localStorage.getItem(key)); return Number.isFinite(v) && v > 0 ? v : fallback; } catch { return fallback; }
 }
@@ -229,7 +230,30 @@ export default function EditorPage({ draftId }: { draftId: number }) {
 
   // ── playback ───────────────────────────────────────────────────────────────
   const safeDoc = doc ?? EMPTY_DOC;
-  const pb = usePlayback(safeDoc, canvasRef, setDocFromEngine, { mountRef: videoLayerRef, display: fit });
+  // Selection chrome on the preview (box, handles, guides), painted after the captions by the engine.
+  const guidesRef = useRef<Guides | null>(null);
+  const draggingRef = useRef(false);
+  const chromeRef = useRef<OverlayChrome | null>(null);
+  const selectedEl: Selected | null = selection && selection.kind !== "cue" ? selection : null;
+  const selectedRef = useRef<Selected | null>(null);
+  useEffect(() => { selectedRef.current = selectedEl; }, [selectedEl]);
+  const pb = usePlayback(safeDoc, canvasRef, setDocFromEngine, { mountRef: videoLayerRef, display: fit, chromeRef });
+  const videoForRef = useRef(pb.videoFor);
+  useEffect(() => { videoForRef.current = pb.videoFor; }, [pb.videoFor]);
+  useEffect(() => {
+    chromeRef.current = {
+      key: () => `${selectedRef.current ? `${selectedRef.current.kind}:${selectedRef.current.id}` : "-"}|${draggingRef.current ? "d" : ""}|${guidesRef.current ? `${guidesRef.current.v.join(",")}/${guidesRef.current.h.join(",")}` : ""}`,
+      draw: (ctx, d, t) => {
+        const sb = selectionBox(d, selectedRef.current, t, (id) => { const v = videoForRef.current(id); return v && v.videoWidth ? { width: v.videoWidth, height: v.videoHeight } : null; });
+        if (!sb && !guidesRef.current) return;
+        const cs = canvasRef.current ? getComputedStyle(canvasRef.current) : null;
+        const colours = { accent: cs?.getPropertyValue("--color-accent").trim() || "#2dd4bf", ink: cs?.getPropertyValue("--color-ink").trim() || "#e8e8e8" };
+        drawChrome(ctx, d, sb?.box ?? null, guidesRef.current, colours, draggingRef.current);
+      },
+    };
+  }, []);
+  // A selection change must repaint the chrome even though the document did not change.
+  useEffect(() => { pb.paint(); }, [selectedEl, pb]);
   // The overlay canvas is sized to what is on screen (times the device pixel ratio, capped), never to 1080x1920.
   const dpr = typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio || 1) : 1;
   const frameMs = 1000 / (safeDoc.canvas.fps || 30);
@@ -309,45 +333,93 @@ export default function EditorPage({ draftId }: { draftId: number }) {
     return () => window.removeEventListener("keydown", h);
   });
 
-  // ── dragging text / b-roll on the preview ─────────────────────────────────
+  // ── the preview as a direct-manipulation surface ──────────────────────────
+  // Handles on the selected element scale (corners and edges, uniform: the model has one scale)
+  // or rotate (the stem handle); the body moves, snapping to the canvas centre lines and the
+  // safe margins with guides drawn while dragging. Everything writes the same Transform the
+  // Details panel edits, so the two stay in sync by construction.
   function onPreviewPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
     const c = canvasRef.current, d = docRef.current;
-    if (!c || !d) return;
+    if (!c || !d || e.button !== 0) return;
     const ctx = c.getContext("2d");
     if (!ctx) return;
     const rect = c.getBoundingClientRect();
-    const toCanvas = (cx: number, cy: number) => ({ x: ((cx - rect.left) / rect.width) * d.canvas.width, y: ((cy - rect.top) / rect.height) * d.canvas.height });
-    const p = toCanvas(e.clientX, e.clientY);
-    const textId = textElementAt(ctx, d, pb.tMs, p.x, p.y);
-    let target: { kind: "text"; id: string; x: number; y: number } | { kind: "clip"; trackId: string; id: string; x: number; y: number } | null = null;
-    if (textId) {
-      const el = d.tracks.flatMap((t) => (t.kind === "text" ? t.elements : [])).find((x) => x.id === textId)!;
-      target = { kind: "text", id: textId, x: el.transform.x, y: el.transform.y };
-      setSelection({ kind: "text", id: textId });
-    } else {
-      const ov = overlayTrack(d);
-      const hit = ov?.clips.slice().reverse().find((cl) => {
-        if (pb.tMs < cl.at || pb.tMs >= cl.at + (cl.outMs - cl.inMs)) return false;
-        const a = d.assets.find((as) => as.id === cl.assetId);
-        const r = clipRect(cl, { width: a?.width || d.canvas.width, height: a?.height || d.canvas.height }, d.canvas);
-        return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
-      });
-      if (hit && ov) { target = { kind: "clip", trackId: ov.id, id: hit.id, x: hit.transform.x, y: hit.transform.y }; setSelection({ kind: "clip", trackId: ov.id, id: hit.id }); }
+    const toDoc = (cx: number, cy: number) => ({ x: ((cx - rect.left) / rect.width) * d.canvas.width, y: ((cy - rect.top) / rect.height) * d.canvas.height });
+    const p = toDoc(e.clientX, e.clientY);
+    const docPxPerScreenPx = d.canvas.width / rect.width;
+    const tol = 14 * docPxPerScreenPx;
+    const sizeFor = (id: string) => { const v = pb.videoFor(id); return v && v.videoWidth ? { width: v.videoWidth, height: v.videoHeight } : null; };
+    const sel: Selected | null = selection && selection.kind !== "cue" ? selection : null;
+    const current = selectionBox(d, sel, pb.tMs, sizeFor);
+
+    const transformOf = (s: Selected) => s.kind === "text"
+      ? d.tracks.flatMap((t) => (t.kind === "text" ? t.elements : [])).find((x) => x.id === s.id)!.transform
+      : [mainTrack(d), overlayTrack(d)].find((t) => t?.id === s.trackId)!.clips.find((x) => x.id === s.id)!.transform;
+    const withTransform = (base: EditDocument, s: Selected, t: typeof IDENTITY_TRANSFORM) => s.kind === "text"
+      ? updateText(base, s.id, { transform: t })
+      : updateClip(base, s.trackId, s.id, { transform: t });
+
+    // 1. A handle on the current selection?
+    if (sel && current) {
+      const h = hitHandle(current.box, p, tol);
+      if (h) {
+        e.preventDefault();
+        const base = d, t0 = transformOf(sel), box = current.box;
+        const startDist = Math.max(1, Math.hypot(p.x - box.cx, p.y - box.cy));
+        const startAngle = Math.atan2(p.y - box.cy, p.x - box.cx) * 180 / Math.PI - t0.rotation;
+        let last = base;
+        draggingRef.current = true;
+        const move = (ev: PointerEvent) => {
+          const q = toDoc(ev.clientX, ev.clientY);
+          if (h === "rotate") {
+            let rot = Math.atan2(q.y - box.cy, q.x - box.cx) * 180 / Math.PI - startAngle;
+            rot = ((rot % 360) + 540) % 360 - 180;
+            for (const s of [0, 90, 180, -90, -180]) if (Math.abs(rot - s) < 3) rot = s === -180 ? 180 : s;
+            last = withTransform(base, sel, { ...t0, rotation: Math.round(rot * 10) / 10 });
+          } else {
+            const scale = Math.max(0.05, Math.min(5, t0.scale * (Math.hypot(q.x - box.cx, q.y - box.cy) / startDist)));
+            last = withTransform(base, sel, { ...t0, scale: Math.round(scale * 1000) / 1000 });
+          }
+          onChange(last, false);
+        };
+        const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); draggingRef.current = false; onChange(last, true); pb.paint(true); };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+        return;
+      }
     }
-    if (!target) return;
+
+    // 2. An element body: text on top, then b-roll (topmost first), then the main clip.
+    let target: Selected | null = null;
+    const textId = textElementAt(ctx, d, pb.tMs, p.x, p.y);
+    if (textId) target = { kind: "text", id: textId };
+    if (!target) {
+      const ov = overlayTrack(d);
+      const hit = ov?.clips.slice().reverse().find((cl) => pb.tMs >= cl.at && pb.tMs < cl.at + (cl.outMs - cl.inMs) && insideBox(selectionBox(d, { kind: "clip", trackId: ov.id, id: cl.id }, pb.tMs, sizeFor)!.box, p));
+      if (hit && ov) target = { kind: "clip", trackId: ov.id, id: hit.id };
+    }
+    if (!target) {
+      const main = mainTrack(d);
+      const hit = main.clips.find((cl) => pb.tMs >= cl.at && pb.tMs < cl.at + (cl.outMs - cl.inMs));
+      if (hit && insideBox(selectionBox(d, { kind: "clip", trackId: main.id, id: hit.id }, pb.tMs, sizeFor)!.box, p)) target = { kind: "clip", trackId: main.id, id: hit.id };
+    }
+    if (!target) { setSelection(null); return; }
     e.preventDefault();
-    const start = p;
-    const base = d;
-    let last = d;
+    setSelection(target);
+    const base = d, t0 = transformOf(target), start = p;
+    const box0 = selectionBox(d, target, pb.tMs, sizeFor)!.box;
+    let last = base;
+    draggingRef.current = true;
     const move = (ev: PointerEvent) => {
-      const q = toCanvas(ev.clientX, ev.clientY);
-      const nx = target!.x + (q.x - start.x) / d.canvas.width, ny = target!.y + (q.y - start.y) / d.canvas.height;
-      last = target!.kind === "text"
-        ? updateText(base, target!.id, { transform: { ...base.tracks.flatMap((t) => (t.kind === "text" ? t.elements : [])).find((x) => x.id === target!.id)!.transform, x: nx, y: ny } })
-        : updateClip(base, target!.trackId, target!.id, { transform: { ...overlayTrack(base)!.clips.find((x) => x.id === target!.id)!.transform, x: nx, y: ny } });
+      const q = toDoc(ev.clientX, ev.clientY);
+      const raw = { cx: box0.cx + (q.x - start.x), cy: box0.cy + (q.y - start.y) };
+      const snapped = snap ? snapCentre(d, box0, raw.cx, raw.cy, 10 * docPxPerScreenPx) : { ...raw, guides: { v: [], h: [] } };
+      guidesRef.current = snapped.guides.v.length || snapped.guides.h.length ? snapped.guides : { v: [], h: [] };
+      // The box centre and the transform origin coincide for clips; for text the box is the laid-out block, which is centred on the origin too.
+      last = withTransform(base, target!, { ...t0, x: t0.x + (snapped.cx - box0.cx) / d.canvas.width, y: t0.y + (snapped.cy - box0.cy) / d.canvas.height });
       onChange(last, false);
     };
-    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); onChange(last, true); };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); draggingRef.current = false; guidesRef.current = null; onChange(last, true); pb.paint(true); };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   }
@@ -496,7 +568,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
               <IconButton name="zoomIn" label="Zoom in" onClick={() => setPxPerSec((z) => Math.min(ZOOM_MAX, z * 1.5))} />
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
-              <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} snap={snap} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
+              <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} snap={snap} onZoom={setPxPerSec} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
             </div>
           </section>
         </div>

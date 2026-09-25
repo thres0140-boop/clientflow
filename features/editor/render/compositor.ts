@@ -66,8 +66,11 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, doc: EditDocument, tM
   if (texts && texts.kind === "text") {
     for (const el of texts.elements) {
       if (tMs < el.startMs || tMs >= el.endMs || !el.text.trim()) continue;
-      const layout = layoutText(ctx, el.style, el.text.split("\n"), doc.canvas, { scale: el.transform.scale, origin: { cx: el.transform.x * width, cy: el.transform.y * height } });
+      const cx = el.transform.x * width, cy = el.transform.y * height;
+      const layout = layoutText(ctx, el.style, el.text.split("\n"), doc.canvas, { scale: el.transform.scale, origin: { cx, cy } });
+      if (el.transform.rotation) { ctx.save(); ctx.translate(cx, cy); ctx.rotate((el.transform.rotation * Math.PI) / 180); ctx.translate(-cx, -cy); }
       drawText(ctx, el.style, layout, { scale: el.transform.scale, opacity: el.transform.opacity });
+      if (el.transform.rotation) ctx.restore();
     }
   }
 }
@@ -131,9 +134,13 @@ export function textElementAt(ctx: CanvasRenderingContext2D, doc: EditDocument, 
   for (let i = texts.elements.length - 1; i >= 0; i--) {
     const el = texts.elements[i];
     if (tMs < el.startMs || tMs >= el.endMs) continue;
-    const l = layoutText(ctx, el.style, el.text.split("\n"), doc.canvas, { scale: el.transform.scale, origin: { cx: el.transform.x * doc.canvas.width, cy: el.transform.y * doc.canvas.height } });
+    const cx = el.transform.x * doc.canvas.width, cy = el.transform.y * doc.canvas.height;
+    const l = layoutText(ctx, el.style, el.text.split("\n"), doc.canvas, { scale: el.transform.scale, origin: { cx, cy } });
+    // Undo the element's rotation about its centre, then test the unrotated box.
+    const a = (-el.transform.rotation * Math.PI) / 180, dx = x - cx, dy = y - cy;
+    const lx = cx + dx * Math.cos(a) - dy * Math.sin(a), ly = cy + dx * Math.sin(a) + dy * Math.cos(a);
     const pad = 24;
-    if (x >= l.box.x - pad && x <= l.box.x + l.box.w + pad && y >= l.box.y - pad && y <= l.box.y + l.box.h + pad) return el.id;
+    if (lx >= l.box.x - pad && lx <= l.box.x + l.box.w + pad && ly >= l.box.y - pad && ly <= l.box.y + l.box.h + pad) return el.id;
   }
   return null;
 }

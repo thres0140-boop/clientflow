@@ -10,6 +10,7 @@ import { captionTrack, clipLengthMs, deleteClip, deleteCue, deleteText, mainTrac
 import type { Selection } from "./Timeline";
 import { fmtTime } from "./Timeline";
 import { Icon } from "./icons";
+import { alignedCentre, type Box, clipBox, textBox } from "@/features/editor/render/chrome";
 
 type Props = {
   doc: EditDocument;
@@ -126,14 +127,42 @@ export function StyleEditor({ style, onChange, showLayout = true }: { style: Cap
   );
 }
 
-function TransformFields({ t, onChange }: { t: Transform; onChange: (t: Transform) => void }) {
+/** CapCut's Transform block: scale (slider + number), position X/Y as px from the canvas centre,
+ *  rotation, the keep-aspect toggle (disabled: the model has one uniform scale), and alignment.
+ *  Writes the same Transform the preview handles write, so the two never disagree. */
+function TransformBlock({ doc, t, box, onChange }: { doc: EditDocument; t: Transform; box: Box | null; onChange: (t: Transform) => void }) {
+  const W = doc.canvas.width, H = doc.canvas.height;
+  const alignBtn = (label: string, icon: string, h: "left" | "center" | "right" | null, v: "top" | "middle" | "bottom" | null) => (
+    <button key={label} title={label} disabled={!box} onClick={() => box && onChange(alignedCentre(doc, box, t, h, v))}
+      className="h-8 flex-1 rounded-md border border-line bg-surface text-[11px] font-semibold text-ink-2 hover:text-ink hover:bg-surface-3 disabled:opacity-40">{icon}</button>
+  );
   return (
-    <>
-      <Field label="X (0–1)"><Num value={t.x} min={-0.5} max={1.5} step={0.01} onChange={(n) => onChange({ ...t, x: n })} /></Field>
-      <Field label="Y (0–1)"><Num value={t.y} min={-0.5} max={1.5} step={0.01} onChange={(n) => onChange({ ...t, y: n })} /></Field>
-      <Field label="Scale"><Num value={t.scale} min={0.05} max={5} step={0.05} onChange={(n) => onChange({ ...t, scale: Math.max(0.05, n) })} /></Field>
-      <Field label="Opacity"><Num value={t.opacity} min={0} max={1} step={0.05} onChange={(n) => onChange({ ...t, opacity: n })} /></Field>
-    </>
+    <Group title="Transform">
+      <Field label="Scale" span>
+        <div className="flex items-center gap-2">
+          <input type="range" min={5} max={300} value={Math.round(t.scale * 100)} onChange={(e) => onChange({ ...t, scale: Number(e.target.value) / 100 })} className="flex-1 h-8 accent-[var(--color-accent)]" aria-label="Scale" />
+          <div className="w-24"><Num value={Math.round(t.scale * 100)} min={5} max={500} suffix="%" onChange={(n) => onChange({ ...t, scale: Math.max(0.05, n / 100) })} /></div>
+        </div>
+      </Field>
+      <Field label="Position X"><Num value={Math.round((t.x - 0.5) * W)} step={1} suffix="px" onChange={(n) => onChange({ ...t, x: 0.5 + n / W })} /></Field>
+      <Field label="Position Y"><Num value={Math.round((t.y - 0.5) * H)} step={1} suffix="px" onChange={(n) => onChange({ ...t, y: 0.5 + n / H })} /></Field>
+      <Field label="Rotation">
+        <div className="flex items-center gap-1">
+          <Num value={t.rotation} min={-180} max={180} step={1} suffix="°" onChange={(n) => onChange({ ...t, rotation: Math.max(-180, Math.min(180, n)) })} />
+          <button title="Reset rotation" onClick={() => onChange({ ...t, rotation: 0 })} className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-md border border-line bg-surface text-ink-2 hover:text-ink"><Icon name="retry" size={14} /></button>
+        </div>
+      </Field>
+      <Field label="Opacity"><Num value={Math.round(t.opacity * 100)} min={0} max={100} step={5} suffix="%" onChange={(n) => onChange({ ...t, opacity: Math.max(0, Math.min(1, n / 100)) })} /></Field>
+      <div className="col-span-2">
+        <label className="flex items-center gap-2 h-8 text-xs text-ink-2 opacity-50 cursor-not-allowed" title="Keep aspect ratio is always on: the document has one uniform scale, not separate width and height scales">
+          <input type="checkbox" checked disabled className="accent-[var(--color-accent)]" />Keep aspect ratio
+        </label>
+      </div>
+      <Field label="Align" span>
+        <div className="flex gap-1">{alignBtn("Align left", "⇤", "left", null)}{alignBtn("Centre horizontally", "↔", "center", null)}{alignBtn("Align right", "⇥", "right", null)}</div>
+        <div className="flex gap-1 mt-1">{alignBtn("Align top", "⤒", null, "top")}{alignBtn("Centre vertically", "↕", null, "middle")}{alignBtn("Align bottom", "⤓", null, "bottom")}</div>
+      </Field>
+    </Group>
   );
 }
 
@@ -173,10 +202,8 @@ export default function Inspector({ doc, selection, clientId, onChange, onSelect
             <Field label="Volume"><Num value={clip.volume} min={0} max={1} step={0.05} onChange={(n) => commit(updateClip(doc, track.id, clip.id, { volume: n }))} /></Field>
           </Group>
         )}
-        <Group title="Position">
-          <TransformFields t={clip.transform} onChange={(t) => commit(updateClip(doc, track.id, clip.id, { transform: t }))} />
-          {isOverlay && <p className="col-span-2 text-[10px] text-faint">B-roll is always silent (audio mixing is out of scope). Drag it on the preview to move it.</p>}
-        </Group>
+        <TransformBlock doc={doc} t={clip.transform} box={clipBox(doc, clip, null)} onChange={(t) => commit(updateClip(doc, track.id, clip.id, { transform: t }))} />
+        {isOverlay && <p className="text-[10px] text-faint">B-roll is always silent (audio mixing is out of scope). Drag it on the preview to move it; the handles scale and rotate it.</p>}
       </Panel>
     );
   }
@@ -221,10 +248,7 @@ export default function Inspector({ doc, selection, clientId, onChange, onSelect
           <Field label="Start"><Num value={el.startMs} min={0} step={10} suffix="ms" onChange={(n) => commit(updateText(doc, el.id, { startMs: Math.max(0, Math.min(el.endMs - 100, n)) }))} /></Field>
           <Field label="End"><Num value={el.endMs} min={el.startMs + 100} step={10} suffix="ms" onChange={(n) => commit(updateText(doc, el.id, { endMs: Math.max(el.startMs + 100, n) }))} /></Field>
         </Group>
-        <Group title="Position">
-          <TransformFields t={el.transform} onChange={(t) => commit(updateText(doc, el.id, { transform: { ...t, rotation: 0 } }))} />
-          <p className="col-span-2 text-[10px] text-faint">Drag the text on the preview to move it.</p>
-        </Group>
+        <TransformBlock doc={doc} t={el.transform} box={textBox(doc, el)} onChange={(t) => commit(updateText(doc, el.id, { transform: t }))} />
         <div className="pt-4 border-t border-line-soft">
           <StyleEditor style={el.style} showLayout={false} onChange={(s) => commit(updateText(doc, el.id, { style: s }))} />
           <button className="o-btn o-btn-ghost text-xs mt-4" onClick={() => commit(updateText(doc, el.id, { style: doc.captionStyle }))}>Use the caption style</button>

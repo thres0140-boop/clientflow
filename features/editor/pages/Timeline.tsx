@@ -6,7 +6,7 @@
 // edge of a drag and the scrubbed playhead snap to clip/cue/text edges and to the playhead.
 // The panel scrolls in both directions inside itself: the ruler is pinned to the top and the
 // track labels to the left, so every track is reachable at any panel height.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { EditDocument, Ms } from "@/features/editor/model/document";
 import { captionTrack, clipLengthMs, mainTrack, moveClip, overlayTrack, setClipAt, snapCandidates, snapDelta, snapTime, textTrack, trimClip, updateCue, updateText } from "@/features/editor/model/timeline";
 import type { AssetStatus } from "./usePlayback";
@@ -25,6 +25,7 @@ type Props = {
   selection: Selection;
   assetStatus: Record<string, AssetStatus>;
   snap: boolean;
+  onZoom: (pxPerSec: number) => void;
   onSeek: (t: Ms) => void;
   onSelect: (s: Selection) => void;
   onChange: (doc: EditDocument, commit: boolean) => void;
@@ -33,6 +34,7 @@ type Props = {
 const LABEL_W = 88;
 const ROW_H = 52;
 const SNAP_PX = 8;
+export const ZOOM_MIN = 10, ZOOM_MAX = 400; // px per second
 
 export function fmtTime(ms: Ms): string {
   const s = Math.max(0, ms) / 1000;
@@ -40,8 +42,46 @@ export function fmtTime(ms: Ms): string {
   return `${m}:${(s - m * 60).toFixed(2).padStart(5, "0")}`;
 }
 
-export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, assetStatus, snap, onSeek, onSelect, onChange }: Props) {
+export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, assetStatus, snap, onZoom, onSeek, onSelect, onChange }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(pxPerSec);
+  useEffect(() => { zoomRef.current = pxPerSec; }, [pxPerSec]);
+  const anchor = useRef<{ t: Ms; cursorX: number } | null>(null);
+
+  // Mouse zoom, scoped to the timeline: ⌘/Ctrl + wheel (a trackpad pinch arrives as a ctrlKey wheel)
+  // zooms around the cursor; a plain wheel scrolls sideways; ⇧ + wheel scrolls the tracks. All of
+  // it calls preventDefault so the browser never page-zooms or scrolls the app. A native
+  // non-passive listener, because React's onWheel cannot prevent the default.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1;
+      if (e.ctrlKey || e.metaKey) {
+        const cursorX = e.clientX - el.getBoundingClientRect().left;
+        const z = zoomRef.current;
+        const t = ((el.scrollLeft + cursorX - LABEL_W) / z) * 1000;
+        const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z * Math.exp(-e.deltaY * unit * 0.0035)));
+        if (next === z) return;
+        anchor.current = { t, cursorX };
+        onZoom(next);
+      } else if (e.shiftKey) {
+        el.scrollTop += (e.deltaY || e.deltaX) * unit;
+      } else {
+        el.scrollLeft += (e.deltaX || e.deltaY) * unit;
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [onZoom]);
+  // After a zoom, keep the time that was under the cursor under the cursor.
+  useLayoutEffect(() => {
+    const a = anchor.current, el = scrollRef.current;
+    if (!a || !el) return;
+    anchor.current = null;
+    el.scrollLeft = (a.t / 1000) * pxPerSec + LABEL_W - a.cursorX;
+  }, [pxPerSec]);
   const [drag, setDrag] = useState<{ kind: string } | null>(null);
   const widthPx = Math.max(600, (durationMs / 1000) * pxPerSec + 200);
   const xOf = (ms: Ms) => (ms / 1000) * pxPerSec;

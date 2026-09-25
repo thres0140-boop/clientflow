@@ -24,6 +24,8 @@ const METADATA_TIMEOUT_MS = 20000;
 
 export type AssetStatus = { state: "ready" } | { state: "failed"; reason: string };
 export type Display = { w: number; h: number };
+/** Extra chrome painted over the overlay (selection box, guides). `key` changes whenever it would draw differently. */
+export type OverlayChrome = { key: () => string; draw: (ctx: CanvasRenderingContext2D, doc: EditDocument, tMs: Ms) => void };
 
 type Want = { sourceMs: number; muted: boolean; volume: number; rect: { x: number; y: number; w: number; h: number }; rotation: number; opacity: number; z: number };
 type VideoWithVFC = HTMLVideoElement & { requestVideoFrameCallback?: (cb: (now: number, meta: { mediaTime: number }) => void) => number; cancelVideoFrameCallback?: (id: number) => void };
@@ -177,8 +179,9 @@ export function usePlayback(
   doc: EditDocument,
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   setDoc: (f: (d: EditDocument) => EditDocument) => void,
-  opts: { mountRef: React.RefObject<HTMLDivElement | null>; display: Display },
+  opts: { mountRef: React.RefObject<HTMLDivElement | null>; display: Display; chromeRef?: React.RefObject<OverlayChrome | null> },
 ) {
+  const { mountRef, chromeRef } = opts;
   const [tMs, setT] = useState<Ms>(0);
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState<Record<string, AssetStatus>>({});
@@ -199,7 +202,7 @@ export function usePlayback(
 
   const getPool = useCallback(() => (pool.current ??= new VideoPool()), []);
   const videoFor = useCallback((assetId: string) => getPool().get(assetId), [getPool]);
-  useEffect(() => { getPool().setMount(opts.mountRef.current); });
+  useEffect(() => { getPool().setMount(mountRef.current); });
 
   /** Repaints the transparent overlay (captions + text) at the playhead, unless nothing it would
    *  paint has changed since the last paint. */
@@ -207,7 +210,8 @@ export function usePlayback(
     const c = canvasRef.current;
     if (!c) return;
     const d = docRef.current, t = tRef.current, disp = displayRef.current;
-    const key = overlayKey(d, t);
+    const chrome = chromeRef?.current ?? null;
+    const key = overlayKey(d, t) + (chrome ? `#${chrome.key()}` : "");
     const lp = lastPaint.current;
     if (!force && lp.key === key && lp.doc === d && lp.w === disp.w && lp.h === disp.h) return;
     lastPaint.current = { key, doc: d, w: disp.w, h: disp.h };
@@ -218,7 +222,8 @@ export function usePlayback(
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     drawOverlay(ctx, d, t);
-  }, [canvasRef]);
+    if (chrome) chrome.draw(ctx, d, t);
+  }, [canvasRef, chromeRef]);
 
   const probe = useCallback((a: Asset) => {
     getPool().ensure(a, {

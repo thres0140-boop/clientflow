@@ -87,6 +87,7 @@ export const PARITY = {
     "box: ASS BorderStyle 4 pads by the outline width per line; the canvas pads by paddingPx per line, and the box's outer shape is a plain rectangle on both",
     "outline joins: libass and canvas round corners slightly differently at widths > 6 px",
     "emoji: both fall back to a system emoji font, which differs per machine",
+    "text-element rotation (Transform.rotation): canvas rotates the laid-out block about its centre; ASS \\frz with \\org at the same centre rotates the glyph run — identical for one line, within a few px for multi-line blocks",
   ],
   notRepresentable: [
     "line height / leading (ASS has none)",
