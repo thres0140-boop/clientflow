@@ -108,6 +108,17 @@ function CardContent({ draft, selected = false, notify = false, days, highlight 
           ✍️ Client-written
         </span>
       )}
+      {/* Clipping: a long-form draft shows how many clips were cut from it; a clip names its source. */}
+      {!!draft.clipCount && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-hue-violet-700 bg-hue-violet-100 px-2 py-0.5 rounded-full mb-2" title="Clips cut from this video on the Clipping page">
+          ✂ {draft.clipCount} clip{draft.clipCount === 1 ? "" : "s"}
+        </span>
+      )}
+      {draft.clipOf && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-hue-violet-700 bg-hue-violet-100 px-2 py-0.5 rounded-full mb-2 max-w-full truncate" title={`Cut from “${draft.clipOf.title ?? "a long-form video"}”`}>
+          ✂ from {draft.clipOf.title ?? "a long-form video"}
+        </span>
+      )}
       <p className="text-[13px] font-semibold text-ink truncate">{draft.title}</p>
       {draft.concept && (
         <p className="text-[13px] text-accent font-semibold mt-1 flex items-center gap-1.5 flex-wrap">

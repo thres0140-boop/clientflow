@@ -3,11 +3,14 @@ import { prisma } from "@/shared/db/prisma";
 import { getProject } from "@/features/editor/server/projects";
 import { mayAccessClient, sessionFrom } from "@/features/editor/server/access";
 import { RENDER_LIMITS } from "@/features/editor/server/executor";
-import { r2Key, readCachedTranscript, s3, transcribeR2Object, transcriptCacheKey, transcriptionConfigured, whisperLanguage, whisperPrompt } from "@/features/editor/server/transcribe";
+import { r2Key, readCachedTranscript, s3, transcribeR2Object, transcriptCacheKey, transcriptionConfigured, TranscribeTimeoutError, whisperLanguage, whisperPrompt } from "@/features/editor/server/transcribe";
 import type { AssetTranscript } from "@/features/editor/model/document";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+// One budget for the whole request (all assets), inside maxDuration, so a slow step answers with
+// a clear message instead of the platform killing the function.
+const BUDGET_MS = 280_000;
 
 // POST /api/edit-projects/:id/transcribe  { assetIds: string[], force?: boolean }
 // Word-timed transcription of the project's clips for auto-captions. The extraction, Whisper
@@ -37,6 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const prompt = whisperPrompt(draft?.hook, draft?.script);
 
   const client = s3();
+  const deadlineAt = Date.now() + BUDGET_MS;
   const out: AssetTranscript[] = [];
   const cached: string[] = [];
   const how: Record<string, string> = {};
@@ -51,10 +55,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: `${a.name} is ${Math.round((a.durationMs ?? 0) / 60000)} min long; the ceiling for a fresh transcription here is ${RENDER_LIMITS.MAX_TIMELINE_MS / 60000} min. A long-form video is transcribed on the Clipping page, after which its clips use that transcript.` }, { status: 422 });
     }
     try {
-      const r = await transcribeR2Object(client, a.url, key, language, prompt, `${project.id}-${a.id}`);
+      const r = await transcribeR2Object(client, a.url, key, language, prompt, `${project.id}-${a.id}`, deadlineAt);
       how[a.id] = r.how;
       out.push({ assetId: a.id, url: a.url, language, words: r.words });
     } catch (e) {
+      if (e instanceof TranscribeTimeoutError) return NextResponse.json({ error: `${a.name}: ${e.message}`, timedOut: true, step: e.step, partial: out }, { status: 504 });
       return NextResponse.json({ error: `${a.name}: ${e instanceof Error ? e.message : String(e)}`, partial: out }, { status: 502 });
     }
   }

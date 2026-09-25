@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/edit-projects/[id]/transcribe": ["./node_modules/ffmpeg-static/ffmpeg"],
     "/api/clipping/transcribe": ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/clipping/bench": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
   // The AI product physically lives under app/ai. If its slug is ever changed in ai/slug.ts,
   // this rewrite maps the new public prefix onto that folder — no files move.

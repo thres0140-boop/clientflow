@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import { canEditPage } from "@/shared/auth/permissions";
 import { mayAccessClient, sessionFrom } from "@/features/editor/server/access";
-import { r2Key, readCachedTranscript, s3, transcribeR2Object, transcriptCacheKey, transcriptionConfigured, whisperLanguage, whisperPrompt } from "@/features/editor/server/transcribe";
+import { r2Key, readCachedTranscript, s3, transcribeR2Object, transcriptCacheKey, transcriptionConfigured, TranscribeTimeoutError, whisperLanguage, whisperPrompt } from "@/features/editor/server/transcribe";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+// The route's own budget, inside maxDuration: the steps give up with a clear message before the
+// platform would kill the function (an opaque 504 in the browser).
+const BUDGET_MS = 280_000;
 
 // Whisper takes 25 MB of audio; at the 32 kbps MP3 the extractor writes that is ~104 minutes.
 // 60 keeps a margin for the function's 300 s (streaming a multi-GB master through ffmpeg plus
@@ -45,9 +48,10 @@ export async function POST(req: NextRequest) {
   const durationMs = Number(body?.durationMs || 0);
   if (durationMs > MAX_SOURCE_MS) return NextResponse.json({ error: `This video is ${Math.round(durationMs / 60000)} min long; the ceiling is ${MAX_SOURCE_MS / 60000} min.` }, { status: 422 });
   try {
-    const r = await transcribeR2Object(client, url, key, language, whisperPrompt(draft.hook, draft.script), `clip-${draftId}`);
-    return NextResponse.json({ words: r.words, language, cached: false, how: r.how });
+    const r = await transcribeR2Object(client, url, key, language, whisperPrompt(draft.hook, draft.script), `clip-${draftId}`, Date.now() + BUDGET_MS);
+    return NextResponse.json({ words: r.words, language, cached: false, how: r.how, extractMs: r.extractMs, whisperMs: r.whisperMs });
   } catch (e) {
+    if (e instanceof TranscribeTimeoutError) return NextResponse.json({ error: e.message, timedOut: true, step: e.step }, { status: 504 });
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
 }

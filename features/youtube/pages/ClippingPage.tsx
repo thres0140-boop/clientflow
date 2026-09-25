@@ -272,7 +272,10 @@ function VideoWorkbench({ client, source, videoUrl, enabledPlatforms, readOnly, 
     setTranscribing(true); setTranscribeError("");
     try {
       const r = await fetch("/api/clipping/transcribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftId: source.draftId, url: videoUrl, durationMs }) });
-      const j = await r.json();
+      // A platform timeout (the function killed at its limit) is not JSON: say what it means.
+      const text = await r.text();
+      let j: { error?: string; words?: unknown } = {};
+      try { j = JSON.parse(text); } catch { j = { error: r.status === 504 ? "The server was cut off after 5 minutes before it could answer: this video is too large to transcribe in one go." : `HTTP ${r.status}: ${text.slice(0, 160)}` }; }
       if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
       setWords(Array.isArray(j.words) ? j.words : []);
     } catch (e) { setTranscribeError(e instanceof Error ? e.message : String(e)); }

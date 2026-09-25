@@ -125,6 +125,8 @@ export type ScriptDraft = {
   clientAuthored?: boolean;
   rejectionFeedback?: string | null;
   clipOfDraftId?: number | null; // Clipping: the long-form draft this clip was cut from
+  clipCount?: number;            // Clipping: clips cut from this draft (list route only)
+  clipOf?: { id: number; title: string | null } | null; // Clipping: the source draft (list route only)
   generatedAt: string;
   concept?: { name: string; color?: string; conceptType?: string | null } | null;
   client?: { name: string; color: string };

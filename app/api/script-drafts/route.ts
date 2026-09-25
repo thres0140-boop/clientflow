@@ -51,7 +51,22 @@ export async function GET(req: NextRequest) {
       stage: true,
     },
   });
-  return NextResponse.json(drafts);
+
+  // Clipping: how many clips were cut from each draft (`clipCount`, shown on the long-form card),
+  // and for a clip, the draft it came from (`clipOf`). Two cheap queries, no N+1.
+  const ids = drafts.map((d) => d.id);
+  const sourceIds = Array.from(new Set(drafts.map((d) => d.clipOfDraftId).filter((x): x is number => x != null)));
+  const [counts, sources] = await Promise.all([
+    ids.length ? prisma.scriptDraft.groupBy({ by: ["clipOfDraftId"], where: { clipOfDraftId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
+    sourceIds.length ? prisma.scriptDraft.findMany({ where: { id: { in: sourceIds } }, select: { id: true, title: true } }) : Promise.resolve([]),
+  ]);
+  const countById = new Map(counts.map((c) => [c.clipOfDraftId, c._count._all]));
+  const titleById = new Map(sources.map((s) => [s.id, s.title]));
+  return NextResponse.json(drafts.map((d) => ({
+    ...d,
+    clipCount: countById.get(d.id) ?? 0,
+    clipOf: d.clipOfDraftId != null ? { id: d.clipOfDraftId, title: titleById.get(d.clipOfDraftId) ?? null } : null,
+  })));
 }
 
 export async function POST(req: NextRequest) {
