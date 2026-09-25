@@ -593,6 +593,63 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     return NextResponse.json({ clipcol: out });
   }
 
+  // ?clipjobs=1 — Clipping as an agent workflow: a job per long-form video that reached Publish,
+  // and every candidate clip an agent (or a person) submitted for it, versioned per clip chain,
+  // with the verdict and the final edges. Shipped one deploy ahead of the schema models and the
+  // code that reads them. Idempotent.
+  if (req.nextUrl.searchParams.get("clipjobs")) {
+    const out: any = {};
+    for (const [name, sql] of [
+      ["ClipJob", `CREATE TABLE IF NOT EXISTS "ClipJob" (
+        "id" SERIAL PRIMARY KEY,
+        "sourceDraftId" INTEGER NOT NULL UNIQUE,
+        "clientId" INTEGER NOT NULL,
+        "sourceUrl" TEXT,
+        "status" TEXT NOT NULL DEFAULT 'open',
+        "trigger" TEXT NOT NULL DEFAULT 'stage',
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "closedAt" TIMESTAMP(3))`],
+      ["ClipJob_clientId_status_idx", `CREATE INDEX IF NOT EXISTS "ClipJob_clientId_status_idx" ON "ClipJob"("clientId","status")`],
+      ["ClipCandidate", `CREATE TABLE IF NOT EXISTS "ClipCandidate" (
+        "id" SERIAL PRIMARY KEY,
+        "jobId" INTEGER NOT NULL,
+        "chainId" INTEGER,
+        "version" INTEGER NOT NULL DEFAULT 1,
+        "origin" TEXT NOT NULL DEFAULT 'agent',
+        "agentId" TEXT NOT NULL,
+        "agentVersion" TEXT NOT NULL DEFAULT '',
+        "targetPlatform" TEXT NOT NULL DEFAULT 'instagram',
+        "conceptId" INTEGER,
+        "title" TEXT NOT NULL,
+        "reasoning" TEXT NOT NULL DEFAULT '',
+        "confidence" DOUBLE PRECISION,
+        "document" TEXT NOT NULL,
+        "inMs" INTEGER NOT NULL,
+        "outMs" INTEGER NOT NULL,
+        "status" TEXT NOT NULL DEFAULT 'pending',
+        "declineReasons" TEXT NOT NULL DEFAULT '[]',
+        "declineNote" TEXT,
+        "reviewedBy" TEXT,
+        "reviewedAt" TIMESTAMP(3),
+        "finalInMs" INTEGER,
+        "finalOutMs" INTEGER,
+        "finalDocument" TEXT,
+        "draftId" INTEGER,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP)`],
+      ["ClipCandidate_jobId_idx", `CREATE INDEX IF NOT EXISTS "ClipCandidate_jobId_idx" ON "ClipCandidate"("jobId")`],
+      ["ClipCandidate_chainId_version_idx", `CREATE INDEX IF NOT EXISTS "ClipCandidate_chainId_version_idx" ON "ClipCandidate"("chainId","version")`],
+      ["ClipCandidate_agent_idx", `CREATE INDEX IF NOT EXISTS "ClipCandidate_agent_idx" ON "ClipCandidate"("agentId","agentVersion")`],
+      ["ClipCandidate_status_idx", `CREATE INDEX IF NOT EXISTS "ClipCandidate_status_idx" ON "ClipCandidate"("status")`],
+    ] as [string, string][]) {
+      try { await (prisma as any).$executeRawUnsafe(sql); out[name] = "ok"; }
+      catch (e) { out[name] = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    }
+    const cols = await (prisma as any).$queryRawUnsafe(`SELECT table_name, count(*)::int AS columns FROM information_schema.columns WHERE table_name IN ('ClipJob','ClipCandidate') GROUP BY table_name`);
+    return NextResponse.json({ clipjobs: out, tables: cols });
+  }
+
   // ?youtubecol=1 — per-client YouTube toggle (YouTube Kanban + Clipping). Idempotent.
   if (req.nextUrl.searchParams.get("youtubecol")) {
     const out: any = {};
