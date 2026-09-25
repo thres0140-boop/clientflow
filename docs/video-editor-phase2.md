@@ -29,6 +29,19 @@ stays the way a cut reaches `editedVideoUrl` until Phase 4 gives the editor an E
    a new upload (same `/api/r2/multipart` flow as raw content), are placed at the playhead, can
    be dragged in time and on the preview, and are always silent.
 
+## Layout (2026-09-25 restructure)
+
+Five regions, CapCut-style: a tab bar across the top (Media, Audio, Text, Stickers, Effects,
+Transitions, Captions, Filters, Adjust, Templates), the active tab's panel on the left, the
+preview with its controls in the centre, a contextual properties panel on the right (clip,
+caption or text when one is selected, otherwise the document's caption style), and the
+timeline with its own toolbar (undo, redo, split, delete, zoom) at the bottom. Media is real:
+the project's clips with load state, import to R2, add to main or as b-roll at the playhead,
+retry or remove a failed clip. Text and Captions list their tracks. The other tabs open an
+honest "not built yet" state with one line on what will live there; they are the frame, not
+the feature. A clip whose media never loads is timed out (20 s), diagnosed through the proxy
+and marked failed with the reason in the preview, the timeline and the Media panel.
+
 ## Holding the parity line
 
 The canvas renderer (`features/editor/render/canvasText.ts`) draws only what `CaptionStyle`

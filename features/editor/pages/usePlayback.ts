@@ -17,7 +17,8 @@ import { videoSrc } from "@/shared/media/videoSrc";
 const SYNC_TOLERANCE_MS = 120;
 const METADATA_TIMEOUT_MS = 20000;
 
-export type AssetStatus = { state: "loading" } | { state: "ready" } | { state: "failed"; reason: string };
+/** No entry = still loading (the probe has not answered yet). */
+export type AssetStatus = { state: "ready" } | { state: "failed"; reason: string };
 
 type Want = { sourceMs: number; muted: boolean; volume: number };
 
@@ -49,6 +50,7 @@ class VideoPool {
   private attempts = new Map<string, number>();
   get(assetId: string): HTMLVideoElement | null { return this.map.get(assetId) ?? null; }
   has(assetId: string) { return this.map.has(assetId); }
+  ids(): string[] { return [...this.map.keys()]; }
   ensure(asset: Asset, on: { meta: (m: { durationMs: number; width: number; height: number }) => void; frame: () => void; fail: (reason: string) => void }) {
     if (this.map.has(asset.id)) return;
     const attempt = (this.attempts.get(asset.id) ?? 0) + 1;
@@ -130,7 +132,6 @@ export function usePlayback(doc: EditDocument, canvasRef: React.RefObject<HTMLCa
   }, [canvasRef, videoFor]);
 
   const probe = useCallback((a: Asset) => {
-    setStatus((s) => ({ ...s, [a.id]: { state: "loading" } }));
     getPool().ensure(a, {
       meta: (meta) => {
         setDoc((d) => applyAssetMetadata(d, a.id, meta));
@@ -147,10 +148,11 @@ export function usePlayback(doc: EditDocument, canvasRef: React.RefObject<HTMLCa
     for (const a of doc.assets) if (a.kind === "video" && !p.has(a.id)) probe(a);
   }, [doc.assets, probe, getPool]);
 
-  // Drop elements for assets that left the document.
+  // Drop elements for assets that left the document (stale status entries are harmless: the
+  // UI only ever looks up status by the ids in doc.assets).
   useEffect(() => {
     const ids = new Set(doc.assets.map((a) => a.id));
-    setStatus((s) => { const n: Record<string, AssetStatus> = {}; let changed = false; for (const k in s) { if (ids.has(k)) n[k] = s[k]; else { changed = true; getPool().remove(k); } } return changed ? n : s; });
+    for (const id of getPool().ids()) if (!ids.has(id)) getPool().remove(id);
   }, [doc.assets, getPool]);
 
   useEffect(() => () => { pool.current?.dispose(); pool.current = null; }, []);
@@ -160,6 +162,7 @@ export function usePlayback(doc: EditDocument, canvasRef: React.RefObject<HTMLCa
     const a = docRef.current.assets.find((x) => x.id === assetId);
     if (!a) return;
     getPool().remove(assetId);
+    setStatus((s) => { const n = { ...s }; delete n[assetId]; return n; }); // back to the derived "loading"
     probe(a);
   }, [getPool, probe]);
 

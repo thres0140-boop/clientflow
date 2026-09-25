@@ -228,7 +228,7 @@ function Panel({ title, onDelete, children }: { title: string; onDelete?: () => 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-ink">{title}</h3>
+        <h3 className="text-sm font-bold text-ink"><span className="text-[10px] font-semibold uppercase tracking-wide text-muted block">{onDelete ? "Selected" : "Nothing selected"}</span>{title}</h3>
         {onDelete && <button onClick={onDelete} className="text-[11px] font-semibold text-danger-600 hover:text-danger-700">Delete</button>}
       </div>
       {children}

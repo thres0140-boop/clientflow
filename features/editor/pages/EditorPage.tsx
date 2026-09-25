@@ -2,7 +2,9 @@
 
 // The video editor for one ScriptDraft. Owns the document, the undo stack, autosave with the
 // version rule (409 → show who saved, offer reload, never clobber), the preview canvas and the
-// keyboard. The timeline and inspector are children; the playback engine is a hook.
+// keyboard. Five regions, CapCut-style: a tab bar across the top, the active tab's panel on the
+// left, the preview with its controls in the centre, a contextual properties panel on the
+// right, and the timeline with its own toolbar at the bottom. The playback engine is a hook.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM, type Ms } from "@/features/editor/model/document";
 import { addAsset, addClip, addCue, addText, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, splitClipAt, updateClip, updateText } from "@/features/editor/model/timeline";
@@ -11,7 +13,7 @@ import { loadAllCaptionFonts } from "@/features/editor/render/fonts";
 import { readEmbedFlag } from "@/shared/embed";
 import Timeline, { fmtTime, type Selection } from "./Timeline";
 import Inspector from "./Inspector";
-import BrollPicker from "./BrollPicker";
+import LeftPanel, { EDITOR_TABS, type EditorTab } from "./LeftPanel";
 import { usePlayback } from "./usePlayback";
 
 type ProjectView = { id: number; draftId: number; clientId: number; version: number; updatedBy: string | null; updatedAt: string; document: EditDocument };
@@ -33,7 +35,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const [histSize, setHistSize] = useState({ past: 0, future: 0 });
   const [selection, setSelection] = useState<Selection>(null);
   const [pxPerSec, setPxPerSec] = useState(60);
-  const [picker, setPicker] = useState(false);
+  const [tab, setTab] = useState<EditorTab>("media");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewBox = useRef<HTMLDivElement>(null);
   const embedded = useMemo(() => readEmbedFlag(), []);
@@ -186,15 +188,20 @@ export default function EditorPage({ draftId }: { draftId: number }) {
     const ov = overlayTrack(doc);
     if (!ov) return;
     commit(addClip(doc, ov.id, assetId, pb.tMs));
-    setPicker(false);
   }
-  function addBrollUpload(url: string, name: string) {
+  function addToMain(assetId: string) {
     if (!doc) return;
-    const ov = overlayTrack(doc);
-    if (!ov) return;
-    const r = addAsset(doc, { url, name });
-    commit(addClip(r.doc, ov.id, r.assetId, pb.tMs)); // 0-length until metadata loads, then it expands
-    setPicker(false);
+    commit(addClip(doc, mainTrack(doc).id, assetId, 0)); // appended; the main track is contiguous
+  }
+  /** An imported file joins the media library only; it is placed from the Media panel. */
+  function addUploadedAsset(url: string, name: string) {
+    if (!doc) return;
+    commit(addAsset(doc, { url, name }).doc);
+  }
+  function removeAssetAndClips(assetId: string) {
+    if (!doc) return;
+    commit(removeAsset(doc, assetId));
+    setSelection(null);
   }
 
   // Keyboard: space play, ←/→ frame step (shift = 1 s), S split, Delete, ⌘Z / ⌘⇧Z.
@@ -266,7 +273,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const backHref = `/?page=kanban&clientId=${project.clientId}&draft=${draftId}${embedded ? "&embed=1" : ""}`;
   // Per-asset media state from the playback engine: a clip that never answers is marked failed
   // (with the reason) after a timeout; the rest of the editor keeps working with what did load.
-  const loadingAssets = doc.assets.filter((a) => pb.status[a.id]?.state === "loading" || (!pb.status[a.id] && a.durationMs == null));
+  const loadingAssets = doc.assets.filter((a) => !pb.status[a.id] && a.durationMs == null);
   const failedAssets = doc.assets.filter((a) => pb.status[a.id]?.state === "failed").map((a) => ({ asset: a, reason: (pb.status[a.id] as { reason: string }).reason }));
 
   return (
@@ -280,10 +287,18 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         <span className={`text-[11px] font-semibold ${saveState === "error" ? "text-danger-600" : saveState === "conflict" ? "text-warn-700" : "text-muted"}`}>
           {saveState === "saved" ? "Saved" : saveState === "dirty" ? "Unsaved changes" : saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed, retrying" : "Conflict"}
         </span>
-        <button onClick={undo} disabled={!histSize.past} className="o-btn o-btn-ghost text-xs px-2 py-1.5 disabled:opacity-40" title="Undo (⌘Z)">↶</button>
-        <button onClick={redo} disabled={!histSize.future} className="o-btn o-btn-ghost text-xs px-2 py-1.5 disabled:opacity-40" title="Redo (⌘⇧Z)">↷</button>
         <button className="o-btn o-btn-primary text-xs" disabled title="Export arrives in Phase 4">Export</button>
       </header>
+
+      {/* Tab bar: the shape of the finished editor. Tabs without features yet open an honest empty state. */}
+      <nav className="shrink-0 flex items-center gap-1 px-2 h-9 bg-surface border-b border-line overflow-x-auto">
+        {EDITOR_TABS.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`px-3 h-7 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${tab === t.id ? "bg-accent text-on-accent" : "text-muted hover:text-ink hover:bg-surface-3"}`}>
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
       {/* Conflict banner */}
       {conflict && (
@@ -296,8 +311,13 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         </div>
       )}
 
-      {/* Preview + inspector */}
+      {/* Left panel · preview · right panel */}
       <div className="flex-1 min-h-0 flex">
+        <aside className="w-72 shrink-0 bg-surface border-r border-line overflow-y-auto">
+          <LeftPanel tab={tab} doc={doc} status={pb.status} tMs={pb.tMs} selection={selection} onSelect={setSelection} onSeek={pb.seek}
+            onAddToMain={addToMain} onAddBroll={addBroll} onUploaded={addUploadedAsset} onRetry={pb.retryAsset} onRemoveAsset={removeAssetAndClips}
+            onAddCaption={addCaptionHere} onAddText={addTextHere} />
+        </aside>
         <div ref={previewBox} className="flex-1 min-w-0 flex flex-col items-center justify-center gap-2 p-3">
           <div className="relative h-full max-h-full" style={{ aspectRatio: `${doc.canvas.width} / ${doc.canvas.height}` }}>
             <canvas ref={canvasRef} width={doc.canvas.width} height={doc.canvas.height} onPointerDown={onPreviewPointerDown}
@@ -309,7 +329,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
                 <div key={asset.id} className="pointer-events-auto flex items-center gap-2 text-[10px] text-white bg-black/70 rounded px-2 py-1">
                   <span className="min-w-0 flex-1 truncate"><span className="font-semibold">{asset.name}</span> failed: {reason}</span>
                   <button onClick={() => pb.retryAsset(asset.id)} className="font-semibold underline shrink-0">Retry</button>
-                  <button onClick={() => { commit(removeAsset(doc, asset.id)); setSelection(null); }} className="font-semibold underline shrink-0">Remove</button>
+                  <button onClick={() => removeAssetAndClips(asset.id)} className="font-semibold underline shrink-0">Remove</button>
                 </div>
               ))}
             </div>
@@ -326,14 +346,13 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         </aside>
       </div>
 
-      {/* Toolbar + timeline */}
+      {/* Timeline toolbar */}
       <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-surface border-t border-line text-xs">
+        <button onClick={undo} disabled={!histSize.past} className="o-btn o-btn-ghost text-xs px-2 py-1.5 disabled:opacity-40" title="Undo (⌘Z)">↶</button>
+        <button onClick={redo} disabled={!histSize.future} className="o-btn o-btn-ghost text-xs px-2 py-1.5 disabled:opacity-40" title="Redo (⌘⇧Z)">↷</button>
+        <span className="w-px h-5 bg-line-hard mx-1" />
         <button onClick={splitAtPlayhead} className="o-btn o-btn-ghost text-xs px-2 py-1.5" title="Split at playhead (S)">✂ Split</button>
         <button onClick={deleteSelected} disabled={!selection} className="o-btn o-btn-ghost text-xs px-2 py-1.5 disabled:opacity-40" title="Delete selection (⌫)">Delete</button>
-        <span className="w-px h-5 bg-line-hard mx-1" />
-        <button onClick={addCaptionHere} className="o-btn o-btn-ghost text-xs px-2 py-1.5">+ Caption</button>
-        <button onClick={addTextHere} className="o-btn o-btn-ghost text-xs px-2 py-1.5">+ Text</button>
-        <button onClick={() => setPicker(true)} className="o-btn o-btn-ghost text-xs px-2 py-1.5">+ B-roll</button>
         <span className="flex-1" />
         <span className="text-faint">Zoom</span>
         <button onClick={() => setPxPerSec((z) => Math.max(10, z / 1.5))} className="o-btn o-btn-ghost text-xs px-2 py-1.5">−</button>
@@ -343,7 +362,6 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
       </div>
 
-      {picker && <BrollPicker doc={doc} onPick={addBroll} onUploaded={addBrollUpload} onClose={() => setPicker(false)} />}
     </div>
   );
 }
