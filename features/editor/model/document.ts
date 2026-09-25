@@ -52,6 +52,7 @@ export type CaptionCue = {
   endMs: Ms;
   lines: string[];             // explicit lines (already wrapped); both renderers draw exactly these
   words: CaptionWord[] | null; // word timing inside the cue, for highlight.mode=color; null = none
+  styleOverride: Partial<CaptionStyle> | null; // per-cue look; same property set as the style, so it crosses to an ASS Style per cue
 };
 /** Captions take their look from document.captionStyle; a track can override parts of it. */
 export type CaptionTrack = { id: string; kind: "caption"; cues: CaptionCue[]; styleOverride: Partial<CaptionStyle> | null };
@@ -64,9 +65,11 @@ export type TextTrack = { id: string; kind: "text"; elements: TextElement[] };
 export type Track = VideoTrack | CaptionTrack | TextTrack;
 
 export type TranscriptWord = { text: string; startMs: Ms; endMs: Ms };
-/** Kept in the document so captions can be re-chunked with a different wordsPerCue without
- *  re-running Whisper. Filled by Phase 3. */
-export type Transcript = { source: "whisper-1"; language: string | null; words: TranscriptWord[]; createdAt: string };
+/** One asset's Whisper words, in ASSET time (0 = the start of that clip's file). */
+export type AssetTranscript = { assetId: string; url: string; language: string | null; words: TranscriptWord[] };
+/** Kept in the document so captions can be re-laid (a different wordsPerCue, a trim, a reorder)
+ *  without re-running Whisper; the server also caches each asset's transcript in R2 by url. */
+export type Transcript = { source: "whisper-1"; createdAt: string; assets: AssetTranscript[]; alignedToScript: boolean; alignRatio: number | null };
 
 export type EditDocument = {
   v: typeof EDIT_DOCUMENT_VERSION;
@@ -157,7 +160,7 @@ export function normalizeDocument(input: unknown): EditDocument {
         const startMs = ms(c.startMs), endMs = Math.max(startMs, ms(c.endMs));
         const lines = Array.isArray(c.lines) ? c.lines.map((l: unknown) => str(l)).slice(0, 3) : typeof c.text === "string" ? [c.text] : [];
         const words = Array.isArray(c.words) ? c.words.filter((w: any) => w && typeof w.text === "string").map((w: any) => ({ text: w.text, startMs: ms(w.startMs), endMs: ms(w.endMs) })) : null;
-        return { id: c.id, startMs, endMs, lines, words: words && words.length ? words : null };
+        return { id: c.id, startMs, endMs, lines, words: words && words.length ? words : null, styleOverride: c.styleOverride && typeof c.styleOverride === "object" ? c.styleOverride : null };
       });
       tracks.push({ id: t.id, kind: "caption", cues, styleOverride: t.styleOverride && typeof t.styleOverride === "object" ? t.styleOverride : null });
     } else if (t.kind === "text") {
@@ -177,11 +180,14 @@ export function normalizeDocument(input: unknown): EditDocument {
     }
   }
   let transcript: Transcript | null = null;
-  if (d.transcript && Array.isArray(d.transcript.words)) {
+  if (d.transcript && Array.isArray(d.transcript.assets)) {
+    const words = (ws: unknown) => (Array.isArray(ws) ? ws : []).filter((w: any) => w && typeof w.text === "string").map((w: any) => ({ text: w.text, startMs: ms(w.startMs), endMs: ms(w.endMs) }));
     transcript = {
-      source: "whisper-1", language: typeof d.transcript.language === "string" ? d.transcript.language : null,
-      words: d.transcript.words.filter((w: any) => w && typeof w.text === "string").map((w: any) => ({ text: w.text, startMs: ms(w.startMs), endMs: ms(w.endMs) })),
+      source: "whisper-1",
       createdAt: str(d.transcript.createdAt, new Date().toISOString()),
+      assets: d.transcript.assets.filter((a: any) => a && typeof a.assetId === "string" && assetIds.has(a.assetId)).map((a: any) => ({ assetId: a.assetId, url: str(a.url), language: typeof a.language === "string" ? a.language : null, words: words(a.words) })),
+      alignedToScript: !!d.transcript.alignedToScript,
+      alignRatio: isNum(d.transcript.alignRatio) ? d.transcript.alignRatio : null,
     };
   }
   return { v: EDIT_DOCUMENT_VERSION, canvas, assets, tracks, captionStyle, transcript };

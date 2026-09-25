@@ -31,6 +31,18 @@ export type EditorTab = "media" | "audio" | "text" | "stickers" | "effects" | "t
 
 export const NOT_BUILT = "Not built yet";
 
+export type AutoCaptionsState = { phase: "idle" | "working" | "done" | "error"; message: string };
+export type AutoCaptions = {
+  state: AutoCaptionsState;
+  canGenerate: boolean;
+  hasScript: boolean;
+  hasTranscript: boolean;
+  useScript: boolean;
+  setUseScript: (v: boolean) => void;
+  generate: () => void;
+  relayout: () => void;
+};
+
 type Props = {
   tab: EditorTab;
   onTab: (t: EditorTab) => void;
@@ -48,6 +60,7 @@ type Props = {
   onRemoveAsset: (assetId: string) => void;
   onAddCaption: () => void;
   onAddText: () => void;
+  autoCaptions: AutoCaptions;
 };
 
 type SubNav = { id: string; label: string; disabled?: boolean };
@@ -58,7 +71,7 @@ const SUB_NAV: Record<EditorTab, SubNav[]> = {
   stickers: [{ id: "all", label: "All", disabled: true }],
   effects: [{ id: "all", label: "All", disabled: true }],
   transitions: [{ id: "all", label: "All", disabled: true }],
-  captions: [{ id: "add", label: "Add" }, { id: "timeline", label: "On timeline" }, { id: "auto", label: "Auto-captions", disabled: true }],
+  captions: [{ id: "auto", label: "Auto-captions" }, { id: "timeline", label: "On timeline" }, { id: "add", label: "Add" }],
   filters: [{ id: "all", label: "All", disabled: true }],
   adjust: [{ id: "all", label: "All", disabled: true }],
   templates: [{ id: "mine", label: "Mine", disabled: true }, { id: "client", label: "Per client", disabled: true }],
@@ -276,20 +289,37 @@ function TextContent({ doc, sub, selection, onSelect, onSeek, onAddText }: Props
   );
 }
 
-function CaptionsContent({ doc, sub, selection, onSelect, onSeek, onAddCaption }: Props & { sub: string }) {
+function CaptionsContent({ doc, sub, selection, onSelect, onSeek, onAddCaption, autoCaptions: ac }: Props & { sub: string }) {
   const track = captionTrack(doc);
   const cues = track?.kind === "caption" ? track.cues : [];
+  const working = ac.state.phase === "working";
   return (
     <>
       <Toolbar>
-        <button onClick={onAddCaption} className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4`}><Icon name="plus" size={14} />Add caption</button>
-        <button disabled title="Auto-captions from the transcript arrive in Phase 3" className={`${toolBtn} bg-surface-3 text-ink-2 disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="sparkle" size={14} />Auto</button>
+        <button onClick={ac.generate} disabled={!ac.canGenerate || working} title={ac.canGenerate ? "Transcribe the main track with word timings and lay the captions out" : "Add clips to the main track first"}
+          className={`${toolBtn} bg-accent text-on-accent hover:bg-accent-strong disabled:opacity-50 disabled:cursor-not-allowed`}>
+          <Icon name="sparkle" size={14} />{working ? "Generating…" : ac.hasTranscript ? "Regenerate" : "Generate captions"}
+        </button>
+        <button onClick={onAddCaption} className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4`}><Icon name="plus" size={14} />Add</button>
         <span className="flex-1" />
         <IconButton name="search" label={NOT_BUILT} disabled />
       </Toolbar>
       <div className="flex-1 min-h-0 overflow-y-auto p-3">
-        {sub === "add" ? (
-          <p className="text-[11px] text-faint">Adds a caption at the playhead. Captions share the caption style on the right. Word-timed auto-captions, styled per client, arrive in Phase 3.</p>
+        {sub === "auto" ? (
+          <div className="space-y-3">
+            <p className="text-[11px] text-faint">Audio is extracted on the server straight from the clip in R2 and transcribed by Whisper with word timings in the client&apos;s language. Words become captions using the caption style&apos;s words-per-caption and max lines; every caption stays editable. Transcripts are cached per clip, so regenerating is free unless the footage changed. Ceiling: 15 minutes of main track.</p>
+            <label className={`flex items-start gap-2 text-xs ${ac.hasScript ? "text-ink-2 cursor-pointer" : "text-faint cursor-not-allowed"}`} title={ac.hasScript ? "Use the draft's hook and script for the wording; Whisper only supplies the timing" : "This draft has no script to align to"}>
+              <input type="checkbox" className="mt-0.5 accent-[var(--color-accent)]" checked={ac.useScript && ac.hasScript} disabled={!ac.hasScript} onChange={(e) => ac.setUseScript(e.target.checked)} />
+              <span>Use the script&apos;s wording<span className="block text-[10px] text-faint">Whisper for when, the script for what. Falls back to Whisper&apos;s words where the speaker improvised, and entirely if the script was not followed.</span></span>
+            </label>
+            {ac.state.phase !== "idle" && (
+              <p className={`text-[11px] rounded-md px-3 py-2 ${ac.state.phase === "error" ? "text-danger-600 bg-danger-50" : ac.state.phase === "working" ? "text-ink-2 bg-surface-2" : "text-ink-2 bg-surface-2"}`}>{ac.state.message}</p>
+            )}
+            <button onClick={ac.relayout} disabled={!ac.hasTranscript || working} title="Re-chunk the cached transcript with the current caption style (words per caption, max lines) and the current clips"
+              className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4 disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="retry" size={14} />Re-layout with current style</button>
+          </div>
+        ) : sub === "add" ? (
+          <p className="text-[11px] text-faint">Adds a caption at the playhead. Captions share the caption style on the right; a selected caption can override it.</p>
         ) : (
           <ul className="space-y-1">
             {cues.map((q) => (

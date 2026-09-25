@@ -100,7 +100,8 @@ const HALLUCINATIONS = new Set([
   "thanks for watching", "thank you for watching", "thank you", "thank you.", "you",
   "please subscribe", "like and subscribe", "bye", "[music]", "music", "♪",
 ]);
-function stripHallucination(text: string): string {
+/** Drops Whisper's stock hallucinations ("thanks for watching", "you", …). Shared with the video editor's auto-captions. */
+export function stripHallucination(text: string): string {
   const t = (text || "").trim();
   if (!t) return "";
   const norm = t.toLowerCase().replace(/[\s.,!?"'♪♫🎵🎶()[\]-]+/g, " ").trim();

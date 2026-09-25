@@ -2,7 +2,7 @@
 // Videos are supplied by the caller as HTMLVideoElements already seeked to the right source time
 // (the playback engine owns that); this module only paints.
 import type { CaptionCue, EditDocument, Ms, Transform, VideoClip } from "@/features/editor/model/document";
-import { normalizeCaptionStyle } from "@/features/editor/model/captionStyle";
+import { type CaptionStyle, normalizeCaptionStyle } from "@/features/editor/model/captionStyle";
 import { captionTrack, clipAt, mainTrack, overlayTrack, textTrack } from "@/features/editor/model/timeline";
 import { drawText, layoutText } from "./canvasText";
 
@@ -57,7 +57,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, doc: EditDocument, tM
   if (captions && captions.kind === "caption") {
     const cue = captions.cues.find((q) => tMs >= q.startMs && tMs < q.endMs);
     if (cue && cue.lines.some((l) => l.trim())) {
-      const style = captions.styleOverride ? normalizeCaptionStyle({ ...doc.captionStyle, ...captions.styleOverride }, doc.captionStyle) : doc.captionStyle;
+      const style = cueStyle(doc, captions.styleOverride, cue);
       const layout = layoutText(ctx, style, cue.lines, doc.canvas);
       drawText(ctx, style, layout, { activeWord: activeWordIndex(cue, tMs) });
     }
@@ -73,6 +73,12 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, doc: EditDocument, tM
       if (el.transform.rotation) ctx.restore();
     }
   }
+}
+
+/** The style a cue is drawn with: the document style, then the track's override, then the cue's own. */
+export function cueStyle(doc: EditDocument, trackOverride: Partial<CaptionStyle> | null, cue: CaptionCue): CaptionStyle {
+  const base = trackOverride ? normalizeCaptionStyle({ ...doc.captionStyle, ...trackOverride }, doc.captionStyle) : doc.captionStyle;
+  return cue.styleOverride ? normalizeCaptionStyle({ ...base, ...cue.styleOverride }, base) : base;
 }
 
 /** A cheap fingerprint of what drawOverlay would paint at `tMs`: when it has not changed since
@@ -111,7 +117,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, doc: EditDocument, tMs:
   if (captions && captions.kind === "caption") {
     const cue = captions.cues.find((q) => tMs >= q.startMs && tMs < q.endMs);
     if (cue && cue.lines.some((l) => l.trim())) {
-      const style = captions.styleOverride ? normalizeCaptionStyle({ ...doc.captionStyle, ...captions.styleOverride }, doc.captionStyle) : doc.captionStyle;
+      const style = cueStyle(doc, captions.styleOverride, cue);
       const layout = layoutText(ctx, style, cue.lines, doc.canvas);
       drawText(ctx, style, layout, { activeWord: activeWordIndex(cue, tMs) });
     }

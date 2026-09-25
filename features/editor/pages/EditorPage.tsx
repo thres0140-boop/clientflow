@@ -7,7 +7,11 @@
 // right, and the timeline with its own toolbar at the bottom. The playback engine is a hook.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM } from "@/features/editor/model/document";
-import { addAsset, addClip, addCue, addText, clipAt, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, splitClipAt, trimClipToTime, updateClip, updateText } from "@/features/editor/model/timeline";
+import { addAsset, addClip, addCue, addText, clipAt, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, replaceCues, setTranscript, splitClipAt, trimClipToTime, updateClip, updateText } from "@/features/editor/model/timeline";
+import { layoutCaptions, timelineWords } from "@/features/editor/model/captions";
+import { alignToScript } from "@/features/editor/model/align";
+import type { AssetTranscript, Transcript } from "@/features/editor/model/document";
+import type { AutoCaptions, AutoCaptionsState } from "./LeftPanel";
 import { textElementAt } from "@/features/editor/render/compositor";
 import { drawChrome, type Guides, hitHandle, insideBox, type Selected, selectionBox, snapCentre } from "@/features/editor/render/chrome";
 import { loadAllCaptionFonts } from "@/features/editor/render/fonts";
@@ -42,6 +46,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const [project, setProject] = useState<ProjectView | null>(null);
   const [loadError, setLoadError] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
+  const [scriptText, setScriptText] = useState<string | null>(null); // the draft's hook + script, the ground truth for alignment
   const [doc, setDocState] = useState<EditDocument | null>(null);
   const versionRef = useRef(0);
   const [saveState, setSaveState] = useState<SaveState>("saved");
@@ -172,7 +177,12 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         setProject(j.project);
         versionRef.current = j.project.version;
         setDocState(j.project.document);
-        fetch(`/api/script-drafts/${draftId}`).then((x) => x.json()).then((d) => { if (!cancelled && d?.title) setDraftTitle(d.title); }).catch(() => {});
+        fetch(`/api/script-drafts/${draftId}`).then((x) => x.json()).then((d) => {
+          if (cancelled) return;
+          if (d?.title) setDraftTitle(d.title);
+          const text = [d?.hook, d?.script].filter((s) => typeof s === "string" && s.trim()).join("\n");
+          setScriptText(text || null);
+        }).catch(() => {});
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : String(e));
       }
@@ -285,7 +295,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   }
   function addCaptionHere() {
     if (!doc) return;
-    commit(addCue(doc, { startMs: pb.tMs, endMs: pb.tMs + 1500, lines: ["Caption"], words: null }));
+    commit(addCue(doc, { startMs: pb.tMs, endMs: pb.tMs + 1500, lines: ["Caption"], words: null, styleOverride: null }));
   }
   function addTextHere() {
     if (!doc) return;
@@ -313,6 +323,56 @@ export default function EditorPage({ draftId }: { draftId: number }) {
     commit(removeAsset(doc, assetId));
     setSelection(null);
   }
+
+  // ── auto-captions ──────────────────────────────────────────────────────────
+  const [acState, setAcState] = useState<AutoCaptionsState>({ phase: "idle", message: "" });
+  const [useScript, setUseScript] = useState(true);
+  /** Words → cues → track, from a transcript in asset time. Pure and local: re-layout after a
+   *  trim, a reorder, a style change or a toggle of the script wording never calls the server. */
+  function applyTranscript(base: EditDocument, assets: AssetTranscript[], fromCache: string[]): EditDocument {
+    let words = timelineWords(base, assets).map((w) => ({ text: w.text, startMs: w.startMs, endMs: w.endMs }));
+    let aligned = false, ratio: number | null = null, detail = "";
+    if (useScript && scriptText) {
+      const r = alignToScript(words, scriptText);
+      if (r) {
+        ratio = r.ratio;
+        if (r.ratio >= 0.6) { words = r.words; aligned = true; detail = ` · script wording for ${Math.round(r.ratio * 100)}% (${r.substituted} corrected, ${r.improvised} improvised, ${r.skipped} skipped)`; }
+        else detail = ` · script not followed (${Math.round(r.ratio * 100)}% matched), kept Whisper's words`;
+      }
+    }
+    const cues = layoutCaptions(words, base.captionStyle);
+    const transcript: Transcript = { source: "whisper-1", createdAt: new Date().toISOString(), assets, alignedToScript: aligned, alignRatio: ratio };
+    setAcState({ phase: "done", message: `${cues.length} captions from ${words.length} words${fromCache.length ? ` (${fromCache.length} clip${fromCache.length === 1 ? "" : "s"} from cache)` : ""}${detail}` });
+    return setTranscript(replaceCues(base, cues), transcript);
+  }
+  async function generateCaptions() {
+    const d = docRef.current;
+    if (!d || !project) return;
+    const assetIds = [...new Set(mainTrack(d).clips.map((c) => c.assetId))].filter((id) => d.assets.find((a) => a.id === id)?.durationMs != null);
+    if (assetIds.length === 0) { setAcState({ phase: "error", message: "No clips on the main track yet." }); return; }
+    setAcState({ phase: "working", message: "Extracting audio on the server and transcribing with word timings…" });
+    try {
+      const r = await fetch(`/api/edit-projects/${project.id}/transcribe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assetIds }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      if (typeof j.script === "string" && j.script.trim()) setScriptText(j.script);
+      const cur = docRef.current;
+      if (!cur) return;
+      commit(applyTranscript(cur, j.assets as AssetTranscript[], j.cached as string[]));
+    } catch (e) {
+      setAcState({ phase: "error", message: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  function relayoutCaptions() {
+    const d = docRef.current;
+    if (!d?.transcript) return;
+    commit(applyTranscript(d, d.transcript.assets, []));
+  }
+  const autoCaptions: AutoCaptions = {
+    state: acState, useScript, setUseScript, hasScript: !!scriptText, hasTranscript: !!doc?.transcript,
+    canGenerate: !!doc && mainTrack(doc).clips.some((c) => doc.assets.find((a) => a.id === c.assetId)?.durationMs != null),
+    generate: generateCaptions, relayout: relayoutCaptions,
+  };
 
   // Keyboard: space play, ←/→ frame step (shift = 1 s), S split, Delete, ⌘Z / ⌘⇧Z.
   useEffect(() => {
@@ -475,7 +535,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
             <aside className={panelCls + " w-[33%] min-w-[420px] shrink-0 min-h-0 overflow-hidden"}>
               <LeftPanel tab={tab} onTab={setTab} doc={doc} status={pb.status} thumbs={pb.thumbs} tMs={pb.tMs} selection={selection} onSelect={setSelection} onSeek={pb.seek}
                 onAddToMain={addToMain} onAddBroll={addBroll} onUploaded={addUploadedAsset} onRetry={pb.retryAsset} onRemoveAsset={removeAssetAndClips}
-                onAddCaption={addCaptionHere} onAddText={addTextHere} />
+                onAddCaption={addCaptionHere} onAddText={addTextHere} autoCaptions={autoCaptions} />
             </aside>
 
             {/* Centre, the largest: "Preview — <name>" header, the video, transport under it */}

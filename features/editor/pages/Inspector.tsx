@@ -227,8 +227,17 @@ export default function Inspector({ doc, selection, clientId, onChange, onSelect
           <Field label="End"><Num value={cue.endMs} min={cue.startMs + 100} step={10} suffix="ms" onChange={(n) => commit(updateCue(doc, cue.id, { endMs: Math.max(cue.startMs + 100, n) }))} /></Field>
         </Group>
         <Group title="Look">
-          <p className="col-span-2 text-[10px] text-faint">Captions share the document caption style. Deselect to edit it.</p>
+          <div className="col-span-2">
+            <Toggle label="Override the style for this caption" value={!!cue.styleOverride}
+              onChange={(v) => commit(updateCue(doc, cue.id, { styleOverride: v ? { ...doc.captionStyle } : null }))} />
+            {!cue.styleOverride && <p className="text-[10px] text-faint">Captions share the document caption style. Deselect to edit it.</p>}
+          </div>
         </Group>
+        {cue.styleOverride && (
+          <div className="pt-4 border-t border-line-soft">
+            <StyleEditor style={normalizeCaptionStyle({ ...doc.captionStyle, ...cue.styleOverride }, doc.captionStyle)} onChange={(s) => commit(updateCue(doc, cue.id, { styleOverride: s }))} />
+          </div>
+        )}
       </Panel>
     );
   }

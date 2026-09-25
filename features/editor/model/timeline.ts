@@ -211,6 +211,10 @@ export function deleteText(doc: EditDocument, id: string): EditDocument {
   return mapTracks(doc, (t) => (t.kind === "text" ? { ...t, elements: t.elements.filter((e) => e.id !== id) } : t));
 }
 
+export function setTranscript(doc: EditDocument, transcript: EditDocument["transcript"]): EditDocument {
+  return normalizeDocument({ ...doc, transcript });
+}
+
 export function setCaptionStyle(doc: EditDocument, style: CaptionStyle): EditDocument {
   return normalizeDocument({ ...doc, captionStyle: style });
 }
@@ -221,7 +225,7 @@ export function cuesFromWords(words: { text: string; startMs: Ms; endMs: Ms }[],
   const out: Omit<CaptionCue, "id">[] = [];
   for (let i = 0; i < words.length; i += wordsPerCue) {
     const chunk = words.slice(i, i + wordsPerCue);
-    out.push({ startMs: chunk[0].startMs, endMs: chunk[chunk.length - 1].endMs, lines: [chunk.map((w) => w.text).join(" ")], words: chunk.map((w) => ({ ...w })) });
+    out.push({ startMs: chunk[0].startMs, endMs: chunk[chunk.length - 1].endMs, lines: [chunk.map((w) => w.text).join(" ")], words: chunk.map((w) => ({ ...w })), styleOverride: null });
   }
   return out;
 }

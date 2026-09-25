@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
   // Type errors fail the build. This is the safety net for refactors: `tsc` catches
   // every broken import, so a file move is verified rather than hoped for.
   typescript: { ignoreBuildErrors: false },
+  // The video editor's auto-captions route extracts audio with ffmpeg-static. The binary is not
+  // discoverable by file tracing (the package resolves it from __dirname), so include it for
+  // that one route and keep the package external so it is required at runtime, not bundled.
+  serverExternalPackages: ["ffmpeg-static"],
+  outputFileTracingIncludes: { "/api/edit-projects/[id]/transcribe": ["./node_modules/ffmpeg-static/ffmpeg"] },
   // The AI product physically lives under app/ai. If its slug is ever changed in ai/slug.ts,
   // this rewrite maps the new public prefix onto that folder — no files move.
   async rewrites() {
