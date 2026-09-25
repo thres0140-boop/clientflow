@@ -6,7 +6,9 @@
 import { useState } from "react";
 import { CAPTION_FONTS, type CaptionFontFamily, type CaptionStyle, DEFAULT_CAPTION_STYLE, normalizeCaptionStyle } from "@/features/editor/model/captionStyle";
 import type { EditDocument, Transform } from "@/features/editor/model/document";
-import { captionTrack, clipLengthMs, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, setCaptionStyle, textTrack, updateClip, updateCue, updateText } from "@/features/editor/model/timeline";
+import { captionTrack, clipLengthMs, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, setCaptionStyle, setTransition, textTrack, transitionAfter, transitionCapMs, updateClip, updateCue, updateText } from "@/features/editor/model/timeline";
+import { TRANSITION_DEFAULT_MS, TRANSITION_TYPES, type TransitionType } from "@/features/editor/model/document";
+import { TRANSITION_LABELS } from "./transitions";
 import type { Selection } from "./Timeline";
 import { fmtTime } from "./Timeline";
 import { Icon } from "./icons";
@@ -18,6 +20,7 @@ type Props = {
   clientId: number;
   onChange: (doc: EditDocument, commit: boolean) => void;
   onSelect: (s: Selection) => void;
+  onSaveClientDefault: () => Promise<boolean>;
 };
 
 const inputCls = "w-full h-8 rounded-md border border-line bg-surface px-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-accent";
@@ -166,17 +169,42 @@ function TransformBlock({ doc, t, box, onChange }: { doc: EditDocument; t: Trans
   );
 }
 
-export default function Inspector({ doc, selection, clientId, onChange, onSelect }: Props) {
+export default function Inspector({ doc, selection, onChange, onSelect, onSaveClientDefault }: Props) {
   const [savingDefault, setSavingDefault] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const commit = (d: EditDocument) => onChange(d, true);
 
   async function saveClientDefault() {
     setSavingDefault("saving");
-    try {
-      const r = await fetch(`/api/clients/${clientId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subtitleStyle: doc.captionStyle }) });
-      setSavingDefault(r.ok ? "saved" : "error");
-    } catch { setSavingDefault("error"); }
+    setSavingDefault((await onSaveClientDefault()) ? "saved" : "error");
     setTimeout(() => setSavingDefault("idle"), 1500);
+  }
+
+  if (selection?.kind === "transition") {
+    const main = mainTrack(doc);
+    const i = main.clips.findIndex((c) => c.id === selection.afterClipId);
+    const a = main.clips[i], b = main.clips[i + 1];
+    if (!a || !b) return null;
+    const tr = transitionAfter(main, a.id);
+    const cap = transitionCapMs(main, a.id);
+    const na = doc.assets.find((x) => x.id === a.assetId)?.name ?? "clip", nb = doc.assets.find((x) => x.id === b.assetId)?.name ?? "clip";
+    return (
+      <Panel kind="Selected" title={tr ? "Transition" : "Cut"} onDelete={tr ? () => commit(setTransition(doc, a.id, null)) : undefined}>
+        <Group title="Between">
+          <div className="col-span-2 text-xs text-ink-2 truncate">{na} <span className="text-faint">→</span> {nb}</div>
+        </Group>
+        <Group title="Transition">
+          <Field label="Type" span>
+            <select className={inputCls} value={tr?.type ?? "none"} onChange={(e) => commit(setTransition(doc, a.id, e.target.value === "none" ? null : (e.target.value as TransitionType), tr?.durationMs ?? TRANSITION_DEFAULT_MS))}>
+              <option value="none">None (cut)</option>
+              {TRANSITION_TYPES.map((t) => <option key={t} value={t}>{TRANSITION_LABELS[t]}</option>)}
+            </select>
+          </Field>
+          <Field label="Duration"><Num value={tr?.durationMs ?? TRANSITION_DEFAULT_MS} min={100} max={cap} step={50} suffix="ms" onChange={(n) => tr && commit(setTransition(doc, a.id, tr.type, Math.max(100, Math.min(cap, n))))} /></Field>
+          <Field label="Cap"><div className="h-8 flex items-center text-xs font-mono text-ink-2">{cap} ms</div></Field>
+          <p className="col-span-2 text-[10px] text-faint">The two clips overlap by the duration, so the timeline gets that much shorter. Capped at half the shorter clip. Exports as ffmpeg xfade.</p>
+        </Group>
+      </Panel>
+    );
   }
 
   if (selection?.kind === "clip") {

@@ -14,13 +14,14 @@ export type HexColor = `#${string}`; // #rrggbb
  *  Files land in public/fonts/captions/ in Phase 2; the registry is fixed now so the
  *  definition cannot drift towards "whatever the browser has installed". */
 export type CaptionFontFamily = "Roboto" | "Inter" | "Montserrat" | "Bebas Neue";
-export const CAPTION_FONTS: Record<CaptionFontFamily, { file: string; weights: CaptionFontWeight[] }> = {
-  Roboto: { file: "Roboto-Bold.ttf", weights: [700] },
-  Inter: { file: "Inter-Bold.ttf", weights: [700] },
-  Montserrat: { file: "Montserrat-ExtraBold.ttf", weights: [800] },
-  "Bebas Neue": { file: "BebasNeue-Regular.ttf", weights: [400] },
-};
 export type CaptionFontWeight = 400 | 700 | 800;
+/** One TTF per (family, weight); both renderers load exactly these files. */
+export const CAPTION_FONTS: Record<CaptionFontFamily, { files: Partial<Record<CaptionFontWeight, string>>; weights: CaptionFontWeight[] }> = {
+  Roboto: { files: { 700: "Roboto-Bold.ttf" }, weights: [700] },
+  Inter: { files: { 400: "Inter-Regular.ttf", 700: "Inter-Bold.ttf" }, weights: [400, 700] },
+  Montserrat: { files: { 800: "Montserrat-ExtraBold.ttf" }, weights: [800] },
+  "Bebas Neue": { files: { 400: "BebasNeue-Regular.ttf" }, weights: [400] },
+};
 
 export type CaptionAnchor = "top" | "middle" | "bottom";
 export type CaptionAlign = "left" | "center" | "right";
@@ -137,9 +138,14 @@ export function normalizeCaptionStyle(input: unknown, base: CaptionStyle = DEFAU
 }
 
 /** Reads Client.subtitleStyle (a JSON string, bare-parsed like every other JSON column) with a
- *  fallback to the built-in default. Client.captionStyle / captionGuidelines are prose briefs
- *  for WRITING Instagram post captions and are not consulted here (see the Phase 1 report). */
+ *  fallback to the built-in default. The column holds either a bare style or
+ *  { default, presets } (see captionPresets.ts). Client.captionStyle / captionGuidelines are
+ *  prose briefs for WRITING Instagram post captions and are not consulted here. */
 export function captionStyleForClient(subtitleStyle: string | null | undefined): CaptionStyle {
   if (!subtitleStyle) return DEFAULT_CAPTION_STYLE;
-  try { return normalizeCaptionStyle(JSON.parse(subtitleStyle)); } catch { return DEFAULT_CAPTION_STYLE; }
+  try {
+    const j = JSON.parse(subtitleStyle);
+    if (j && typeof j === "object" && ("presets" in j || "default" in j)) return j.default ? normalizeCaptionStyle(j.default) : DEFAULT_CAPTION_STYLE;
+    return normalizeCaptionStyle(j);
+  } catch { return DEFAULT_CAPTION_STYLE; }
 }

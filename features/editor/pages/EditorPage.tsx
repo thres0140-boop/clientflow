@@ -7,7 +7,11 @@
 // right, and the timeline with its own toolbar at the bottom. The playback engine is a hook.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM } from "@/features/editor/model/document";
-import { addAsset, addClip, addCue, addText, clipAt, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, replaceCues, setTranscript, splitClipAt, trimClipToTime, updateClip, updateText } from "@/features/editor/model/timeline";
+import { addAsset, addClip, addCue, addText, clipAt, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, replaceCues, setAllTransitions, setCaptionStyle, setTranscript, setTransition, splitClipAt, trimClipToTime, updateClip, updateText } from "@/features/editor/model/timeline";
+import { type ClientCaptionSettings, type NamedPreset } from "@/features/editor/model/captionPresets";
+import type { CaptionStyle } from "@/features/editor/model/captionStyle";
+import type { TransitionType } from "@/features/editor/model/document";
+import type { PresetsApi } from "./PresetGrid";
 import { layoutCaptions, timelineWords } from "@/features/editor/model/captions";
 import { alignToScript } from "@/features/editor/model/align";
 import type { AssetTranscript, Transcript } from "@/features/editor/model/document";
@@ -22,7 +26,7 @@ import LeftPanel, { type EditorTab, NOT_BUILT } from "./LeftPanel";
 import { Icon, IconButton } from "./icons";
 import { type OverlayChrome, usePlayback } from "./usePlayback";
 
-type ProjectView = { id: number; draftId: number; clientId: number; version: number; updatedBy: string | null; updatedAt: string; document: EditDocument };
+type ProjectView = { id: number; draftId: number; clientId: number; version: number; updatedBy: string | null; updatedAt: string; document: EditDocument; clientCaptions?: ClientCaptionSettings };
 type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
 
 const AUTOSAVE_MS = 1500;
@@ -47,6 +51,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const [loadError, setLoadError] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [scriptText, setScriptText] = useState<string | null>(null); // the draft's hook + script, the ground truth for alignment
+  const [clientCaptions, setClientCaptions] = useState<ClientCaptionSettings>({ default: null, presets: [] });
   const [doc, setDocState] = useState<EditDocument | null>(null);
   const versionRef = useRef(0);
   const [saveState, setSaveState] = useState<SaveState>("saved");
@@ -177,6 +182,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         setProject(j.project);
         versionRef.current = j.project.version;
         setDocState(j.project.document);
+        if (j.project.clientCaptions) setClientCaptions(j.project.clientCaptions);
         fetch(`/api/script-drafts/${draftId}`).then((x) => x.json()).then((d) => {
           if (cancelled) return;
           if (d?.title) setDraftTitle(d.title);
@@ -244,7 +250,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const guidesRef = useRef<Guides | null>(null);
   const draggingRef = useRef(false);
   const chromeRef = useRef<OverlayChrome | null>(null);
-  const selectedEl: Selected | null = selection && selection.kind !== "cue" ? selection : null;
+  const selectedEl: Selected | null = selection && (selection.kind === "clip" || selection.kind === "text") ? selection : null;
   const selectedRef = useRef<Selected | null>(null);
   useEffect(() => { selectedRef.current = selectedEl; }, [selectedEl]);
   const pb = usePlayback(safeDoc, canvasRef, setDocFromEngine, { mountRef: videoLayerRef, display: fit, chromeRef });
@@ -290,9 +296,40 @@ export default function EditorPage({ draftId }: { draftId: number }) {
     if (!doc || !selection) return;
     if (selection.kind === "clip") commit(deleteClip(doc, selection.trackId, selection.id));
     else if (selection.kind === "cue") commit(deleteCue(doc, selection.id));
+    else if (selection.kind === "transition") commit(setTransition(doc, selection.afterClipId, null));
     else commit(deleteText(doc, selection.id));
     setSelection(null);
   }
+  /** Transitions: to the selected cut, or to every cut. */
+  function applyTransition(type: TransitionType | null, durationMs: number, toAll: boolean) {
+    if (!doc) return;
+    if (!toAll && selection?.kind === "transition") commit(setTransition(doc, selection.afterClipId, type, durationMs));
+    else commit(setAllTransitions(doc, type, durationMs));
+  }
+
+  // ── caption presets, per client (Client.subtitleStyle = { default, presets }) ──
+  async function persistClientCaptions(next: ClientCaptionSettings): Promise<boolean> {
+    if (!project) return false;
+    try {
+      const r = await fetch(`/api/clients/${project.clientId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subtitleStyle: next }) });
+      if (!r.ok) return false;
+      setClientCaptions(next);
+      return true;
+    } catch { return false; }
+  }
+  const presetsApi: PresetsApi = {
+    client: clientCaptions.presets,
+    current: doc?.captionStyle ?? EMPTY_DOC.captionStyle,
+    apply: (style: CaptionStyle) => { if (doc) commit(setCaptionStyle(doc, style)); },
+    saveCurrent: (name: string) => {
+      if (!doc) return Promise.resolve(false);
+      const preset: NamedPreset = { id: `p_${Date.now().toString(36)}`, name, style: doc.captionStyle };
+      return persistClientCaptions({ ...clientCaptions, presets: [...clientCaptions.presets, preset] });
+    },
+    remove: (id: string) => persistClientCaptions({ ...clientCaptions, presets: clientCaptions.presets.filter((p) => p.id !== id) }),
+  };
+  const saveClientDefault = () => (doc ? persistClientCaptions({ ...clientCaptions, default: doc.captionStyle }) : Promise.resolve(false));
+  const stillFrame = doc ? (() => { const first = mainTrack(doc).clips[0]; return first ? pb.thumbs[first.assetId] ?? null : null; })() : null;
   function addCaptionHere() {
     if (!doc) return;
     commit(addCue(doc, { startMs: pb.tMs, endMs: pb.tMs + 1500, lines: ["Caption"], words: null, styleOverride: null }));
@@ -409,7 +446,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
     const docPxPerScreenPx = d.canvas.width / rect.width;
     const tol = 14 * docPxPerScreenPx;
     const sizeFor = (id: string) => { const v = pb.videoFor(id); return v && v.videoWidth ? { width: v.videoWidth, height: v.videoHeight } : null; };
-    const sel: Selected | null = selection && selection.kind !== "cue" ? selection : null;
+    const sel: Selected | null = selection && (selection.kind === "clip" || selection.kind === "text") ? selection : null;
     const current = selectionBox(d, sel, pb.tMs, sizeFor);
 
     const transformOf = (s: Selected) => s.kind === "text"
@@ -535,7 +572,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
             <aside className={panelCls + " w-[33%] min-w-[420px] shrink-0 min-h-0 overflow-hidden"}>
               <LeftPanel tab={tab} onTab={setTab} doc={doc} status={pb.status} thumbs={pb.thumbs} tMs={pb.tMs} selection={selection} onSelect={setSelection} onSeek={pb.seek}
                 onAddToMain={addToMain} onAddBroll={addBroll} onUploaded={addUploadedAsset} onRetry={pb.retryAsset} onRemoveAsset={removeAssetAndClips}
-                onAddCaption={addCaptionHere} onAddText={addTextHere} autoCaptions={autoCaptions} />
+                onAddCaption={addCaptionHere} onAddText={addTextHere} autoCaptions={autoCaptions} presets={presetsApi} still={stillFrame} transitions={{ apply: applyTransition }} />
             </aside>
 
             {/* Centre, the largest: "Preview — <name>" header, the video, transport under it */}
@@ -588,7 +625,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
                 <span className="text-sm font-semibold text-accent">Details</span>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 pb-6">
-                <Inspector doc={doc} selection={selection} clientId={project.clientId} onChange={onChange} onSelect={setSelection} />
+                <Inspector doc={doc} selection={selection} clientId={project.clientId} onChange={onChange} onSelect={setSelection} onSaveClientDefault={saveClientDefault} />
               </div>
               <div className="h-11 shrink-0 flex items-center justify-end px-3 border-t border-line-soft">
                 <button disabled title={`Modify — ${NOT_BUILT.toLowerCase()}`} className="o-btn o-btn-ghost text-xs h-8 py-0 disabled:opacity-40 disabled:cursor-not-allowed">Modify</button>
@@ -640,5 +677,5 @@ export default function EditorPage({ draftId }: { draftId: number }) {
 /** Every region is a floating panel: surface, hairline, the 10 px radius token, soft shadow. */
 const panelCls = "rounded-md bg-surface border border-line shadow-soft";
 
-const EMPTY_DOC: EditDocument = { v: 1, canvas: { ...DEFAULT_CANVAS }, assets: [], tracks: [{ id: "main", kind: "video", role: "main", clips: [] }], captionStyle: { v: 1, font: { family: "Roboto", weight: 700, sizePx: 72, letterSpacingPx: 0, italic: false, uppercase: true }, fill: { color: "#ffffff" }, outline: { color: "#000000", widthPx: 5 }, shadow: { color: "#000000", offsetPx: 2, opacity: 0.5 }, box: { enabled: false, color: "#000000", opacity: 0.6, paddingPx: 16 }, layout: { anchor: "bottom", align: "center", marginVPx: 420, marginHPx: 60, maxLines: 2, wordsPerCue: 2 }, highlight: { mode: "none", color: "#ffe34d" } }, transcript: null };
+const EMPTY_DOC: EditDocument = { v: 1, canvas: { ...DEFAULT_CANVAS }, assets: [], tracks: [{ id: "main", kind: "video", role: "main", clips: [], transitions: [] }], captionStyle: { v: 1, font: { family: "Roboto", weight: 700, sizePx: 72, letterSpacingPx: 0, italic: false, uppercase: true }, fill: { color: "#ffffff" }, outline: { color: "#000000", widthPx: 5 }, shadow: { color: "#000000", offsetPx: 2, opacity: 0.5 }, box: { enabled: false, color: "#000000", opacity: 0.6, paddingPx: 16 }, layout: { anchor: "bottom", align: "center", marginVPx: 420, marginHPx: 60, maxLines: 2, wordsPerCue: 2 }, highlight: { mode: "none", color: "#ffe34d" } }, transcript: null };
 

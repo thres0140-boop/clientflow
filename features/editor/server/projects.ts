@@ -3,6 +3,7 @@
 import { prisma } from "@/shared/db/prisma";
 import { createDocumentFromRawUrls, type EditDocument, normalizeDocument, parseDocument } from "@/features/editor/model/document";
 import { captionStyleForClient } from "@/features/editor/model/captionStyle";
+import { type ClientCaptionSettings, parseClientCaptionSettings } from "@/features/editor/model/captionPresets";
 
 export type EditProjectView = {
   id: number;
@@ -12,10 +13,12 @@ export type EditProjectView = {
   updatedBy: string | null;
   updatedAt: string;
   document: EditDocument;
+  clientCaptions: ClientCaptionSettings; // the client's default style and own presets (Client.subtitleStyle)
 };
 
-function toView(row: { id: number; draftId: number; clientId: number; version: number; updatedBy: string | null; updatedAt: Date; document: string }): EditProjectView {
-  return { id: row.id, draftId: row.draftId, clientId: row.clientId, version: row.version, updatedBy: row.updatedBy, updatedAt: row.updatedAt.toISOString(), document: parseDocument(row.document) };
+async function toView(row: { id: number; draftId: number; clientId: number; version: number; updatedBy: string | null; updatedAt: Date; document: string }): Promise<EditProjectView> {
+  const client = await prisma.client.findUnique({ where: { id: row.clientId }, select: { subtitleStyle: true } });
+  return { id: row.id, draftId: row.draftId, clientId: row.clientId, version: row.version, updatedBy: row.updatedBy, updatedAt: row.updatedAt.toISOString(), document: parseDocument(row.document), clientCaptions: parseClientCaptionSettings(client?.subtitleStyle) };
 }
 
 /** The project for a draft, created on first open from the draft's rawContentUrls and the
@@ -55,5 +58,6 @@ export async function saveDocument(id: number, input: unknown, expectedVersion: 
   });
   const row = await prisma.editProject.findUnique({ where: { id } });
   if (!row) return null;
-  return updated.count === 1 ? { ok: true, project: toView(row) } : { ok: false, conflict: toView(row) };
+  const view = await toView(row);
+  return updated.count === 1 ? { ok: true, project: view } : { ok: false, conflict: view };
 }

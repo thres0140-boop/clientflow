@@ -1,7 +1,7 @@
 // Pure timeline operations on an EditDocument. Every function returns a NEW document (the editor
 // keeps an undo stack of documents) and re-derives the main-track invariant through
 // normalizeDocument, so `at` is never edited by hand.
-import { type CaptionCue, type EditDocument, IDENTITY_TRANSFORM, type Ms, newId, normalizeDocument, type TextElement, type Track, type VideoClip, type VideoTrack } from "./document";
+import { type CaptionCue, type EditDocument, IDENTITY_TRANSFORM, type Ms, newId, normalizeDocument, type TextElement, type Track, type Transition, TRANSITION_DEFAULT_MS, TRANSITION_MAX_SHARE, type TransitionType, type VideoClip, type VideoTrack } from "./document";
 import { type CaptionStyle } from "./captionStyle";
 
 export const MIN_CLIP_MS = 100;
@@ -41,9 +41,10 @@ export function applyAssetMetadata(doc: EditDocument, assetId: string, meta: { d
   return normalizeDocument(next);
 }
 
-/** The main clip under a timeline time, and the source time inside its asset. */
+/** The main clip under a timeline time, and the source time inside its asset. Where two clips
+ *  overlap in a transition, the INCOMING clip wins: it is the clock from the moment it starts. */
 export function clipAt(track: VideoTrack, tMs: Ms): { clip: VideoClip; sourceMs: Ms; index: number } | null {
-  for (let i = 0; i < track.clips.length; i++) {
+  for (let i = track.clips.length - 1; i >= 0; i--) {
     const c = track.clips[i];
     const len = clipLengthMs(c);
     if (tMs >= c.at && (tMs < c.at + len || (i === track.clips.length - 1 && tMs === c.at + len))) {
@@ -51,6 +52,50 @@ export function clipAt(track: VideoTrack, tMs: Ms): { clip: VideoClip; sourceMs:
     }
   }
   return null;
+}
+
+/** The transition (if any) in progress at `tMs`: the outgoing and incoming clips and the 0..1 progress. */
+export function transitionAt(track: VideoTrack, tMs: Ms): { transition: Transition; out: VideoClip; into: VideoClip; progress: number } | null {
+  for (const tr of track.transitions) {
+    const i = track.clips.findIndex((c) => c.id === tr.afterClipId);
+    const out = track.clips[i], into = track.clips[i + 1];
+    if (!out || !into) continue;
+    if (tMs >= into.at && tMs < into.at + tr.durationMs) return { transition: tr, out, into, progress: (tMs - into.at) / tr.durationMs };
+  }
+  return null;
+}
+
+/** The longest a transition after `clipId` may be: half the shorter neighbour. 0 = no boundary. */
+export function transitionCapMs(track: VideoTrack, clipId: string): Ms {
+  const i = track.clips.findIndex((c) => c.id === clipId);
+  const a = track.clips[i], b = track.clips[i + 1];
+  if (!a || !b) return 0;
+  return Math.floor(Math.min(clipLengthMs(a), clipLengthMs(b)) * TRANSITION_MAX_SHARE);
+}
+
+export function transitionAfter(track: VideoTrack, clipId: string): Transition | undefined {
+  return track.transitions.find((t) => t.afterClipId === clipId);
+}
+
+/** Sets (or replaces) the transition at the boundary after `clipId`; `type` null removes it. */
+export function setTransition(doc: EditDocument, clipId: string, type: TransitionType | null, durationMs?: Ms): EditDocument {
+  return mapTracks(doc, (t) => {
+    if (t.kind !== "video" || t.role !== "main") return t;
+    const rest = t.transitions.filter((x) => x.afterClipId !== clipId);
+    if (!type) return { ...t, transitions: rest };
+    const existing = t.transitions.find((x) => x.afterClipId === clipId);
+    const cap = transitionCapMs(t, clipId);
+    const d = Math.min(cap, durationMs ?? existing?.durationMs ?? TRANSITION_DEFAULT_MS);
+    return { ...t, transitions: [...rest, { id: existing?.id ?? newId("x"), afterClipId: clipId, type, durationMs: d }] };
+  });
+}
+
+/** Applies one transition type (default duration, capped per boundary) to every boundary. */
+export function setAllTransitions(doc: EditDocument, type: TransitionType | null, durationMs = TRANSITION_DEFAULT_MS): EditDocument {
+  let d = doc;
+  const clips = mainTrack(doc).clips;
+  for (let i = 0; i < clips.length - 1; i++) d = setTransition(d, clips[i].id, type, durationMs);
+  return d;
 }
 
 /** Trim by dragging an edge. `edge=start` moves inMs (the clip's timeline position follows for
@@ -69,31 +114,38 @@ export function trimClip(doc: EditDocument, trackId: string, clipId: string, edg
   }));
 }
 
-/** Splits the clip under tMs into two at that frame. No-op within MIN_CLIP_MS of an edge. */
+/** Splits the clip under tMs into two at that frame. No-op within MIN_CLIP_MS of an edge. A
+ *  transition that sat after the split clip moves to sit after its second half. */
 export function splitClipAt(doc: EditDocument, trackId: string, tMs: Ms): EditDocument {
-  return mapClips(doc, trackId, (clips) => {
+  let movedFrom: string | null = null, movedTo: string | null = null;
+  const next = mapClips(doc, trackId, (clips) => {
     const out: VideoClip[] = [];
     for (const c of clips) {
       const len = clipLengthMs(c);
       const local = tMs - c.at;
       if (local > MIN_CLIP_MS && local < len - MIN_CLIP_MS) {
         const cut = c.inMs + Math.round(local);
-        out.push({ ...c, outMs: cut }, { ...c, id: newId("c"), inMs: cut, at: c.at + Math.round(local) });
+        const second = { ...c, id: newId("c"), inMs: cut, at: c.at + Math.round(local) };
+        out.push({ ...c, outMs: cut }, second);
+        movedFrom = c.id; movedTo = second.id;
       } else out.push(c);
     }
     return out;
   });
+  if (!movedFrom || !movedTo) return next;
+  const from = movedFrom, to = movedTo;
+  return mapTracks(next, (t) => (t.kind === "video" && t.id === trackId ? { ...t, transitions: t.transitions.map((x) => (x.afterClipId === from ? { ...x, afterClipId: to } : x)) } : t));
 }
 
 /** Trim a clip AT a timeline time: "left" discards everything before tMs, "right" everything
- *  after it. No-op if tMs is outside the clip or would leave it shorter than MIN_CLIP_MS. */
+ *  after it. No-op (same document by identity) if tMs is outside the clip or the remainder
+ *  would be shorter than MIN_CLIP_MS, so callers can skip the undo entry. */
 export function trimClipToTime(doc: EditDocument, trackId: string, clipId: string, tMs: Ms, side: "left" | "right"): EditDocument {
   const track = doc.tracks.find((t): t is VideoTrack => t.kind === "video" && t.id === trackId);
   const c = track?.clips.find((x) => x.id === clipId);
   if (!c) return doc;
   const local = tMs - c.at;
   const len = clipLengthMs(c);
-  // Returns the SAME document (by identity) when nothing would change, so callers can skip the undo entry.
   if (local <= 0 || local >= len) return doc;
   if (side === "left" ? len - local < MIN_CLIP_MS : local < MIN_CLIP_MS) return doc;
   const cut = Math.round(local);

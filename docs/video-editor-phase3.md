@@ -85,3 +85,34 @@ introduces a property the parity table does not cover).
 15 minutes of main-track audio per project (`RENDER_LIMITS.MAX_TIMELINE_MS`, the same ceiling
 as the export). Above it the route answers 422 and the tab shows the message; the MP3 for 15
 minutes is 3.6 MB, well inside Whisper's 25 MB. The route runs with `maxDuration = 300`.
+
+## Caption presets (added 2026-09-25)
+
+`features/editor/model/captionPresets.ts` ships seven built-in presets — bold outline, spoken word
+in yellow, spoken word in green, boxed lines, boxed yellow on black, minimal lowercase (Inter
+400, a new weight in the registry with its own TTF), and a big centred single-line hook — each a
+complete `CaptionStyle` and nothing more, so each crosses to libass by construction. The Captions
+tab's Presets sub-nav renders them as real previews through the same `layoutText`/`drawText` the
+preview uses, over the project's first clip's poster frame. Applying one replaces the document's
+caption style; per-cue overrides live on the cues and survive.
+
+**`Client.subtitleStyle` now holds a list.** It accepts either the original bare `CaptionStyle`
+(the client default, still read) or `{ default: CaptionStyle | null, presets: NamedPreset[] }`.
+One column, both shapes parsed, no migration; the editor's "Save as this client's default" writes
+`default`, "Save current as preset" appends to `presets`, and the project GET returns both.
+
+## Transitions (added 2026-09-25)
+
+Between adjacent main-track clips: crossfade (`fade`), fade through black (`fadeblack`), slide
+in four directions (`slideleft/right/up/down`) and zoom (`zoomin`). Each name IS the ffmpeg
+`xfade` transition name, verified against `ffmpeg -h filter=xfade` and present in the
+`ffmpeg-static` build, so the render plan is a lookup (`features/editor/pages/transitions.ts`).
+`dissolve` and `fadewhite` exist in xfade too and were left out only for a smaller set.
+
+Model: `VideoTrack.transitions[] = { afterClipId, type, durationMs }`; the clips overlap by the
+duration, so the next clip's `at` is that much earlier and the timeline that much shorter (the
+normaliser derives it). Default 500 ms, capped at half the shorter neighbour, one per cut,
+dropped if the cut disappears; a split moves the transition after the second half. The timeline
+shows a cut marker at every boundary and a band over the overlap; clicking selects the cut, and
+Details edits type and duration. The preview shows both clips during the overlap with the
+effect's opacity, offset and scale, an approximation of xfade, which is what exports.

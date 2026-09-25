@@ -11,8 +11,12 @@ export function loadCaptionFont(family: CaptionFontFamily): Promise<void> {
   let p = loaded.get(family);
   if (!p) {
     const spec = CAPTION_FONTS[family];
-    const face = new FontFace(family, `url(${CAPTION_FONT_BASE}/${spec.file})`, { weight: String(spec.weights[0]) });
-    p = face.load().then((f) => { document.fonts.add(f); }).catch(() => { /* falls back to a system font; the preview then warns */ });
+    p = Promise.all(spec.weights.map((w) => {
+      const file = spec.files[w];
+      if (!file) return Promise.resolve();
+      const face = new FontFace(family, `url(${CAPTION_FONT_BASE}/${file})`, { weight: String(w) });
+      return face.load().then((f) => { document.fonts.add(f); }).catch(() => { /* falls back to a system font; the preview then warns */ });
+    })).then(() => undefined);
     loaded.set(family, p);
   }
   return p;

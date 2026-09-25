@@ -40,10 +40,20 @@ export type VideoClip = {
   volume: number;              // 0..1, ignored when muted
 };
 
-/** The main track is the spine of the timeline: clips play back to back with no gaps, in array
- *  order, and `at` is derived from the clips before it (normalizeDocument rewrites it). Overlay
- *  tracks (b-roll) place clips freely by `at` and draw above the main track. */
-export type VideoTrack = { id: string; kind: "video"; role: "main" | "overlay"; clips: VideoClip[] };
+/** A transition at the boundary AFTER `afterClipId` on the main track. Each maps 1:1 to an ffmpeg
+ *  xfade transition in the export (fade = crossfade, fadeblack, slide*, zoomin); the two clips
+ *  overlap by `durationMs`, so the timeline gets shorter by that much. */
+export type TransitionType = "fade" | "fadeblack" | "slideleft" | "slideright" | "slideup" | "slidedown" | "zoomin";
+export const TRANSITION_TYPES: TransitionType[] = ["fade", "fadeblack", "slideleft", "slideright", "slideup", "slidedown", "zoomin"];
+export type Transition = { id: string; afterClipId: string; type: TransitionType; durationMs: Ms };
+export const TRANSITION_DEFAULT_MS = 500;
+/** A transition may take at most this share of the SHORTER neighbouring clip. */
+export const TRANSITION_MAX_SHARE = 0.5;
+
+/** The main track is the spine of the timeline: clips play back to back in array order, and
+ *  `at` is derived from the clips before it minus any transition overlap (normalizeDocument
+ *  rewrites it). Overlay tracks (b-roll) place clips freely by `at` and draw above the main track. */
+export type VideoTrack = { id: string; kind: "video"; role: "main" | "overlay"; clips: VideoClip[]; transitions: Transition[] };
 
 export type CaptionWord = { text: string; startMs: Ms; endMs: Ms };
 export type CaptionCue = {
@@ -96,12 +106,13 @@ export function createDocumentFromRawUrls(rawUrls: string[], captionStyle: Capti
   const main: VideoTrack = {
     id: newId("t"), kind: "video", role: "main",
     clips: assets.map((a) => ({ id: newId("c"), assetId: a.id, at: 0, inMs: 0, outMs: 0, transform: { ...IDENTITY_TRANSFORM }, muted: false, volume: 1 })),
+    transitions: [],
   };
   return {
     v: EDIT_DOCUMENT_VERSION,
     canvas: { ...DEFAULT_CANVAS },
     assets,
-    tracks: [main, { id: newId("t"), kind: "video", role: "overlay", clips: [] }, { id: newId("t"), kind: "caption", cues: [], styleOverride: null }, { id: newId("t"), kind: "text", elements: [] }],
+    tracks: [main, { id: newId("t"), kind: "video", role: "overlay", clips: [], transitions: [] }, { id: newId("t"), kind: "caption", cues: [], styleOverride: null }, { id: newId("t"), kind: "text", elements: [] }],
     captionStyle,
     transcript: null,
   };
@@ -154,7 +165,9 @@ export function normalizeDocument(input: unknown): EditDocument {
     if (t.kind === "video") {
       const role = t.role === "main" && !sawMain ? "main" : "overlay";
       if (role === "main") sawMain = true;
-      tracks.push({ id: t.id, kind: "video", role, clips: (Array.isArray(t.clips) ? t.clips : []).map(clip).filter((c: VideoClip | null): c is VideoClip => !!c) });
+      const clips = (Array.isArray(t.clips) ? t.clips : []).map(clip).filter((c: VideoClip | null): c is VideoClip => !!c);
+      const transitions: Transition[] = role === "main" ? (Array.isArray(t.transitions) ? t.transitions : []).filter((x: any) => x && typeof x.id === "string" && typeof x.afterClipId === "string" && (TRANSITION_TYPES as string[]).includes(x.type)).map((x: any) => ({ id: x.id, afterClipId: x.afterClipId, type: x.type as TransitionType, durationMs: ms(x.durationMs, TRANSITION_DEFAULT_MS) })) : [];
+      tracks.push({ id: t.id, kind: "video", role, clips, transitions });
     } else if (t.kind === "caption") {
       const cues: CaptionCue[] = (Array.isArray(t.cues) ? t.cues : []).filter((c: any) => c && typeof c.id === "string").map((c: any) => {
         const startMs = ms(c.startMs), endMs = Math.max(startMs, ms(c.endMs));
@@ -171,12 +184,30 @@ export function normalizeDocument(input: unknown): EditDocument {
       tracks.push({ id: t.id, kind: "text", elements });
     }
   }
-  if (!sawMain) tracks.unshift({ id: newId("t"), kind: "video", role: "main", clips: [] });
-  // Invariant: the main track is contiguous; `at` is derived, never trusted from storage.
+  if (!sawMain) tracks.unshift({ id: newId("t"), kind: "video", role: "main", clips: [], transitions: [] });
+  // Invariants on the main track: `at` is derived, never trusted from storage; a transition only
+  // exists between two adjacent clips, one per boundary, no longer than half the shorter neighbour;
+  // the next clip starts `durationMs` before the previous one ends.
   for (const t of tracks) {
     if (t.kind === "video" && t.role === "main") {
+      const byAfter = new Map<string, Transition>();
+      for (const tr of t.transitions) if (!byAfter.has(tr.afterClipId)) byAfter.set(tr.afterClipId, tr);
+      const kept: Transition[] = [];
       let cursor = 0;
-      for (const c of t.clips) { c.at = cursor; cursor += c.outMs - c.inMs; }
+      for (let i = 0; i < t.clips.length; i++) {
+        const c = t.clips[i];
+        c.at = cursor;
+        const len = c.outMs - c.inMs;
+        cursor += len;
+        const next = t.clips[i + 1];
+        const tr = byAfter.get(c.id);
+        if (tr && next) {
+          const cap = Math.floor(Math.min(len, next.outMs - next.inMs) * TRANSITION_MAX_SHARE);
+          const durationMs = Math.max(0, Math.min(tr.durationMs, cap));
+          if (durationMs > 0) { kept.push({ ...tr, durationMs }); cursor -= durationMs; }
+        }
+      }
+      t.transitions = kept;
     }
   }
   let transcript: Transcript | null = null;

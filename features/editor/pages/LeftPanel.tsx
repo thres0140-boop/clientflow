@@ -14,6 +14,10 @@ import type { Selection } from "./Timeline";
 import { fmtTime } from "./Timeline";
 import { uploadToR2 } from "./upload";
 import { Icon, IconButton, type IconName } from "./icons";
+import PresetGrid, { type PresetsApi } from "./PresetGrid";
+import { TRANSITION_LABELS } from "./transitions";
+import { TRANSITION_DEFAULT_MS, TRANSITION_TYPES, type TransitionType } from "@/features/editor/model/document";
+import { mainTrack, transitionAfter } from "@/features/editor/model/timeline";
 
 export const EDITOR_TABS: readonly { id: string; label: string; icon: IconName; blurb: string }[] = [
   { id: "media", label: "Media", icon: "media", blurb: "" },
@@ -61,6 +65,9 @@ type Props = {
   onAddCaption: () => void;
   onAddText: () => void;
   autoCaptions: AutoCaptions;
+  presets: PresetsApi;
+  still: string | null; // a poster frame from the project's first clip, behind the preset previews
+  transitions: { apply: (type: TransitionType | null, durationMs: number, toAll: boolean) => void };
 };
 
 type SubNav = { id: string; label: string; disabled?: boolean };
@@ -70,8 +77,8 @@ const SUB_NAV: Record<EditorTab, SubNav[]> = {
   text: [{ id: "add", label: "Add text" }, { id: "timeline", label: "On timeline" }, { id: "presets", label: "Presets", disabled: true }],
   stickers: [{ id: "all", label: "All", disabled: true }],
   effects: [{ id: "all", label: "All", disabled: true }],
-  transitions: [{ id: "all", label: "All", disabled: true }],
-  captions: [{ id: "auto", label: "Auto-captions" }, { id: "timeline", label: "On timeline" }, { id: "add", label: "Add" }],
+  transitions: [{ id: "all", label: "All" }],
+  captions: [{ id: "auto", label: "Auto-captions" }, { id: "presets", label: "Presets" }, { id: "timeline", label: "On timeline" }, { id: "add", label: "Add" }],
   filters: [{ id: "all", label: "All", disabled: true }],
   adjust: [{ id: "all", label: "All", disabled: true }],
   templates: [{ id: "mine", label: "Mine", disabled: true }, { id: "client", label: "Per client", disabled: true }],
@@ -126,6 +133,7 @@ export default function LeftPanel(p: Props) {
           {tab === "media" ? <MediaContent {...p} sub={sub} />
             : tab === "text" ? <TextContent {...p} sub={sub} />
             : tab === "captions" ? <CaptionsContent {...p} sub={sub} />
+            : tab === "transitions" ? <TransitionsContent {...p} />
             : (
               <>
                 <Toolbar>
@@ -289,7 +297,64 @@ function TextContent({ doc, sub, selection, onSelect, onSeek, onAddText }: Props
   );
 }
 
-function CaptionsContent({ doc, sub, selection, onSelect, onSeek, onAddCaption, autoCaptions: ac }: Props & { sub: string }) {
+const TRANSITION_GLYPH: Record<TransitionType, string> = { fade: "◐", fadeblack: "◼", slideleft: "←", slideright: "→", slideup: "↑", slidedown: "↓", zoomin: "⤢" };
+
+function TransitionsContent({ doc, selection, transitions, onSelect }: Props) {
+  const [duration, setDuration] = useState(TRANSITION_DEFAULT_MS);
+  const main = mainTrack(doc);
+  const boundaries = Math.max(0, main.clips.length - 1);
+  const sel = selection?.kind === "transition" ? selection.afterClipId : null;
+  const current = sel ? transitionAfter(main, sel) : undefined;
+  const card = (type: TransitionType | null) => {
+    const active = sel ? (type === null ? !current : current?.type === type) : false;
+    return (
+      <button key={type ?? "none"} onClick={() => transitions.apply(type, duration, !sel)} disabled={boundaries === 0}
+        title={sel ? `Apply to the selected cut` : `Apply to every cut (${boundaries})`}
+        className={`rounded-md border p-2 text-left ${active ? "border-accent bg-accent-tint" : "border-line-soft bg-surface-2 hover:bg-surface-3"} disabled:opacity-40`}>
+        <div className="h-10 rounded bg-black flex items-center justify-center text-white text-lg">{type ? TRANSITION_GLYPH[type] : "|"}</div>
+        <div className="mt-1 text-[11px] text-ink truncate">{type ? TRANSITION_LABELS[type] : "None (cut)"}</div>
+      </button>
+    );
+  };
+  return (
+    <>
+      <Toolbar>
+        <span className="text-[11px] text-ink-2">Duration</span>
+        <input type="number" min={100} max={3000} step={50} value={duration} onChange={(e) => setDuration(Math.max(100, Number(e.target.value) || TRANSITION_DEFAULT_MS))} className="w-20 h-8 rounded-md border border-line bg-surface px-2 text-xs text-ink" aria-label="Transition duration in ms" />
+        <span className="text-[10px] text-faint">ms · capped at half the shorter clip</span>
+        <span className="flex-1" />
+        <IconButton name="search" label={NOT_BUILT} disabled />
+      </Toolbar>
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+        <p className="text-[11px] text-faint">{boundaries === 0 ? "Add a second clip to the main track to get a cut to transition over." : sel ? "Applies to the selected cut on the timeline." : `No cut selected: applies to all ${boundaries} cut${boundaries === 1 ? "" : "s"}. Click a cut marker on the timeline to target one.`}</p>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">{[null, ...TRANSITION_TYPES].map(card)}</div>
+        {boundaries > 0 && (
+          <div>
+            <div className="text-[11px] font-semibold text-ink-2 mb-1.5">Cuts</div>
+            <ul className="space-y-1">
+              {main.clips.slice(0, -1).map((c, i) => {
+                const tr = transitionAfter(main, c.id);
+                const a = doc.assets.find((x) => x.id === c.assetId)?.name ?? "clip", b = doc.assets.find((x) => x.id === main.clips[i + 1].assetId)?.name ?? "clip";
+                return (
+                  <li key={c.id}>
+                    <button onClick={() => onSelect({ kind: "transition", afterClipId: c.id })} className={`w-full text-left rounded-md px-2 py-1.5 border text-xs ${sel === c.id ? "border-accent bg-accent-tint" : "border-line-soft bg-surface-2 hover:bg-surface-3"}`}>
+                      <span className="text-ink truncate">{a} → {b}</span>
+                      <span className="block text-[10px] font-mono text-faint">{tr ? `${TRANSITION_LABELS[tr.type]} · ${tr.durationMs} ms` : "cut"}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        <p className="text-[10px] text-faint">Exports as ffmpeg xfade with the same name and duration; the preview approximates it with the two clips overlapping.</p>
+      </div>
+      <Footer><span className="text-[11px] text-muted">{main.transitions.length} transition{main.transitions.length === 1 ? "" : "s"} on {boundaries} cut{boundaries === 1 ? "" : "s"}</span></Footer>
+    </>
+  );
+}
+
+function CaptionsContent({ doc, sub, selection, onSelect, onSeek, onAddCaption, autoCaptions: ac, presets, still }: Props & { sub: string }) {
   const track = captionTrack(doc);
   const cues = track?.kind === "caption" ? track.cues : [];
   const working = ac.state.phase === "working";
@@ -318,6 +383,8 @@ function CaptionsContent({ doc, sub, selection, onSelect, onSeek, onAddCaption, 
             <button onClick={ac.relayout} disabled={!ac.hasTranscript || working} title="Re-chunk the cached transcript with the current caption style (words per caption, max lines) and the current clips"
               className={`${toolBtn} bg-surface-3 text-ink hover:bg-surface-4 disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="retry" size={14} />Re-layout with current style</button>
           </div>
+        ) : sub === "presets" ? (
+          <PresetGrid api={presets} still={still} />
         ) : sub === "add" ? (
           <p className="text-[11px] text-faint">Adds a caption at the playhead. Captions share the caption style on the right; a selected caption can override it.</p>
         ) : (

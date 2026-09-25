@@ -8,13 +8,15 @@
 // track labels to the left, so every track is reachable at any panel height.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { EditDocument, Ms } from "@/features/editor/model/document";
-import { captionTrack, clipLengthMs, mainTrack, moveClip, overlayTrack, setClipAt, snapCandidates, snapDelta, snapTime, textTrack, trimClip, updateCue, updateText } from "@/features/editor/model/timeline";
+import { captionTrack, clipLengthMs, mainTrack, moveClip, overlayTrack, setClipAt, snapCandidates, snapDelta, snapTime, textTrack, transitionAfter, trimClip, updateCue, updateText } from "@/features/editor/model/timeline";
+import { TRANSITION_LABELS } from "./transitions";
 import type { AssetStatus } from "./usePlayback";
 
 export type Selection =
   | { kind: "clip"; trackId: string; id: string }
   | { kind: "cue"; id: string }
   | { kind: "text"; id: string }
+  | { kind: "transition"; afterClipId: string } // a boundary on the main track, with or without a transition yet
   | null;
 
 type Props = {
@@ -138,7 +140,7 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
   const step = pxPerSec >= 120 ? 500 : pxPerSec >= 50 ? 1000 : pxPerSec >= 20 ? 2000 : 5000;
   for (let t = 0; t <= msOf(widthPx); t += step) ticks.push(t);
 
-  const isSel = (kind: string, id: string) => !!selection && selection.kind === kind && selection.id === id;
+  const isSel = (kind: string, id: string) => !!selection && selection.kind === kind && "id" in selection && selection.id === id;
 
   const rowStyle = { height: ROW_H };
   const label = (text: string, hint?: string) => (
@@ -257,6 +259,25 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
                     <div className={`text-[10px] font-mono truncate ${failed ? "text-danger-600" : "text-hue-emerald-600"}`}>{failed ? `failed · ${st.reason}` : pending ? "reading length…" : fmtTime(len)}</div>
                   </div>
                   <Handle side="r" onPointerDown={(e) => startDrag(e, "main-r", { edges: [c.at + len], exclude: [c.id] }, (b, d) => trimClip(b, main.id, c.id, "end", d))} />
+                </div>
+              );
+            })}
+            {/* Boundaries: a badge at each cut between main clips; with a transition, a band over the overlap */}
+            {main.clips.slice(0, -1).map((c, i) => {
+              const next = main.clips[i + 1];
+              const tr = transitionAfter(main, c.id);
+              const selected = selection?.kind === "transition" && selection.afterClipId === c.id;
+              const x = tr ? xOf(next.at) : xOf(c.at + clipLengthMs(c));
+              const w = tr ? Math.max(12, xOf(tr.durationMs)) : 0;
+              return (
+                <div key={`b-${c.id}`} className="absolute top-0 bottom-0 z-[5]" style={{ left: x, width: Math.max(w, 1) }}>
+                  {tr && <div className={`absolute inset-y-1.5 inset-x-0 rounded-md ${selected ? "bg-accent/40" : "bg-accent/25"}`} />}
+                  <button onPointerDownCapture={(e) => { e.stopPropagation(); if (e.button === 0) onSelect({ kind: "transition", afterClipId: c.id }); }}
+                    title={tr ? `${TRANSITION_LABELS[tr.type]} · ${tr.durationMs} ms` : "Cut — click to add a transition"}
+                    className={`absolute top-1/2 -translate-y-1/2 h-6 min-w-6 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center border shadow-soft ${selected ? "bg-accent text-on-accent border-accent" : tr ? "bg-surface text-accent border-accent" : "bg-surface text-muted border-line-hard hover:text-ink"}`}
+                    style={{ left: tr ? "50%" : 0, transform: tr ? "translate(-50%, -50%)" : "translate(-50%, -50%)" }}>
+                    {tr ? "⇄" : "|"}
+                  </button>
                 </div>
               );
             })}
