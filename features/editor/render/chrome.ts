@@ -2,7 +2,7 @@
 // handles, and the guides that appear while dragging (canvas centre lines and the safe margins),
 // all in document coordinates. Colours come from the editor's tokens at draw time, never literals.
 import type { EditDocument, Ms, TextElement, Transform, VideoClip } from "@/features/editor/model/document";
-import { mainTrack, overlayTrack, textTrack } from "@/features/editor/model/timeline";
+import { clipLengthMs, mainTrack, overlayTrack, textTrack } from "@/features/editor/model/timeline";
 import { layoutText } from "./canvasText";
 import { clipRect } from "./compositor";
 
@@ -50,7 +50,7 @@ export function selectionBox(doc: EditDocument, sel: Selected | null, tMs: Ms, s
   }
   const track = [mainTrack(doc), overlayTrack(doc)].find((t) => t?.id === sel.trackId);
   const clip = track?.clips.find((c) => c.id === sel.id);
-  if (!clip || tMs < clip.at || tMs >= clip.at + (clip.outMs - clip.inMs)) return null;
+  if (!clip || tMs < clip.at || tMs >= clip.at + clipLengthMs(clip)) return null;
   return { box: clipBox(doc, clip, sizeFor(clip.assetId)), transform: clip.transform };
 }
 

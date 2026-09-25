@@ -7,9 +7,9 @@
 // right, and the timeline with its own toolbar at the bottom. The playback engine is a hook.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM } from "@/features/editor/model/document";
-import { addAsset, addClip, addCue, addText, clipAt, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, replaceCues, setAllTransitions, setCaptionStyle, setTranscript, setTransition, splitClipAt, trimClipToTime, updateClip, updateText } from "@/features/editor/model/timeline";
+import { addAsset, addClip, addCue, addText, clipAt, clipLengthMs, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, replaceCues, setAllTransitions, setCaptionStyle, setTranscript, setTransition, splitClipAt, trimClipToTime, updateClip, updateText } from "@/features/editor/model/timeline";
 import { type ClientCaptionSettings, type NamedPreset } from "@/features/editor/model/captionPresets";
-import type { CaptionStyle } from "@/features/editor/model/captionStyle";
+import { type CaptionStyle, DEFAULT_CAPTION_STYLE } from "@/features/editor/model/captionStyle";
 import type { TransitionType } from "@/features/editor/model/document";
 import type { PresetsApi } from "./PresetGrid";
 import { layoutCaptions, timelineWords } from "@/features/editor/model/captions";
@@ -492,12 +492,12 @@ export default function EditorPage({ draftId }: { draftId: number }) {
     if (textId) target = { kind: "text", id: textId };
     if (!target) {
       const ov = overlayTrack(d);
-      const hit = ov?.clips.slice().reverse().find((cl) => pb.tMs >= cl.at && pb.tMs < cl.at + (cl.outMs - cl.inMs) && insideBox(selectionBox(d, { kind: "clip", trackId: ov.id, id: cl.id }, pb.tMs, sizeFor)!.box, p));
+      const hit = ov?.clips.slice().reverse().find((cl) => pb.tMs >= cl.at && pb.tMs < cl.at + clipLengthMs(cl) && insideBox(selectionBox(d, { kind: "clip", trackId: ov.id, id: cl.id }, pb.tMs, sizeFor)!.box, p));
       if (hit && ov) target = { kind: "clip", trackId: ov.id, id: hit.id };
     }
     if (!target) {
       const main = mainTrack(d);
-      const hit = main.clips.find((cl) => pb.tMs >= cl.at && pb.tMs < cl.at + (cl.outMs - cl.inMs));
+      const hit = main.clips.find((cl) => pb.tMs >= cl.at && pb.tMs < cl.at + clipLengthMs(cl));
       if (hit && insideBox(selectionBox(d, { kind: "clip", trackId: main.id, id: hit.id }, pb.tMs, sizeFor)!.box, p)) target = { kind: "clip", trackId: main.id, id: hit.id };
     }
     if (!target) { setSelection(null); return; }
@@ -677,5 +677,5 @@ export default function EditorPage({ draftId }: { draftId: number }) {
 /** Every region is a floating panel: surface, hairline, the 10 px radius token, soft shadow. */
 const panelCls = "rounded-md bg-surface border border-line shadow-soft";
 
-const EMPTY_DOC: EditDocument = { v: 1, canvas: { ...DEFAULT_CANVAS }, assets: [], tracks: [{ id: "main", kind: "video", role: "main", clips: [], transitions: [] }], captionStyle: { v: 1, font: { family: "Roboto", weight: 700, sizePx: 72, letterSpacingPx: 0, italic: false, uppercase: true }, fill: { color: "#ffffff" }, outline: { color: "#000000", widthPx: 5 }, shadow: { color: "#000000", offsetPx: 2, opacity: 0.5 }, box: { enabled: false, color: "#000000", opacity: 0.6, paddingPx: 16 }, layout: { anchor: "bottom", align: "center", marginVPx: 420, marginHPx: 60, maxLines: 2, wordsPerCue: 2 }, highlight: { mode: "none", color: "#ffe34d" } }, transcript: null };
+const EMPTY_DOC: EditDocument = { v: 1, canvas: { ...DEFAULT_CANVAS }, assets: [], tracks: [{ id: "main", kind: "video", role: "main", clips: [], transitions: [] }], captionStyle: DEFAULT_CAPTION_STYLE, transcript: null };
 

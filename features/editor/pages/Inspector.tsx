@@ -6,8 +6,9 @@
 import { useState } from "react";
 import { CAPTION_FONTS, type CaptionFontFamily, type CaptionStyle, DEFAULT_CAPTION_STYLE, normalizeCaptionStyle } from "@/features/editor/model/captionStyle";
 import type { EditDocument, Transform } from "@/features/editor/model/document";
-import { captionTrack, clipLengthMs, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, setCaptionStyle, setTransition, textTrack, transitionAfter, transitionCapMs, updateClip, updateCue, updateText } from "@/features/editor/model/timeline";
-import { TRANSITION_DEFAULT_MS, TRANSITION_TYPES, type TransitionType } from "@/features/editor/model/document";
+import { captionTrack, clipLengthMs, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, setCaptionStyle, setClipSpeed, setTransition, textTrack, transitionAfter, transitionCapMs, updateClip, updateCue, updateText } from "@/features/editor/model/timeline";
+import { SPEED_MAX, SPEED_MIN, SPEED_STOPS, TRANSITION_DEFAULT_MS, TRANSITION_TYPES, type TransitionType } from "@/features/editor/model/document";
+import { ANIMATION_TYPES, type AnimationSpec, type AnimationType } from "@/features/editor/model/captionStyle";
 import { TRANSITION_LABELS } from "./transitions";
 import type { Selection } from "./Timeline";
 import { fmtTime } from "./Timeline";
@@ -110,6 +111,11 @@ export function StyleEditor({ style, onChange, showLayout = true }: { style: Cap
           </>
         )}
       </Group>
+      <Group title="Animation">
+        <AnimationField label="In" spec={style.animation.in} onChange={(v) => set((s) => ({ ...s, animation: { ...s.animation, in: v } }))} />
+        <AnimationField label="Out" spec={style.animation.out} onChange={(v) => set((s) => ({ ...s, animation: { ...s.animation, out: v } }))} />
+        <p className="col-span-2 text-[10px] text-faint">Linear, capped at half the on-screen time. Fade, slide and pop each map to a libass tag, so the export animates the same way.</p>
+      </Group>
       {showLayout && (
         <>
           <Group title="Layout">
@@ -127,6 +133,20 @@ export function StyleEditor({ style, onChange, showLayout = true }: { style: Cap
         </>
       )}
     </div>
+  );
+}
+
+const ANIMATION_LABELS: Record<AnimationType, string> = { none: "None", fade: "Fade", slideleft: "Slide left", slideright: "Slide right", slideup: "Slide up", slidedown: "Slide down", pop: "Pop" };
+function AnimationField({ label, spec, onChange }: { label: string; spec: AnimationSpec; onChange: (v: AnimationSpec) => void }) {
+  return (
+    <>
+      <Field label={label}>
+        <select className={inputCls} value={spec.type} onChange={(e) => onChange({ ...spec, type: e.target.value as AnimationType })}>
+          {ANIMATION_TYPES.map((t) => <option key={t} value={t}>{ANIMATION_LABELS[t]}</option>)}
+        </select>
+      </Field>
+      <Field label={`${label} duration`}><Num value={spec.durationMs} min={50} max={2000} step={50} suffix="ms" onChange={(n) => onChange({ ...spec, durationMs: n })} /></Field>
+    </>
   );
 }
 
@@ -223,6 +243,17 @@ export default function Inspector({ doc, selection, onChange, onSelect, onSaveCl
           <Field label="Out"><Num value={clip.outMs} min={clip.inMs + 100} max={asset?.durationMs ?? undefined} step={10} suffix="ms" onChange={(n) => commit(updateClip(doc, track.id, clip.id, { outMs: Math.max(clip.inMs + 100, Math.min(asset?.durationMs ?? n, n)) }))} /></Field>
           {isOverlay && <Field label="Starts at"><Num value={clip.at} min={0} step={10} suffix="ms" onChange={(n) => commit(updateClip(doc, track.id, clip.id, { at: Math.max(0, n) }))} /></Field>}
           <Field label="Length"><div className="h-8 flex items-center text-xs font-mono text-ink-2">{fmtTime(clipLengthMs(clip))}</div></Field>
+        </Group>
+        <Group title="Speed">
+          <div className="col-span-2 flex flex-wrap gap-1">
+            {SPEED_STOPS.map((s) => (
+              <button key={s} onClick={() => commit(setClipSpeed(doc, track.id, clip.id, s))}
+                className={`h-8 px-2.5 rounded-md border text-[11px] font-semibold ${clip.speed === s ? "bg-accent text-on-accent border-accent" : "bg-surface border-line text-ink-2 hover:text-ink"}`}>{s}×</button>
+            ))}
+          </div>
+          <Field label="Custom"><Num value={clip.speed} min={SPEED_MIN} max={SPEED_MAX} step={0.05} suffix="×" onChange={(n) => commit(setClipSpeed(doc, track.id, clip.id, Math.max(SPEED_MIN, Math.min(SPEED_MAX, n))))} /></Field>
+          <Field label="On timeline"><div className="h-8 flex items-center text-xs font-mono text-ink-2">{fmtTime(clipLengthMs(clip))}</div></Field>
+          <p className="col-span-2 text-[10px] text-faint">{SPEED_MIN}× to {SPEED_MAX}×, the range one ffmpeg atempo covers. Pitch is preserved (atempo on export, the browser&apos;s default in the preview). Captions, text and b-roll inside this clip are rescaled with it; everything after it shifts.</p>
         </Group>
         {!isOverlay && (
           <Group title="Audio">

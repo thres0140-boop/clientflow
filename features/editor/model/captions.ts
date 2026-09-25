@@ -3,7 +3,7 @@
 // client-safe: re-chunking after a style change never needs the server.
 import type { AssetTranscript, CaptionCue, EditDocument, Ms, TranscriptWord } from "./document";
 import type { CaptionStyle } from "./captionStyle";
-import { clipLengthMs, mainTrack } from "./timeline";
+import { clipLengthMs, mainTrack, timelineAt } from "./timeline";
 
 export type TimelineWord = TranscriptWord & { assetId: string };
 
@@ -18,7 +18,7 @@ export function timelineWords(doc: EditDocument, transcripts: AssetTranscript[])
     for (const w of words) {
       const mid = (w.startMs + w.endMs) / 2;
       if (mid < c.inMs || mid >= c.outMs) continue;
-      out.push({ assetId: c.assetId, text: w.text, startMs: c.at + Math.max(0, w.startMs - c.inMs), endMs: c.at + Math.min(clipLengthMs(c), w.endMs - c.inMs) });
+      out.push({ assetId: c.assetId, text: w.text, startMs: Math.max(c.at, timelineAt(c, w.startMs)), endMs: Math.min(c.at + clipLengthMs(c), timelineAt(c, w.endMs)) });
     }
   }
   return out.sort((a, b) => a.startMs - b.startMs);

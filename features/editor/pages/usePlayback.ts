@@ -14,7 +14,7 @@
 // one dead media URL marks that one clip failed instead of leaving the editor on a spinner.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Asset, EditDocument, Ms } from "@/features/editor/model/document";
-import { applyAssetMetadata, clipAt, clipLengthMs, mainTrack, overlayTrack, transitionAt } from "@/features/editor/model/timeline";
+import { applyAssetMetadata, clipAt, clipLengthMs, mainTrack, overlayTrack, sourceAt, transitionAt } from "@/features/editor/model/timeline";
 import { documentDurationMs } from "@/features/editor/model/document";
 import { clipRect, drawOverlay, overlayKey } from "@/features/editor/render/compositor";
 import { videoSrc } from "@/shared/media/videoSrc";
@@ -27,7 +27,7 @@ export type Display = { w: number; h: number };
 /** Extra chrome painted over the overlay (selection box, guides). `key` changes whenever it would draw differently. */
 export type OverlayChrome = { key: () => string; draw: (ctx: CanvasRenderingContext2D, doc: EditDocument, tMs: Ms) => void };
 
-type Want = { sourceMs: number; muted: boolean; volume: number; rect: { x: number; y: number; w: number; h: number }; rotation: number; opacity: number; z: number; offset?: { x: number; y: number }; scaleMul?: number };
+type Want = { sourceMs: number; muted: boolean; volume: number; rect: { x: number; y: number; w: number; h: number }; rotation: number; opacity: number; z: number; offset?: { x: number; y: number }; scaleMul?: number; rate: number };
 type VideoWithVFC = HTMLVideoElement & { requestVideoFrameCallback?: (cb: (now: number, meta: { mediaTime: number }) => void) => number; cancelVideoFrameCallback?: (id: number) => void };
 
 /** Why a <video> could not load its metadata, in words a person can act on. Asks the same URL
@@ -168,7 +168,8 @@ class VideoPool {
       s.zIndex = String(w.z);
       v.muted = w.muted;
       v.volume = w.volume;
-      if (Math.abs(v.currentTime * 1000 - w.sourceMs) > (forPlayback ? SYNC_TOLERANCE_MS : 1)) {
+      if (v.playbackRate !== w.rate) v.playbackRate = w.rate; // pitch is preserved by default (like atempo in the export)
+      if (Math.abs(v.currentTime * 1000 - w.sourceMs) > (forPlayback ? SYNC_TOLERANCE_MS * w.rate : 1)) {
         try { v.currentTime = w.sourceMs / 1000; } catch { /* metadata not loaded yet */ }
       }
       if (forPlayback && v.paused) v.play().catch(() => {});
@@ -275,13 +276,13 @@ export function usePlayback(
       return clipRect(clip as Parameters<typeof clipRect>[0], { width: v?.videoWidth || a?.width || d.canvas.width, height: v?.videoHeight || a?.height || d.canvas.height }, d.canvas);
     };
     const main = clipAt(mainTrack(d), t);
-    if (main) wanted.set(main.clip.assetId, { sourceMs: main.sourceMs, muted: main.clip.muted, volume: main.clip.volume, rect: rectFor(main.clip), rotation: main.clip.transform.rotation, opacity: main.clip.transform.opacity, z: 0 });
+    if (main) wanted.set(main.clip.assetId, { sourceMs: main.sourceMs, muted: main.clip.muted, volume: main.clip.volume, rect: rectFor(main.clip), rotation: main.clip.transform.rotation, opacity: main.clip.transform.opacity, z: 0, rate: main.clip.speed });
     // A transition in progress: the outgoing clip keeps playing underneath (or above, for a slide)
     // with the effect's opacity, offset and scale. The canvas preview of what xfade will render.
     const tr = transitionAt(mainTrack(d), t);
     if (tr && main && tr.into.id === main.clip.id && tr.out.assetId !== tr.into.assetId) {
       const p = tr.progress, W = d.canvas.width, H = d.canvas.height;
-      const outWant: Want = { sourceMs: tr.out.inMs + (t - tr.out.at), muted: true, volume: 0, rect: rectFor(tr.out), rotation: tr.out.transform.rotation, opacity: tr.out.transform.opacity, z: 0 };
+      const outWant: Want = { sourceMs: sourceAt(tr.out, t), muted: true, volume: 0, rect: rectFor(tr.out), rotation: tr.out.transform.rotation, opacity: tr.out.transform.opacity, z: 0, rate: tr.out.speed };
       const inWant = wanted.get(main.clip.assetId)!;
       switch (tr.transition.type) {
         case "fade": inWant.opacity *= p; inWant.z = 1; break;
@@ -296,7 +297,7 @@ export function usePlayback(
     }
     const ov = overlayTrack(d);
     if (ov) ov.clips.forEach((c, i) => {
-      if (t >= c.at && t < c.at + clipLengthMs(c) && !wanted.has(c.assetId)) wanted.set(c.assetId, { sourceMs: c.inMs + (t - c.at), muted: true, volume: 0, rect: rectFor(c), rotation: c.transform.rotation, opacity: c.transform.opacity, z: 1 + i });
+      if (t >= c.at && t < c.at + clipLengthMs(c) && !wanted.has(c.assetId)) wanted.set(c.assetId, { sourceMs: sourceAt(c, t), muted: true, volume: 0, rect: rectFor(c), rotation: c.transform.rotation, opacity: c.transform.opacity, z: 1 + i, rate: c.speed });
     });
     return wanted;
   }, [getPool]);
@@ -348,7 +349,7 @@ export function usePlayback(
       let t = tRef.current;
       if (v && v.readyState >= 2) {
         const nowS = mediaTimeS ?? v.currentTime;
-        t = main.clip.at + (nowS * 1000 - main.clip.inMs);
+        t = main.clip.at + (nowS * 1000 - main.clip.inMs) / main.clip.speed;
         const end = main.clip.at + clipLengthMs(main.clip);
         if (t >= end - 8 || v.ended) {
           const next = mainTrack(dd).clips[main.index + 1];

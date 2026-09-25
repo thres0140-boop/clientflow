@@ -1,7 +1,7 @@
 // Pure timeline operations on an EditDocument. Every function returns a NEW document (the editor
 // keeps an undo stack of documents) and re-derives the main-track invariant through
 // normalizeDocument, so `at` is never edited by hand.
-import { type CaptionCue, type EditDocument, IDENTITY_TRANSFORM, type Ms, newId, normalizeDocument, type TextElement, type Track, type Transition, TRANSITION_DEFAULT_MS, TRANSITION_MAX_SHARE, type TransitionType, type VideoClip, type VideoTrack } from "./document";
+import { type CaptionCue, type EditDocument, IDENTITY_TRANSFORM, type Ms, newId, normalizeDocument, SPEED_MAX, SPEED_MIN, type TextElement, type Track, type Transition, TRANSITION_DEFAULT_MS, TRANSITION_MAX_SHARE, type TransitionType, type VideoClip, type VideoTrack } from "./document";
 import { type CaptionStyle } from "./captionStyle";
 
 export const MIN_CLIP_MS = 100;
@@ -18,8 +18,17 @@ export function captionTrack(doc: EditDocument) {
 export function textTrack(doc: EditDocument) {
   return doc.tracks.find((t) => t.kind === "text");
 }
+/** Length on the TIMELINE: source span divided by speed. */
 export function clipLengthMs(c: VideoClip): Ms {
-  return c.outMs - c.inMs;
+  return Math.round((c.outMs - c.inMs) / c.speed);
+}
+/** Source (asset) time for a timeline time inside the clip. */
+export function sourceAt(c: VideoClip, tMs: Ms): Ms {
+  return c.inMs + Math.round((tMs - c.at) * c.speed);
+}
+/** Timeline time for a source time inside the clip. */
+export function timelineAt(c: VideoClip, sourceMs: Ms): Ms {
+  return c.at + Math.round((sourceMs - c.inMs) / c.speed);
 }
 
 function mapTracks(doc: EditDocument, f: (t: Track) => Track): EditDocument {
@@ -48,7 +57,7 @@ export function clipAt(track: VideoTrack, tMs: Ms): { clip: VideoClip; sourceMs:
     const c = track.clips[i];
     const len = clipLengthMs(c);
     if (tMs >= c.at && (tMs < c.at + len || (i === track.clips.length - 1 && tMs === c.at + len))) {
-      return { clip: c, sourceMs: c.inMs + Math.min(len, tMs - c.at), index: i };
+      return { clip: c, sourceMs: Math.min(c.outMs, sourceAt(c, tMs)), index: i };
     }
   }
   return null;
@@ -98,18 +107,21 @@ export function setAllTransitions(doc: EditDocument, type: TransitionType | null
   return d;
 }
 
-/** Trim by dragging an edge. `edge=start` moves inMs (the clip's timeline position follows for
- *  the main track, or stays put for overlays where `at` shifts by the same amount). */
+/** Trim by dragging an edge; `deltaMs` is TIMELINE time (converted to source time by the speed).
+ *  `edge=start` moves inMs (the clip's timeline position follows for the main track, or stays
+ *  put for overlays where `at` shifts by the same amount). */
 export function trimClip(doc: EditDocument, trackId: string, clipId: string, edge: "start" | "end", deltaMs: Ms): EditDocument {
   return mapClips(doc, trackId, (clips) => clips.map((c) => {
     if (c.id !== clipId) return c;
     const asset = doc.assets.find((a) => a.id === c.assetId);
     const max = asset?.durationMs ?? c.outMs;
+    const dSrc = Math.round(deltaMs * c.speed);
+    const minSrc = Math.ceil(MIN_CLIP_MS * c.speed);
     if (edge === "start") {
-      const inMs = Math.min(c.outMs - MIN_CLIP_MS, Math.max(0, c.inMs + deltaMs));
-      return { ...c, inMs, at: Math.max(0, c.at + (inMs - c.inMs)) };
+      const inMs = Math.min(c.outMs - minSrc, Math.max(0, c.inMs + dSrc));
+      return { ...c, inMs, at: Math.max(0, c.at + Math.round((inMs - c.inMs) / c.speed)) };
     }
-    const outMs = Math.max(c.inMs + MIN_CLIP_MS, Math.min(max, c.outMs + deltaMs));
+    const outMs = Math.max(c.inMs + minSrc, Math.min(max, c.outMs + dSrc));
     return { ...c, outMs };
   }));
 }
@@ -124,7 +136,7 @@ export function splitClipAt(doc: EditDocument, trackId: string, tMs: Ms): EditDo
       const len = clipLengthMs(c);
       const local = tMs - c.at;
       if (local > MIN_CLIP_MS && local < len - MIN_CLIP_MS) {
-        const cut = c.inMs + Math.round(local);
+        const cut = c.inMs + Math.round(local * c.speed);
         const second = { ...c, id: newId("c"), inMs: cut, at: c.at + Math.round(local) };
         out.push({ ...c, outMs: cut }, second);
         movedFrom = c.id; movedTo = second.id;
@@ -148,8 +160,8 @@ export function trimClipToTime(doc: EditDocument, trackId: string, clipId: strin
   const len = clipLengthMs(c);
   if (local <= 0 || local >= len) return doc;
   if (side === "left" ? len - local < MIN_CLIP_MS : local < MIN_CLIP_MS) return doc;
-  const cut = Math.round(local);
-  return mapClips(doc, trackId, (clips) => clips.map((x) => (x.id !== clipId ? x : side === "left" ? { ...x, inMs: x.inMs + cut, at: x.at + cut } : { ...x, outMs: x.inMs + cut })));
+  const cutSrc = Math.round(local * c.speed);
+  return mapClips(doc, trackId, (clips) => clips.map((x) => (x.id !== clipId ? x : side === "left" ? { ...x, inMs: x.inMs + cutSrc, at: x.at + Math.round(local) } : { ...x, outMs: x.inMs + cutSrc })));
 }
 
 // ── snapping ──────────────────────────────────────────────────────────────────
@@ -216,7 +228,7 @@ export function updateClip(doc: EditDocument, trackId: string, clipId: string, p
 export function addClip(doc: EditDocument, trackId: string, assetId: string, at: Ms): EditDocument {
   const asset = doc.assets.find((a) => a.id === assetId);
   if (!asset) return doc;
-  const clip: VideoClip = { id: newId("c"), assetId, at: Math.max(0, Math.round(at)), inMs: 0, outMs: asset.durationMs ?? 0, transform: { ...IDENTITY_TRANSFORM }, muted: false, volume: 1 };
+  const clip: VideoClip = { id: newId("c"), assetId, at: Math.max(0, Math.round(at)), inMs: 0, outMs: asset.durationMs ?? 0, transform: { ...IDENTITY_TRANSFORM }, muted: false, volume: 1, speed: 1 };
   return mapClips(doc, trackId, (clips) => [...clips, clip]);
 }
 
@@ -228,6 +240,29 @@ export function removeAsset(doc: EditDocument, assetId: string): EditDocument {
 export function addAsset(doc: EditDocument, asset: { url: string; name: string; kind?: "video" | "image" }): { doc: EditDocument; assetId: string } {
   const id = newId("a");
   return { doc: normalizeDocument({ ...doc, assets: [...doc.assets, { id, kind: asset.kind ?? "video", url: asset.url, name: asset.name, durationMs: null, width: null, height: null }] }), assetId: id };
+}
+
+/** Sets a clip's speed and keeps the rest of the timeline in step: captions, text and b-roll
+ *  that START inside the clip's old span are rescaled within it (they belong to that footage);
+ *  anything that starts after it shifts by the change in length, exactly as the following main
+ *  clips do. Word timings inside a rescaled cue follow the same mapping. */
+export function setClipSpeed(doc: EditDocument, trackId: string, clipId: string, speed: number): EditDocument {
+  const track = doc.tracks.find((t): t is VideoTrack => t.kind === "video" && t.id === trackId);
+  const c = track?.clips.find((x) => x.id === clipId);
+  if (!track || !c) return doc;
+  const s = Math.min(SPEED_MAX, Math.max(SPEED_MIN, speed));
+  if (s === c.speed) return doc;
+  const oldLen = clipLengthMs(c), newLen = Math.round((c.outMs - c.inMs) / s);
+  const start = c.at, oldEnd = c.at + oldLen, delta = newLen - oldLen;
+  const remap = (t: Ms): Ms => (t < start ? t : t < oldEnd ? start + Math.round((t - start) * (newLen / oldLen)) : t + delta);
+  const withSpeed = mapClips(doc, trackId, (clips) => clips.map((x) => (x.id === clipId ? { ...x, speed: s } : x)));
+  if (track.role !== "main") return withSpeed;
+  return mapTracks(withSpeed, (t) => {
+    if (t.kind === "caption") return { ...t, cues: t.cues.map((q) => ({ ...q, startMs: remap(q.startMs), endMs: Math.max(remap(q.startMs) + 100, remap(q.endMs)), words: q.words ? q.words.map((w) => ({ ...w, startMs: remap(w.startMs), endMs: remap(w.endMs) })) : null })) };
+    if (t.kind === "text") return { ...t, elements: t.elements.map((e) => ({ ...e, startMs: remap(e.startMs), endMs: Math.max(remap(e.startMs) + 100, remap(e.endMs)) })) };
+    if (t.kind === "video" && t.role === "overlay") return { ...t, clips: t.clips.map((x) => ({ ...x, at: remap(x.at) })) };
+    return t;
+  });
 }
 
 // ── captions ──────────────────────────────────────────────────────────────────

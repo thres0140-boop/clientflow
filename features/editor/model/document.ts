@@ -34,11 +34,15 @@ export type VideoClip = {
   assetId: string;
   at: Ms;                      // timeline position of the clip's first frame
   inMs: Ms;                    // trim: first source ms shown
-  outMs: Ms;                   // trim: source ms after the last one shown (outMs - inMs = clip length)
+  outMs: Ms;                   // trim: source ms after the last one shown; (outMs - inMs) / speed = clip length on the timeline
   transform: Transform;
   muted: boolean;
   volume: number;              // 0..1, ignored when muted
+  speed: number;               // playback rate, SPEED_MIN..SPEED_MAX; exports as setpts=PTS/speed + atempo=speed (pitch preserved)
 };
+export const SPEED_MIN = 0.5, SPEED_MAX = 2; // one ffmpeg atempo instance covers exactly this range
+export const SPEED_STOPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const clipLen = (c: { inMs: Ms; outMs: Ms; speed: number }) => Math.round((c.outMs - c.inMs) / c.speed);
 
 /** A transition at the boundary AFTER `afterClipId` on the main track. Each maps 1:1 to an ffmpeg
  *  xfade transition in the export (fade = crossfade, fadeblack, slide*, zoomin); the two clips
@@ -105,7 +109,7 @@ export function createDocumentFromRawUrls(rawUrls: string[], captionStyle: Capti
   }));
   const main: VideoTrack = {
     id: newId("t"), kind: "video", role: "main",
-    clips: assets.map((a) => ({ id: newId("c"), assetId: a.id, at: 0, inMs: 0, outMs: 0, transform: { ...IDENTITY_TRANSFORM }, muted: false, volume: 1 })),
+    clips: assets.map((a) => ({ id: newId("c"), assetId: a.id, at: 0, inMs: 0, outMs: 0, transform: { ...IDENTITY_TRANSFORM }, muted: false, volume: 1, speed: 1 })),
     transitions: [],
   };
   return {
@@ -123,7 +127,7 @@ export function documentDurationMs(doc: EditDocument): Ms {
   const main = doc.tracks.find((t): t is VideoTrack => t.kind === "video" && t.role === "main");
   if (!main || main.clips.length === 0) return 0;
   const last = main.clips[main.clips.length - 1];
-  return last.at + (last.outMs - last.inMs);
+  return last.at + clipLen(last);
 }
 
 const isNum = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
@@ -155,7 +159,8 @@ export function normalizeDocument(input: unknown): EditDocument {
   const clip = (c: any): VideoClip | null => {
     if (!c || typeof c.id !== "string" || !assetIds.has(c.assetId)) return null;
     const inMs = ms(c.inMs), outMs = Math.max(inMs, ms(c.outMs));
-    return { id: c.id, assetId: c.assetId, at: ms(c.at), inMs, outMs, transform: transform(c.transform), muted: !!c.muted, volume: isNum(c.volume) ? Math.min(1, Math.max(0, c.volume)) : 1 };
+    const speed = isNum(c.speed) ? Math.min(SPEED_MAX, Math.max(SPEED_MIN, c.speed)) : 1;
+    return { id: c.id, assetId: c.assetId, at: ms(c.at), inMs, outMs, transform: transform(c.transform), muted: !!c.muted, volume: isNum(c.volume) ? Math.min(1, Math.max(0, c.volume)) : 1, speed };
   };
   const captionStyle = normalizeCaptionStyle(d.captionStyle);
   const tracks: Track[] = [];
@@ -197,12 +202,12 @@ export function normalizeDocument(input: unknown): EditDocument {
       for (let i = 0; i < t.clips.length; i++) {
         const c = t.clips[i];
         c.at = cursor;
-        const len = c.outMs - c.inMs;
+        const len = clipLen(c);
         cursor += len;
         const next = t.clips[i + 1];
         const tr = byAfter.get(c.id);
         if (tr && next) {
-          const cap = Math.floor(Math.min(len, next.outMs - next.inMs) * TRANSITION_MAX_SHARE);
+          const cap = Math.floor(Math.min(len, clipLen(next)) * TRANSITION_MAX_SHARE);
           const durationMs = Math.max(0, Math.min(tr.durationMs, cap));
           if (durationMs > 0) { kept.push({ ...tr, durationMs }); cursor -= durationMs; }
         }

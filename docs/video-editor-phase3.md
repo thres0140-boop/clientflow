@@ -116,3 +116,31 @@ dropped if the cut disappears; a split moves the transition after the second hal
 shows a cut marker at every boundary and a band over the overlap; clicking selects the cut, and
 Details edits type and duration. The preview shows both clips during the overlap with the
 effect's opacity, offset and scale, an approximation of xfade, which is what exports.
+
+## Speed (added 2026-09-25)
+
+Per clip, `VideoClip.speed` from 0.5× to 2× with stops at 0.5 / 0.75 / 1 / 1.25 / 1.5 / 2 and
+a free input. That range is what ONE ffmpeg `atempo` instance covers, and the export is
+`setpts=PTS/speed` for video and `atempo=speed` for audio. atempo time-stretches, so **pitch is
+preserved**; the preview sets `playbackRate`, which preserves pitch by default in every
+browser, so preview and export agree. Pitch-shifting (asetrate) was not chosen: a talking head
+at 1.25× must still sound like the person.
+
+A clip's length on the timeline is its source span divided by the speed; `at` is derived from
+it, so everything after the clip stays in step by construction. `setClipSpeed()` also retimes
+what sits ON the clip: captions, text and b-roll that start inside the clip's old span are
+rescaled within it (word timings included), and anything that starts after it shifts by the
+change in length. Trims, splits, trim-to-playhead, transcript placement, transitions caps, hit
+tests and the playhead clock all go through `clipLengthMs` / `sourceAt` / `timelineAt`.
+
+## Animation in / out (added 2026-09-25)
+
+`CaptionStyle.animation = { in, out }`, each `{ type, durationMs }` with `fade`, `slideleft`,
+`slideright`, `slideup`, `slidedown`, `pop` or `none`. It is a property of the style, so it is
+the default for every cue on the caption track and per-cue via a style override, and text
+elements carry it in their own style. Checked against libass first: fade is `\fad`, slide is
+`\move` from 160 px away (linear), pop is `\t` on `\fscx\fscy` from 60 % (linear). One ASS line
+allows one `\move`, so a cue with both a slide-in and a slide-out exports as two events. Timing
+is linear on both sides on purpose; durations are capped at half the on-screen time in both
+renderers (`animationState()` is the shared formula). Nothing else was added: bounce, typewriter
+and per-word pops have no libass equivalent and stay out.

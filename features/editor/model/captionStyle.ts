@@ -23,6 +23,17 @@ export const CAPTION_FONTS: Record<CaptionFontFamily, { files: Partial<Record<Ca
   "Bebas Neue": { files: { 400: "BebasNeue-Regular.ttf" }, weights: [400] },
 };
 
+/** Entrance / exit animation. Each maps to libass: fade = \fad, slide* = \move (linear, from
+ *  ANIMATION_SLIDE_PX away), pop = \t on \fscx\fscy from ANIMATION_POP_FROM% (linear). A cue with
+ *  both a slide-in and a slide-out is exported as two ASS events (one \move per line). Timing is
+ *  linear on both sides on purpose; durations are capped at half the element's on-screen time. */
+export type AnimationType = "none" | "fade" | "slideleft" | "slideright" | "slideup" | "slidedown" | "pop";
+export const ANIMATION_TYPES: AnimationType[] = ["none", "fade", "slideleft", "slideright", "slideup", "slidedown", "pop"];
+export type AnimationSpec = { type: AnimationType; durationMs: number };
+export const ANIMATION_SLIDE_PX = 160;
+export const ANIMATION_POP_FROM = 60; // percent
+export const ANIMATION_MAX_MS = 2000;
+
 export type CaptionAnchor = "top" | "middle" | "bottom";
 export type CaptionAlign = "left" | "center" | "right";
 
@@ -52,6 +63,7 @@ export type CaptionStyle = {
     mode: "none" | "color";   // colour change on the word being spoken (ASS per-word \1c override)
     color: HexColor;
   };
+  animation: { in: AnimationSpec; out: AnimationSpec }; // entrance / exit, see AnimationType
 };
 
 export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
@@ -63,6 +75,7 @@ export const DEFAULT_CAPTION_STYLE: CaptionStyle = {
   box: { enabled: false, color: "#000000", opacity: 0.6, paddingPx: 16 },
   layout: { anchor: "bottom", align: "center", marginVPx: 420, marginHPx: 60, maxLines: 2, wordsPerCue: 2 },
   highlight: { mode: "none", color: "#ffe34d" },
+  animation: { in: { type: "none", durationMs: 250 }, out: { type: "none", durationMs: 250 } },
 };
 
 /** What the two renderers are held to, property by property. "exact" means the same numbers
@@ -82,6 +95,7 @@ export const PARITY = {
     "cue timing and words-per-cue",
     "highlight.mode=color (per-word colour override)",
     "font.italic when the font file has a true italic; synthetic otherwise on both sides",
+    "animation in/out: fade (\\fad), slide (\\move, linear, 160 px), pop (\\t \\fscx\\fscy 60→100, linear); durations capped at half the on-screen time on both sides; a slide-in plus a slide-out exports as two events",
   ],
   approximate: [
     "shadow: ASS has one diagonal offset and no blur; the canvas is restricted to the same",
@@ -108,7 +122,8 @@ const hex = (v: unknown, d: HexColor): HexColor => (typeof v === "string" && HEX
  *  Unknown fonts fall back to the default font; out-of-range numbers are clamped. */
 export function normalizeCaptionStyle(input: unknown, base: CaptionStyle = DEFAULT_CAPTION_STYLE): CaptionStyle {
   const s = (input && typeof input === "object" ? input : {}) as Record<string, any>;
-  const font = s.font ?? {}, fill = s.fill ?? {}, outline = s.outline ?? {}, shadow = s.shadow ?? {}, box = s.box ?? {}, layout = s.layout ?? {}, highlight = s.highlight ?? {};
+  const font = s.font ?? {}, fill = s.fill ?? {}, outline = s.outline ?? {}, shadow = s.shadow ?? {}, box = s.box ?? {}, layout = s.layout ?? {}, highlight = s.highlight ?? {}, anim = s.animation ?? {};
+  const spec = (v: any, d: AnimationSpec): AnimationSpec => ({ type: ANIMATION_TYPES.includes(v?.type) ? v.type : d.type, durationMs: Math.round(clamp(v?.durationMs, 50, ANIMATION_MAX_MS, d.durationMs)) });
   const family: CaptionFontFamily = font.family in CAPTION_FONTS ? font.family : base.font.family;
   const weights = CAPTION_FONTS[family].weights;
   return {
@@ -134,7 +149,41 @@ export function normalizeCaptionStyle(input: unknown, base: CaptionStyle = DEFAU
       wordsPerCue: Math.round(clamp(layout.wordsPerCue, 1, 6, base.layout.wordsPerCue)),
     },
     highlight: { mode: highlight.mode === "color" ? "color" : "none", color: hex(highlight.color, base.highlight.color) },
+    animation: { in: spec(anim.in, base.animation.in), out: spec(anim.out, base.animation.out) },
   };
+}
+
+/** Progress of the entrance/exit at `tMs` for an element on screen from startMs to endMs:
+ *  `enter` runs 0→1 over the in-duration, `exit` 1→0 over the out-duration, both linear, both
+ *  capped at half the on-screen time. Returned as multipliers the renderers apply identically. */
+export function animationState(style: CaptionStyle, tMs: number, startMs: number, endMs: number): { alpha: number; dx: number; dy: number; scale: number; active: boolean } {
+  const len = Math.max(1, endMs - startMs);
+  const cap = len / 2;
+  const din = style.animation.in.type === "none" ? 0 : Math.min(cap, style.animation.in.durationMs);
+  const dout = style.animation.out.type === "none" ? 0 : Math.min(cap, style.animation.out.durationMs);
+  let alpha = 1, dx = 0, dy = 0, scale = 1, active = false;
+  const apply = (type: AnimationType, p: number) => { // p: 1 = fully on screen, 0 = fully off
+    if (type === "fade") alpha *= p;
+    else if (type === "slideleft") dx += (1 - p) * ANIMATION_SLIDE_PX;   // enters from the right, leaves to the left → mirrored below
+    else if (type === "slideright") dx -= (1 - p) * ANIMATION_SLIDE_PX;
+    else if (type === "slideup") dy += (1 - p) * ANIMATION_SLIDE_PX;
+    else if (type === "slidedown") dy -= (1 - p) * ANIMATION_SLIDE_PX;
+    else if (type === "pop") scale *= ANIMATION_POP_FROM / 100 + (1 - ANIMATION_POP_FROM / 100) * p;
+  };
+  if (din > 0 && tMs < startMs + din) { active = true; apply(style.animation.in.type, Math.max(0, (tMs - startMs) / din)); }
+  if (dout > 0 && tMs >= endMs - dout) {
+    active = true;
+    // On exit a slide continues in the same direction: leftwards for "slideleft", etc.
+    const p = Math.max(0, (endMs - tMs) / dout);
+    const t = style.animation.out.type;
+    if (t === "fade") alpha *= p;
+    else if (t === "slideleft") dx -= (1 - p) * ANIMATION_SLIDE_PX;
+    else if (t === "slideright") dx += (1 - p) * ANIMATION_SLIDE_PX;
+    else if (t === "slideup") dy -= (1 - p) * ANIMATION_SLIDE_PX;
+    else if (t === "slidedown") dy += (1 - p) * ANIMATION_SLIDE_PX;
+    else if (t === "pop") scale *= ANIMATION_POP_FROM / 100 + (1 - ANIMATION_POP_FROM / 100) * p;
+  }
+  return { alpha, dx, dy, scale, active };
 }
 
 /** Reads Client.subtitleStyle (a JSON string, bare-parsed like every other JSON column) with a

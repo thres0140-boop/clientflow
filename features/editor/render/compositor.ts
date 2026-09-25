@@ -2,8 +2,8 @@
 // Videos are supplied by the caller as HTMLVideoElements already seeked to the right source time
 // (the playback engine owns that); this module only paints.
 import type { CaptionCue, EditDocument, Ms, Transform, VideoClip } from "@/features/editor/model/document";
-import { type CaptionStyle, normalizeCaptionStyle } from "@/features/editor/model/captionStyle";
-import { captionTrack, clipAt, mainTrack, overlayTrack, textTrack } from "@/features/editor/model/timeline";
+import { animationState, type CaptionStyle, normalizeCaptionStyle } from "@/features/editor/model/captionStyle";
+import { captionTrack, clipAt, clipLengthMs, mainTrack, overlayTrack, textTrack } from "@/features/editor/model/timeline";
 import { drawText, layoutText } from "./canvasText";
 
 export type FrameSources = { videoFor: (assetId: string) => HTMLVideoElement | null };
@@ -59,7 +59,14 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, doc: EditDocument, tM
     if (cue && cue.lines.some((l) => l.trim())) {
       const style = cueStyle(doc, captions.styleOverride, cue);
       const layout = layoutText(ctx, style, cue.lines, doc.canvas);
-      drawText(ctx, style, layout, { activeWord: activeWordIndex(cue, tMs) });
+      const a = animationState(style, tMs, cue.startMs, cue.endMs);
+      ctx.save();
+      if (a.dx || a.dy || a.scale !== 1) {
+        const cx = layout.box.x + layout.box.w / 2, cy = layout.box.y + layout.box.h / 2;
+        ctx.translate(cx + a.dx, cy + a.dy); ctx.scale(a.scale, a.scale); ctx.translate(-cx, -cy);
+      }
+      drawText(ctx, style, layout, { activeWord: activeWordIndex(cue, tMs), opacity: a.alpha });
+      ctx.restore();
     }
   }
   const texts = textTrack(doc);
@@ -68,9 +75,14 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, doc: EditDocument, tM
       if (tMs < el.startMs || tMs >= el.endMs || !el.text.trim()) continue;
       const cx = el.transform.x * width, cy = el.transform.y * height;
       const layout = layoutText(ctx, el.style, el.text.split("\n"), doc.canvas, { scale: el.transform.scale, origin: { cx, cy } });
-      if (el.transform.rotation) { ctx.save(); ctx.translate(cx, cy); ctx.rotate((el.transform.rotation * Math.PI) / 180); ctx.translate(-cx, -cy); }
-      drawText(ctx, el.style, layout, { scale: el.transform.scale, opacity: el.transform.opacity });
-      if (el.transform.rotation) ctx.restore();
+      const a = animationState(el.style, tMs, el.startMs, el.endMs);
+      ctx.save();
+      ctx.translate(cx + a.dx, cy + a.dy);
+      if (el.transform.rotation) ctx.rotate((el.transform.rotation * Math.PI) / 180);
+      if (a.scale !== 1) ctx.scale(a.scale, a.scale);
+      ctx.translate(-cx, -cy);
+      drawText(ctx, el.style, layout, { scale: el.transform.scale, opacity: el.transform.opacity * a.alpha });
+      ctx.restore();
     }
   }
 }
@@ -91,7 +103,14 @@ export function overlayKey(doc: EditDocument, tMs: Ms): string {
     if (cue) { const w = activeWordIndex(cue, tMs); parts.push(`q:${cue.id}:${w ? `${w.line}.${w.index}` : "-"}`); }
   }
   const texts = textTrack(doc);
-  if (texts && texts.kind === "text") for (const el of texts.elements) if (tMs >= el.startMs && tMs < el.endMs) parts.push(`t:${el.id}`);
+  if (texts && texts.kind === "text") for (const el of texts.elements) if (tMs >= el.startMs && tMs < el.endMs) {
+    parts.push(`t:${el.id}`);
+    if (animationState(el.style, tMs, el.startMs, el.endMs).active) parts.push(`a${tMs}`);
+  }
+  if (captions && captions.kind === "caption") {
+    const cue = captions.cues.find((q) => tMs >= q.startMs && tMs < q.endMs);
+    if (cue && animationState(cueStyle(doc, captions.styleOverride, cue), tMs, cue.startMs, cue.endMs).active) parts.push(`a${tMs}`);
+  }
   return parts.join("|");
 }
 
@@ -109,7 +128,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, doc: EditDocument, tMs:
   const overlay = overlayTrack(doc);
   if (overlay) {
     for (const c of overlay.clips) {
-      if (tMs >= c.at && tMs < c.at + (c.outMs - c.inMs)) drawClip(ctx, doc, c, sources.videoFor(c.assetId));
+      if (tMs >= c.at && tMs < c.at + clipLengthMs(c)) drawClip(ctx, doc, c, sources.videoFor(c.assetId));
     }
   }
 
