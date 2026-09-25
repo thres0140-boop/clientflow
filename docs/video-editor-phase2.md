@@ -15,11 +15,18 @@ stays the way a cut reaches `editedVideoUrl` until Phase 4 gives the editor an E
    selected track at the playhead, dragging a main clip drops it at the index under the pointer,
    `⌫` deletes. Every gesture is one undo step (`⌘Z` / `⌘⇧Z`, 100 deep). The main track is always
    contiguous; `at` is derived, never edited.
-3. **Frame-accurate preview.** A 1080x1920 canvas repainted from the document. While playing,
-   the active main clip's `<video>` is the clock (the playhead is derived from its `currentTime`,
-   never from wall time); clip boundaries switch elements. While paused, every seek sets
-   `currentTime` and the frame is repainted on `seeked`. `←`/`→` step one frame (`⇧` = 1 s),
-   `space` plays.
+3. **Frame-accurate preview.** Video is never copied to a canvas. Each asset is a real `<video>`
+   in the preview's video layer, shown and positioned with CSS when its clip is on screen
+   (hardware decode and composite; b-roll is a second stacked element), and a transparent canvas
+   above it paints only captions and text, sized to what is on screen. While playing, the active
+   main clip's `<video>` is the clock: one tick per decoded frame via `requestVideoFrameCallback`
+   (its `mediaTime`), with `requestAnimationFrame` as the fallback, never wall time; a 250 ms
+   watchdog keeps the clock alive while the element buffers. The overlay is repainted only when
+   what it would paint changes. While paused, every seek positions the elements and repaints on
+   `seeked`. Media plays straight from R2 through a presigned GET on the S3 endpoint
+   (`/api/r2/sign-get`, one hour, re-signed once on error, then the `/api/vid` proxy as the last
+   resort); the proxy is a function in the path and r2.dev is rate-limited, neither of which a
+   40 Mbps 4K clip tolerates. `←`/`→` step one frame (`⇧` = 1 s), `space` plays.
 4. **Caption + text tracks.** Captions are cues on the caption track drawn with the document's
    `captionStyle`; free text elements carry their own `CaptionStyle` and a `Transform`, and can
    be dragged on the preview. The inspector edits position, font, size, colours, outline, shadow,

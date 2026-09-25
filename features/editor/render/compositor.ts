@@ -48,6 +48,46 @@ export function activeWordIndex(cue: CaptionCue, tMs: Ms): { line: number; index
   return null;
 }
 
+/** Captions and text only, in document coordinates (the caller sets the transform that maps
+ *  1080x1920 onto the on-screen canvas). This is what the preview paints on a TRANSPARENT canvas
+ *  layered over real <video> elements; the video pixels are never copied. */
+export function drawOverlay(ctx: CanvasRenderingContext2D, doc: EditDocument, tMs: Ms) {
+  const { width, height } = doc.canvas;
+  const captions = captionTrack(doc);
+  if (captions && captions.kind === "caption") {
+    const cue = captions.cues.find((q) => tMs >= q.startMs && tMs < q.endMs);
+    if (cue && cue.lines.some((l) => l.trim())) {
+      const style = captions.styleOverride ? normalizeCaptionStyle({ ...doc.captionStyle, ...captions.styleOverride }, doc.captionStyle) : doc.captionStyle;
+      const layout = layoutText(ctx, style, cue.lines, doc.canvas);
+      drawText(ctx, style, layout, { activeWord: activeWordIndex(cue, tMs) });
+    }
+  }
+  const texts = textTrack(doc);
+  if (texts && texts.kind === "text") {
+    for (const el of texts.elements) {
+      if (tMs < el.startMs || tMs >= el.endMs || !el.text.trim()) continue;
+      const layout = layoutText(ctx, el.style, el.text.split("\n"), doc.canvas, { scale: el.transform.scale, origin: { cx: el.transform.x * width, cy: el.transform.y * height } });
+      drawText(ctx, el.style, layout, { scale: el.transform.scale, opacity: el.transform.opacity });
+    }
+  }
+}
+
+/** A cheap fingerprint of what drawOverlay would paint at `tMs`: when it has not changed since
+ *  the last paint, the paint is skipped. */
+export function overlayKey(doc: EditDocument, tMs: Ms): string {
+  const parts: string[] = [];
+  const captions = captionTrack(doc);
+  if (captions && captions.kind === "caption") {
+    const cue = captions.cues.find((q) => tMs >= q.startMs && tMs < q.endMs);
+    if (cue) { const w = activeWordIndex(cue, tMs); parts.push(`q:${cue.id}:${w ? `${w.line}.${w.index}` : "-"}`); }
+  }
+  const texts = textTrack(doc);
+  if (texts && texts.kind === "text") for (const el of texts.elements) if (tMs >= el.startMs && tMs < el.endMs) parts.push(`t:${el.id}`);
+  return parts.join("|");
+}
+
+/** The spike / test path: paints video frames AND the overlay onto one canvas. The editor's
+ *  preview no longer uses this (see drawOverlay); kept for the model tests. */
 export function drawFrame(ctx: CanvasRenderingContext2D, doc: EditDocument, tMs: Ms, sources: FrameSources) {
   const { width, height } = doc.canvas;
   ctx.setTransform(1, 0, 0, 1, 0, 0);

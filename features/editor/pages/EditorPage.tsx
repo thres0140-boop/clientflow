@@ -87,6 +87,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const sliderToZoom = (v: number) => Math.exp(Math.log(ZOOM_MIN) + (v / 100) * (Math.log(ZOOM_MAX) - Math.log(ZOOM_MIN)));
   const [tab, setTab] = useState<EditorTab>("media");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoLayerRef = useRef<HTMLDivElement>(null);
   const previewBox = useRef<HTMLDivElement>(null);
   const previewArea = useRef<HTMLDivElement>(null);
   const docRef = useRef<EditDocument | null>(null);
@@ -228,7 +229,9 @@ export default function EditorPage({ draftId }: { draftId: number }) {
 
   // ── playback ───────────────────────────────────────────────────────────────
   const safeDoc = doc ?? EMPTY_DOC;
-  const pb = usePlayback(safeDoc, canvasRef, setDocFromEngine);
+  const pb = usePlayback(safeDoc, canvasRef, setDocFromEngine, { mountRef: videoLayerRef, display: fit });
+  // The overlay canvas is sized to what is on screen (times the device pixel ratio, capped), never to 1080x1920.
+  const dpr = typeof window !== "undefined" ? Math.min(2, window.devicePixelRatio || 1) : 1;
   const frameMs = 1000 / (safeDoc.canvas.fps || 30);
 
   // ── actions ────────────────────────────────────────────────────────────────
@@ -413,9 +416,11 @@ export default function EditorPage({ draftId }: { draftId: number }) {
                 <IconButton name="menu" label={`Preview options — ${NOT_BUILT.toLowerCase()}`} disabled />
               </div>
               <div ref={previewArea} className="flex-1 min-h-0 flex items-center justify-center p-3">
-                <div className="relative" style={{ width: fit.w, height: fit.h }}>
-                  <canvas ref={canvasRef} width={doc.canvas.width} height={doc.canvas.height} onPointerDown={onPreviewPointerDown}
-                    className="block w-full h-full rounded-md bg-black touch-none" />
+                <div className="relative overflow-hidden rounded-md bg-black" style={{ width: fit.w, height: fit.h }}>
+                  {/* Real <video> elements live here (hardware decode + composite); the canvas above paints only captions and text. */}
+                  <div ref={videoLayerRef} className="absolute inset-0" />
+                  <canvas ref={canvasRef} width={Math.max(1, Math.round(fit.w * dpr))} height={Math.max(1, Math.round(fit.h * dpr))} onPointerDown={onPreviewPointerDown}
+                    className="absolute inset-0 w-full h-full touch-none" style={{ zIndex: 50 }} />
                   {/* Overlays on the media: black/white chrome by design (dark-mode doc, media rule). */}
                   <div className="absolute top-2 left-2 right-2 flex flex-col gap-1 pointer-events-none">
                     {failedAssets.map(({ asset, reason }) => (
