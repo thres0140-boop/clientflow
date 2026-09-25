@@ -6,7 +6,7 @@
 // left, the preview with its controls in the centre, a contextual properties panel on the
 // right, and the timeline with its own toolbar at the bottom. The playback engine is a hook.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM, type Ms } from "@/features/editor/model/document";
+import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM } from "@/features/editor/model/document";
 import { addAsset, addClip, addCue, addText, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, splitClipAt, updateClip, updateText } from "@/features/editor/model/timeline";
 import { clipRect, textElementAt } from "@/features/editor/render/compositor";
 import { loadAllCaptionFonts } from "@/features/editor/render/fonts";
@@ -39,11 +39,33 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const [tab, setTab] = useState<EditorTab>("media");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewBox = useRef<HTMLDivElement>(null);
+  const previewArea = useRef<HTMLDivElement>(null);
+  const docRef = useRef<EditDocument | null>(null);
+  useEffect(() => { docRef.current = doc; }, [doc]);
+  // The preview fills its panel: the canvas is sized to the largest rectangle of the document's
+  // aspect that fits the measured area (never above the document's own pixel size).
+  const [fit, setFit] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = previewArea.current;
+    if (!el) return;
+    const measure = () => {
+      const d = docRef.current;
+      if (!d) return;
+      const pad = 12;
+      const availW = Math.max(0, el.clientWidth - pad * 2), availH = Math.max(0, el.clientHeight - pad * 2);
+      const ar = d.canvas.width / d.canvas.height;
+      let h = Math.min(availH, d.canvas.height), w = h * ar;
+      if (w > availW) { w = availW; h = w / ar; }
+      setFit((f) => (Math.abs(f.w - w) < 1 && Math.abs(f.h - h) < 1 ? f : { w: Math.floor(w), h: Math.floor(h) }));
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  });
   const embedded = useMemo(() => readEmbedFlag(), []);
 
   // ── document + history ──────────────────────────────────────────────────────
-  const docRef = useRef<EditDocument | null>(null);
-  useEffect(() => { docRef.current = doc; }, [doc]);
   const markDirty = useCallback(() => { dirtyRef.current = true; setSaveState((s) => (s === "conflict" ? s : "dirty")); }, []);
 
   /** onChange(doc, commit): commit=true pushes an undo step (one per gesture); false previews. */
@@ -278,7 +300,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
   const failedAssets = doc.assets.filter((a) => pb.status[a.id]?.state === "failed").map((a) => ({ asset: a, reason: (pb.status[a.id] as { reason: string }).reason }));
 
   return (
-    <div className="h-screen flex flex-col bg-canvas-2 text-ink overflow-hidden" style={{ height: "100dvh" }}>
+    <div className="editor-theme h-screen flex flex-col bg-canvas-2 text-ink overflow-hidden" style={{ height: "100dvh" }}>
       {/* Header */}
       <header className="h-12 shrink-0 flex items-center gap-3 px-4 bg-surface border-b border-line">
         <a href={backHref} className="text-xs font-semibold text-muted hover:text-ink">← Kanban</a>
@@ -288,7 +310,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         <span className={`text-[11px] font-semibold ${saveState === "error" ? "text-danger-600" : saveState === "conflict" ? "text-warn-700" : "text-muted"}`}>
           {saveState === "saved" ? "Saved" : saveState === "dirty" ? "Unsaved changes" : saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed, retrying" : "Conflict"}
         </span>
-        <button className="o-btn o-btn-primary text-xs" disabled title="Export arrives in Phase 4">Export</button>
+        <button className="o-btn o-btn-accent text-xs" disabled title="Export arrives in Phase 4">Export</button>
       </header>
 
       {/* Tab bar: icon above label, quiet active state (tint + underline). Tabs without features open an honest empty state. */}
@@ -324,7 +346,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
           <div className="flex-1 min-h-0 flex gap-3">
             {/* Left: the active tab */}
             <aside className={panelCls + " w-64 xl:w-72 shrink-0 overflow-y-auto overscroll-contain"}>
-              <LeftPanel tab={tab} doc={doc} status={pb.status} tMs={pb.tMs} selection={selection} onSelect={setSelection} onSeek={pb.seek}
+              <LeftPanel tab={tab} doc={doc} status={pb.status} thumbs={pb.thumbs} tMs={pb.tMs} selection={selection} onSelect={setSelection} onSeek={pb.seek}
                 onAddToMain={addToMain} onAddBroll={addBroll} onUploaded={addUploadedAsset} onRetry={pb.retryAsset} onRemoveAsset={removeAssetAndClips}
                 onAddCaption={addCaptionHere} onAddText={addTextHere} />
             </aside>
@@ -338,10 +360,10 @@ export default function EditorPage({ draftId }: { draftId: number }) {
                 {loadingAssets.length > 0 && <span className="text-[10px] text-faint">Reading {loadingAssets.length} clip length{loadingAssets.length === 1 ? "" : "s"}…</span>}
                 {failedAssets.length > 0 && <span className="text-[10px] font-semibold text-danger-600">{failedAssets.length} clip{failedAssets.length === 1 ? "" : "s"} failed</span>}
               </div>
-              <div className="flex-1 min-h-0 flex items-center justify-center p-3">
-                <div className="relative h-full max-h-full" style={{ aspectRatio: `${doc.canvas.width} / ${doc.canvas.height}` }}>
+              <div ref={previewArea} className="flex-1 min-h-0 flex items-center justify-center p-3">
+                <div className="relative" style={{ width: fit.w, height: fit.h }}>
                   <canvas ref={canvasRef} width={doc.canvas.width} height={doc.canvas.height} onPointerDown={onPreviewPointerDown}
-                    className="h-full w-auto max-w-full rounded-lg bg-black touch-none" />
+                    className="block w-full h-full rounded-lg bg-black touch-none" />
                   {/* Overlays on the media: black/white chrome by design (dark-mode doc, media rule). */}
                   <div className="absolute top-2 left-2 right-2 flex flex-col gap-1 pointer-events-none">
                     {failedAssets.map(({ asset, reason }) => (

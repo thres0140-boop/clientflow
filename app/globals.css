@@ -224,7 +224,12 @@
    card surfaces, hairline borders, one green accent with a soft glow. Only
    variables are redefined here; components never fork on the theme.
    ========================================================================== */
-[data-theme="dark"] {
+/* The video editor (/edit/<draftId>, root element carries .editor-theme) is ALWAYS dark: it
+   joins this selector so its subtree inherits every dark token whatever <html> says, and the
+   .editor-theme block further down then swaps the neutral and accent families for CapCut's
+   mid-grey-on-dark palette. See docs/dark-mode-conversion.md, "The video editor is an exception". */
+[data-theme="dark"],
+.editor-theme {
   color-scheme: dark;
 
   --background: #0a0c0a;
@@ -414,6 +419,67 @@
 [data-theme="dark"] * { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 [data-theme="dark"] *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); background-clip: content-box; }
 [data-theme="dark"] *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); background-clip: content-box; }
+
+/* ==========================================================================
+   Video editor palette (.editor-theme). Scoped token override, never a class set: every editor
+   component keeps using the same utilities (bg-surface, text-ink, border-line, …); only the
+   variables they resolve are redefined on the editor root. CapCut's contract, in order of
+   importance: the panel surface must be visibly lighter than the gap between panels, then a
+   raised tier for inputs and rows, then a hairline that reads on both, then teal for the one
+   accent. Declared after the dark block so it wins on the same element.
+   ========================================================================== */
+.editor-theme {
+  color-scheme: dark;
+  --background: #1a1a1a;
+  --foreground: #e8e8e8;
+
+  /* page (the gap between panels) → panel → raised → raised-hover */
+  --color-canvas: #1a1a1a;
+  --color-canvas-2: #1a1a1a;
+  --color-surface: #262626;
+  --color-surface-2: #2c2c2c;
+  --color-surface-3: #333333;
+  --color-surface-4: #3a3a3a;
+  --color-surface-5: #444444;
+  --color-surface-hover: #303030;
+  --color-surface-ink: #e8e8e8;
+  --color-surface-ink-2: #d4d4d4;
+  --color-surface-ink-3: #bdbdbd;
+
+  --color-line: rgba(255, 255, 255, 0.09);
+  --color-line-soft: rgba(255, 255, 255, 0.06);
+  --color-line-softer: rgba(255, 255, 255, 0.045);
+  --color-line-2: rgba(255, 255, 255, 0.12);
+  --color-line-hard: rgba(255, 255, 255, 0.12);
+  --color-line-harder: rgba(255, 255, 255, 0.18);
+  --color-line-strong: rgba(255, 255, 255, 0.22);
+  --color-line-focus: rgba(255, 255, 255, 0.35);
+
+  --color-ink: #e8e8e8;
+  --color-ink-2: #c6c6c6;
+  --color-muted: #9a9a9a;
+  --color-faint: #707070;
+  --color-ink-strong: #ffffff;
+  --color-on-ink: #1a1a1a;
+  --color-knob: #e8e8e8;
+  --color-shade: #ffffff;
+
+  /* teal accent: active tab, Export, play, focus rings */
+  --color-accent: #2dd4bf;
+  --color-accent-strong: #14b8a6;
+  --color-accent-tint: rgba(45, 212, 191, 0.14);
+  --color-on-accent: #062a26;
+  --color-accent-legacy: #2dd4bf;
+
+  --shadow-soft: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-btn-accent: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.editor-theme ::selection { background: rgba(45, 212, 191, 0.32); }
+.editor-theme :focus-visible { outline-color: rgba(45, 212, 191, 0.7); }
+.editor-theme * { scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+.editor-theme *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); background-clip: content-box; }
+.editor-theme *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.32); background-clip: content-box; }
 
 /* ---------- base ---------- */
 html { -webkit-text-size-adjust: 100%; }

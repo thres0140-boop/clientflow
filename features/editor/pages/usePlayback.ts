@@ -51,7 +51,7 @@ class VideoPool {
   get(assetId: string): HTMLVideoElement | null { return this.map.get(assetId) ?? null; }
   has(assetId: string) { return this.map.has(assetId); }
   ids(): string[] { return [...this.map.keys()]; }
-  ensure(asset: Asset, on: { meta: (m: { durationMs: number; width: number; height: number }) => void; frame: () => void; fail: (reason: string) => void }) {
+  ensure(asset: Asset, on: { meta: (m: { durationMs: number; width: number; height: number }) => void; frame: () => void; fail: (reason: string) => void; thumb: (dataUrl: string) => void }) {
     if (this.map.has(asset.id)) return;
     const attempt = (this.attempts.get(asset.id) ?? 0) + 1;
     this.attempts.set(asset.id, attempt);
@@ -82,6 +82,17 @@ class VideoPool {
     v.addEventListener("error", () => fail(false));
     v.addEventListener("seeked", on.frame);
     v.addEventListener("loadeddata", on.frame);
+    // First decodable frame → a small poster for the Media panel. The proxied url is same-origin,
+    // so the canvas is not tainted; a direct cross-origin url would throw, and then there is no thumb.
+    v.addEventListener("loadeddata", () => {
+      try {
+        const c = document.createElement("canvas");
+        const ar = (v.videoWidth || 9) / (v.videoHeight || 16);
+        c.width = 144; c.height = Math.round(144 / ar);
+        c.getContext("2d")?.drawImage(v, 0, 0, c.width, c.height);
+        on.thumb(c.toDataURL("image/jpeg", 0.72));
+      } catch { /* tainted or not ready: no thumbnail */ }
+    }, { once: true });
     this.timers.set(asset.id, window.setTimeout(() => fail(true), METADATA_TIMEOUT_MS));
   }
   remove(assetId: string) {
@@ -111,6 +122,7 @@ export function usePlayback(doc: EditDocument, canvasRef: React.RefObject<HTMLCa
   const [tMs, setT] = useState<Ms>(0);
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState<Record<string, AssetStatus>>({});
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const pool = useRef<VideoPool | null>(null);
   const docRef = useRef(doc);
   const tRef = useRef(0);
@@ -139,6 +151,7 @@ export function usePlayback(doc: EditDocument, canvasRef: React.RefObject<HTMLCa
       },
       fail: (reason) => setStatus((s) => ({ ...s, [a.id]: { state: "failed", reason } })),
       frame: () => { if (!playingRef.current) paint(); },
+      thumb: (dataUrl) => setThumbs((t) => ({ ...t, [a.id]: dataUrl })),
     });
   }, [getPool, setDoc, paint]);
 
@@ -236,5 +249,5 @@ export function usePlayback(doc: EditDocument, canvasRef: React.RefObject<HTMLCa
 
   const toggle = useCallback(() => (playingRef.current ? pause() : play()), [pause, play]);
 
-  return { tMs, playing, durationMs, status, retryAsset, seek, play, pause, toggle, paint, videoFor };
+  return { tMs, playing, durationMs, status, thumbs, retryAsset, seek, play, pause, toggle, paint, videoFor };
 }

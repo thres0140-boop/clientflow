@@ -328,3 +328,34 @@ white text over media, white text on an identity or status colour set via `style
 media placeholder tiles and gradients, spinners over media, Instagram brand gradients.
 `shared/types.ts` (the DM and script status badge classes) was the one real miss the
 sweep found and is converted.
+
+## The video editor is an exception (2026-09-25)
+
+`/edit/<draftId>` (`features/editor/pages/EditorPage.tsx`, root element class `editor-theme`)
+does NOT follow the owner's theme and does NOT use ORDO's dark palette. It is always dark, on
+CapCut's mid-grey-on-dark palette, because a video editor's chrome must read as neutral around
+the picture and its panels must be visibly lighter than the gaps between them, which
+ORDO's near-black surfaces on a near-black canvas are not. A later conversion pass must leave
+this in place. It is built the same way as the theme itself, so nothing in the editor's
+components breaks the rules above:
+
+- Every editor component uses only the standard utilities (`bg-surface`, `text-ink`,
+  `border-line`, `bg-accent`, hue and status families, `o-btn-*`). No hardcoded colours, no
+  minted utilities. The palette is a **scoped token override**, not a class set.
+- `app/globals.css` adds `.editor-theme` to the `[data-theme="dark"]` selector list, so the
+  editor subtree inherits every dark token whatever `<html>` says (that is what forces dark for
+  a light-mode owner or a member login, without touching the html attribute, the pre-paint
+  script, `useLiveTheme()` or any other page). No value in that block changed.
+- A separate `.editor-theme { … }` block, declared after the dark block, then redefines the
+  neutral families (`canvas`, `surface`, `surface-2…5`, `surface-hover`, `line*`, `ink`, `ink-2`,
+  `muted`, `faint`, `on-ink`, `knob`, `shade`), the accent family (`accent`, `accent-strong`,
+  `accent-tint`, `on-accent`: teal), the panel shadows and the scrollbar/selection rules. Status
+  and hue families are inherited from the dark block unchanged. `color-scheme: dark` makes
+  native inputs match.
+- The relationship that matters is the tier order **page gap → panel → raised → raised-hover**
+  (`#1a1a1a → #262626 → #333333 → #3a3a3a`); tune values, keep the order.
+- Media chrome inside the editor (the black preview backdrop, white text over thumbnails, the
+  failed-clip chips) stays literal, exactly as the media rule above says.
+- Scope: the editor route only. The CapCut list page in the sidebar is a normal app page on
+  the app theme. Nothing outside the editor root carries the class, so the rest of the app is
+  untouched in both themes.
