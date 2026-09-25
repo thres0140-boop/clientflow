@@ -36,7 +36,7 @@ export default function CapCutPage({ clients, selectedClientId }: Props) {
   const shown = (rows || []).filter((r) => !onlySelected || !selected || r.client.id === selected.id);
 
   return (
-    <div className="max-w-4xl">
+    <div className="w-full">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="text-2xl font-bold text-ink">CapCut</h1>

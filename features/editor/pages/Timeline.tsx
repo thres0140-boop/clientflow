@@ -5,6 +5,7 @@
 // onChange(doc, true), so the undo stack gets one entry per gesture.
 import { useCallback, useRef, useState } from "react";
 import type { EditDocument, Ms } from "@/features/editor/model/document";
+import type { AssetStatus } from "./usePlayback";
 import { captionTrack, clipLengthMs, mainTrack, moveClip, overlayTrack, setClipAt, textTrack, trimClip, updateCue, updateText } from "@/features/editor/model/timeline";
 
 export type Selection =
@@ -19,6 +20,7 @@ type Props = {
   durationMs: Ms;
   pxPerSec: number;
   selection: Selection;
+  assetStatus: Record<string, AssetStatus>;
   onSeek: (t: Ms) => void;
   onSelect: (s: Selection) => void;
   onChange: (doc: EditDocument, commit: boolean) => void;
@@ -33,7 +35,7 @@ export function fmtTime(ms: Ms): string {
   return `${m}:${(s - m * 60).toFixed(2).padStart(5, "0")}`;
 }
 
-export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, onSeek, onSelect, onChange }: Props) {
+export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, assetStatus, onSeek, onSelect, onChange }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ kind: string; ghostAt?: number } | null>(null);
   const widthPx = Math.max(600, (durationMs / 1000) * pxPerSec + 200);
@@ -168,10 +170,18 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, on
             {main.clips.map((c, i) => {
               const len = clipLengthMs(c);
               const asset = doc.assets.find((a) => a.id === c.assetId);
+              const st = assetStatus[c.assetId];
+              const failed = st?.state === "failed";
+              const pending = !failed && len === 0;
+              // A clip with no length yet (metadata pending or failed) still gets a readable block, so
+              // it can be selected, retried or deleted instead of being a 10 px sliver.
+              const width = len === 0 ? 140 : Math.max(10, xOf(len));
+              const tone = failed ? "bg-danger-50 text-danger-700 border-danger-200" : "bg-hue-emerald-50 text-hue-emerald-700 border-hue-emerald-200";
+              const selTone = failed ? "border-danger-500 ring-2 ring-danger-500/40" : "border-hue-emerald-500 ring-2 ring-hue-emerald-500/40";
               return (
-                <div key={c.id}
-                  className={`absolute top-1.5 bottom-1.5 rounded-lg px-2 text-[11px] flex items-center overflow-hidden cursor-grab bg-hue-emerald-50 text-hue-emerald-700 border ${isSel("clip", c.id) ? "border-hue-emerald-500 ring-2 ring-hue-emerald-500/40" : "border-hue-emerald-200"} ${drag?.kind === "main-move" ? "transition-none" : ""}`}
-                  style={{ left: xOf(c.at), width: Math.max(10, xOf(len)) }}
+                <div key={c.id} title={failed ? `${asset?.name}: ${st.reason}` : undefined}
+                  className={`absolute top-1.5 bottom-1.5 rounded-lg px-2 text-[11px] flex items-center overflow-hidden cursor-grab border ${tone} ${isSel("clip", c.id) ? selTone : ""} ${drag?.kind === "main-move" ? "transition-none" : ""}`}
+                  style={{ left: xOf(c.at), width }}
                   onPointerDownCapture={(e) => {
                     if (e.button !== 0 || onHandle(e)) return;
                     onSelect({ kind: "clip", trackId: main.id, id: c.id });
@@ -187,7 +197,7 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, on
                   <Handle side="l" onPointerDown={(e) => startDrag(e, "main-l", (b, d) => trimClip(b, main.id, c.id, "start", d))} />
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{asset?.name ?? "clip"}</div>
-                    <div className="text-[10px] text-hue-emerald-600 font-mono">{fmtTime(len)}{len === 0 ? " · loading" : ""}</div>
+                    <div className={`text-[10px] font-mono truncate ${failed ? "text-danger-600" : "text-hue-emerald-600"}`}>{failed ? `failed · ${st.reason}` : pending ? "reading length…" : fmtTime(len)}</div>
                   </div>
                   <Handle side="r" onPointerDown={(e) => startDrag(e, "main-r", (b, d) => trimClip(b, main.id, c.id, "end", d))} />
                 </div>

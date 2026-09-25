@@ -5,7 +5,7 @@
 // keyboard. The timeline and inspector are children; the playback engine is a hook.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_CANVAS, type EditDocument, IDENTITY_TRANSFORM, type Ms } from "@/features/editor/model/document";
-import { addAsset, addClip, addCue, addText, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, splitClipAt, updateClip, updateText } from "@/features/editor/model/timeline";
+import { addAsset, addClip, addCue, addText, deleteClip, deleteCue, deleteText, mainTrack, overlayTrack, removeAsset, splitClipAt, updateClip, updateText } from "@/features/editor/model/timeline";
 import { clipRect, textElementAt } from "@/features/editor/render/compositor";
 import { loadAllCaptionFonts } from "@/features/editor/render/fonts";
 import { readEmbedFlag } from "@/shared/embed";
@@ -264,7 +264,10 @@ export default function EditorPage({ draftId }: { draftId: number }) {
     return <div className="h-screen flex items-center justify-center bg-canvas-2 text-sm text-muted">Loading editor…</div>;
   }
   const backHref = `/?page=kanban&clientId=${project.clientId}&draft=${draftId}${embedded ? "&embed=1" : ""}`;
-  const clipsLoading = doc.assets.some((a) => a.durationMs == null);
+  // Per-asset media state from the playback engine: a clip that never answers is marked failed
+  // (with the reason) after a timeout; the rest of the editor keeps working with what did load.
+  const loadingAssets = doc.assets.filter((a) => pb.status[a.id]?.state === "loading" || (!pb.status[a.id] && a.durationMs == null));
+  const failedAssets = doc.assets.filter((a) => pb.status[a.id]?.state === "failed").map((a) => ({ asset: a, reason: (pb.status[a.id] as { reason: string }).reason }));
 
   return (
     <div className="h-screen flex flex-col bg-canvas-2 text-ink overflow-hidden">
@@ -299,7 +302,17 @@ export default function EditorPage({ draftId }: { draftId: number }) {
           <div className="relative h-full max-h-full" style={{ aspectRatio: `${doc.canvas.width} / ${doc.canvas.height}` }}>
             <canvas ref={canvasRef} width={doc.canvas.width} height={doc.canvas.height} onPointerDown={onPreviewPointerDown}
               className="h-full w-auto max-w-full rounded-xl bg-black shadow-lift touch-none" />
-            {clipsLoading && <div className="absolute top-2 left-2 text-[10px] font-semibold text-white/80 bg-black/50 rounded px-1.5 py-0.5">Reading clip lengths…</div>}
+            {/* Overlays on the media: black/white chrome by design (dark-mode doc, media rule). */}
+            <div className="absolute top-2 left-2 right-2 flex flex-col gap-1 pointer-events-none">
+              {loadingAssets.length > 0 && <div className="self-start text-[10px] font-semibold text-white/80 bg-black/50 rounded px-1.5 py-0.5">Reading {loadingAssets.length} clip length{loadingAssets.length === 1 ? "" : "s"}…</div>}
+              {failedAssets.map(({ asset, reason }) => (
+                <div key={asset.id} className="pointer-events-auto flex items-center gap-2 text-[10px] text-white bg-black/70 rounded px-2 py-1">
+                  <span className="min-w-0 flex-1 truncate"><span className="font-semibold">{asset.name}</span> failed: {reason}</span>
+                  <button onClick={() => pb.retryAsset(asset.id)} className="font-semibold underline shrink-0">Retry</button>
+                  <button onClick={() => { commit(removeAsset(doc, asset.id)); setSelection(null); }} className="font-semibold underline shrink-0">Remove</button>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button onClick={() => pb.seek(pb.tMs - frameMs)} className="o-btn o-btn-ghost text-xs px-2 py-1.5" title="Previous frame (←)">⏮</button>
@@ -327,7 +340,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
         <button onClick={() => setPxPerSec((z) => Math.min(400, z * 1.5))} className="o-btn o-btn-ghost text-xs px-2 py-1.5">+</button>
       </div>
       <div className="shrink-0 h-[248px] overflow-hidden">
-        <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
+        <Timeline doc={doc} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
       </div>
 
       {picker && <BrollPicker doc={doc} onPick={addBroll} onUploaded={addBrollUpload} onClose={() => setPicker(false)} />}

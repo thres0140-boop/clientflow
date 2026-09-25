@@ -118,6 +118,11 @@ export function addClip(doc: EditDocument, trackId: string, assetId: string, at:
   return mapClips(doc, trackId, (clips) => [...clips, clip]);
 }
 
+/** Drops an asset and every clip that used it (a clip whose media is gone for good). */
+export function removeAsset(doc: EditDocument, assetId: string): EditDocument {
+  return normalizeDocument({ ...doc, assets: doc.assets.filter((a) => a.id !== assetId), tracks: doc.tracks.map((t) => (t.kind === "video" ? { ...t, clips: t.clips.filter((c) => c.assetId !== assetId) } : t)) });
+}
+
 export function addAsset(doc: EditDocument, asset: { url: string; name: string; kind?: "video" | "image" }): { doc: EditDocument; assetId: string } {
   const id = newId("a");
   return { doc: normalizeDocument({ ...doc, assets: [...doc.assets, { id, kind: asset.kind ?? "video", url: asset.url, name: asset.name, durationMs: null, width: null, height: null }] }), assetId: id };
