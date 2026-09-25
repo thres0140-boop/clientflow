@@ -29,13 +29,18 @@ stays the way a cut reaches `editedVideoUrl` until Phase 4 gives the editor an E
    a new upload (same `/api/r2/multipart` flow as raw content), are placed at the playhead, can
    be dragged in time and on the preview, and are always silent.
 
-## Layout (2026-09-25 restructure)
+## Layout (2026-09-25, rebuilt to CapCut's structure)
 
-Five regions, CapCut-style: a tab bar across the top (Media, Audio, Text, Stickers, Effects,
-Transitions, Captions, Filters, Adjust, Templates), the active tab's panel on the left, the
-preview with its controls in the centre, a contextual properties panel on the right (clip,
-caption or text when one is selected, otherwise the document's caption style), and the
-timeline with its own toolbar (undo, redo, split, delete, zoom) at the bottom. Media is real:
+A top bar (save state, project name, Share/Export), then three sibling panels in a row, each
+with its own 46 px header, then the timeline spanning the full width below a draggable divider.
+The LEFT panel (a third) has the tab bar (Media, Audio, Text, Stickers, Effects, Transitions,
+Captions, Filters, Adjust, Templates) as its header row, a secondary nav column down its left
+edge, a content area with its own toolbar row (Import, Record, search, view, sort, filter) and a
+footer bar. The CENTRE panel (the largest) is headed "Preview — <draft>" with a menu icon and
+carries the transport under the video. The RIGHT panel (narrow) is headed "Details" and shows
+the selection's properties (clip, caption or text; otherwise the document's caption style).
+Every CapCut control without a feature behind it is a real, disabled control with a
+"not built yet" tooltip. Media is real:
 the project's clips with load state, import to R2, add to main or as b-roll at the playhead,
 retry or remove a failed clip. Text and Captions list their tracks. The other tabs open an
 honest "not built yet" state with one line on what will live there; they are the frame, not
