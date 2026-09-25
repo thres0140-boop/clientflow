@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
-import { platformWhere } from "@/shared/platforms";
+import { platformWhere } from "@/shared/agencyPlatforms";
 
 const include = { assignedTo: true, assignedCreator: true };
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
-  // ?platforms=a,b (multi) takes precedence; else ?platform= ; else "instagram". See shared/platforms.ts.
+  // ?platforms=a,b (multi) takes precedence; else ?platform= ; else "instagram". See shared/agencyPlatforms.ts.
   const pw = platformWhere(req.nextUrl.searchParams);
   const where = (clientId ? { clientId: parseInt(clientId), ...pw } : { clientId: null, ...pw }) as any;
   const stages = await prisma.workflowStage.findMany({ where, orderBy: { order: "asc" }, include });

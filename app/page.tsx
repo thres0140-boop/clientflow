@@ -39,16 +39,29 @@ export type Page =
   | "context"
   | "transcribe"
   | "capcut"
-  | "clientsettings";
+  | "clientsettings"
+  | "ytkanban"
+  | "ytclipping";
 
 const PAGE_LABELS: Record<Page, string> = {
   pipeline: "Content Scheduling", kanban: "Script Kanban",
   tasks: "Script Tasks", concepts: "Concept Library", analytics: "Analytics", dms: "DM Pipeline",
   iginbox: "Instagram Inbox", instagram: "Instagram", board: "Strategy Board", team: "Team", chat: "Messages",
   settings: "Settings", context: "AI Context", transcribe: "Transcribe", capcut: "CapCut", clientsettings: "Settings",
+  ytkanban: "YouTube Kanban", ytclipping: "Clipping",
 };
 
-export type Platform = "instagram" | "tiktok";
+// The platform the content pages operate on. Must stay in step with PlatformId in
+// shared/agencyPlatforms.ts (the API filter contract). "tiktok" is data-only in the agency app: it
+// lives on in stored rows but is never selectable here (TikTok moved to the AI product).
+export type Platform = "instagram" | "tiktok" | "youtube";
+// Platforms the agency app can actually put on screen.
+const isSelectablePlatform = (p: unknown): p is Platform => p === "instagram" || p === "youtube";
+
+// Pages that only exist inside one platform's folder. Cross-platform pages (WORK / MANAGE /
+// Editing) are left alone by the platform bounce below.
+const IG_ONLY_PAGES: Page[] = ["instagram", "kanban", "tasks", "context", "dms", "iginbox"];
+const YT_ONLY_PAGES: Page[] = ["ytkanban", "ytclipping"];
 
 const isPage = (p: string): p is Page => p in PAGE_LABELS;
 
@@ -63,10 +76,10 @@ export default function App() {
     // Validate the stored id: a browser may still hold a page that no longer exists.
     try { const v = localStorage.getItem("cf_active_page"); return v && isPage(v) ? v : "pipeline"; } catch { return "pipeline"; }
   });
-  // The platform the content pages operate on. The agency app offers Instagram only (TikTok moved
-  // to the AI product); a browser still holding a stale "tiktok" value falls back to Instagram.
+  // The platform the content pages operate on (Instagram or YouTube). Persisted so a refresh keeps
+  // you on the platform you were viewing; a stale value (e.g. "tiktok") falls back to Instagram.
   const [platform, setPlatform] = useState<Platform>(() => {
-    try { return localStorage.getItem("cf_active_platform") === "instagram" ? "instagram" : "instagram"; } catch { return "instagram"; }
+    try { const v = localStorage.getItem("cf_active_platform"); return isSelectablePlatform(v) ? v : "instagram"; } catch { return "instagram"; }
   });
   // Split view: when set, a second page renders in a resizable right pane next to `page`.
   const [splitPage, setSplitPage] = useState<Page | null>(null);
@@ -180,11 +193,32 @@ export default function App() {
     setSelectedClientId((prev) => (prev != null && visible.some((c) => c.id === prev)) ? prev : (visible[0]?.id ?? nextClients[0]?.id ?? null));
   }
 
-  // Instagram is the only platform the agency app offers; never let the platform state drift
-  // (the multi-platform machinery in Content Scheduling degrades to one platform on its own).
+  // Keep page and platform consistent with the selected client's enabled channels. The PAGE wins:
+  // every platform page lives in exactly one folder, so being on the YouTube Kanban means the
+  // platform is YouTube (a deep link or a stored page is never bounced just because the stored
+  // platform disagrees). A page whose platform is OFF for this client bounces to the other
+  // platform's board, or to Content Scheduling when neither applies. Cross-platform pages
+  // (WORK / MANAGE / Editing) keep whatever platform is on for the client.
   useEffect(() => {
-    if (platform !== "instagram") setPlatform("instagram");
-  }, [platform]);
+    const c = clients.find((cl) => cl.id === selectedClientId);
+    const igOn = c ? (c as { instagramEnabled?: boolean }).instagramEnabled !== false : true;
+    const ytOn = !!c?.youtubeEnabled;
+
+    let nextPage: Page = page;
+    if (YT_ONLY_PAGES.includes(page) && !ytOn) nextPage = igOn ? "kanban" : "pipeline";
+    else if (IG_ONLY_PAGES.includes(page) && !igOn) nextPage = ytOn ? "ytkanban" : "pipeline";
+
+    const nextPlatform: Platform =
+      YT_ONLY_PAGES.includes(nextPage) ? "youtube"
+      : IG_ONLY_PAGES.includes(nextPage) ? "instagram"
+      : (platform === "youtube" && ytOn) ? "youtube"
+      : (platform === "instagram" && igOn) ? "instagram"
+      : (ytOn && !igOn) ? "youtube"
+      : "instagram";
+
+    if (nextPage !== page) setPage(nextPage);
+    if (nextPlatform !== platform) setPlatform(nextPlatform);
+  }, [selectedClientId, clients, page, platform]);
 
   const fetchNotifications = useCallback(async () => {
     const data = await fetch("/api/notifications").then((r) => r.json());
@@ -371,7 +405,7 @@ export default function App() {
 
   // Compute which pages the active profile can see (owner controls per-member access)
   const allowedPages: Page[] = (() => {
-    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","iginbox","instagram","board","team","chat","settings","context","transcribe","capcut","clientsettings"];
+    const all: Page[] = ["pipeline","kanban","tasks","concepts","analytics","dms","iginbox","instagram","board","team","chat","settings","context","transcribe","capcut","clientsettings","ytkanban","ytclipping"];
     if (!activeProfile) return all;
     const base = activeProfile.pageAccess === "all"
       ? all
@@ -386,6 +420,12 @@ export default function App() {
     // CapCut (the video editor) is new: anyone who can see the Script Kanban, where its Edit
     // stage lives, gets it (no stored pageAccess contains "capcut" yet).
     if (base.includes("kanban") && !base.includes("capcut")) base.push("capcut");
+    // YouTube is new (no stored pageAccess contains its ids yet): the YouTube Kanban is the same
+    // board as the Script Kanban for another platform, so anyone with "kanban" gets it; Clipping
+    // feeds the video editor, so anyone with "capcut" gets it. The sidebar still hides both
+    // unless the client has YouTube switched on.
+    if (base.includes("kanban") && !base.includes("ytkanban")) base.push("ytkanban");
+    if (base.includes("capcut") && !base.includes("ytclipping")) base.push("ytclipping");
     // Client settings is owner-only — never expose it to a member login.
     return base.filter((p) => p !== "clientsettings" || session?.type === "owner");
   })();
@@ -396,6 +436,8 @@ export default function App() {
     // Mirror the grandfathering above: view-only on DM Pipeline means view-only on the inbox too.
     if (list.includes("dms") && !list.includes("iginbox")) list.push("iginbox");
     if (list.includes("kanban") && !list.includes("capcut")) list.push("capcut");
+    if (list.includes("kanban") && !list.includes("ytkanban")) list.push("ytkanban");
+    if (list.includes("capcut") && !list.includes("ytclipping")) list.push("ytclipping");
     return list;
   })();
   const pageReadOnly = viewOnlyPages.includes(page);
@@ -425,12 +467,13 @@ export default function App() {
     else nav.clearAppBadge?.().catch(() => {});
   }, [unreadCount, badges.chat]);
 
-  // Platforms the selected client has switched on. The agency app offers Instagram only; Content
-  // Scheduling's multi-platform machinery degrades to a single platform (no badges) on its own.
+  // Platforms the selected client has switched on (Instagram defaults on, YouTube defaults off).
+  // Cross-platform pages like Content Scheduling merge these; single-platform pages use `platform`.
   const enabledPlatforms: Platform[] = (() => {
-    const c = clients.find((cl) => cl.id === selectedClientId) as { instagramEnabled?: boolean } | undefined;
+    const c = clients.find((cl) => cl.id === selectedClientId) as { instagramEnabled?: boolean; youtubeEnabled?: boolean } | undefined;
     const list: Platform[] = [];
     if (!c || c.instagramEnabled !== false) list.push("instagram");
+    if (c?.youtubeEnabled) list.push("youtube");
     return list;
   })();
 
@@ -463,6 +506,9 @@ export default function App() {
       case "context": return <ContextPage clients={clients} selectedClientId={selectedClientId} />;
       case "transcribe": return <TranscribePage />;
       case "capcut": return <CapCutPage clients={clients} selectedClientId={selectedClientId} />;
+      // YouTube pages are wired in later stages; the ids, access and folder are live already.
+      case "ytkanban": return <YouTubeStub title="YouTube Kanban" blurb="The stage-based board for this client's YouTube scripts is being wired up." />;
+      case "ytclipping": return <YouTubeStub title="Clipping" blurb="Cut short clips out of a long-form YouTube video and hand them to the editor. Being wired up." />;
       case "clientsettings": return <ClientSettingsPage client={clients.find((c) => c.id === selectedClientId) ?? null} refreshClients={fetchClients} onManageAll={() => setPage("settings")} />;
     }
   }
@@ -520,6 +566,7 @@ export default function App() {
         onCreateWorkspace={createWorkspace}
         onDeleteWorkspace={deleteWorkspace}
         instagramEnabled={(clients.find((c) => c.id === selectedClientId) as { instagramEnabled?: boolean } | undefined)?.instagramEnabled !== false}
+        youtubeEnabled={!!clients.find((c) => c.id === selectedClientId)?.youtubeEnabled}
         platform={platform}
         onSelectPlatform={setPlatform}
         onMoveClient={async (clientId, workspaceId) => {
@@ -583,6 +630,19 @@ export default function App() {
             }
           </main>
       }
+    </div>
+  );
+}
+
+// Placeholder for a YouTube page whose implementation lands in a later stage.
+function YouTubeStub({ title, blurb }: { title: string; blurb: string }) {
+  return (
+    <div className="flex items-center justify-center h-[60vh]">
+      <div className="o-card p-6 max-w-sm text-center">
+        <p className="text-2xl mb-2">▶️</p>
+        <h1 className="text-base font-semibold text-ink">{title}</h1>
+        <p className="text-sm text-muted mt-1">{blurb}</p>
+      </div>
     </div>
   );
 }

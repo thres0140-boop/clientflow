@@ -4,9 +4,10 @@ import { useState } from "react";
 import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { imgSrc } from "@/shared/media/videoSrc";
+import type { PlatformId } from "@/shared/agencyPlatforms";
 
 
-type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "iginbox" | "team" | "chat" | "settings" | "context" | "transcribe" | "capcut" | "clientsettings";
+type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "iginbox" | "team" | "chat" | "settings" | "context" | "transcribe" | "capcut" | "clientsettings" | "ytkanban" | "ytclipping";
 
 // Sidebar colours all resolve through the --color-nav-* tokens in globals.css (light = the
 // original navy palette verbatim, dark = near-black in the canvas family). Alpha variants
@@ -83,6 +84,17 @@ function IconInbox({ active }: { active: boolean }) {
   const c = navIconColor(active);
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><path d="M2 4.5C2 3.67 2.67 3 3.5 3h6.3a3.5 3.5 0 0 0 3.7 3.7v3.8c0 .83-.67 1.5-1.5 1.5H8l-3 2v-2H3.5C2.67 12 2 11.33 2 10.5v-6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><circle cx="12.5" cy="3.5" r="2" fill="currentColor"/></svg>;
 }
+// YouTube: a rounded screen with a play triangle.
+function IconYouTube({ active }: { active: boolean }) {
+  const c = navIconColor(active);
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><rect x="1.5" y="3" width="13" height="10" rx="3" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 5.75v4.5L10.5 8 6.5 5.75z" fill="currentColor"/></svg>;
+}
+// Clipping: a strip of film with a dashed cut line through it.
+function IconClip({ active }: { active: boolean }) {
+  const c = navIconColor(active);
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: c }}><rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M4 3.5v9M12 3.5v9" stroke="currentColor" strokeWidth="1.1"/><path d="M8 2v1.2M8 5v1.2M8 8v1.2M8 11v1.2M8 13.5V15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>;
+}
+
 const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   pipeline: (a) => <IconCalendar active={a} />, kanban: (a) => <IconKanban active={a} />,
   concepts: (a) => <IconConcepts active={a} />, context: (a) => <IconBrain active={a} />,
@@ -95,6 +107,8 @@ const PAGE_ICONS: Record<Page, (active: boolean) => React.ReactNode> = {
   capcut: (a) => <IconScissors active={a} />,
   settings: (a) => <IconSettings active={a} />,
   clientsettings: (a: boolean) => <IconSettings active={a} />,
+  ytkanban: (a) => <IconYouTube active={a} />,
+  ytclipping: (a) => <IconClip active={a} />,
 };
 
 const NAV_GROUPS = [
@@ -111,6 +125,8 @@ const NAV_GROUPS = [
     { id: "board" as Page, label: "Strategy Board" },
     { id: "capcut" as Page, label: "CapCut" },
     { id: "transcribe" as Page, label: "Transcribe" },
+    { id: "ytkanban" as Page, label: "YouTube Kanban" },
+    { id: "ytclipping" as Page, label: "Clipping" },
   ]},
   { label: "MANAGE", items: [
     { id: "team" as Page, label: "Team" },
@@ -130,7 +146,7 @@ type Props = {
   splitPage?: Page | null; onOpenSplit?: (page: Page) => void;
   workspaces?: Workspace[]; activeWorkspaceId?: number | null;
   onSelectWorkspace?: (id: number) => void; onCreateWorkspace?: (name: string) => void; onDeleteWorkspace?: (id: number) => void;
-  instagramEnabled?: boolean; platform?: "instagram" | "tiktok"; onSelectPlatform?: (p: "instagram" | "tiktok") => void;
+  instagramEnabled?: boolean; youtubeEnabled?: boolean; platform?: PlatformId; onSelectPlatform?: (p: PlatformId) => void;
   onMoveClient?: (clientId: number, workspaceId: number) => void;
 };
 
@@ -140,8 +156,12 @@ const PAGE_NAV_LABEL: Record<string, string> = {
   concepts: "Concept Library", context: "AI Context", analytics: "Analytics",
   dms: "DM Pipeline", iginbox: "Instagram Inbox", instagram: "Instagram", board: "Strategy Board", transcribe: "Transcribe",
   capcut: "CapCut",
+  ytkanban: "YouTube Kanban", ytclipping: "Clipping",
 };
 const IG_FOLDER: Page[] = ["kanban", "tasks", "concepts", "context", "analytics", "dms", "iginbox", "instagram"];
+// The "▶ YOUTUBE" folder: a sibling of the Instagram folder, shown only when the client has
+// YouTube switched on (Client.youtubeEnabled).
+const YT_FOLDER: Page[] = ["ytkanban", "ytclipping"];
 // Cross-platform pages under WORK. Content Scheduling merges every enabled platform into one
 // calendar, so it must NOT switch the app's active platform when opened (see CROSS_PLATFORM).
 const SHARED_WORK: Page[] = ["pipeline", "board"];
@@ -153,7 +173,7 @@ const DIVIDER = { borderColor: "var(--color-nav-line)" };
 const STRIP_BG = "var(--color-nav-strip)";
 const NAV_BG = "var(--color-nav)";
 
-export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed, splitPage, onOpenSplit, workspaces, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onDeleteWorkspace, instagramEnabled = true, platform = "instagram", onSelectPlatform, onMoveClient }: Props) {
+export default function Sidebar({ currentPage, onNavigate, clients, selectedClientId, onSelectClient, allowedPages, activeProfile, session, onSignOut, ownerEmail, badges, collapsed = false, onToggleCollapsed, splitPage, onOpenSplit, workspaces, activeWorkspaceId, onSelectWorkspace, onCreateWorkspace, onDeleteWorkspace, instagramEnabled = true, youtubeEnabled = false, platform = "instagram", onSelectPlatform, onMoveClient }: Props) {
   const [showAccount, setShowAccount] = useState(false);
   const [peeking, setPeeking] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
@@ -418,7 +438,7 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
             const groupHeader = (label: string) => (
               <p className="text-[10px] font-semibold px-3 mb-1.5 tracking-wider" style={{ color: navMuted(0.35) }}>{label}</p>
             );
-            // Collapsible folder header (for the Instagram and Editing folders).
+            // Collapsible folder header (for the Instagram, YouTube and Editing folders).
             const folderHeader = (label: string, key: string) => (
               <button onClick={() => toggleFolder(key)}
                 className="w-full flex items-center gap-1 px-3 mb-1.5 text-[10px] font-semibold tracking-wider hover:text-nav-ink/70 transition-colors"
@@ -429,31 +449,48 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
             );
 
             const igOn = instagramEnabled !== false;
+            const ytOn = !!youtubeEnabled;
             const manage = NAV_GROUPS.find((g) => g.label === "MANAGE")?.items.filter((i) => allowedPages.includes(i.id)) || [];
             const sharedItems = SHARED_WORK.filter((id) => allowedPages.includes(id));
 
-            // Owner → WORK, then the collapsible Instagram folder, then MANAGE.
-            if (session?.type === "owner" && igOn) {
+            // Owner → WORK, then the collapsible platform folders (Instagram, then YouTube directly
+            // below it — each only when that platform is on for the client), then Editing, then MANAGE.
+            if (session?.type === "owner" && (igOn || ytOn)) {
               const igItems = IG_FOLDER.filter((id) => allowedPages.includes(id));
+              const ytItems = YT_FOLDER.filter((id) => allowedPages.includes(id));
               const editItems = EDIT_FOLDER.filter((id) => allowedPages.includes(id));
+              // Opening a WORK page that is not cross-platform lands you on the first platform that is on.
+              const workPlatform: PlatformId = igOn ? "instagram" : "youtube";
               return (
                 <>
                   {sharedItems.length > 0 && (
                     <div>
                       {groupHeader("WORK")}
                       <div className="space-y-0.5">
-                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { if (!CROSS_PLATFORM.includes(id)) onSelectPlatform?.("instagram"); onNavigate(id); }, "sh-"))}
+                        {sharedItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id, () => { if (!CROSS_PLATFORM.includes(id)) onSelectPlatform?.(workPlatform); onNavigate(id); }, "sh-"))}
                       </div>
                     </div>
                   )}
-                  <div>
-                    {folderHeader("📸 INSTAGRAM", "instagram")}
-                    {!foldersClosed["instagram"] && (
-                      <div className="space-y-0.5">
-                        {igItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "instagram", () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "ig-"))}
-                      </div>
-                    )}
-                  </div>
+                  {igOn && (
+                    <div>
+                      {folderHeader("📸 INSTAGRAM", "instagram")}
+                      {!foldersClosed["instagram"] && (
+                        <div className="space-y-0.5">
+                          {igItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "instagram", () => { onSelectPlatform?.("instagram"); onNavigate(id); }, "ig-"))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {ytOn && (
+                    <div>
+                      {folderHeader("▶ YOUTUBE", "youtube")}
+                      {!foldersClosed["youtube"] && (
+                        <div className="space-y-0.5">
+                          {ytItems.map((id) => renderItem(id, PAGE_NAV_LABEL[id] || id, currentPage === id && platform === "youtube", () => { onSelectPlatform?.("youtube"); onNavigate(id); }, "yt-"))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {editItems.length > 0 && (
                     <div>
                       {folderHeader("✂ EDITING", "editing")}
@@ -476,8 +513,9 @@ export default function Sidebar({ currentPage, onNavigate, clients, selectedClie
               );
             }
 
-            // Default flat nav. Hide the Instagram page when Instagram is off for the client.
-            const platformHidden = (id: Page) => id === "instagram" && !igOn;
+            // Default flat nav. Hide a platform's pages when that platform is off for the client — a
+            // YouTube-disabled client must never show the YouTube pages (to owner OR member).
+            const platformHidden = (id: Page) => (id === "instagram" && !igOn) || (YT_FOLDER.includes(id) && !ytOn);
             return NAV_GROUPS.map((group) => {
               const visibleItems = group.items.filter((item) => allowedPages.includes(item.id) && !platformHidden(item.id));
               if (visibleItems.length === 0) return null;

@@ -9,13 +9,14 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { Client, Concept, WorkflowStage, ScriptDraft, TeamMember, Creator } from "@/shared/types";
 import { parseDayTemplate } from "@/shared/dayTemplate";
+import type { PlatformId } from "@/shared/agencyPlatforms";
 import { QRCodeSVG } from "qrcode.react";
 import SparkMD5 from "spark-md5";
 import { markSeen as markSentBackSeen, getSeen as getSentBackSeen } from "@/features/scripts/sentBackSeen";
 
 type Props = {
   clients: Client[];
-  platform?: "instagram" | "tiktok";
+  platform?: PlatformId;
   selectedClientId: number | null;
   onSelectClient: (id: number | null) => void;
   activeProfileId: number | null;
@@ -2775,7 +2776,7 @@ function RawContentUpload({ draft, onUploaded }: { draft: ScriptDraft; onUploade
 // ─── Generate scripts modal ─────────────────────────────────────────────────
 // ─── Import an existing script (from Google Docs etc.) as an Idea ────────────
 function ImportScriptModal({ client, platform = "instagram", concepts, stages, onClose, onImported }: {
-  client: Client; platform?: "instagram" | "tiktok"; concepts: Concept[]; stages: WorkflowStage[]; onClose: () => void; onImported: () => void;
+  client: Client; platform?: PlatformId; concepts: Concept[]; stages: WorkflowStage[]; onClose: () => void; onImported: () => void;
 }) {
   const [conceptId, setConceptId] = useState<number | "">(concepts[0]?.id ?? "");
   const [title, setTitle] = useState("");
@@ -3026,7 +3027,7 @@ function ImportScriptModal({ client, platform = "instagram", concepts, stages, o
 }
 
 function GenerateModal({ client, platform = "instagram", concepts, onClose, onGenerated }: {
-  client: Client; platform?: "instagram" | "tiktok"; concepts: Concept[]; onClose: () => void; onGenerated: () => void;
+  client: Client; platform?: PlatformId; concepts: Concept[]; onClose: () => void; onGenerated: () => void;
 }) {
   // Client-owned concepts are written by the client themselves (assigned in Script
   // Tasks) — the AI must not generate scripts for them, so they're excluded here.
@@ -3164,7 +3165,7 @@ function postsPerWeekOf(c: Concept): number {
   return days > 0 ? days : 1;
 }
 function BatchModal({ client, platform = "instagram", concepts, drafts, onClose, onGenerated }: {
-  client: Client; platform?: "instagram" | "tiktok"; concepts: Concept[]; drafts: ScriptDraft[]; onClose: () => void; onGenerated: () => void;
+  client: Client; platform?: PlatformId; concepts: Concept[]; drafts: ScriptDraft[]; onClose: () => void; onGenerated: () => void;
 }) {
   const genConcepts = concepts.filter((c) => !(c as any).clientOwned);
   const [weeks, setWeeks] = useState(1);

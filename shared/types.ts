@@ -66,6 +66,7 @@ export type Client = {
   isTestAccount?: boolean;
   instagramEnabled?: boolean;
   tiktokEnabled?: boolean;
+  youtubeEnabled?: boolean;
   tiktokZernioAccountId?: string | null;
   tiktokZernioUsername?: string | null;
   tiktokZernioProfileId?: string | null;

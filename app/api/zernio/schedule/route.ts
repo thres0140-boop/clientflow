@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import { canEditPage } from "@/shared/auth/permissions";
-import { isPlatformId, type PlatformId } from "@/shared/platforms";
+import { isPlatformId, type PlatformId } from "@/shared/agencyPlatforms";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
 const PROFILE_ID  = process.env.ZERNIO_PROFILE_ID!;
 
+const PLATFORM_LABEL: Record<PlatformId, string> = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube" };
+
 // Resolve the Zernio account + profile a client uses for a given platform.
 //   instagram → InstagramConnection.zernioAccountId / .zernioProfileId
 //   tiktok    → Client.tiktokZernioAccountId / .tiktokZernioProfileId
+//   youtube   → no linking exists yet (YouTube in the agency app is Kanban + Clipping, not posting)
 async function zernioAccountFor(clientId: number, platform: PlatformId): Promise<{ accountId: string; profileId: string } | null> {
   if (platform === "instagram") {
     const conn = await prisma.instagramConnection.findUnique({ where: { clientId } });
     if (!conn?.zernioAccountId) return null;
     return { accountId: conn.zernioAccountId, profileId: conn.zernioProfileId || PROFILE_ID };
   }
+  if (platform === "youtube") return null;
   const client = await prisma.client.findUnique({
     where: { id: clientId },
     select: { tiktokZernioAccountId: true, tiktokZernioProfileId: true },
@@ -49,7 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       error: "no_zernio_account",
       platform,
-      message: `No Zernio ${platform === "tiktok" ? "TikTok" : "Instagram"} account is linked for this client.`,
+      message: `No Zernio ${PLATFORM_LABEL[platform]} account is linked for this client.`,
     }, { status: 400 });
   }
 

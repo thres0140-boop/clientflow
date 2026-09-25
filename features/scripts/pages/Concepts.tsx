@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { Client, Concept, HOOK_TYPE_SUGGESTIONS, VIDEO_TYPE_SUGGESTIONS } from "@/shared/types";
 import Modal from "@/shared/ui/Modal";
 import { splitExamples } from "@/features/scripts/server/exampleScripts";
+import type { PlatformId } from "@/shared/agencyPlatforms";
 
-type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void; platform?: "instagram" | "tiktok" };
+type Props = { clients: Client[]; selectedClientId: number | null; refreshClients: () => void; platform?: PlatformId };
 type Tab = "ideas" | "concepts";
 
 // Distinct color per concept category (falls back to a stable hashed palette).
@@ -662,7 +663,7 @@ function IdeaDetailPanel({ idea, clients, onClose, onDelete, onPromoted }: {
 function IdeaModal({ clients, selectedClientId, platform = "instagram", onClose, onSaved }: {
   clients: Client[];
   selectedClientId: number | null;
-  platform?: "instagram" | "tiktok";
+  platform?: PlatformId;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -743,7 +744,7 @@ export function ConceptModal({
 }: {
   clients: Client[];
   selectedClientId: number | null;
-  platform?: "instagram" | "tiktok";
+  platform?: PlatformId;
   onClose: () => void;
   onSaved: () => void;
   initial?: { name?: string; exampleUrl?: string; notes?: string; scriptExamples?: string; reelUrls?: string[]; textOverlay?: boolean };

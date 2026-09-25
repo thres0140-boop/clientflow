@@ -9,7 +9,7 @@ import StatusBadge from "@/shared/ui/StatusBadge";
 import ClientAvatar from "@/shared/ui/ClientAvatar";
 import Modal from "@/shared/ui/Modal";
 import { videoSrc } from "@/shared/media/videoSrc";
-import { isPlatformId, type PlatformId } from "@/shared/platforms";
+import { isPlatformId, type PlatformId } from "@/shared/agencyPlatforms";
 import { parseDayTemplate, serializeDayTemplate, type DayMap, type DayTemplate } from "@/shared/dayTemplate";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -33,8 +33,8 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const CONTENT_ICONS: Record<string, string> = {
   video: "🎬", photo: "📷", carousel: "📱", reel: "🎞️", story: "⭕",
 };
-const PLATFORM_BADGE: Record<PlatformId, string> = { instagram: "📸", tiktok: "🎵" };
-const PLATFORM_LABEL: Record<PlatformId, string> = { instagram: "Instagram", tiktok: "TikTok" };
+const PLATFORM_BADGE: Record<PlatformId, string> = { instagram: "📸", tiktok: "🎵", youtube: "▶️" };
+const PLATFORM_LABEL: Record<PlatformId, string> = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube" };
 
 // Platform of a draft / content piece / stage / concept. A NULL or unknown platform is treated
 // as Instagram — the client's primary/legacy platform (mirrors /api/content's null handling).
@@ -87,7 +87,7 @@ export default function Pipeline({ clients, enabledPlatforms, selectedClientId, 
   // The platforms this calendar merges. Never empty: the shell always includes "instagram"
   // unless the client explicitly switched it off.
   const platforms: PlatformId[] = enabledPlatforms.length ? enabledPlatforms : ["instagram"];
-  const platformsParam = platforms.join(","); // for the `platforms=` query param (shared/platforms.ts)
+  const platformsParam = platforms.join(","); // for the `platforms=` query param (shared/agencyPlatforms.ts)
   // Badges only matter when more than one platform shares the calendar; a single-platform
   // client sees exactly what it saw before.
   const multi = platforms.length > 1;

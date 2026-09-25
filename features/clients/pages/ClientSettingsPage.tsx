@@ -16,7 +16,7 @@ export default function ClientSettingsPage({ client, refreshClients, onManageAll
     name: "", color: "#3d4aa3", language: "nl",
     generationInterval: 2, scriptAlternatives: 5,
     captionStyle: "", captionGuidelines: "", scriptRules: "",
-    bookingLink: "", ctaKeyword: "", instagramEnabled: true,
+    bookingLink: "", ctaKeyword: "", instagramEnabled: true, youtubeEnabled: false,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -35,6 +35,7 @@ export default function ClientSettingsPage({ client, refreshClients, onManageAll
       bookingLink: client.bookingLink || "",
       ctaKeyword: client.ctaKeyword || "",
       instagramEnabled: (client as any).instagramEnabled !== false, // default on // eslint-disable-line @typescript-eslint/no-explicit-any
+      youtubeEnabled: !!(client as any).youtubeEnabled, // default off // eslint-disable-line @typescript-eslint/no-explicit-any
     });
     setSaved(false);
   }, [client]);
@@ -100,9 +101,11 @@ export default function ClientSettingsPage({ client, refreshClients, onManageAll
         </Card>
 
         {/* Platforms */}
-        <Card title="Platforms" subtitle="Which channels this client is active on.">
+        <Card title="Platforms" subtitle="Which channels this client is active on (at least one must stay on).">
           <Toggle label="📸 Instagram" desc="Instagram pipeline, competitors & DMs." checked={form.instagramEnabled}
-            onChange={(v) => set("instagramEnabled", v)} />
+            onChange={(v) => { if (!v && !form.youtubeEnabled) { alert("Enable YouTube first — a client must have at least one platform on."); return; } set("instagramEnabled", v); }} />
+          <Toggle label="▶️ YouTube" desc="YouTube Kanban and Clipping (long-form → short clips)." checked={form.youtubeEnabled}
+            onChange={(v) => { if (!v && !form.instagramEnabled) { alert("Enable Instagram first — a client must have at least one platform on."); return; } set("youtubeEnabled", v); }} />
         </Card>
 
         {/* Content generation */}

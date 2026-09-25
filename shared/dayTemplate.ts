@@ -8,7 +8,7 @@
 // both shapes and treats a flat blob as the Instagram map, so no migration is needed and no
 // existing data is dropped. Writers always emit the per-platform shape.
 
-import { isPlatformId, type PlatformId } from "@/shared/platforms";
+import { isPlatformId, type PlatformId } from "@/shared/agencyPlatforms";
 
 export type DayMap = Record<number, number | null>;
 export type DayTemplate = Partial<Record<PlatformId, DayMap>>;

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
-import { platformWhere } from "@/shared/platforms";
+import { platformWhere } from "@/shared/agencyPlatforms";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");
   const isIdea = req.nextUrl.searchParams.get("isIdea");
-  // ?platforms=a,b (multi) takes precedence; else ?platform= ; else "instagram". See shared/platforms.ts.
+  // ?platforms=a,b (multi) takes precedence; else ?platform= ; else "instagram". See shared/agencyPlatforms.ts.
   const where: Record<string, unknown> = clientId
     ? { OR: [{ clientId: parseInt(clientId) }, { clientId: null }], ...platformWhere(req.nextUrl.searchParams) }
     : { ...platformWhere(req.nextUrl.searchParams) };

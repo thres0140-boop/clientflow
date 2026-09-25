@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
-import { parsePlatformsParam } from "@/shared/platforms";
+import { parsePlatformsParam } from "@/shared/agencyPlatforms";
 
 export async function GET(req: NextRequest) {
   const clientId = req.nextUrl.searchParams.get("clientId");

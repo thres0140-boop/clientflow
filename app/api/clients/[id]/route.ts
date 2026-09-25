@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       isTestAccount: body.isTestAccount !== undefined ? body.isTestAccount === true : undefined,
       hideFromHq: body.hideFromHq !== undefined ? body.hideFromHq === true : undefined,
       instagramEnabled: body.instagramEnabled !== undefined ? body.instagramEnabled === true : undefined,
+      youtubeEnabled: body.youtubeEnabled !== undefined ? body.youtubeEnabled === true : undefined,
       workspaceId: body.workspaceId !== undefined ? (body.workspaceId != null ? parseInt(String(body.workspaceId)) : null) : undefined,
     } as any,
   });

@@ -579,6 +579,14 @@ Output ONLY a JSON array: [{"title":"..","script":"body only"}]`;
     return NextResponse.json({ tiktokcol: out });
   }
 
+  // ?youtubecol=1 — per-client YouTube toggle (YouTube Kanban + Clipping). Idempotent.
+  if (req.nextUrl.searchParams.get("youtubecol")) {
+    const out: any = {};
+    try { await (prisma as any).$executeRawUnsafe(`ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "youtubeEnabled" BOOLEAN NOT NULL DEFAULT false`); out.youtubeEnabled = "ok"; }
+    catch (e) { out.youtubeEnabled = "ERR: " + (e instanceof Error ? e.message : String(e)); }
+    return NextResponse.json({ youtubecol: out });
+  }
+
   if (req.nextUrl.searchParams.get("workspaces")) {
     const out: any = {};
     try {
@@ -1588,6 +1596,11 @@ export async function POST(req: NextRequest) {
     await (prisma as any).$executeRaw`
       ALTER TABLE "Client"
       ADD COLUMN IF NOT EXISTS "hideFromHq" BOOLEAN NOT NULL DEFAULT false;
+    `;
+    // Per-client YouTube toggle (YouTube Kanban + Clipping). Same as GET ?youtubecol=1.
+    await (prisma as any).$executeRaw`
+      ALTER TABLE "Client"
+      ADD COLUMN IF NOT EXISTS "youtubeEnabled" BOOLEAN NOT NULL DEFAULT false;
     `;
     // Headquarters: activity log + nightly reel snapshots.
     await (prisma as any).$executeRawUnsafe(`

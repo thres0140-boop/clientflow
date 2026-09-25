@@ -18,6 +18,8 @@ const ALL_PAGES = [
   { id: "board",     label: "Strategy Board",      icon: "🗂️" },
   { id: "transcribe",label: "Transcribe",          icon: "🎙️" },
   { id: "capcut",    label: "CapCut",              icon: "✂️" },
+  { id: "ytkanban",  label: "YouTube Kanban",      icon: "▶️" },
+  { id: "ytclipping",label: "Clipping",            icon: "🎬" },
   { id: "team",      label: "Team",                icon: "🤝" },
   { id: "chat",      label: "Messages",            icon: "💬" },
   { id: "settings",  label: "Settings",            icon: "⚙️" },
@@ -40,9 +42,11 @@ function parseAccess(pageAccess: string): string[] {
 // Pages that only make sense per platform, so we don't offer permission for a channel the client
 // doesn't have enabled.
 const IG_ONLY_PAGES = new Set(["instagram", "kanban", "tasks", "dms", "iginbox"]);
+const YT_ONLY_PAGES = new Set(["ytkanban", "ytclipping"]);
 function pagesForClient(client?: Client | null): typeof ALL_PAGES {
   const igOn = client ? (client as { instagramEnabled?: boolean }).instagramEnabled !== false : true;
-  return ALL_PAGES.filter((p) => (IG_ONLY_PAGES.has(p.id) ? igOn : true));
+  const ytOn = client ? !!(client as { youtubeEnabled?: boolean }).youtubeEnabled : false;
+  return ALL_PAGES.filter((p) => (IG_ONLY_PAGES.has(p.id) ? igOn : YT_ONLY_PAGES.has(p.id) ? ytOn : true));
 }
 
 export default function TeamPage({ clients, selectedClientId }: Props) {

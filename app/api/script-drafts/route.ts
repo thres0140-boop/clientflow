@@ -3,7 +3,7 @@ import { prisma } from "@/shared/db/prisma";
 import { addConceptExample, splitExamples, joinExamples } from "@/features/scripts/server/conceptExamples";
 import { sendWhatsApp } from "@/shared/notify/notify";
 import { logActivity } from "@/shared/activity";
-import { platformWhere } from "@/shared/platforms";
+import { platformWhere } from "@/shared/agencyPlatforms";
 
 export async function GET(req: NextRequest) {
   const idParam = req.nextUrl.searchParams.get("id");
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const scheduled = req.nextUrl.searchParams.get("scheduled");
   const today = new Date().toISOString().slice(0, 10);
 
-  // ?platforms=a,b (multi) takes precedence; else ?platform= ; else "instagram". See shared/platforms.ts.
+  // ?platforms=a,b (multi) takes precedence; else ?platform= ; else "instagram". See shared/agencyPlatforms.ts.
   const pw = platformWhere(req.nextUrl.searchParams);
   const where: Record<string, unknown> = clientId ? { clientId: parseInt(clientId), ...pw } : { ...pw };
 

@@ -45,6 +45,7 @@ model Client {
   hideFromHq            Boolean  @default(false)
   instagramEnabled      Boolean  @default(true)   // per-client Instagram toggle (on by default)
   tiktokEnabled         Boolean  @default(false)  // per-client TikTok toggle
+  youtubeEnabled        Boolean  @default(false)  // per-client YouTube toggle (YouTube Kanban + Clipping)
   tiktokHandle          String?  // the client's own TikTok @handle (for own-profile analytics)
   tiktokProfileData     String?  // cached JSON { profile, videos } of the last own-profile scrape (avoids re-scraping on every open)
   tiktokProfileAt       DateTime? // when the own-profile cache was last refreshed
