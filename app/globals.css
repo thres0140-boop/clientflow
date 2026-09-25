@@ -40,6 +40,15 @@
   --color-surface-hover: #fafafa;                   /* ghost-button hover */
   --color-well: #f6f6f4;                            /* a recessed field fill (video editor inputs); light = canvas */
   --color-rail: #fafafa;                            /* a rail beside content (video editor track headers) */
+  /* Timeline track colours by type (video editor): block fill, its label pill, the row behind it, the waveform */
+  --color-track-row: #f1f1ef;
+  --color-track-video: #cfe8ea;
+  --color-track-video-2: #b7dcdf;
+  --color-track-wave: #3aa0a8;
+  --color-track-caption: #f3d9cf;
+  --color-track-caption-2: #eac6b8;
+  --color-track-text: #dcdaf2;
+  --color-track-text-2: #cbc8ea;
   --color-line-strong: rgba(17, 17, 19, 0.2);      /* ghost-button hover border */
   --color-ink-strong: #000;                         /* primary-button hover */
   --color-on-ink: #fff;                             /* text on an ink-coloured surface */
@@ -250,6 +259,14 @@
   --color-surface-hover: #1a1e1a;
   --color-well: #0a0c0a;
   --color-rail: #151915;
+  --color-track-row: #161a16;
+  --color-track-video: #1e4c51;
+  --color-track-video-2: #2f5e63;
+  --color-track-wave: #33757d;
+  --color-track-caption: #924e3c;
+  --color-track-caption-2: #9c604f;
+  --color-track-text: #464186;
+  --color-track-text-2: #595493;
   --color-line: rgba(255, 255, 255, 0.07);
   --color-line-2: rgba(255, 255, 255, 0.12);
   --color-line-strong: rgba(255, 255, 255, 0.2);
@@ -452,6 +469,17 @@
   --color-surface-ink: #e0e0e0;
   --color-surface-ink-2: #d0d0d0;
   --color-surface-ink-3: #bdbdbd;
+
+  /* Timeline tracks, CapCut's measured values: rows #292929; video #1e4c51 with #2f5e63 pills and
+     #33757d waveform; captions #924e3c / #9c604f; text (and effect) bars #464186 / #595493. */
+  --color-track-row: #292929;
+  --color-track-video: #1e4c51;
+  --color-track-video-2: #2f5e63;
+  --color-track-wave: #33757d;
+  --color-track-caption: #924e3c;
+  --color-track-caption-2: #9c604f;
+  --color-track-text: #464186;
+  --color-track-text-2: #595493;
 
   --color-line: #373737;
   --color-line-soft: #2f2f2f;

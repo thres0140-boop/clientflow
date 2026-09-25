@@ -8,6 +8,7 @@
 // track labels to the left, so every track is reachable at any panel height.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { EditDocument, Ms } from "@/features/editor/model/document";
+import { filmstrip, THUMB_H, THUMB_W, useFilmstripVersion, WAVE_H } from "./useFilmstrip";
 import { captionTrack, clipLengthMs, mainTrack, moveClip, overlayTrack, setClipAt, snapCandidates, snapDelta, snapTime, textTrack, transitionAfter, trimClip, updateCue, updateText } from "@/features/editor/model/timeline";
 import { TRANSITION_LABELS } from "./transitions";
 import type { AssetStatus } from "./usePlayback";
@@ -21,6 +22,8 @@ export type Selection =
 
 type Props = {
   doc: EditDocument;
+  projectId: number;
+  playing: boolean;
   tMs: Ms;
   durationMs: Ms;
   pxPerSec: number;
@@ -36,6 +39,8 @@ type Props = {
 const LABEL_W = 123;                       // CapCut's track header column
 const ROW_TEXT = 22, ROW_CAPTION = 30, ROW_OVERLAY = 30, ROW_MAIN = 74; // CapCut's row heights
 const ROW_H = ROW_CAPTION;
+const STRIP_H = 17;                        // the name strip on a video clip, above the filmstrip
+const VIEW_MARGIN = 300;                   // px of filmstrip drawn beyond the visible window
 const SNAP_PX = 8;
 export const ZOOM_MIN = 10, ZOOM_MAX = 400; // px per second
 
@@ -45,8 +50,31 @@ export function fmtTime(ms: Ms): string {
   return `${m}:${(s - m * 60).toFixed(2).padStart(5, "0")}`;
 }
 
-export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, assetStatus, snap, onZoom, onSeek, onSelect, onChange }: Props) {
+export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxPerSec, selection, assetStatus, snap, onZoom, onSeek, onSelect, onChange }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Filmstrips draw only the visible window (a 15-minute clip at max zoom is 360k px wide), so the
+  // scrolled range is tracked here in 100 px steps; thumbnails are requested for that window only.
+  const [view, setView] = useState({ from: 0, to: 2400 });
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const from = Math.floor((el.scrollLeft - VIEW_MARGIN) / 100) * 100;
+      const to = Math.ceil((el.scrollLeft + el.clientWidth - LABEL_W + VIEW_MARGIN) / 100) * 100;
+      setView((v) => (v.from === from && v.to === to ? v : { from, to }));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(measure); };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const ro = new ResizeObserver(onScroll);
+    ro.observe(el);
+    onScroll();
+    return () => { el.removeEventListener("scroll", onScroll); ro.disconnect(); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+  // Thumbnail seeking competes with playback decode, so the filmstrip queue waits while playing.
+  useEffect(() => { filmstrip.setPaused(playing); }, [playing]);
+  const filmVersion = useFilmstripVersion();
   const zoomRef = useRef(pxPerSec);
   useEffect(() => { zoomRef.current = pxPerSec; }, [pxPerSec]);
   const anchor = useRef<{ t: Ms; cursorX: number } | null>(null);
@@ -170,14 +198,14 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
         {/* Text track */}
         <div className="flex" style={{ height: ROW_TEXT }}>
           {label("Text", undefined, ROW_TEXT)}
-          <div className="relative flex-1" onPointerDown={emptyScrub}>
+          <div className="relative flex-1 bg-track-row border-b border-surface" onPointerDown={emptyScrub}>
             {texts?.kind === "text" && texts.elements.map((el) => (
               <div key={el.id}
-                className={`absolute top-0.5 bottom-0.5 rounded-[2px] px-1 text-[11px] truncate flex items-center cursor-grab bg-hue-violet-50 text-hue-violet-700 border ${isSel("text", el.id) ? "border-hue-violet-500 ring-1 ring-hue-violet-400/60" : "border-transparent"}`}
+                className={`absolute top-0.5 bottom-0.5 rounded-[2px] px-0.5 text-[11px] truncate flex items-center gap-1 cursor-grab bg-track-text text-ink-strong border ${isSel("text", el.id) ? "border-ink-strong ring-1 ring-ink-strong" : "border-transparent"}`}
                 style={{ left: xOf(el.startMs), width: Math.max(8, xOf(el.endMs - el.startMs)) }}
                 onPointerDownCapture={(e) => { if (e.button !== 0 || onHandle(e)) return; onSelect({ kind: "text", id: el.id }); startDrag(e, "text-move", { edges: [el.startMs, el.endMs], exclude: [el.id] }, (b, d) => updateText(b, el.id, { startMs: Math.max(0, el.startMs + d), endMs: Math.max(100, el.endMs + d) })); }}>
                 <Handle side="l" onPointerDown={(e) => startDrag(e, "text-l", { edges: [el.startMs], exclude: [el.id] }, (b, d) => updateText(b, el.id, { startMs: Math.min(el.endMs - 100, Math.max(0, el.startMs + d)) }))} />
-                <span className="truncate">{el.text || "Text"}</span>
+                <span className="truncate rounded-[2px] bg-track-text-2 px-1 leading-4">{el.text || "Text"}</span>
                 <Handle side="r" onPointerDown={(e) => startDrag(e, "text-r", { edges: [el.endMs], exclude: [el.id] }, (b, d) => updateText(b, el.id, { endMs: Math.max(el.startMs + 100, el.endMs + d) }))} />
               </div>
             ))}
@@ -187,14 +215,14 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
         {/* Caption track */}
         <div className="flex" style={rowStyle}>
           {label("Captions")}
-          <div className="relative flex-1" onPointerDown={emptyScrub}>
+          <div className="relative flex-1 bg-track-row border-b border-surface" onPointerDown={emptyScrub}>
             {captions?.kind === "caption" && captions.cues.map((q) => (
               <div key={q.id}
-                className={`absolute top-1 bottom-1 rounded-[2px] px-1 text-[11px] truncate flex items-center cursor-grab bg-warn-50 text-warn-700 border ${isSel("cue", q.id) ? "border-warn-500 ring-1 ring-warn-400/60" : "border-transparent"}`}
+                className={`absolute top-1 bottom-1 rounded-[2px] px-0.5 text-[11px] truncate flex items-center gap-1 cursor-grab bg-track-caption text-ink-strong border ${isSel("cue", q.id) ? "border-ink-strong ring-1 ring-ink-strong" : "border-transparent"}`}
                 style={{ left: xOf(q.startMs), width: Math.max(6, xOf(q.endMs - q.startMs)) }}
                 onPointerDownCapture={(e) => { if (e.button !== 0 || onHandle(e)) return; onSelect({ kind: "cue", id: q.id }); startDrag(e, "cue-move", { edges: [q.startMs, q.endMs], exclude: [q.id] }, (b, d) => updateCue(b, q.id, { startMs: Math.max(0, q.startMs + d), endMs: Math.max(100, q.endMs + d), words: q.words ? q.words.map((w) => ({ ...w, startMs: w.startMs + d, endMs: w.endMs + d })) : null })); }}>
                 <Handle side="l" onPointerDown={(e) => startDrag(e, "cue-l", { edges: [q.startMs], exclude: [q.id] }, (b, d) => updateCue(b, q.id, { startMs: Math.min(q.endMs - 100, Math.max(0, q.startMs + d)) }))} />
-                <span className="truncate">{q.lines.join(" / ")}</span>
+                <span className="truncate rounded-[2px] bg-track-caption-2 px-1 leading-4">{q.lines.join(" / ")}</span>
                 <Handle side="r" onPointerDown={(e) => startDrag(e, "cue-r", { edges: [q.endMs], exclude: [q.id] }, (b, d) => updateCue(b, q.id, { endMs: Math.max(q.startMs + 100, q.endMs + d) }))} />
               </div>
             ))}
@@ -205,16 +233,16 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
         {overlay && (
           <div className="flex" style={{ height: ROW_OVERLAY }}>
             {label("B-roll", "over main", ROW_OVERLAY)}
-            <div className="relative flex-1" onPointerDown={emptyScrub}>
+            <div className="relative flex-1 bg-track-row border-b border-surface" onPointerDown={emptyScrub}>
               {overlay.clips.map((c) => {
                 const len = clipLengthMs(c);
                 return (
                   <div key={c.id}
-                    className={`absolute top-1 bottom-1 rounded-[2px] px-1 text-[11px] truncate flex items-center cursor-grab bg-hue-sky-50 text-hue-sky-700 border ${isSel("clip", c.id) ? "border-hue-sky-400 ring-1 ring-hue-sky-400/60" : "border-transparent"}`}
+                    className={`absolute top-1 bottom-1 rounded-[2px] px-0.5 text-[11px] truncate flex items-center gap-1 cursor-grab bg-track-video text-ink border ${isSel("clip", c.id) ? "border-ink-strong ring-1 ring-ink-strong" : "border-transparent"}`}
                     style={{ left: xOf(c.at), width: Math.max(8, xOf(len)) }}
                     onPointerDownCapture={(e) => { if (e.button !== 0 || onHandle(e)) return; onSelect({ kind: "clip", trackId: overlay.id, id: c.id }); startDrag(e, "ov-move", { edges: [c.at, c.at + len], exclude: [c.id] }, (b, d) => setClipAt(b, overlay.id, c.id, c.at + d)); }}>
                     <Handle side="l" onPointerDown={(e) => startDrag(e, "ov-l", { edges: [c.at], exclude: [c.id] }, (b, d) => trimClip(b, overlay.id, c.id, "start", d))} />
-                    <span className="truncate">{doc.assets.find((a) => a.id === c.assetId)?.name ?? "clip"}</span>
+                    <span className="truncate rounded-[2px] bg-track-video-2 px-1 leading-4">{doc.assets.find((a) => a.id === c.assetId)?.name ?? "clip"}</span>
                     <Handle side="r" onPointerDown={(e) => startDrag(e, "ov-r", { edges: [c.at + len], exclude: [c.id] }, (b, d) => trimClip(b, overlay.id, c.id, "end", d))} />
                   </div>
                 );
@@ -226,7 +254,7 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
         {/* Main track */}
         <div className="flex" style={{ height: ROW_MAIN }}>
           {label("Video", "main", ROW_MAIN)}
-          <div className="relative flex-1" onPointerDown={emptyScrub}>
+          <div className="relative flex-1 bg-track-row" onPointerDown={emptyScrub}>
             {main.clips.map((c, i) => {
               const len = clipLengthMs(c);
               const asset = doc.assets.find((a) => a.id === c.assetId);
@@ -236,11 +264,12 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
               // A clip with no length yet (metadata pending or failed) still gets a readable block, so
               // it can be selected, retried or deleted instead of being a 10 px sliver.
               const width = len === 0 ? 140 : Math.max(10, xOf(len));
-              const tone = failed ? "bg-danger-50 text-danger-700 border-danger-200" : "bg-hue-emerald-50 text-hue-emerald-700 border-hue-emerald-200";
-              const selTone = failed ? "border-danger-500 ring-2 ring-danger-500/40" : "border-hue-emerald-500 ring-2 ring-hue-emerald-500/40";
+              const tone = failed ? "bg-danger-50 text-danger-700 border-danger-200" : "bg-track-video text-ink border-track-video";
+              const selTone = failed ? "border-danger-500 ring-2 ring-danger-500/40" : "border-ink-strong ring-1 ring-ink-strong";
+              const clipX = xOf(c.at);
               return (
                 <div key={c.id} title={failed ? `${asset?.name}: ${st.reason}` : undefined}
-                  className={`absolute top-1 bottom-1 rounded-[2px] text-[11px] flex flex-col overflow-hidden cursor-grab border ${tone} ${isSel("clip", c.id) ? selTone : "border-transparent"} ${drag?.kind === "main-move" ? "transition-none" : ""}`}
+                  className={`absolute top-0.5 bottom-0.5 rounded-[2px] text-[11px] flex flex-col overflow-hidden cursor-grab border ${tone} ${isSel("clip", c.id) ? selTone : ""} ${drag?.kind === "main-move" ? "transition-none" : ""}`}
                   style={{ left: xOf(c.at), width }}
                   onPointerDownCapture={(e) => {
                     if (e.button !== 0 || onHandle(e)) return;
@@ -255,11 +284,15 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
                     });
                   }}>
                   <Handle side="l" onPointerDown={(e) => startDrag(e, "main-l", { edges: [c.at], exclude: [c.id] }, (b, d) => trimClip(b, main.id, c.id, "start", d))} />
-                  <div className="h-[17px] shrink-0 flex items-center gap-2 px-1 bg-black/25 text-[10px] leading-none">
-                    <span className="font-semibold truncate">{asset?.name ?? "clip"}</span>
-                    <span className={`font-mono shrink-0 ${failed ? "text-danger-600" : "opacity-80"}`}>{failed ? `failed · ${st.reason}` : pending ? "reading length…" : fmtTime(len)}</span>
+                  <div className="shrink-0 flex items-center gap-1 px-0.5 text-[10px] leading-none" style={{ height: STRIP_H }}>
+                    <span className={`truncate rounded-[2px] px-1 py-[2px] ${failed ? "" : "bg-track-video-2"}`}>{asset?.name ?? "clip"}</span>
+                    <span className={`font-mono shrink-0 rounded-[2px] px-1 py-[2px] ${failed ? "text-danger-600" : "bg-track-video-2"}`}>{failed ? `failed · ${st.reason}` : pending ? "reading length…" : fmtTime(len)}</span>
                   </div>
-                  <div className="flex-1" />
+                  <div className="relative flex-1">
+                    {!failed && !pending && asset && (
+                      <ClipBody projectId={projectId} assetId={asset.id} url={asset.url} inMs={c.inMs} speed={c.speed} pxPerSec={pxPerSec} widthPx={width} view={{ from: view.from - clipX, to: view.to - clipX }} version={filmVersion} />
+                    )}
+                  </div>
                   <Handle side="r" onPointerDown={(e) => startDrag(e, "main-r", { edges: [c.at + len], exclude: [c.id] }, (b, d) => trimClip(b, main.id, c.id, "end", d))} />
                 </div>
               );
@@ -297,6 +330,67 @@ export default function Timeline({ doc, tMs, durationMs, pxPerSec, selection, as
 }
 
 const onHandle = (e: React.PointerEvent) => !!(e.target as HTMLElement).closest?.("[data-handle]");
+
+/** The body of a main-track clip: a filmstrip of frames sampled from the source (one per 31 px
+ *  cell, on a 0.5 s grid shared across zoom levels) and a waveform in the bottom 14 px. One
+ *  canvas covering just the visible slice of the clip; repainted when the slice, the zoom or the
+ *  filmstrip store changes. Colours are the track tokens, read at paint time. */
+function ClipBody({ projectId, assetId, url, inMs, speed, pxPerSec, widthPx, view, version }: { projectId: number; assetId: string; url: string; inMs: Ms; speed: number; pxPerSec: number; widthPx: number; view: { from: number; to: number }; version: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const from = Math.max(0, Math.floor(view.from)), to = Math.min(widthPx, Math.ceil(view.to));
+  const w = Math.max(0, to - from);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c || w === 0) return;
+    const h = c.clientHeight;
+    if (h === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = Math.round(w * dpr), H = Math.round(h * dpr);
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cs = getComputedStyle(c);
+    const tok = (n: string) => cs.getPropertyValue(n).trim();
+    const fill = tok("--color-track-video"), cell = tok("--color-track-video-2"), wave = tok("--color-track-wave");
+    ctx.fillStyle = fill;
+    ctx.fillRect(0, 0, w, h);
+    const thumbH = Math.max(8, h - WAVE_H);
+    const srcSec = (x: number) => inMs / 1000 + (x / pxPerSec) * speed;
+    // Filmstrip: a cell per THUMB_W px, its frame the source time at the cell's left edge.
+    const first = Math.floor(from / THUMB_W), last = Math.floor(Math.max(from, to - 1) / THUMB_W);
+    const times: number[] = [];
+    for (let i = first; i <= last; i++) {
+      const x = i * THUMB_W, t = srcSec(x);
+      times.push(t);
+      const bmp = filmstrip.get(assetId, t);
+      if (bmp) {
+        const sh = Math.min(THUMB_H, thumbH);
+        ctx.drawImage(bmp, 0, (THUMB_H - sh) / 2, THUMB_W, sh, x - from, 0, THUMB_W, thumbH);
+      } else {
+        ctx.fillStyle = cell;
+        ctx.fillRect(x - from + 1, 1, THUMB_W - 2, thumbH - 2);
+      }
+    }
+    if (times.length) filmstrip.request(assetId, url, times);
+    // Waveform: for each pixel column, the loudest 20 ms window it covers, drawn about the band's middle.
+    const pk = filmstrip.peaksFor(projectId, assetId);
+    if (pk) {
+      ctx.fillStyle = wave;
+      const mid = thumbH + WAVE_H / 2, maxBar = WAVE_H - 2;
+      for (let x = 0; x < w; x++) {
+        const t0 = srcSec(from + x), t1 = srcSec(from + x + 1);
+        const i0 = Math.max(0, Math.floor(t0 * pk.rate)), i1 = Math.max(i0 + 1, Math.ceil(t1 * pk.rate));
+        let m = 0;
+        for (let i = i0; i < i1 && i < pk.peaks.length; i++) if (pk.peaks[i] > m) m = pk.peaks[i];
+        const bh = Math.max(1, (m / 255) * maxBar);
+        ctx.fillRect(x, mid - bh / 2, 1, bh);
+      }
+    }
+  }, [projectId, assetId, url, inMs, speed, pxPerSec, from, to, w, version]);
+  if (w === 0) return null;
+  return <canvas ref={ref} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: from, width: w }} />;
+}
 
 function Handle({ side, onPointerDown }: { side: "l" | "r"; onPointerDown: (e: React.PointerEvent) => void }) {
   return (

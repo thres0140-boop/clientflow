@@ -23,6 +23,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["ffmpeg-static"],
   outputFileTracingIncludes: {
     "/api/edit-projects/[id]/transcribe": ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/edit-projects/[id]/waveform": ["./node_modules/ffmpeg-static/ffmpeg"],
     "/api/clipping/transcribe": ["./node_modules/ffmpeg-static/ffmpeg"],
     "/api/clipping/bench": ["./node_modules/ffmpeg-static/ffmpeg"],
   },

@@ -55,7 +55,7 @@ const isR2 = (url: string) => /\.r2\.dev\//.test(url);
 /** Where a <video> should load from: a presigned GET on the R2 S3 endpoint for our own objects
  *  (direct, no function in the way, no r2.dev throttle), else the same-origin proxy or the url
  *  itself, exactly as every other player in the app. */
-async function resolveSrc(url: string): Promise<{ src: string; signed: boolean }> {
+export async function resolveSrc(url: string): Promise<{ src: string; signed: boolean }> {
   if (isR2(url)) {
     try {
       const r = await fetch(`/api/r2/sign-get?url=${encodeURIComponent(url)}`, { cache: "no-store" });

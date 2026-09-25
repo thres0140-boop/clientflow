@@ -359,6 +359,11 @@ components breaks the rules above:
   field fill; `--color-rail`, a rail beside content) so the editor could use `bg-well` /
   `bg-rail` without a literal; nothing outside the editor uses them yet. Keep the order when
   tuning.
+- Timeline track colours are tokens too (`--color-track-row`, `-video`, `-video-2`, `-wave`,
+  `-caption`, `-caption-2`, `-text`, `-text-2`), minted app-wide with light and dark values and
+  set to CapCut's measured values in the editor scope: rows `#292929`; video `#1e4c51` with
+  `#2f5e63` pills and a `#33757d` waveform; captions `#924e3c` / `#9c604f`; text `#464186` /
+  `#595493`. The clip canvas reads them with `getComputedStyle` at paint time, never literals.
 - Media chrome inside the editor (the black preview backdrop, white text over thumbnails, the
   failed-clip chips) stays literal, exactly as the media rule above says.
 - Scope: the editor route only. The CapCut list page in the sidebar is a normal app page on
