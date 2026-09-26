@@ -145,20 +145,29 @@ is linear on both sides on purpose; durations are capped at half the on-screen t
 renderers (`animationState()` is the shared formula). Nothing else was added: bounce, typewriter
 and per-word pops have no libass equivalent and stay out.
 
-## Clip blocks: filmstrip and waveform (added 2026-09-25)
+## Clip blocks: filmstrip and waveform (added 2026-09-25, filmstrip moved server-side 2026-09-26)
 
 Main-track clips show CapCut's three bands: a 17 px name strip, a filmstrip, and a 14 px
-waveform. Both are cosmetic; the document and the export are untouched.
+waveform. Both are cosmetic; the document and the export are untouched. Both are made on the
+server once per asset and cached in R2, so the browser never decodes video for the timeline and
+nothing competes with playback.
 
-- **Filmstrip** (`features/editor/pages/useFilmstrip.ts`): a second hidden `<video>` per asset
-  (never the playback element, whose time is the clock) is seeked through a single serial queue;
-  each frame is drawn into a 31×43 cell and kept as an ImageBitmap keyed by asset and a 0.5 s
-  grid, so every zoom level reuses earlier samples. Only the visible window of each clip is
-  drawn or requested (a 15 min clip at max zoom is 360k px wide), the queue pauses while the
-  preview plays, and it yields to idle time between seeks. Cost: one seek per sample, roughly
-  30–100 ms of decoder time on a 4K source; a 60 s clip at the default zoom is ~115 samples.
-- **Waveform** (`GET /api/edit-projects/:id/waveform?assetId=`): ffmpeg reads the clip from R2
-  over a presigned URL and emits 4 kHz mono PCM; each 20 ms window becomes one peak byte (50 per
-  second, 4.5 KB for a 90 s reel), cached in R2 as `waveforms/<sha1(url)>.v1.json`. Browser-side
-  decoding was rejected: it needs the whole 4K file in memory. Cost: one extraction per asset,
-  seconds and I/O bound, then a tiny JSON on every open.
+- **Filmstrip** (`GET /api/edit-projects/:id/filmstrip?assetId=`): ffmpeg reads the clip from R2
+  over a presigned URL, decodes **keyframes only** (`-skip_frame nokey`) and tiles one 31×43 cell
+  per `interval` seconds into a JPEG sprite, 24 cells per row, at most 480 cells (interval =
+  max(1 s, duration / 480)). Each cell is the last keyframe at or before its slot. Full decoding
+  was rejected by measurement: an 8-minute 4K 10-bit HEVC clip took 466 s to decode fully and
+  42 s keyframes-only. Phone footage keeps a keyframe every ~1 s, so the strip is at least as
+  fine as the 31 px cell at every zoom we ship; at high zoom neighbouring cells repeat the same
+  keyframe, as CapCut's do. The sprite and its meta JSON live under `filmstrips/<sha1(url)>.v1`;
+  the route answers with the meta and a one-hour presigned URL for the sprite. Cost: one
+  keyframe pass per asset (seconds for a reel), then one small image per open.
+  The earlier client-side sampler (a hidden `<video>` seeked per cell) is gone: it needed a
+  CORS-enabled read of the clip and its decoder work made the timeline lag during playback.
+  While the sprite loads, or when it cannot be made, the cell band is one flat muted band with no
+  cell boundaries, so a pending strip never reads as broken frames.
+- **Waveform** (`GET /api/edit-projects/:id/waveform?assetId=`): ffmpeg emits 4 kHz mono PCM;
+  each 20 ms window becomes one peak byte (50 per second, 4.5 KB for a 90 s reel), cached in R2
+  as `waveforms/<sha1(url)>.v1.json`. Browser-side decoding was rejected: it needs the whole 4K
+  file in memory. Both routes log `[filmstrip]` / `[waveform]` lines with the outcome and timing,
+  so a flat band can be traced in the Vercel runtime logs.

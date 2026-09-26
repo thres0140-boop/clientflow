@@ -658,7 +658,7 @@ export default function EditorPage({ draftId }: { draftId: number }) {
               <IconButton name="zoomIn" label="Zoom in" onClick={() => setPxPerSec((z) => Math.min(ZOOM_MAX, z * 1.5))} />
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
-              <Timeline doc={doc} projectId={project.id} playing={pb.playing} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} snap={snap} onZoom={setPxPerSec} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
+              <Timeline doc={doc} projectId={project.id} tMs={pb.tMs} durationMs={pb.durationMs} pxPerSec={pxPerSec} selection={selection} assetStatus={pb.status} snap={snap} onZoom={setPxPerSec} onSeek={pb.seek} onSelect={setSelection} onChange={onChange} />
             </div>
           </section>
         </div>

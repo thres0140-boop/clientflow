@@ -73,14 +73,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const client = s3();
   const cacheKey = `waveforms/${createHash("sha1").update(asset.url).digest("hex")}.${VERSION}.json`;
   try {
+    const started = Date.now();
     const hit = await client.send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: cacheKey })).then((r) => r.Body?.transformToString()).catch(() => null);
-    if (hit) return new NextResponse(hit, { headers: { "Content-Type": "application/json", "Cache-Control": "private, max-age=3600" } });
+    if (hit) { console.log(`[waveform] project ${project.id} asset ${asset.id}: cache, ${hit.length} bytes`); return new NextResponse(hit, { headers: { "Content-Type": "application/json", "Cache-Control": "private, max-age=3600" } }); }
     const signed = await getSignedUrl(client, new GetObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key }), { expiresIn: 1800 });
     const pcm = await extractPcm(signed, `${project.id}-${asset.id}`);
     const body = JSON.stringify({ rate: RATE / WINDOW, peaks: Buffer.from(peaksOf(pcm)).toString("base64") });
     await uploadToR2(cacheKey, Buffer.from(body), "application/json").catch(() => null);
+    console.log(`[waveform] project ${project.id} asset ${asset.id}: ffmpeg ${pcm.length} bytes of pcm → ${body.length} bytes, ${Date.now() - started} ms`);
     return new NextResponse(body, { headers: { "Content-Type": "application/json", "Cache-Control": "private, max-age=3600" } });
   } catch (e) {
+    console.error(`[waveform] project ${project.id} asset ${asset.id} failed: ${e instanceof Error ? e.message : String(e)}`);
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
 }

@@ -8,7 +8,7 @@
 // track labels to the left, so every track is reachable at any panel height.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { EditDocument, Ms } from "@/features/editor/model/document";
-import { filmstrip, THUMB_H, THUMB_W, useFilmstripVersion, WAVE_H } from "./useFilmstrip";
+import { filmstrip, useFilmstripVersion, WAVE_H } from "./useFilmstrip";
 import { captionTrack, clipLengthMs, mainTrack, moveClip, overlayTrack, setClipAt, snapCandidates, snapDelta, snapTime, textTrack, transitionAfter, trimClip, updateCue, updateText } from "@/features/editor/model/timeline";
 import { TRANSITION_LABELS } from "./transitions";
 import type { AssetStatus } from "./usePlayback";
@@ -23,7 +23,6 @@ export type Selection =
 type Props = {
   doc: EditDocument;
   projectId: number;
-  playing: boolean;
   tMs: Ms;
   durationMs: Ms;
   pxPerSec: number;
@@ -50,7 +49,7 @@ export function fmtTime(ms: Ms): string {
   return `${m}:${(s - m * 60).toFixed(2).padStart(5, "0")}`;
 }
 
-export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxPerSec, selection, assetStatus, snap, onZoom, onSeek, onSelect, onChange }: Props) {
+export default function Timeline({ doc, projectId, tMs, durationMs, pxPerSec, selection, assetStatus, snap, onZoom, onSeek, onSelect, onChange }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // Filmstrips draw only the visible window (a 15-minute clip at max zoom is 360k px wide), so the
   // scrolled range is tracked here in 100 px steps; thumbnails are requested for that window only.
@@ -72,8 +71,6 @@ export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxP
     onScroll();
     return () => { el.removeEventListener("scroll", onScroll); ro.disconnect(); if (raf) cancelAnimationFrame(raf); };
   }, []);
-  // Thumbnail seeking competes with playback decode, so the filmstrip queue waits while playing.
-  useEffect(() => { filmstrip.setPaused(playing); }, [playing]);
   const filmVersion = useFilmstripVersion();
   const zoomRef = useRef(pxPerSec);
   useEffect(() => { zoomRef.current = pxPerSec; }, [pxPerSec]);
@@ -290,7 +287,7 @@ export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxP
                   </div>
                   <div className="relative flex-1">
                     {!failed && !pending && asset && (
-                      <ClipBody projectId={projectId} assetId={asset.id} url={asset.url} inMs={c.inMs} speed={c.speed} pxPerSec={pxPerSec} widthPx={width} view={{ from: view.from - clipX, to: view.to - clipX }} version={filmVersion} />
+                      <ClipBody projectId={projectId} assetId={asset.id} inMs={c.inMs} speed={c.speed} pxPerSec={pxPerSec} widthPx={width} view={{ from: view.from - clipX, to: view.to - clipX }} version={filmVersion} />
                     )}
                   </div>
                   <Handle side="r" onPointerDown={(e) => startDrag(e, "main-r", { edges: [c.at + len], exclude: [c.id] }, (b, d) => trimClip(b, main.id, c.id, "end", d))} />
@@ -331,11 +328,13 @@ export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxP
 
 const onHandle = (e: React.PointerEvent) => !!(e.target as HTMLElement).closest?.("[data-handle]");
 
-/** The body of a main-track clip: a filmstrip of frames sampled from the source (one per 31 px
- *  cell, on a 0.5 s grid shared across zoom levels) and a waveform in the bottom 14 px. One
- *  canvas covering just the visible slice of the clip; repainted when the slice, the zoom or the
- *  filmstrip store changes. Colours are the track tokens, read at paint time. */
-function ClipBody({ projectId, assetId, url, inMs, speed, pxPerSec, widthPx, view, version }: { projectId: number; assetId: string; url: string; inMs: Ms; speed: number; pxPerSec: number; widthPx: number; view: { from: number; to: number }; version: number }) {
+/** The body of a main-track clip: a filmstrip of keyframe cells drawn from the asset's server-made
+ *  sprite (one cell per 31 px, the last keyframe at or before that source time) and a waveform in
+ *  the bottom 14 px. One canvas covering just the visible slice of the clip; repainted when the
+ *  slice, the zoom or the store changes. Until the sprite is in, the cell band is one plain muted
+ *  band, deliberately without cell boundaries, so a pending strip never reads as broken frames.
+ *  Colours are the track tokens, read at paint time. */
+function ClipBody({ projectId, assetId, inMs, speed, pxPerSec, widthPx, view, version }: { projectId: number; assetId: string; inMs: Ms; speed: number; pxPerSec: number; widthPx: number; view: { from: number; to: number }; version: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const from = Math.max(0, Math.floor(view.from)), to = Math.min(widthPx, Math.ceil(view.to));
   const w = Math.max(0, to - from);
@@ -352,30 +351,30 @@ function ClipBody({ projectId, assetId, url, inMs, speed, pxPerSec, widthPx, vie
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const cs = getComputedStyle(c);
     const tok = (n: string) => cs.getPropertyValue(n).trim();
-    const fill = tok("--color-track-video"), cell = tok("--color-track-video-2"), wave = tok("--color-track-wave");
+    const fill = tok("--color-track-video"), band = tok("--color-track-video-2"), wave = tok("--color-track-wave");
     ctx.fillStyle = fill;
     ctx.fillRect(0, 0, w, h);
     const thumbH = Math.max(8, h - WAVE_H);
     const srcSec = (x: number) => inMs / 1000 + (x / pxPerSec) * speed;
-    // Filmstrip: a cell per THUMB_W px, its frame the source time at the cell's left edge.
-    const first = Math.floor(from / THUMB_W), last = Math.floor(Math.max(from, to - 1) / THUMB_W);
-    const times: number[] = [];
-    for (let i = first; i <= last; i++) {
-      const x = i * THUMB_W, t = srcSec(x);
-      times.push(t);
-      const bmp = filmstrip.get(assetId, t);
-      if (bmp) {
-        const sh = Math.min(THUMB_H, thumbH);
-        ctx.drawImage(bmp, 0, (THUMB_H - sh) / 2, THUMB_W, sh, x - from, 0, THUMB_W, thumbH);
-      } else {
-        ctx.fillStyle = cell;
-        ctx.fillRect(x - from + 1, 1, THUMB_W - 2, thumbH - 2);
+    const sprite = filmstrip.spriteFor(projectId, assetId);
+    if (typeof sprite === "string") {
+      // Pending (or unavailable): one flat band, no cells.
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = band;
+      ctx.fillRect(0, 2, w, thumbH - 4);
+      ctx.globalAlpha = 1;
+    } else {
+      const { img, interval, cols, count, cellW, cellH } = sprite;
+      const first = Math.floor(from / cellW), last = Math.floor(Math.max(from, to - 1) / cellW);
+      const sh = Math.min(cellH, thumbH), sy0 = (cellH - sh) / 2;
+      for (let i = first; i <= last; i++) {
+        const idx = Math.min(count - 1, Math.max(0, Math.floor(srcSec(i * cellW) / interval)));
+        ctx.drawImage(img, (idx % cols) * cellW, Math.floor(idx / cols) * cellH + sy0, cellW, sh, i * cellW - from, 0, cellW, thumbH);
       }
     }
-    if (times.length) filmstrip.request(assetId, url, times);
     // Waveform: for each pixel column, the loudest 20 ms window it covers, drawn about the band's middle.
     const pk = filmstrip.peaksFor(projectId, assetId);
-    if (pk) {
+    if (typeof pk !== "string") {
       ctx.fillStyle = wave;
       const mid = thumbH + WAVE_H / 2, maxBar = WAVE_H - 2;
       for (let x = 0; x < w; x++) {
@@ -387,7 +386,7 @@ function ClipBody({ projectId, assetId, url, inMs, speed, pxPerSec, widthPx, vie
         ctx.fillRect(x, mid - bh / 2, 1, bh);
       }
     }
-  }, [projectId, assetId, url, inMs, speed, pxPerSec, from, to, w, version]);
+  }, [projectId, assetId, inMs, speed, pxPerSec, from, to, w, version]);
   if (w === 0) return null;
   return <canvas ref={ref} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: from, width: w }} />;
 }
