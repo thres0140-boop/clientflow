@@ -34,35 +34,39 @@ const selectCls = "h-[22px] w-full rounded-[2px] bg-well px-2 text-[11px] text-i
 const areaCls = "w-full rounded-[2px] bg-well px-2 py-1.5 text-[11px] text-ink-strong focus:outline-none focus:ring-1 focus:ring-accent";
 const btnCls = "h-[22px] px-2 rounded-[3px] text-[11px] font-medium bg-surface-3 text-ink hover:bg-surface-4 disabled:opacity-40 disabled:cursor-not-allowed";
 
-/** A row: 11 px label on the left, the control(s) on the right. */
+/** A row: 12 px label in an 80 px column on the left, the control(s) on the right (CapCut, full-screen). */
 function Row({ label, children, top }: { label: string; children: React.ReactNode; top?: boolean }) {
   return (
-    <div className={`grid grid-cols-[92px_1fr] gap-x-3 ${top ? "items-start" : "items-center"} min-h-[22px]`}>
-      <span className="text-[11px] text-ink truncate pt-px" title={label}>{label}</span>
+    <div className={`grid grid-cols-[80px_1fr] gap-x-3 ${top ? "items-start" : "items-center"} min-h-[22px]`}>
+      <span className="text-[12px] text-ink truncate pt-px" title={label}>{label}</span>
       <div className="flex items-center gap-2 min-w-0">{children}</div>
     </div>
   );
 }
-/** A section: 11 px bold header with a collapse chevron, 2 px separator above, 38 px row pitch. */
+/** A section: 12 px bold header with a collapse chevron, 2 px separator above, 38 px row pitch. */
 function Group({ title, children, first }: { title: string; children: React.ReactNode; first?: boolean }) {
   const [open, setOpen] = useState(true);
   return (
     <section className={first ? "pt-2" : "pt-4 mt-4 border-t-2 border-line"}>
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-[11px] font-bold text-ink-strong mb-3">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-[12px] font-bold text-ink-strong mb-3">
         {title}<Icon name="chevron" size={10} className={`text-ink transition-transform ${open ? "" : "-rotate-90"}`} />
       </button>
       {open && <div className="flex flex-col gap-4">{children}</div>}
     </section>
   );
 }
-/** CapCut's number field: a 68 px well with the value, and a 10 px stepper beside it. */
-function Num({ value, onChange, min, max, step = 1, suffix, width = 68 }: { value: number; onChange: (n: number) => void; min?: number; max?: number; step?: number; suffix?: string; width?: number }) {
+/** CapCut's number field: a 54 px well with the value (68 with an axis letter inside, as on Position), and a
+ *  16 px stepper beside it. */
+function Num({ value, onChange, min, max, step = 1, suffix, prefix, width = 54 }: { value: number; onChange: (n: number) => void; min?: number; max?: number; step?: number; suffix?: string; prefix?: string; width?: number }) {
   const clampV = (n: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n));
   const shown = Number.isFinite(value) ? +value.toFixed(step < 1 ? 2 : 0) : 0;
   return (
     <div className="inline-flex items-center gap-1">
-      <input type="number" className={`${fieldCls} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none`} style={{ width }} value={shown} min={min} max={max} step={step} onChange={(e) => onChange(Number(e.target.value))} />
-      <div className="h-[22px] w-[10px] flex flex-col rounded-[2px] overflow-hidden bg-surface-3">
+      <div className="h-[22px] inline-flex items-center rounded-[2px] bg-well focus-within:ring-1 focus-within:ring-accent" style={{ width }}>
+        {prefix && <span className="pl-2 text-[11px] text-faint select-none">{prefix}</span>}
+        <input type="number" className="h-full flex-1 min-w-0 bg-transparent px-1 text-[11px] text-ink-strong text-center focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" value={shown} min={min} max={max} step={step} onChange={(e) => onChange(Number(e.target.value))} />
+      </div>
+      <div className="h-[22px] w-4 flex flex-col rounded-[2px] overflow-hidden bg-surface-3">
         <button type="button" aria-label="Increase" onClick={() => onChange(clampV(+(value + step).toFixed(4)))} className="flex-1 flex items-center justify-center text-ink hover:bg-surface-4"><Icon name="chevron" size={8} className="rotate-180" /></button>
         <button type="button" aria-label="Decrease" onClick={() => onChange(clampV(+(value - step).toFixed(4)))} className="flex-1 flex items-center justify-center text-ink hover:bg-surface-4"><Icon name="chevron" size={8} /></button>
       </div>
@@ -92,7 +96,7 @@ function Seg<T extends string>({ value, options, onChange }: { value: T; options
   return (
     <div className="inline-flex h-6 rounded bg-well p-0.5 w-full">
       {options.map((o) => (
-        <button key={o.v} onClick={() => onChange(o.v)} className={`flex-1 px-2 text-[11px] rounded-[3px] ${value === o.v ? "bg-surface-3 text-ink-strong" : "text-ink hover:text-ink-strong"}`}>{o.l}</button>
+        <button key={o.v} onClick={() => onChange(o.v)} className={`flex-1 px-2 text-[12px] rounded-[3px] ${value === o.v ? "bg-surface-3 text-ink-strong" : "text-ink hover:text-ink-strong"}`}>{o.l}</button>
       ))}
     </div>
   );
@@ -148,14 +152,14 @@ export function StyleSections({ style, onChange, which }: { style: CaptionStyle;
             <Row label="Outline width"><Num value={style.outline.widthPx} min={0} max={20} suffix="px" onChange={(n) => set((s) => ({ ...s, outline: { ...s.outline, widthPx: n } }))} /></Row>
             <Row label="Shadow"><Color value={style.shadow.color} onChange={(v) => set((s) => ({ ...s, shadow: { ...s.shadow, color: hex(v) } }))} /></Row>
             <Row label="Shadow offset"><Num value={style.shadow.offsetPx} min={0} max={20} suffix="px" onChange={(n) => set((s) => ({ ...s, shadow: { ...s.shadow, offsetPx: n } }))} /></Row>
-            <Row label="Shadow opacity"><Slider value={Math.round(style.shadow.opacity * 100)} min={0} max={100} step={5} onChange={(n) => set((s) => ({ ...s, shadow: { ...s.shadow, opacity: n / 100 } }))} /><Num value={Math.round(style.shadow.opacity * 100)} min={0} max={100} step={5} suffix="%" width={52} onChange={(n) => set((s) => ({ ...s, shadow: { ...s.shadow, opacity: n / 100 } }))} /></Row>
+            <Row label="Shadow opacity"><Slider value={Math.round(style.shadow.opacity * 100)} min={0} max={100} step={5} onChange={(n) => set((s) => ({ ...s, shadow: { ...s.shadow, opacity: n / 100 } }))} /><Num value={Math.round(style.shadow.opacity * 100)} min={0} max={100} step={5} suffix="%" width={54} onChange={(n) => set((s) => ({ ...s, shadow: { ...s.shadow, opacity: n / 100 } }))} /></Row>
           </Group>
           <Group title="Background box">
             <Row label="Box"><Toggle label="Box behind each line" value={style.box.enabled} onChange={(v) => set((s) => ({ ...s, box: { ...s.box, enabled: v } }))} /></Row>
             {style.box.enabled && (
               <>
                 <Row label="Colour"><Color value={style.box.color} onChange={(v) => set((s) => ({ ...s, box: { ...s.box, color: hex(v) } }))} /></Row>
-                <Row label="Opacity"><Slider value={Math.round(style.box.opacity * 100)} min={0} max={100} step={5} onChange={(n) => set((s) => ({ ...s, box: { ...s.box, opacity: n / 100 } }))} /><Num value={Math.round(style.box.opacity * 100)} min={0} max={100} step={5} suffix="%" width={52} onChange={(n) => set((s) => ({ ...s, box: { ...s.box, opacity: n / 100 } }))} /></Row>
+                <Row label="Opacity"><Slider value={Math.round(style.box.opacity * 100)} min={0} max={100} step={5} onChange={(n) => set((s) => ({ ...s, box: { ...s.box, opacity: n / 100 } }))} /><Num value={Math.round(style.box.opacity * 100)} min={0} max={100} step={5} suffix="%" width={54} onChange={(n) => set((s) => ({ ...s, box: { ...s.box, opacity: n / 100 } }))} /></Row>
                 <Row label="Padding"><Num value={style.box.paddingPx} min={0} max={60} suffix="px" onChange={(n) => set((s) => ({ ...s, box: { ...s.box, paddingPx: n } }))} /></Row>
               </>
             )}
@@ -199,18 +203,18 @@ function TransformGroup({ doc, t, box, onChange, first }: { doc: EditDocument; t
   );
   return (
     <Group title="Transform" first={first}>
-      <Row label="Scale"><Slider value={Math.round(t.scale * 100)} min={5} max={300} step={1} onChange={(n) => onChange({ ...t, scale: n / 100 })} /><Num value={Math.round(t.scale * 100)} min={5} max={500} suffix="%" width={52} onChange={(n) => onChange({ ...t, scale: Math.max(0.05, n / 100) })} /></Row>
+      <Row label="Scale"><Slider value={Math.round(t.scale * 100)} min={5} max={300} step={1} onChange={(n) => onChange({ ...t, scale: n / 100 })} /><Num value={Math.round(t.scale * 100)} min={5} max={500} suffix="%" width={54} onChange={(n) => onChange({ ...t, scale: Math.max(0.05, n / 100) })} /></Row>
       <Row label="Keep aspect ratio"><span title="Always on: the document has one uniform scale, not separate width and height scales"><Toggle label="Keep aspect ratio" value disabled onChange={() => {}} /></span></Row>
       <Row label="Position">
-        <span className="text-[11px] text-muted">X</span><Num value={Math.round((t.x - 0.5) * W)} step={1} width={56} onChange={(n) => onChange({ ...t, x: 0.5 + n / W })} />
-        <span className="text-[11px] text-muted">Y</span><Num value={Math.round((t.y - 0.5) * H)} step={1} width={56} onChange={(n) => onChange({ ...t, y: 0.5 + n / H })} />
+        <Num prefix="X" value={Math.round((t.x - 0.5) * W)} step={1} width={68} onChange={(n) => onChange({ ...t, x: 0.5 + n / W })} />
+        <Num prefix="Y" value={Math.round((t.y - 0.5) * H)} step={1} width={68} onChange={(n) => onChange({ ...t, y: 0.5 + n / H })} />
       </Row>
       <Row label="Rotate">
         <Num value={t.rotation} min={-180} max={180} step={1} suffix="°" onChange={(n) => onChange({ ...t, rotation: Math.max(-180, Math.min(180, n)) })} />
         <button title="Reset rotation" onClick={() => onChange({ ...t, rotation: 0 })} className="h-[22px] w-[22px] inline-flex items-center justify-center rounded-full bg-surface-3 text-ink hover:bg-surface-4"><Icon name="retry" size={11} /></button>
       </Row>
-      <Row label="Opacity"><Slider value={Math.round(t.opacity * 100)} min={0} max={100} step={5} onChange={(n) => onChange({ ...t, opacity: n / 100 })} /><Num value={Math.round(t.opacity * 100)} min={0} max={100} step={5} suffix="%" width={52} onChange={(n) => onChange({ ...t, opacity: Math.max(0, Math.min(1, n / 100)) })} /></Row>
-      <div className="grid grid-cols-[92px_1fr] gap-x-3">
+      <Row label="Opacity"><Slider value={Math.round(t.opacity * 100)} min={0} max={100} step={5} onChange={(n) => onChange({ ...t, opacity: n / 100 })} /><Num value={Math.round(t.opacity * 100)} min={0} max={100} step={5} suffix="%" width={54} onChange={(n) => onChange({ ...t, opacity: Math.max(0, Math.min(1, n / 100)) })} /></Row>
+      <div className="grid grid-cols-[80px_1fr] gap-x-3">
         <span />
         <div className="flex gap-1 rounded-[3px] bg-surface-3 p-0.5">{alignBtn("Align left", "⇤", "left", null)}{alignBtn("Centre horizontally", "↔", "center", null)}{alignBtn("Align right", "⇥", "right", null)}{alignBtn("Align top", "⤒", null, "top")}{alignBtn("Centre vertically", "↕", null, "middle")}{alignBtn("Align bottom", "⤓", null, "bottom")}</div>
       </div>
@@ -248,11 +252,11 @@ export default function Inspector({ doc, selection, onChange, onSelect, onSaveCl
       body = (tab) => tab === "audio" ? (
         <Group title="Audio" first>
           <Row label="Mute"><Toggle label="Mute" value={clip.muted} onChange={(v) => commit(updateClip(doc, track.id, clip.id, { muted: v }))} /></Row>
-          <Row label="Volume"><Slider value={Math.round(clip.volume * 100)} min={0} max={100} step={5} onChange={(n) => commit(updateClip(doc, track.id, clip.id, { volume: n / 100 }))} /><Num value={Math.round(clip.volume * 100)} min={0} max={100} step={5} suffix="%" width={52} onChange={(n) => commit(updateClip(doc, track.id, clip.id, { volume: n / 100 }))} /></Row>
+          <Row label="Volume"><Slider value={Math.round(clip.volume * 100)} min={0} max={100} step={5} onChange={(n) => commit(updateClip(doc, track.id, clip.id, { volume: n / 100 }))} /><Num value={Math.round(clip.volume * 100)} min={0} max={100} step={5} suffix="%" width={54} onChange={(n) => commit(updateClip(doc, track.id, clip.id, { volume: n / 100 }))} /></Row>
         </Group>
       ) : tab === "speed" ? (
         <Group title="Speed" first>
-          <div className="grid grid-cols-[92px_1fr] gap-x-3">
+          <div className="grid grid-cols-[80px_1fr] gap-x-3">
             <span />
             <div className="flex flex-wrap gap-1">
               {SPEED_STOPS.map((s) => (
@@ -388,7 +392,7 @@ export default function Inspector({ doc, selection, onChange, onSelect, onSaveCl
       <div className="h-[42px] shrink-0 flex items-stretch px-2 bg-surface-2 rounded-t-md">
         {tabs.map((t) => (
           <button key={t.id} onClick={() => setTabByKind((m) => ({ ...m, [kind]: t.id }))}
-            className={`px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors ${tab === t.id ? "text-accent" : "text-ink hover:text-ink-strong"}`}>{t.label}</button>
+            className={`px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors ${tab === t.id ? "text-accent" : "text-ink hover:text-ink-strong"}`}>{t.label}</button>
         ))}
         <span className="flex-1" />
         {onDelete && <button onClick={onDelete} title="Delete" className="self-center h-6 w-6 inline-flex items-center justify-center rounded-[3px] text-ink hover:bg-surface-3"><Icon name="trash" size={13} /></button>}

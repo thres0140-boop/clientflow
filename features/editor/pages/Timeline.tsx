@@ -37,7 +37,7 @@ type Props = {
 };
 
 const LABEL_W = 123;                       // CapCut's track header column
-const ROW_TEXT = 22, ROW_CAPTION = 30, ROW_OVERLAY = 30, ROW_MAIN = 74; // CapCut's row heights
+const ROW_TEXT = 22, ROW_CAPTION = 24, ROW_OVERLAY = 30, ROW_MAIN = 74; // CapCut's row heights (full-screen, 2026-09-26); rows sit 3 px apart
 const ROW_H = ROW_CAPTION;
 const STRIP_H = 17;                        // the name strip on a video clip, above the filmstrip
 const VIEW_MARGIN = 300;                   // px of filmstrip drawn beyond the visible window
@@ -184,7 +184,7 @@ export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxP
       onPointerDown={(e) => { if (e.target === e.currentTarget) onSelect(null); }}>
       <div style={{ width: LABEL_W + widthPx }} className="relative">
         {/* Ruler: pinned to the top while the tracks scroll under it */}
-        <div className="sticky top-0 z-30 flex h-5 bg-surface">
+        <div className="sticky top-0 z-30 flex h-4 bg-surface">
           <div className="sticky left-0 z-20 bg-rail shrink-0 flex items-center px-3 text-[10px] font-mono text-ink-2" style={{ width: LABEL_W }}>{fmtTime(tMs)}</div>
           <div className="relative flex-1 cursor-col-resize" onPointerDown={scrubFrom}>
             {ticks.map((t) => (
@@ -198,7 +198,7 @@ export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxP
         {/* Text track */}
         <div className="flex" style={{ height: ROW_TEXT }}>
           {label("Text", undefined, ROW_TEXT)}
-          <div className="relative flex-1 bg-track-row border-b border-surface" onPointerDown={emptyScrub}>
+          <div className="relative flex-1 bg-track-row border-b-[3px] border-surface" onPointerDown={emptyScrub}>
             {texts?.kind === "text" && texts.elements.map((el) => (
               <div key={el.id}
                 className={`absolute top-0.5 bottom-0.5 rounded-[2px] px-0.5 text-[11px] truncate flex items-center gap-1 cursor-grab bg-track-text text-ink-strong border ${isSel("text", el.id) ? "border-ink-strong ring-1 ring-ink-strong" : "border-transparent"}`}
@@ -215,10 +215,10 @@ export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxP
         {/* Caption track */}
         <div className="flex" style={rowStyle}>
           {label("Captions")}
-          <div className="relative flex-1 bg-track-row border-b border-surface" onPointerDown={emptyScrub}>
+          <div className="relative flex-1 bg-track-row border-b-[3px] border-surface" onPointerDown={emptyScrub}>
             {captions?.kind === "caption" && captions.cues.map((q) => (
               <div key={q.id}
-                className={`absolute top-1 bottom-1 rounded-[2px] px-0.5 text-[11px] truncate flex items-center gap-1 cursor-grab bg-track-caption text-ink-strong border ${isSel("cue", q.id) ? "border-ink-strong ring-1 ring-ink-strong" : "border-transparent"}`}
+                className={`absolute top-[3px] bottom-[3px] rounded-[2px] px-0.5 text-[11px] truncate flex items-center gap-1 cursor-grab bg-track-caption text-ink-strong border ${isSel("cue", q.id) ? "border-ink-strong ring-1 ring-ink-strong" : "border-transparent"}`}
                 style={{ left: xOf(q.startMs), width: Math.max(6, xOf(q.endMs - q.startMs)) }}
                 onPointerDownCapture={(e) => { if (e.button !== 0 || onHandle(e)) return; onSelect({ kind: "cue", id: q.id }); startDrag(e, "cue-move", { edges: [q.startMs, q.endMs], exclude: [q.id] }, (b, d) => updateCue(b, q.id, { startMs: Math.max(0, q.startMs + d), endMs: Math.max(100, q.endMs + d), words: q.words ? q.words.map((w) => ({ ...w, startMs: w.startMs + d, endMs: w.endMs + d })) : null })); }}>
                 <Handle side="l" onPointerDown={(e) => startDrag(e, "cue-l", { edges: [q.startMs], exclude: [q.id] }, (b, d) => updateCue(b, q.id, { startMs: Math.min(q.endMs - 100, Math.max(0, q.startMs + d)) }))} />
@@ -233,7 +233,7 @@ export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxP
         {overlay && (
           <div className="flex" style={{ height: ROW_OVERLAY }}>
             {label("B-roll", "over main", ROW_OVERLAY)}
-            <div className="relative flex-1 bg-track-row border-b border-surface" onPointerDown={emptyScrub}>
+            <div className="relative flex-1 bg-track-row border-b-[3px] border-surface" onPointerDown={emptyScrub}>
               {overlay.clips.map((c) => {
                 const len = clipLengthMs(c);
                 return (
@@ -284,7 +284,7 @@ export default function Timeline({ doc, projectId, playing, tMs, durationMs, pxP
                     });
                   }}>
                   <Handle side="l" onPointerDown={(e) => startDrag(e, "main-l", { edges: [c.at], exclude: [c.id] }, (b, d) => trimClip(b, main.id, c.id, "start", d))} />
-                  <div className="shrink-0 flex items-center gap-1 px-0.5 text-[10px] leading-none" style={{ height: STRIP_H }}>
+                  <div className="shrink-0 flex items-center gap-1 px-0.5 text-[11px] leading-none" style={{ height: STRIP_H }}>
                     <span className={`truncate rounded-[2px] px-1 py-[2px] ${failed ? "" : "bg-track-video-2"}`}>{asset?.name ?? "clip"}</span>
                     <span className={`font-mono shrink-0 rounded-[2px] px-1 py-[2px] ${failed ? "text-danger-600" : "bg-track-video-2"}`}>{failed ? `failed · ${st.reason}` : pending ? "reading length…" : fmtTime(len)}</span>
                   </div>

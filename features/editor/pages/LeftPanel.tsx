@@ -84,8 +84,8 @@ const SUB_NAV: Record<EditorTab, SubNav[]> = {
   templates: [{ id: "mine", label: "Mine", disabled: true }, { id: "client", label: "Per client", disabled: true }],
 };
 
-const pill = "h-6 w-full flex items-center justify-between gap-1 px-2.5 rounded-[3px] text-[12px] font-medium transition-colors";
-const toolBtn = "h-[22px] inline-flex items-center gap-1 px-2 rounded-[3px] text-[11px] font-medium transition-colors";
+const pill = "h-[22px] w-full flex items-center justify-between gap-1 px-2.5 rounded-[3px] text-[12px] font-medium transition-colors";
+const toolBtn = "h-[22px] inline-flex items-center gap-1 px-2 rounded-[3px] text-[12px] font-medium transition-colors";
 
 export default function LeftPanel(p: Props) {
   const { tab, onTab } = p;
@@ -98,15 +98,16 @@ export default function LeftPanel(p: Props) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header row = the tab bar, CapCut's strip: icon in a 27x22 box (filled accent when active) over a 10 px label, 100 px pitch. */}
+      {/* Header row = the tab bar, CapCut's strip (measured full-screen, 2026-09-26): a 19 px glyph in a 27x22 box
+          (filled accent when active) over an 11 px label; the pitch is content-driven, label width + 10 px padding a side. */}
       <div className="h-[42px] shrink-0 flex items-stretch bg-surface-2 rounded-t-md">
         <div ref={tabsRef} className="flex-1 min-w-0 flex items-stretch overflow-x-auto [scrollbar-width:none]">
           {EDITOR_TABS.map((t) => {
             const active = tab === t.id;
             return (
               <button key={t.id} onClick={() => onTab(t.id as EditorTab)} title={t.label}
-                className={`min-w-[100px] flex flex-col items-center justify-center gap-px text-[10px] font-medium whitespace-nowrap transition-colors ${active ? "text-accent" : "text-ink hover:text-ink-strong"}`}>
-                <span className={`h-[22px] w-[27px] rounded flex items-center justify-center ${active ? "bg-accent text-on-accent" : ""}`}><Icon name={t.icon} size={13} /></span>
+                className={`px-[10px] flex flex-col items-center justify-center gap-px text-[11px] font-medium whitespace-nowrap transition-colors ${active ? "text-accent" : "text-ink hover:text-ink-strong"}`}>
+                <span className={`h-[22px] w-[27px] rounded flex items-center justify-center ${active ? "bg-accent text-on-accent" : ""}`}><Icon name={t.icon} size={19} /></span>
                 {t.label}
               </button>
             );
@@ -118,7 +119,7 @@ export default function LeftPanel(p: Props) {
 
       <div className="flex-1 min-h-0 flex">
         {/* Secondary nav column */}
-        <nav className="w-[120px] shrink-0 p-2 space-y-2 overflow-y-auto">
+        <nav className="w-[120px] shrink-0 p-2 space-y-2.5 overflow-y-auto">
           {subs.map((s) => (
             <button key={s.id} onClick={() => !s.disabled && setSub(s.id)} disabled={s.disabled} title={s.disabled ? NOT_BUILT : undefined}
               className={`${pill} bg-surface-3 ${sub === s.id && !s.disabled ? "text-accent" : "text-ink hover:text-ink-strong"} disabled:opacity-40 disabled:cursor-not-allowed`}>
@@ -154,7 +155,7 @@ export default function LeftPanel(p: Props) {
 }
 
 function Toolbar({ children }: { children: React.ReactNode }) {
-  return <div className="h-[46px] shrink-0 flex items-center gap-1.5 px-3">{children}</div>;
+  return <div className="h-[48px] shrink-0 flex items-center gap-[11px] px-3">{children}</div>;
 }
 function Footer({ children }: { children: React.ReactNode }) {
   return <div className="h-[39px] shrink-0 flex items-center gap-2 px-3 bg-surface-2 rounded-b-md">{children}</div>;
@@ -209,8 +210,8 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
           </div>
         )}
         {error && <p className="text-xs text-danger-600 bg-danger-50 px-3 py-2 rounded-md mb-3">{error}</p>}
-        <div className="text-[11px] text-ink mb-2">All</div>
-        <ul className="grid grid-cols-[repeat(auto-fill,120px)] gap-3">
+        <div className="text-[12px] text-ink mb-2">All</div>
+        <ul className="grid grid-cols-[repeat(auto-fill,120px)] gap-4">
           {doc.assets.map((a) => {
             const st = status[a.id];
             const failed = st?.state === "failed";
@@ -218,10 +219,10 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
             const n = usage.get(a.id) ?? 0;
             const thumb = thumbs[a.id];
             return (
-              <li key={a.id} className={`group w-[120px] h-[140px] rounded-md overflow-hidden flex flex-col ${failed ? "ring-1 ring-danger-500" : ""} bg-surface-3`}>
-                <div className="relative h-[90px] shrink-0 bg-black">
+              <li key={a.id} className="group w-[120px] flex flex-col">
+                <div className={`relative h-[80px] shrink-0 rounded overflow-hidden bg-surface-3 ${failed ? "ring-1 ring-danger-500" : ""}`}>
                   {/* Media thumbnail: black backdrop and white text over it stay literal (dark-mode doc, media rule). */}
-                  {thumb ? <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-contain" /> : (
+                  {thumb ? <img src={thumb} alt="" className="absolute inset-y-0 left-1/2 -translate-x-1/2 h-full bg-black" /> : (
                     <div className="absolute inset-0 flex items-center justify-center text-white/40"><Icon name="media" size={20} /></div>
                   )}
                   {!failed && a.durationMs != null && <span className="absolute bottom-1 right-1 text-[10px] font-mono text-white bg-black/60 rounded px-1">{fmtTime(a.durationMs).replace(/\.\d+$/, "")}</span>}
@@ -235,16 +236,16 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
                     </div>
                   )}
                 </div>
-                <div className="px-1.5 py-1 min-h-0">
-                  <div className="text-[10px] text-ink truncate" title={a.name}>{a.name}</div>
+                <div className="pt-[7px] px-1 min-h-0">
+                  <div className="text-[11px] text-ink truncate" title={a.name}>{a.name}</div>
                   {failed ? (
                     <div className="mt-1 flex gap-1">
                       <button onClick={() => onRetry(a.id)} className="h-6 px-1.5 rounded-md text-[10px] font-semibold bg-surface text-ink-2 border border-line hover:text-ink inline-flex items-center gap-1"><Icon name="retry" size={12} />Retry</button>
                       <button onClick={() => onRemoveAsset(a.id)} title="Remove" className="h-6 px-1.5 rounded-md text-[10px] font-semibold bg-surface text-danger-600 border border-line inline-flex items-center"><Icon name="trash" size={12} /></button>
                     </div>
-                  ) : (
-                    <div className="text-[10px] text-faint truncate">{a.width && a.height ? `${a.width}×${a.height}` : loading ? "reading length…" : "video"}</div>
-                  )}
+                  ) : loading ? (
+                    <div className="text-[10px] text-faint truncate">reading length…</div>
+                  ) : null}
                 </div>
               </li>
             );
@@ -254,9 +255,9 @@ function MediaContent({ doc, status, thumbs, sub, onAddToMain, onAddBroll, onUpl
       </div>
 
       <Footer>
-        <button disabled title={NOT_BUILT} className={`${toolBtn} px-1 text-accent disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="sparkle" size={12} />AI clipper</button>
+        <button disabled title={NOT_BUILT} className={`${toolBtn} px-1 text-[13px] font-semibold text-accent disabled:opacity-40 disabled:cursor-not-allowed`}><Icon name="sparkle" size={14} />AI clipper</button>
         <span className="flex-1" />
-        <span className="text-[10px] text-muted">{doc.assets.length} item{doc.assets.length === 1 ? "" : "s"}</span>
+        <span className="text-[12px] text-muted">{doc.assets.length} item{doc.assets.length === 1 ? "" : "s"}</span>
         <button disabled title={NOT_BUILT} className={`${toolBtn} bg-accent text-on-accent disabled:opacity-40 disabled:cursor-not-allowed`}>Make clips</button>
       </Footer>
     </>

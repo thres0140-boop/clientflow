@@ -35,7 +35,7 @@ const HISTORY_CAP = 100;
 // The divider between the upper area and the timeline: remembered per user like the other cf_* keys.
 const TIMELINE_H_KEY = "cf_editor_timeline_h";
 const SNAP_KEY = "cf_editor_snap";
-const TIMELINE_H_DEFAULT = 292;
+const TIMELINE_H_DEFAULT = 329;          // CapCut full-screen: 329 of 1107 (29.7 %); absolute, so server and client render the same height
 const TIMELINE_H_MIN = 160;          // toolbar + ruler + two rows
 const UPPER_MIN = 260;               // the preview must keep a usable height
 // Zoom bounds live in Timeline (ZOOM_MIN/ZOOM_MAX); the slider is logarithmic between them.
@@ -577,14 +577,15 @@ export default function EditorPage({ draftId }: { draftId: number }) {
 
             {/* Centre, the largest: "Preview — <name>" header, the video, transport under it */}
             <section ref={previewBox} className={panelCls + " flex-1 min-w-[320px] min-h-0 flex flex-col"}>
-              <div className="h-[42px] shrink-0 flex items-center gap-2 px-4 bg-surface-2 rounded-t-md">
-                <span className="text-[12px] text-ink-strong truncate">Preview <span className="text-ink">— {draftTitle || `Draft #${draftId}`}</span></span>
+              <div className="h-[42px] shrink-0 flex items-center gap-2 px-3 bg-surface-2 rounded-t-md">
+                <span className="text-[13px] text-ink-strong truncate">Preview <span className="text-ink">— {draftTitle || `Draft #${draftId}`}</span></span>
                 <span className="flex-1" />
                 {loadingAssets.length > 0 && <span className="text-[10px] text-faint">Reading {loadingAssets.length} clip length{loadingAssets.length === 1 ? "" : "s"}…</span>}
                 {failedAssets.length > 0 && <span className="text-[10px] font-semibold text-danger-600">{failedAssets.length} clip{failedAssets.length === 1 ? "" : "s"} failed</span>}
                 <IconButton name="menu" label={`Preview options — ${NOT_BUILT.toLowerCase()}`} disabled />
               </div>
-              <div ref={previewArea} className="flex-1 min-h-0 flex items-center justify-center p-3">
+              {/* CapCut: the canvas sits flush under the header; the transport band below it is 69 px with its controls 48 px down. */}
+              <div ref={previewArea} className="flex-1 min-h-0 flex items-start justify-center px-3 pt-px">
                 <div className="relative overflow-hidden rounded-md bg-black" style={{ width: fit.w, height: fit.h }}>
                   {/* Real <video> elements live here (hardware decode + composite); the canvas above paints only captions and text. */}
                   <div ref={videoLayerRef} className="absolute inset-0" />
@@ -602,12 +603,12 @@ export default function EditorPage({ draftId }: { draftId: number }) {
                   </div>
                 </div>
               </div>
-              <div className="h-11 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center px-3">
+              <div className="h-[69px] shrink-0 grid grid-cols-[1fr_auto_1fr] items-end pb-[10px] px-3">
                 <span className="text-[11px] font-mono text-ink tabular-nums"><span className="text-accent">{fmtTime(pb.tMs)}</span> <span className="text-faint">/ {fmtTime(pb.durationMs)}</span></span>
                 <div className="flex items-center gap-2">
                   <IconButton name="prevFrame" label="Previous frame (←)" onClick={() => pb.seek(pb.tMs - frameMs)} />
                   <button onClick={pb.toggle} title={pb.playing ? "Pause (space)" : "Play (space)"} aria-label={pb.playing ? "Pause" : "Play"}
-                    className="h-6 w-6 inline-flex items-center justify-center rounded-[3px] text-ink-strong hover:bg-surface-3"><Icon name={pb.playing ? "pause" : "play"} size={16} /></button>
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-[3px] text-ink-strong hover:bg-surface-3"><Icon name={pb.playing ? "pause" : "play"} size={13} /></button>
                   <IconButton name="nextFrame" label="Next frame (→)" onClick={() => pb.seek(pb.tMs + frameMs)} />
                 </div>
                 <div className="flex items-center justify-end gap-0.5">
