@@ -5,6 +5,7 @@ import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { imgSrc } from "@/shared/media/videoSrc";
 import type { PlatformId } from "@/shared/agencyPlatforms";
+import { NAV_LABELS, navPages } from "@/shared/nav";
 
 
 type Page = "pipeline" | "kanban" | "tasks" | "concepts" | "analytics" | "instagram" | "board" | "dms" | "iginbox" | "team" | "chat" | "settings" | "context" | "transcribe" | "capcut" | "clientsettings" | "ytkanban" | "ytclipping";
@@ -150,23 +151,18 @@ type Props = {
   onMoveClient?: (clientId: number, workspaceId: number) => void;
 };
 
-// Page lists for the owner's nav folders.
-const PAGE_NAV_LABEL: Record<string, string> = {
-  pipeline: "Content Scheduling", kanban: "Script Kanban", tasks: "Script Tasks",
-  concepts: "Concept Library", context: "AI Context", analytics: "Analytics",
-  dms: "DM Pipeline", iginbox: "Instagram Inbox", instagram: "Instagram", board: "Strategy Board", transcribe: "Transcribe",
-  capcut: "CapCut",
-  ytkanban: "YouTube Kanban", ytclipping: "Clipping",
-};
-const IG_FOLDER: Page[] = ["kanban", "tasks", "concepts", "context", "analytics", "dms", "iginbox", "instagram"];
+// Page lists for the owner's nav folders. One definition, shared/nav.ts, feeds the sidebar and
+// the navigation manifest Ordo posts to the Cenks Dashboard in embedded mode.
+const PAGE_NAV_LABEL: Record<string, string> = NAV_LABELS;
+const IG_FOLDER = navPages("instagram") as Page[];
 // The "▶ YOUTUBE" folder: a sibling of the Instagram folder, shown only when the client has
 // YouTube switched on (Client.youtubeEnabled).
-const YT_FOLDER: Page[] = ["ytkanban", "ytclipping"];
+const YT_FOLDER = navPages("youtube") as Page[];
 // Cross-platform pages under WORK. Content Scheduling merges every enabled platform into one
 // calendar, so it must NOT switch the app's active platform when opened (see CROSS_PLATFORM).
-const SHARED_WORK: Page[] = ["pipeline", "board"];
+const SHARED_WORK = navPages("work") as Page[];
 // The "✂ EDITING" folder: the in-app video editor's queue and Transcribe (moved out of WORK).
-const EDIT_FOLDER: Page[] = ["capcut", "transcribe"];
+const EDIT_FOLDER = navPages("editing") as Page[];
 const CROSS_PLATFORM: Page[] = ["pipeline"];
 
 const DIVIDER = { borderColor: "var(--color-nav-line)" };

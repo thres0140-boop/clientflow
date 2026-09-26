@@ -22,7 +22,8 @@ import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { applyTheme, readStoredTheme, startThemeColorSync } from "@/shared/theme";
 import { countUnseenSentBack } from "@/features/scripts/sentBackSeen";
-import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoClientsMessage, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
+import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoClientsMessage, type OrdoNavigateMessage, type OrdoNavMessage, type ParentNavigateMessage } from "@/shared/embed";
+import { ownerNavFor } from "@/shared/nav";
 
 export type Page =
   | "pipeline"
@@ -116,7 +117,7 @@ export default function App() {
     if (embedded && window.parent !== window && Array.isArray(data)) {
       const msg: OrdoClientsMessage = {
         type: "ordo:clients",
-        clients: data.map((c) => ({ id: c.id, name: c.name, color: c.color, platform: c.platform, workspace: (c as { workspace?: { name?: string } | null }).workspace?.name ?? null })),
+        clients: data.map((c) => ({ id: c.id, name: c.name, color: c.color, platform: c.platform, workspace: (c as { workspace?: { name?: string } | null }).workspace?.name ?? null, instagramEnabled: (c as { instagramEnabled?: boolean }).instagramEnabled !== false, youtubeEnabled: !!(c as { youtubeEnabled?: boolean }).youtubeEnabled })),
       };
       window.parent.postMessage(msg, "*");
     }
@@ -430,6 +431,22 @@ export default function App() {
     // Client settings is owner-only — never expose it to a member login.
     return base.filter((p) => p !== "clientsettings" || session?.type === "owner");
   })();
+
+  // Embedded in the Cenks Dashboard: hand it the navigation the owner sidebar would show for this
+  // client (groups, items, labels, page ids, icon names), so its ORDO menu follows new screens
+  // without a dashboard deploy. Standalone Ordo never posts this.
+  const allowedKey = allowedPages.join(",");
+  useEffect(() => {
+    if (!embedded || !appReady || session?.type !== "owner" || window.parent === window) return;
+    const c = clients.find((cl) => cl.id === selectedClientId) as { instagramEnabled?: boolean; youtubeEnabled?: boolean } | undefined;
+    const groups = ownerNavFor({ instagramEnabled: !c || c.instagramEnabled !== false, youtubeEnabled: !!c?.youtubeEnabled, allowedPages: allowedKey.split(",") });
+    const msg: OrdoNavMessage = {
+      type: "ordo:nav",
+      version: 1,
+      groups: groups.map((g) => ({ id: g.id, label: g.label, collapsible: g.collapsible, items: g.items.map((i) => ({ page: i.page, label: i.label, icon: i.icon })) })),
+    };
+    window.parent.postMessage(msg, "*");
+  }, [embedded, appReady, session?.type, clients, selectedClientId, allowedKey]);
 
   // Pages this member may VIEW but not edit (view-only). Empty for the owner.
   const viewOnlyPages: Page[] = (() => {

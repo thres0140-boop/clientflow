@@ -18,7 +18,18 @@ export type OrdoNavigateMessage = {
 /** Posted to the parent whenever the client list is (re)loaded, so its client switcher matches Ordo. */
 export type OrdoClientsMessage = {
   type: "ordo:clients";
-  clients: { id: number; name: string; color: string; platform: string; workspace: string | null }[];
+  clients: { id: number; name: string; color: string; platform: string; workspace: string | null; instagramEnabled?: boolean; youtubeEnabled?: boolean }[];
+};
+
+/**
+ * Posted to the parent once the app is ready and whenever the owner's sidebar would change (client
+ * switch, platform toggles): the groups and items Ordo itself shows, so the dashboard can render the
+ * same menu without a deploy. Only ever sent in embedded mode; standalone Ordo never posts it.
+ */
+export type OrdoNavMessage = {
+  type: "ordo:nav";
+  version: 1;
+  groups: { id: string; label: string; collapsible: boolean; items: { page: string; label: string; icon: string }[] }[];
 };
 
 /** Message the parent may post to Ordo to change screens without reloading the iframe. */
