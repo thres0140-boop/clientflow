@@ -22,7 +22,7 @@ import { Client, Notification, TeamMember, Workspace } from "@/shared/types";
 import type { SessionPayload } from "@/shared/auth/session";
 import { applyTheme, readStoredTheme, startThemeColorSync } from "@/shared/theme";
 import { countUnseenSentBack } from "@/features/scripts/sentBackSeen";
-import { buildDeepLinkSearch, parseDeepLink, readEmbedFlag, type OrdoClientsMessage, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
+import { buildDeepLinkSearch, isConversationId, parseDeepLink, readEmbedFlag, type OrdoClientsMessage, type OrdoNavigateMessage, type ParentNavigateMessage } from "@/shared/embed";
 
 export type Page =
   | "pipeline"
@@ -95,6 +95,9 @@ export default function App() {
   // When set, the Instagram reels view enters "attach mode" — clicking reels adds them to this concept
   const [attachConcept, setAttachConcept] = useState<{ id: number; name: string } | null>(null);
   const [kanbanHighlightId, setKanbanHighlightId] = useState<number | null>(deepLink.draft);
+  // Instagram Inbox thread to open once the inbox has loaded (?conversation= or the parent's
+  // ordo:navigate). Cleared by DmsPage as soon as it has handled the request.
+  const [inboxConversationId, setInboxConversationId] = useState<string | null>(deepLink.conversation);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
@@ -377,6 +380,7 @@ export default function App() {
       if (!d || d.type !== "ordo:navigate") return;
       if (typeof d.clientId === "number") setSelectedClientId(d.clientId);
       if (typeof d.draft === "number") setKanbanHighlightId(d.draft);
+      if (isConversationId(d.conversation)) setInboxConversationId(d.conversation);
       if (typeof d.page === "string" && isPage(d.page)) setPage(d.page);
     }
     window.addEventListener("message", onMessage);
@@ -500,7 +504,7 @@ export default function App() {
       case "kanban": return <Kanban clients={clients} platform={platform} selectedClientId={selectedClientId} onSelectClient={setSelectedClientId} activeProfileId={activeProfileId} activeProfile={activeProfile} team={team} ownerName={ownerName} isClient={session?.type === "member"} onOpenChat={(context) => { setChatContext(context); setPage("chat"); }} onBadgesChanged={() => refreshBadges(selectedClientId)} highlightDraftId={kanbanHighlightId} onHighlightConsumed={() => setKanbanHighlightId(null)} />;
       case "tasks": return <ScriptTasksPage clients={clients} selectedClientId={selectedClientId} canSubmit={session?.type === "member"} />;
       case "dms":      return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} view="pipeline" />;
-      case "iginbox":  return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} view="inbox" />;
+      case "iginbox":  return <DmsPage clients={clients} selectedClientId={selectedClientId} onGoToSettings={() => setPage("settings")} view="inbox" openConversationId={inboxConversationId} onConversationOpened={() => setInboxConversationId(null)} />;
       case "instagram": return <InstagramPage clients={clients} selectedClientId={selectedClientId} attachConcept={attachConcept} onExitAttach={() => setAttachConcept(null)} embedded={inPane} />;
       // No sidebar to offset from when the app is embedded in the dashboard: the board must start at x=0.
       case "board": return <BoardPage clients={clients} selectedClientId={selectedClientId} sidebarCollapsed={sidebarCollapsed || embedded} embedded={inPane} />;

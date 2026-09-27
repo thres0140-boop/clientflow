@@ -27,7 +27,15 @@ export type ParentNavigateMessage = {
   page?: string;
   clientId?: number | null;
   draft?: number | null;
+  /** Instagram Inbox thread to open (ZernioConversation id), e.g. from the dashboard's DM Inbox. */
+  conversation?: string | null;
 };
+
+/** A Zernio conversation id as it may appear in a URL or message: short, no separators. */
+const CONVERSATION_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+export function isConversationId(value: unknown): value is string {
+  return typeof value === "string" && CONVERSATION_ID_RE.test(value);
+}
 
 /** Reads ?embed=1 / ?embed=0 (persisting the choice) and returns whether we are embedded. */
 export function readEmbedFlag(): boolean {
@@ -42,23 +50,25 @@ export function readEmbedFlag(): boolean {
   }
 }
 
-export type DeepLink = { page: string | null; clientId: number | null; draft: number | null };
+export type DeepLink = { page: string | null; clientId: number | null; draft: number | null; conversation: string | null };
 
-/** Deep-link params from the current URL: ?page=<id>&clientId=<n>&draft=<n>. */
+/** Deep-link params from the current URL: ?page=<id>&clientId=<n>&draft=<n>&conversation=<id>. */
 export function parseDeepLink(isPage: (p: string) => boolean): DeepLink {
-  if (typeof window === "undefined") return { page: null, clientId: null, draft: null };
+  if (typeof window === "undefined") return { page: null, clientId: null, draft: null, conversation: null };
   try {
     const params = new URLSearchParams(window.location.search);
     const page = params.get("page");
     const clientId = parseInt(params.get("clientId") || "", 10);
     const draft = parseInt(params.get("draft") || "", 10);
+    const conversation = params.get("conversation");
     return {
       page: page && isPage(page) ? page : null,
       clientId: Number.isFinite(clientId) ? clientId : null,
       draft: Number.isFinite(draft) ? draft : null,
+      conversation: isConversationId(conversation) ? conversation : null,
     };
   } catch {
-    return { page: null, clientId: null, draft: null };
+    return { page: null, clientId: null, draft: null, conversation: null };
   }
 }
 

@@ -11,7 +11,16 @@ import { imgSrc, videoSrc } from "@/shared/media/videoSrc";
 // One component, two sidebar pages: the shell passes `view` ("dms" → pipeline, "iginbox" → inbox)
 // so both share the fetch/state logic below.
 type View = "pipeline" | "inbox";
-type Props = { clients: Client[]; selectedClientId: number | null; onGoToSettings?: () => void; view: View };
+type Props = {
+  clients: Client[];
+  selectedClientId: number | null;
+  onGoToSettings?: () => void;
+  view: View;
+  /** Inbox thread to open once this client's inbox has loaded (deep link); null when none. */
+  openConversationId?: string | null;
+  /** Called once the requested thread was opened, or found not to be in this client's inbox. */
+  onConversationOpened?: () => void;
+};
 type Period = "day" | "week" | "2weeks" | "month" | "all";
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -232,7 +241,7 @@ function AttachmentView({ a, msg, convId, clientId, own }: { a: Attachment; msg:
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function DmsPage({ clients, selectedClientId, onGoToSettings, view }: Props) {
+export default function DmsPage({ clients, selectedClientId, onGoToSettings, view, openConversationId = null, onConversationOpened }: Props) {
 
   // Pipeline state
   const [leads, setLeads]           = useState<DmLead[]>([]);
@@ -262,6 +271,9 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   const [hasOlder, setHasOlder]           = useState(false);
   const [loadingOlder, setLoadingOlder]   = useState(false);
   const [inboxTruncated, setInboxTruncated] = useState(false);
+  // The client whose conversations are in `conversations` (set when a load succeeds). A deep link
+  // is only resolved against the list of the client it was meant for.
+  const [inboxClientId, setInboxClientId] = useState<number | null>(null);
   // Where the list came from: the local mirror (fresh, local unread) or the live Zernio walk (fallback).
   const [inboxSource, setInboxSource] = useState<"mirror" | "live" | null>(null);
   const [inboxSyncedAt, setInboxSyncedAt] = useState<string | null>(null);
@@ -327,6 +339,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
         });
         convs.sort((a, b) => new Date(b.updatedTime).getTime() - new Date(a.updatedTime).getTime());
         setConversations(convs);
+        setInboxClientId(selectedClientId);
         setInboxTruncated(!!data.pagination?.truncated);
         setInboxSource(fromMirror ? "mirror" : "live");
         setInboxSyncedAt(data.syncedAt ?? null);
@@ -336,6 +349,32 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
     } catch (e) { setInboxError(String(e)); }
     setInboxLoading(false);
   }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open a thread: select it, clear its badge and tell Ordo it was seen (same as a click).
+  function openConversation(conv: Conversation) {
+    setSelectedConv(conv);
+    if (conv.unreadCount) setConversations((prev) => prev.map((c) => c.id === conv.id ? { ...c, unreadCount: 0 } : c));
+    if (selectedClientId) fetch(`/api/zernio/conversations/${conv.id}/seen`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: selectedClientId }) }).catch(() => {});
+  }
+
+  // Deep link (?conversation= / the dashboard's "Reply in Ordo"): once this client's inbox has
+  // loaded, open the requested thread and scroll it into view. A thread that is not in this
+  // client's inbox leaves the inbox as it is. Either way the request is consumed once.
+  useEffect(() => {
+    if (!openConversationId || view !== "inbox") return;
+    if (inboxLoading || !selectedClientId || inboxClientId !== selectedClientId) return;
+    const conv = conversations.find((c) => c.id === openConversationId);
+    // Next frame: the list has painted, so the row exists to scroll to.
+    const frame = requestAnimationFrame(() => {
+      if (conv) {
+        if (conv.unidentified) setShowUnidentified(true); // anonymous threads are hidden by default
+        openConversation(conv);
+        requestAnimationFrame(() => document.querySelector(`[data-conv-id="${CSS.escape(conv.id)}"]`)?.scrollIntoView({ block: "center" }));
+      }
+      onConversationOpened?.();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [openConversationId, view, inboxLoading, selectedClientId, inboxClientId, conversations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh control: reconcile the mirror against Zernio's newest page (short budget), then reload.
   async function refreshInbox() {
@@ -817,11 +856,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                       const active = selectedConv?.id === conv.id;
                       const unread = (conv.unreadCount ?? 0) > 0;
                       return (
-                        <button key={conv.id} onClick={() => {
-                          setSelectedConv(conv);
-                          if (conv.unreadCount) setConversations((prev) => prev.map((c) => c.id === conv.id ? { ...c, unreadCount: 0 } : c));
-                          if (selectedClientId) fetch(`/api/zernio/conversations/${conv.id}/seen`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: selectedClientId }) }).catch(() => {});
-                        }}
+                        <button key={conv.id} data-conv-id={conv.id} onClick={() => openConversation(conv)}
                           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors ${active ? "bg-surface-2 shadow-soft" : "hover:bg-surface-2/60"}`}>
                           <Avatar src={conv.avatar} name={conv.name} className="w-9 h-9 text-[13px] flex-shrink-0" />
                           <div className="flex-1 min-w-0">
