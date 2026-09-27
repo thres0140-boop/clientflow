@@ -64,6 +64,9 @@ async function aiProxy(req: NextRequest, base: string) {
 
 const PUBLIC = ["/login", "/owner", "/invite", "/api/auth", "/api/unipile/webhook", "/api/unipile/callback", "/api/unipile/sync-followers", "/api/upload", "/upload", "/api/upload-tokens", "/api/upload-raw", "/api/blob/upload", "/api/zernio/callback", "/api/admin/migrate", "/api/admin/purge-cloudinary", "/api/admin/check1-audit", "/api/cron/", "/api/webhooks/", "/api/internal/", "/manifest.webmanifest", "/icons/", "/favicon.png", "/logo.png", "/api/img", "/api/vid", "/api/r2/setup-cors", "/sw.js", "/review", "/play.html", "/tiktok"];
 
+// Crons that run on whatever host Vercel Cron calls (see the canonical-host rule in proxy()).
+const CRON_ANY_HOST = ["/api/cron/inbox-reconcile", "/api/cron/inbox-full-sync", "/api/cron/inbox-health"];
+
 // Origins allowed to make state-changing API calls with the session cookie. The cookie is
 // SameSite=None (so Ordo works inside the Cenks Dashboard iframe), which means the browser
 // attaches it to cross-site requests too — this check is what keeps other sites from
@@ -101,8 +104,13 @@ export async function proxy(req: NextRequest) {
   // origin R2 blocks, so their large uploads die with a CORS/network error while the owner
   // (on the real domain) works. Funnel every non-canonical host to www so everyone lands
   // on the allowed origin.
+  // Exception: Vercel Cron calls the deployment's *.vercel.app host and does NOT follow
+  // redirects, so a cron behind this redirect silently does nothing (all of them did from June
+  // until the inbox mirror went stale in Sep 2026). Only the crons in CRON_ANY_HOST are exempt;
+  // the others stay dormant until someone switches them on deliberately.
   const host = (req.headers.get("host") || "").toLowerCase();
-  const canonical = host === "www.ordoagency.com" || host === "ordoagency.com"
+  const canonical = CRON_ANY_HOST.includes(pathname)
+    || host === "www.ordoagency.com" || host === "ordoagency.com"
     || host.startsWith("localhost") || host.startsWith("127.0.0.1") || host === "";
   if (!canonical) {
     const url = new URL(req.url);

@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import { mirrorState, readMirrorList } from "@/features/instagram/server/inboxMirror";
+import { checkMirrorAndAlert, mirrorHealth } from "@/features/instagram/server/mirrorHealth";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
@@ -30,9 +31,15 @@ export async function GET(req: NextRequest) {
   // anything else falls back to the live walk below so the list is never empty because the
   // mirror is cold or half-filled. ?source=live forces the live path.
   const ms = await mirrorState(cid);
+  // How far behind the mirror is (drives the inbox's red banner). Every inbox load also runs the
+  // owner alert check, so a mirror that stops is reported even if the crons themselves die.
+  const health = await mirrorHealth().catch(() => null);
+  const lag = health?.clients.find((c) => c.clientId === cid);
+  const mirrorLag = lag ? { ...lag, thresholdHours: health!.thresholdHours } : null;
+  if (health && !health.ok) after(() => checkMirrorAndAlert("inbox-load"));
   if (ms.state === "ready" && req.nextUrl.searchParams.get("source") !== "live") {
     const data = await readMirrorList(cid);
-    return NextResponse.json({ data, pagination: { pages: 0, truncated: false, total: data.length }, source: "mirror", mirror: ms, syncedAt: ms.syncedAt });
+    return NextResponse.json({ data, pagination: { pages: 0, truncated: false, total: data.length }, source: "mirror", mirror: ms, mirrorLag, syncedAt: ms.syncedAt });
   }
 
   const profileId = (conn as any).zernioProfileId || PROFILE_ID;
@@ -74,5 +81,5 @@ export async function GET(req: NextRequest) {
   } while (cursor && pages < MAX_PAGES);
 
   // Lead creation + funnel detection is handled by syncClientPipeline (page load + cron).
-  return NextResponse.json({ data: all, pagination: { pages, truncated: !!cursor, total: all.length }, meta, source: "live", mirror: ms, syncedAt: null });
+  return NextResponse.json({ data: all, pagination: { pages, truncated: !!cursor, total: all.length }, meta, source: "live", mirror: ms, mirrorLag, syncedAt: null });
 }
