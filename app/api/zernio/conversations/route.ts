@@ -29,11 +29,22 @@ export async function GET(req: NextRequest) {
   // Prefer the local mirror when it is complete and fresh (see inboxMirror.mirrorState);
   // anything else falls back to the live walk below so the list is never empty because the
   // mirror is cold or half-filled. ?source=live forces the live path.
-  const ms = await mirrorState(cid);
+  //
+  // This branch runs every 30s per open inbox tab (the list poll), so it is kept to three queries:
+  // the sync row, then the conversation rows and one message aggregate in parallel. The
+  // conversation count comes from the rows themselves — an empty list IS the "empty" state.
+  const t0 = Date.now();
+  let ms = await mirrorState(cid, -1); // -1: don't COUNT(*), the rows below give the number
   if (ms.state === "ready" && req.nextUrl.searchParams.get("source") !== "live") {
     const data = await readMirrorList(cid);
-    return NextResponse.json({ data, pagination: { pages: 0, truncated: false, total: data.length }, source: "mirror", mirror: ms, syncedAt: ms.syncedAt });
+    if (data.length) {
+      ms = { ...ms, conversations: data.length };
+      console.log(`[zernio/conversations] mirror path client=${cid} rows=${data.length} ${Date.now() - t0}ms`);
+      return NextResponse.json({ data, pagination: { pages: 0, truncated: false, total: data.length }, source: "mirror", mirror: ms, syncedAt: ms.syncedAt });
+    }
   }
+  // Live walk (seconds): the full state, count included, is what the response has always carried.
+  ms = await mirrorState(cid);
 
   const profileId = (conn as any).zernioProfileId || PROFILE_ID;
   const all: any[] = [];
