@@ -435,6 +435,13 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
     loadLeads();
   }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Client change: the open thread belongs to the previous client's account, so it must go — its
+  // header, its messages, and above all the reply box, which would otherwise POST that conversation
+  // id with the new clientId. Deliberately NOT in the poll path: polls never touch the selection.
+  useEffect(() => {
+    setSelectedConv(null); setMessages([]); setOlderCursor(null); setHasOlder(false);
+  }, [selectedClientId]);
+
   useEffect(() => {
     if (selectedClientId) { loadInbox(); runSync(); }
   }, [selectedClientId, loadInbox, runSync]);
