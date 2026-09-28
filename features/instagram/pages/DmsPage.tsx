@@ -278,6 +278,8 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   const [inboxSource, setInboxSource] = useState<"mirror" | "live" | null>(null);
   const [inboxSyncedAt, setInboxSyncedAt] = useState<string | null>(null);
   const [mirrorStateLabel, setMirrorStateLabel] = useState<string | null>(null);
+  // Set when the local mirror is more than the alert threshold behind (the owner is alerted too).
+  const [mirrorLag, setMirrorLag] = useState<{ lagHours: number | null; thresholdHours: number } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [attaching, setAttaching]         = useState(false);
   const attachRef      = useRef<HTMLInputElement>(null);
@@ -343,6 +345,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
         setInboxTruncated(!!data.pagination?.truncated);
         setInboxSource(fromMirror ? "mirror" : "live");
         setInboxSyncedAt(data.syncedAt ?? null);
+        setMirrorLag(data.mirrorLag?.behind ? { lagHours: data.mirrorLag.lagHours ?? null, thresholdHours: data.mirrorLag.thresholdHours } : null);
         const st = data.mirror?.state as string | undefined;
         setMirrorStateLabel(fromMirror ? null : st === "backfilling" ? "mirror still backfilling" : st === "stale" ? "mirror stale, showing live" : st === "not_migrated" ? null : st === "empty" ? "mirror empty" : null);
       }
@@ -808,6 +811,12 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                 <button onClick={refreshInbox} disabled={inboxLoading || refreshing} title="Refresh"
                   className="w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface-2 transition-colors disabled:opacity-40 text-sm">{inboxLoading ? "…" : "↻"}</button>
               </div>
+              {mirrorLag && (
+                <div role="alert" className="mx-3 mb-2 rounded-lg border border-danger-200 bg-danger-50 px-2.5 py-2 text-[11px] leading-snug text-danger-600">
+                  <span className="font-semibold">Inbox sync is {mirrorLag.lagHours === null ? "not running" : `${Math.floor(mirrorLag.lagHours)}h behind`}.</span>{" "}
+                  This list is loaded live, but unread badges and Cenks Dashboard read the synced copy and are out of date. The owner has been alerted.
+                </div>
+              )}
               {inboxSource && !inboxError && (
                 <div className="px-3 pb-1 flex items-center justify-between gap-2">
                   <span className="text-[10px] text-faint truncate">

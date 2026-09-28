@@ -65,6 +65,10 @@
       "schedule": "20 */6 * * *"
     },
     {
+      "path": "/api/cron/inbox-health",
+      "schedule": "25 * * * *"
+    },
+    {
       "path": "/api/cron/inbox-prune",
       "schedule": "0 4 1 * *"
     }
