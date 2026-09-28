@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
+import { conversationBelongsToClient, ownershipRefusal } from "@/features/instagram/server/conversationOwnership";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
@@ -9,6 +10,8 @@ const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
 // GET /v1/inbox/conversations/{id}/messages/{messageId}/attachments/{index}?format=json
 // (accountId is required or it 400s). The client calls this when an inline image/video fails
 // to load, then renders the fresh url through /api/img or /api/vid.
+// The conversation must belong to the client (see conversationOwnership) before Zernio is asked:
+// the id comes from the URL and the account from clientId. Mismatch or unknown → 404.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: conversationId } = await params;
   const q = req.nextUrl.searchParams;
@@ -17,6 +20,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const conn = await prisma.instagramConnection.findUnique({ where: { clientId: parseInt(clientId) } });
   if (!conn?.zernioAccountId) return NextResponse.json({ error: "no_zernio_account" }, { status: 400 });
+
+  const owned = await conversationBelongsToClient(parseInt(clientId), conn.zernioAccountId, conversationId);
+  if (!owned.ok) { const r = ownershipRefusal(owned); return NextResponse.json({ error: r.error }, { status: r.status }); }
 
   const url = new URL(`${ZERNIO_BASE}/inbox/conversations/${conversationId}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(index)}`);
   url.searchParams.set("accountId", conn.zernioAccountId);
