@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/shared/db/prisma";
 import { touchOutgoing } from "@/features/instagram/server/inboxMirror";
+import { conversationBelongsToClient, ownershipRefusal } from "@/features/instagram/server/conversationOwnership";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
@@ -11,6 +12,10 @@ const ZERNIO_KEY  = process.env.ZERNIO_API_KEY!;
 //      messages on scroll-up. Zernio's own default is 100/asc with no cursor followed — which is
 //      why long conversations used to be cut off.
 // POST /api/zernio/conversations/[id]/messages  — send reply (text, optionally one attachment by URL)
+//
+// Both verbs first check that the conversation belongs to the client (see conversationOwnership):
+// the id comes from the URL and the account from clientId, and Zernio is only ever called with a
+// pair that has been confirmed to match. Mismatch or unknown → 404, nothing reaches Zernio.
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,6 +27,9 @@ export async function GET(
 
   const conn = await prisma.instagramConnection.findUnique({ where: { clientId: parseInt(clientId) } });
   if (!conn?.zernioAccountId) return NextResponse.json({ error: "no_zernio_account" }, { status: 400 });
+
+  const owned = await conversationBelongsToClient(parseInt(clientId), conn.zernioAccountId, conversationId);
+  if (!owned.ok) { const r = ownershipRefusal(owned); return NextResponse.json({ error: r.error }, { status: r.status }); }
 
   const url = new URL(`${ZERNIO_BASE}/inbox/conversations/${conversationId}/messages`);
   url.searchParams.set("accountId", conn.zernioAccountId);
@@ -54,6 +62,10 @@ export async function POST(
 
   const conn = await prisma.instagramConnection.findUnique({ where: { clientId: parseInt(clientId) } });
   if (!conn?.zernioAccountId) return NextResponse.json({ error: "no_zernio_account" }, { status: 400 });
+
+  // The one that matters: a mismatched pair here would send a DM from the wrong coach's account.
+  const owned = await conversationBelongsToClient(parseInt(clientId), conn.zernioAccountId, conversationId);
+  if (!owned.ok) { const r = ownershipRefusal(owned); return NextResponse.json({ error: r.error }, { status: r.status }); }
 
   const body: Record<string, unknown> = { accountId: conn.zernioAccountId };
   if (message) body.message = message;
