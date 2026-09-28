@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useSyncExternalStore } from "react";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, useDroppable, useDraggable,
@@ -95,6 +95,48 @@ type Message = {
   storyReply?: boolean; isStoryMention?: boolean; isDeleted?: boolean;
   deliveryStatus?: string | null;
 };
+
+// ── Inbox cache (stale-while-revalidate) ──────────────────────────────────────
+// The shell swaps pages out of a switch, so this component unmounts on every navigation and its
+// state goes with it. The last list per client lives here, outside React: it is on screen the
+// moment the page mounts again (or the client switches back) and the fetch only revalidates it.
+// The full-load spinner is for a client that has never loaded — nothing else blanks the list.
+type InboxSnapshot = {
+  conversations: Conversation[];
+  truncated: boolean;
+  // Where the list came from: the local mirror (fresh, local unread) or the live Zernio walk (fallback).
+  source: "mirror" | "live";
+  syncedAt: string | null;
+  mirrorStateLabel: string | null;
+};
+const inboxCache = new Map<number, InboxSnapshot>();
+const inboxListeners = new Set<() => void>();
+const NO_CONVERSATIONS: Conversation[] = [];
+function subscribeInbox(fn: () => void) { inboxListeners.add(fn); return () => { inboxListeners.delete(fn); }; }
+function writeInbox(clientId: number, next: InboxSnapshot | null) {
+  if (next) inboxCache.set(clientId, next); else inboxCache.delete(clientId);
+  inboxListeners.forEach((fn) => fn());
+}
+function updateInboxRows(clientId: number, fn: (rows: Conversation[]) => Conversation[]) {
+  const cur = inboxCache.get(clientId);
+  if (cur) writeInbox(clientId, { ...cur, conversations: fn(cur.conversations) });
+}
+function sameConversation(a: Conversation, b: Conversation): boolean {
+  return a.name === b.name && a.handle === b.handle && a.igId === b.igId && a.updatedTime === b.updatedTime
+    && a.snippet === b.snippet && a.unreadCount === b.unreadCount && a.avatar === b.avatar && a.url === b.url
+    && a.unidentified === b.unidentified && a.labelKind === b.labelKind;
+}
+// Merge a fresh server list into the cached one. The server owns membership and order (newest
+// first); an unchanged row keeps its object identity so its button does not re-render; the open
+// thread stays at unread 0 even when a poll that started before the /seen POST returns the old count.
+function mergeConversations(prev: Conversation[], next: Conversation[], openId: string | null): Conversation[] {
+  const byId = new Map(prev.map((c) => [c.id, c]));
+  return next.map((n) => {
+    const row = n.id === openId && n.unreadCount ? { ...n, unreadCount: 0 } : n;
+    const p = byId.get(row.id);
+    return p && sameConversation(p, row) ? p : row;
+  });
+}
 
 // ── Thread labels ─────────────────────────────────────────────────────────────
 // Priority: a real participantName → a captured @username → a STABLE anonymous label derived
@@ -243,10 +285,28 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  // Inbox state
-  const [conversations, setConversations]   = useState<Conversation[]>([]);
-  const [inboxLoading, setInboxLoading]     = useState(false);
+  // Inbox state. The list itself comes from the module-level cache (see InboxSnapshot); the
+  // component only owns the load/error flags of the client it is showing.
+  const snapshot = useSyncExternalStore(
+    subscribeInbox,
+    () => (selectedClientId ? inboxCache.get(selectedClientId) ?? null : null),
+    () => null,
+  );
+  const conversations = snapshot?.conversations ?? NO_CONVERSATIONS;
+  const inboxTruncated = snapshot?.truncated ?? false;
+  const inboxSource = snapshot?.source ?? null;
+  const inboxSyncedAt = snapshot?.syncedAt ?? null;
+  const mirrorStateLabel = snapshot?.mirrorStateLabel ?? null;
+  // "A foreground load is in flight" — mount/client switch, Retry, Refresh. Background polls never set
+  // it. Starts true only when this client has nothing cached, so the first paint is the spinner, not
+  // a flash of "No conversations yet".
+  const [inboxLoading, setInboxLoading]     = useState(() => !!selectedClientId && !inboxCache.has(selectedClientId));
   const [inboxError, setInboxError]         = useState<string | null>(null);
+  // Per-client request sequence: a slow response never overwrites a newer one, and a response for a
+  // client we have since switched away from still lands in that client's cache but leaves the flags alone.
+  const inboxReq       = useRef(new Map<number, number>());
+  const clientIdRef    = useRef<number | null>(selectedClientId);
+  const selectedConvRef = useRef<Conversation | null>(null);
   const [selectedConv, setSelectedConv]     = useState<Conversation | null>(null);
   const [messages, setMessages]             = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -261,16 +321,13 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   const [olderCursor, setOlderCursor]     = useState<string | null>(null);
   const [hasOlder, setHasOlder]           = useState(false);
   const [loadingOlder, setLoadingOlder]   = useState(false);
-  const [inboxTruncated, setInboxTruncated] = useState(false);
-  // Where the list came from: the local mirror (fresh, local unread) or the live Zernio walk (fallback).
-  const [inboxSource, setInboxSource] = useState<"mirror" | "live" | null>(null);
-  const [inboxSyncedAt, setInboxSyncedAt] = useState<string | null>(null);
-  const [mirrorStateLabel, setMirrorStateLabel] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [attaching, setAttaching]         = useState(false);
   const attachRef      = useRef<HTMLInputElement>(null);
 
   const client = clients.find((c) => c.id === selectedClientId) ?? null;
+  useEffect(() => { clientIdRef.current = selectedClientId; }, [selectedClientId]);
+  useEffect(() => { selectedConvRef.current = selectedConv; }, [selectedConv]);
 
   // Load leads
   useEffect(() => { loadLeads(); }, [selectedClientId]);
@@ -281,26 +338,39 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   }
 
   // Load inbox conversations via Zernio — the API route follows Zernio's cursor and returns the
-  // whole inbox. Auto-retries one transient failure.
-  const loadInbox = useCallback(async () => {
-    if (!selectedClientId) return;
-    setInboxLoading(true);
-    setInboxError(null);
+  // whole inbox. Stale-while-revalidate: whatever is cached for this client stays rendered, the
+  // result is merged in when it arrives. A foreground load (mount, Retry, Refresh) auto-retries one
+  // transient failure and owns the load/error flags; a background poll does neither — a failed poll
+  // is logged and the next tick tries again, the list on screen is never replaced by an error.
+  const loadInbox = useCallback(async (opts: { background?: boolean } = {}) => {
+    const clientId = selectedClientId;
+    if (!clientId) return;
+    const background = !!opts.background;
+    const seq = (inboxReq.current.get(clientId) ?? 0) + 1;
+    inboxReq.current.set(clientId, seq);
+    const current = () => inboxReq.current.get(clientId) === seq; // still the newest request for this client
+    const shown = () => clientIdRef.current === clientId;          // this client is still the one on screen
+    if (!background) { setInboxLoading(true); setInboxError(null); }
 
     const attempt = async (): Promise<any> => {
-      const res = await fetch(`/api/zernio/conversations?clientId=${selectedClientId}`);
+      const res = await fetch(`/api/zernio/conversations?clientId=${clientId}`);
       return res.json();
     };
 
     try {
       let data = await attempt();
-      if (data?.error && data.error !== "no_zernio_account") {
+      if (data?.error && data.error !== "no_zernio_account" && !background) {
         await new Promise((r) => setTimeout(r, 1500));
         data = await attempt();
       }
-      if (data.error === "no_zernio_account") { setInboxError("no_zernio_account"); }
-      else if (data.error) { setInboxError(data.error); }
-      else {
+      if (!current()) return;
+      if (data.error === "no_zernio_account") {
+        writeInbox(clientId, null); // the inbox is genuinely unavailable — a cached list would lie
+        if (shown()) setInboxError("no_zernio_account");
+      } else if (data.error) {
+        if (background) console.warn("[inbox] background refresh failed:", data.error);
+        else if (shown()) setInboxError(String(data.error));
+      } else {
         const raw: any[] = Array.isArray(data.data) ? data.data : [];
         // Zernio conversation object: id, participantId, participantName, participantPicture,
         // lastMessage (string), updatedTime, unreadCount, url. (participantUsername is only on
@@ -326,15 +396,24 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
           };
         });
         convs.sort((a, b) => new Date(b.updatedTime).getTime() - new Date(a.updatedTime).getTime());
-        setConversations(convs);
-        setInboxTruncated(!!data.pagination?.truncated);
-        setInboxSource(fromMirror ? "mirror" : "live");
-        setInboxSyncedAt(data.syncedAt ?? null);
         const st = data.mirror?.state as string | undefined;
-        setMirrorStateLabel(fromMirror ? null : st === "backfilling" ? "mirror still backfilling" : st === "stale" ? "mirror stale, showing live" : st === "not_migrated" ? null : st === "empty" ? "mirror empty" : null);
+        const prev = inboxCache.get(clientId)?.conversations ?? [];
+        writeInbox(clientId, {
+          conversations: mergeConversations(prev, convs, selectedConvRef.current?.id ?? null),
+          truncated: !!data.pagination?.truncated,
+          source: fromMirror ? "mirror" : "live",
+          syncedAt: data.syncedAt ?? null,
+          mirrorStateLabel: fromMirror ? null : st === "backfilling" ? "mirror still backfilling" : st === "stale" ? "mirror stale, showing live" : st === "not_migrated" ? null : st === "empty" ? "mirror empty" : null,
+        });
+        if (shown()) setInboxError(null);
       }
-    } catch (e) { setInboxError(String(e)); }
-    setInboxLoading(false);
+    } catch (e) {
+      if (!current()) return;
+      if (background) console.warn("[inbox] background refresh failed:", e);
+      else if (shown()) setInboxError(String(e));
+    } finally {
+      if (!background && current() && shown()) setInboxLoading(false);
+    }
   }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh control: reconcile the mirror against Zernio's newest page (short budget), then reload.
@@ -359,6 +438,16 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
   useEffect(() => {
     if (selectedClientId) { loadInbox(); runSync(); }
   }, [selectedClientId, loadInbox, runSync]);
+
+  // Background poll of the list so unread badges and previews move without a reload. It hits the
+  // mirror, not Zernio, so 30s is cheap. Results merge into the cached list (mergeConversations):
+  // row keys are stable, the selected thread is untouched and the sidebar keeps its scroll position.
+  // Only while the inbox is on screen and the tab is visible.
+  useEffect(() => {
+    if (!selectedClientId || view !== "inbox") return;
+    const t = setInterval(() => { if (document.visibilityState === "visible") loadInbox({ background: true }); }, 30000);
+    return () => clearInterval(t);
+  }, [selectedClientId, view, loadInbox]);
 
   // ── Messages: paged, newest first from the API, displayed oldest → newest ──────────────
   // Zernio message object: id, message, senderId, senderName, direction (incoming|outgoing),
@@ -789,8 +878,14 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                 </div>
               )}
 
+              {inboxError && snapshot && (
+                <div className="mx-3 mb-1.5 px-2.5 py-1.5 rounded-lg bg-danger-50 flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-danger-500 truncate" title={inboxError}>{inboxError === "no_zernio_account" ? "Instagram DMs not connected" : "Could not refresh — showing the last list"}</span>
+                  <button onClick={() => loadInbox()} className="text-[10px] font-semibold text-accent hover:text-accent-strong flex-shrink-0">Retry</button>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto px-1.5 pb-2">
-                {inboxError ? (
+                {inboxError && !snapshot ? (
                   <div className="p-6 text-center space-y-2">
                     {inboxError === "no_zernio_account" ? (
                       <>
@@ -805,9 +900,9 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                         <p className="text-[11px] text-faint leading-relaxed">{inboxError}</p>
                       </>
                     )}
-                    <button onClick={loadInbox} className="mt-2 px-3 py-1.5 text-xs bg-accent text-on-accent rounded-lg hover:bg-accent-strong">Retry</button>
+                    <button onClick={() => loadInbox()} className="mt-2 px-3 py-1.5 text-xs bg-accent text-on-accent rounded-lg hover:bg-accent-strong">Retry</button>
                   </div>
-                ) : inboxLoading && conversations.length === 0 ? (
+                ) : inboxLoading && !snapshot ? (
                   <div className="p-8 text-center text-faint text-xs">Loading conversations…</div>
                 ) : filteredConvs.length === 0 ? (
                   <div className="p-8 text-center text-faint text-xs">{search ? "No matches" : unidentifiedCount > 0 ? "Only anonymous conversations — use Show above" : "No conversations yet"}</div>
@@ -819,7 +914,7 @@ export default function DmsPage({ clients, selectedClientId, onGoToSettings, vie
                       return (
                         <button key={conv.id} onClick={() => {
                           setSelectedConv(conv);
-                          if (conv.unreadCount) setConversations((prev) => prev.map((c) => c.id === conv.id ? { ...c, unreadCount: 0 } : c));
+                          if (conv.unreadCount && selectedClientId) updateInboxRows(selectedClientId, (rows) => rows.map((c) => c.id === conv.id ? { ...c, unreadCount: 0 } : c));
                           if (selectedClientId) fetch(`/api/zernio/conversations/${conv.id}/seen`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientId: selectedClientId }) }).catch(() => {});
                         }}
                           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-colors ${active ? "bg-surface-2 shadow-soft" : "hover:bg-surface-2/60"}`}>
