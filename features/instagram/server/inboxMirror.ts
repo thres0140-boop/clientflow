@@ -277,14 +277,17 @@ const FRESH_MS = 45 * 60 * 1000; // three missed 15-minute reconciles
 
 export type MirrorState = "ready" | "backfilling" | "stale" | "empty" | "not_migrated";
 
-export async function mirrorState(clientId: number): Promise<{ state: MirrorState; syncedAt: Date | null; conversations: number }> {
+// `knownCount`: the caller is about to read (or has read) the whole list, so the row count comes
+// from there and the COUNT(*) is skipped. Pass -1 for "unknown, and don't count": the state is then
+// decided from the sync row alone and the caller must treat an empty list as "empty" itself.
+export async function mirrorState(clientId: number, knownCount?: number): Promise<{ state: MirrorState; syncedAt: Date | null; conversations: number }> {
   if (!(await mirrorTablesExist())) return { state: "not_migrated", syncedAt: null, conversations: 0 };
   const [state, count] = await Promise.all([
     prisma.zernioSyncState.findUnique({ where: { clientId } }),
-    prisma.zernioConversation.count({ where: { clientId } }),
+    knownCount === undefined ? prisma.zernioConversation.count({ where: { clientId } }) : Promise.resolve(knownCount),
   ]);
   const syncedAt = later(state?.lastReconcileAt, state?.lastFullSyncAt);
-  if (!count) return { state: "empty", syncedAt, conversations: 0 };
+  if (count === 0) return { state: "empty", syncedAt, conversations: 0 };
   if (!state || state.phase !== "live") return { state: "backfilling", syncedAt, conversations: count };
   if (!syncedAt || Date.now() - syncedAt.getTime() > FRESH_MS) return { state: "stale", syncedAt, conversations: count };
   return { state: "ready", syncedAt, conversations: count };
@@ -292,20 +295,32 @@ export async function mirrorState(clientId: number): Promise<{ state: MirrorStat
 
 // The list in Zernio's own shape plus `local` (unread computed here). Unread: an incoming message
 // newer than BOTH the last outgoing one and the moment the owner last opened the thread.
+//
+// Two queries, in parallel: the conversation rows (only the columns the object below uses — the
+// ig* signals, accountId and the platform id are not read here) and ONE pass over the client's
+// messages grouped by conversation that yields both the total (does this thread have ANY mirrored
+// message?) and the unread count. Whether a thread has messages matters because for one without,
+// no message rows does not mean "nothing unread": we fall back to Zernio's hint (unreadCount > 0)
+// unless the owner opened the thread after its last message.
 export async function readMirrorList(clientId: number) {
-  const rows = await prisma.zernioConversation.findMany({ where: { clientId }, orderBy: { lastMessageAt: "desc" } });
-  const counts = await prisma.$queryRawUnsafe<{ conversationId: string; n: number }[]>(
-    `SELECT m."conversationId", count(*)::int AS n
-       FROM "ZernioMessage" m JOIN "ZernioConversation" c ON c."id" = m."conversationId"
-      WHERE c."clientId" = $1 AND m."direction" = 'incoming' AND NOT m."isDeleted"
-        AND m."sentAt" > GREATEST(COALESCE(c."lastOutgoingAt", 'epoch'::timestamp), COALESCE(c."lastSeenAt", 'epoch'::timestamp))
-      GROUP BY 1`, clientId);
-  const countBy = new Map(counts.map((r) => [r.conversationId, Number(r.n)]));
-  // Threads that have ANY mirrored message. For the rest, no message rows does not mean "nothing
-  // unread": fall back to Zernio's hint (unreadCount > 0) unless the owner opened the thread after
-  // its last message.
-  const withMsgs = new Set((await prisma.$queryRawUnsafe<{ conversationId: string }[]>(
-    `SELECT DISTINCT "conversationId" FROM "ZernioMessage" WHERE "clientId" = $1`, clientId)).map((r) => r.conversationId));
+  const [rows, counts] = await Promise.all([
+    prisma.zernioConversation.findMany({
+      where: { clientId }, orderBy: { lastMessageAt: "desc" },
+      select: { id: true, participantId: true, participantName: true, participantUsername: true, participantPicture: true,
+        lastMessageText: true, lastMessageAt: true, lastIncomingAt: true, lastOutgoingAt: true, lastSeenAt: true,
+        zernioUnreadCount: true, url: true, isGroup: true, status: true, updatedAt: true },
+    }),
+    prisma.$queryRawUnsafe<{ conversationId: string; total: number; unread: number }[]>(
+      `SELECT m."conversationId", count(*)::int AS total,
+              count(*) FILTER (WHERE m."direction" = 'incoming' AND NOT m."isDeleted"
+                AND m."sentAt" > GREATEST(COALESCE(c."lastOutgoingAt", 'epoch'::timestamp), COALESCE(c."lastSeenAt", 'epoch'::timestamp)))::int AS unread
+         FROM "ZernioMessage" m JOIN "ZernioConversation" c ON c."id" = m."conversationId"
+        WHERE m."clientId" = $1
+        GROUP BY 1`, clientId),
+  ]);
+  const countBy = new Map<string, number>();
+  const withMsgs = new Set<string>();
+  for (const r of counts) { withMsgs.add(r.conversationId); if (Number(r.unread) > 0) countBy.set(r.conversationId, Number(r.unread)); }
   return rows.map((r) => {
     const epoch = new Date(0);
     const seenAfterLast = !!r.lastSeenAt && !!r.lastMessageAt && r.lastSeenAt >= r.lastMessageAt;
