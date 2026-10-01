@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { AI_SLUG } from "./ai/slug";
 
 // Origins allowed to embed Ordo in an iframe (the Cenks Dashboard). Extend in production by
 // setting EMBED_ALLOWED_ORIGINS="https://dashboard.example.com,https://other.example.com".
@@ -27,12 +26,6 @@ const nextConfig: NextConfig = {
     "/api/edit-projects/[id]/filmstrip": ["./node_modules/ffmpeg-static/ffmpeg"],
     "/api/clipping/transcribe": ["./node_modules/ffmpeg-static/ffmpeg"],
     "/api/clipping/bench": ["./node_modules/ffmpeg-static/ffmpeg"],
-  },
-  // The AI product physically lives under app/ai. If its slug is ever changed in ai/slug.ts,
-  // this rewrite maps the new public prefix onto that folder — no files move.
-  async rewrites() {
-    if (AI_SLUG === "ai") return [];
-    return [{ source: `/${AI_SLUG}/:path*`, destination: "/ai/:path*" }, { source: `/${AI_SLUG}`, destination: "/ai" }];
   },
   async headers() {
     return [
