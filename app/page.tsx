@@ -419,18 +419,11 @@ export default function App() {
     if (session?.type === "member" && !base.includes("chat")) base.push("chat");
     // Clients always get their Script Tasks; team members only if the owner granted it.
     if (activeProfile?.isClientAccount && !base.includes("tasks")) base.push("tasks");
-    // Instagram Inbox used to live inside DM Pipeline: anyone with "dms" keeps the inbox they
-    // could already use (no stored pageAccess contains "iginbox" yet).
-    if (base.includes("dms") && !base.includes("iginbox")) base.push("iginbox");
-    // CapCut (the video editor) is new: anyone who can see the Script Kanban, where its Edit
-    // stage lives, gets it (no stored pageAccess contains "capcut" yet).
-    if (base.includes("kanban") && !base.includes("capcut")) base.push("capcut");
-    // YouTube is new (no stored pageAccess contains its ids yet): the YouTube Kanban is the same
-    // board as the Script Kanban for another platform, so anyone with "kanban" gets it; Clipping
-    // feeds the video editor, so anyone with "capcut" gets it. The sidebar still hides both
-    // unless the client has YouTube switched on.
-    if (base.includes("kanban") && !base.includes("ytkanban")) base.push("ytkanban");
-    if (base.includes("capcut") && !base.includes("ytclipping")) base.push("ytclipping");
+    // iginbox, capcut, ytkanban and ytclipping were once inferred here from dms/kanban, because
+    // they shipped after the stored pageAccess strings were written and nobody's list could
+    // contain them yet. The Team editor now offers all four as their own checkboxes, so an id
+    // missing from the list means the owner withheld it — not that the record is old. Inferring
+    // them again would override that choice, so nothing is added: the list is the answer.
     // Client settings is owner-only — never expose it to a member login.
     return base.filter((p) => p !== "clientsettings" || session?.type === "owner");
   })();
