@@ -28,6 +28,13 @@ export type Theme = "light" | "dark";
  *  from JS together with the attribute — see applyTheme and THEME_PRE_PAINT_SCRIPT. */
 export const THEME_COLOR: Record<Theme, string> = { light: "#0f1c34", dark: "#0a0c0a" };
 
+/** Runs inline in <head> before first paint for a MEMBER session, which is always dark and has
+ *  no toggle — so this ignores storage and just sets the attribute. Must stay tiny. */
+export const THEME_DARK_PRE_PAINT_SCRIPT =
+  `(function(){try{document.documentElement.setAttribute(${JSON.stringify(THEME_ATTR)},"dark");` +
+  `var m=document.querySelector('meta[name="theme-color"]');` +
+  `if(m)m.setAttribute("content",${JSON.stringify(THEME_COLOR.dark)})}catch(e){}})();`;
+
 /** Runs inline in <head> before first paint (owner sessions only). Must stay tiny and self-contained. */
 export const THEME_PRE_PAINT_SCRIPT =
   `(function(){try{if(localStorage.getItem(${JSON.stringify(THEME_KEY)})==="dark"){` +

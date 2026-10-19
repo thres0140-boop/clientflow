@@ -291,9 +291,10 @@ export default function App() {
       const sessData = await fetch("/api/auth/me").then((r) => r.json());
       const sess: SessionPayload | null = sessData;
       setSession(sess);
-      // Dark mode is owner-only: re-assert the theme from the verified session so a
-      // member/client session renders light whatever cf_theme holds in this browser.
-      applyTheme(sess?.type === "owner" ? readStoredTheme() : "light");
+      // Re-assert the theme from the VERIFIED session, so a client-side navigation after
+      // login can't leave the wrong one on screen: the owner gets their stored choice, a
+      // member/client session is always dark whatever cf_theme holds in this browser.
+      applyTheme(sess?.type === "owner" ? readStoredTheme() : "dark");
       if (sessData?.ownerName) setOwnerName(sessData.ownerName);
       if (sessData?.ownerEmail !== undefined) setOwnerEmail(sessData.ownerEmail);
 
