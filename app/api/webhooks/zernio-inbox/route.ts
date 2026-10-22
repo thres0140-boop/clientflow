@@ -16,6 +16,14 @@ export const runtime = "nodejs";
 //   conversation:   id, platformConversationId, participantId, participantName, participantUsername, participantPicture, status
 //   account:        id, accountId, profileId, platform, username
 //
+// Keys. Zernio's REST API (the list walk, the reconcile, the composer's send) identifies a
+// conversation by the platform thread id (16 digits for Instagram) and a message by Instagram's
+// message id; this webhook carries Zernio's own 24-hex ids instead, with the platform thread id in
+// conversation.platformConversationId. The mirror is keyed by the REST ids, so the webhook maps
+// its conversation onto platformConversationId and stores a message under that thread, matching
+// one the reconcile already holds (same direction, time and text) rather than adding a twin.
+// Before this, every active thread got a second row and every message a second copy.
+//
 // Order of checks, same as the hardened post webhook, and this route FAILS CLOSED:
 //   1. HMAC-SHA256 over the raw body (X-Zernio-Signature) against ZERNIO_INBOX_WEBHOOK_SECRET
 //   2. account.id / account.accountId must map to one of our InstagramConnections → clientId;
@@ -63,6 +71,11 @@ type Conv = { id?: string; platformConversationId?: string; participantId?: stri
 type Sender = { id?: string; name?: string; username?: string; picture?: string; instagramProfile?: { isFollower?: boolean | null; isFollowing?: boolean | null; followerCount?: number | null; isVerified?: boolean | null } | null };
 type Msg = { id?: string; conversationId?: string; direction?: string; text?: string | null; attachments?: unknown[]; sender?: Sender; sentAt?: string; isRead?: boolean };
 
+/** The mirror's key for this conversation: the platform thread id when the envelope has it. */
+function conversationKey(conv: Conv, msg: Msg | undefined): string | undefined {
+  return conv.platformConversationId || conv.id || msg?.conversationId || undefined;
+}
+
 // Upsert the conversation row. Identity fields only ever improve: a real name replaces the
 // placeholder, a username or picture is set when present and never cleared.
 async function upsertConversation(clientId: number, accountId: string, conv: Conv, sender: Sender | undefined, direction: string | null, sentAt: Date | null, text: string | null | undefined) {
@@ -94,18 +107,26 @@ async function upsertConversation(clientId: number, accountId: string, conv: Con
   await prisma.zernioConversation.upsert({ where: { id }, create: { id, ...data }, update: data });
 }
 
-async function upsertMessage(clientId: number, m: Msg, patch: { deliveryStatus?: string; isDeleted?: boolean; editedAt?: Date | null } = {}) {
-  if (!m.id || !m.conversationId) return;
+async function upsertMessage(clientId: number, conversationId: string, m: Msg, patch: { deliveryStatus?: string; isDeleted?: boolean; editedAt?: Date | null } = {}) {
+  if (!m.id) return;
   const sentAt = toDate(m.sentAt) ?? new Date();
+  const direction = m.direction === "outgoing" ? "outgoing" : "incoming";
   const base = {
-    conversationId: m.conversationId, clientId,
-    direction: m.direction === "outgoing" ? "outgoing" : "incoming",
+    conversationId, clientId,
+    direction,
     text: m.text ?? null,
     attachments: JSON.stringify(Array.isArray(m.attachments) ? m.attachments : []),
     senderId: m.sender?.id ?? null, senderName: m.sender?.name ?? null, senderUsername: m.sender?.username ?? null,
     sentAt,
     ...patch,
   };
+  // The reconcile may already hold this message under Instagram's id: same thread, direction,
+  // time and text. Then this event updates that row (status, edit, delete) instead of adding a twin.
+  const byId = await prisma.zernioMessage.findUnique({ where: { id: m.id }, select: { id: true } });
+  if (!byId) {
+    const same = await prisma.zernioMessage.findFirst({ where: { conversationId, direction, sentAt, text: base.text }, select: { id: true } });
+    if (same) { await prisma.zernioMessage.update({ where: { id: same.id }, data: { ...base, text: undefined, attachments: undefined } }); return; }
+  }
   await prisma.zernioMessage.upsert({ where: { id: m.id }, create: { id: m.id, ...base }, update: base });
 }
 
@@ -144,36 +165,39 @@ export async function POST(req: NextRequest) {
   const clientId = conn.clientId;
   const conv: Conv = body.conversation ?? {};
   const msg: Msg | undefined = body.message;
+  const key = conversationKey(conv, msg);
+  if (!key) return NextResponse.json({ ok: true, ignored: "no_conversation" });
 
   try {
     switch (event) {
       case "conversation.started":
-        await upsertConversation(clientId, conn.zernioAccountId, conv, undefined, null, toDate(body.startedAt), null);
+        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: key }, undefined, null, toDate(body.startedAt), null);
         break;
       case "message.received":
       case "message.sent": {
         if (!msg) break;
         const sentAt = toDate(msg.sentAt);
-        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: conv.id ?? msg.conversationId }, msg.sender, msg.direction ?? (event === "message.sent" ? "outgoing" : "incoming"), sentAt, msg.text);
-        await upsertMessage(clientId, { ...msg, direction: msg.direction ?? (event === "message.sent" ? "outgoing" : "incoming") }, { deliveryStatus: msg.isRead ? "read" : "sent" });
+        const direction = msg.direction ?? (event === "message.sent" ? "outgoing" : "incoming");
+        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: key }, msg.sender, direction, sentAt, msg.text);
+        await upsertMessage(clientId, key, { ...msg, direction }, { deliveryStatus: msg.isRead ? "read" : "sent" });
         break;
       }
       case "message.edited":
         if (!msg) break;
-        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: conv.id ?? msg.conversationId }, msg.sender, msg.direction ?? null, null, undefined);
-        await upsertMessage(clientId, msg, { editedAt: toDate(body.editedAt) ?? new Date() });
+        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: key }, msg.sender, msg.direction ?? null, null, undefined);
+        await upsertMessage(clientId, key, msg, { editedAt: toDate(body.editedAt) ?? new Date() });
         break;
       case "message.deleted":
         if (!msg) break;
-        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: conv.id ?? msg.conversationId }, msg.sender, msg.direction ?? null, null, undefined);
-        await upsertMessage(clientId, msg, { isDeleted: true, deliveryStatus: "deleted" });
+        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: key }, msg.sender, msg.direction ?? null, null, undefined);
+        await upsertMessage(clientId, key, msg, { isDeleted: true, deliveryStatus: "deleted" });
         break;
       case "message.read":
       case "message.delivered":
       case "message.failed":
         if (!msg) break;
-        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: conv.id ?? msg.conversationId }, msg.sender, msg.direction ?? null, null, undefined);
-        await upsertMessage(clientId, msg, { deliveryStatus: event.replace("message.", "") });
+        await upsertConversation(clientId, conn.zernioAccountId, { ...conv, id: key }, msg.sender, msg.direction ?? null, null, undefined);
+        await upsertMessage(clientId, key, msg, { deliveryStatus: event.replace("message.", "") });
         break;
       default:
         return NextResponse.json({ ok: true, ignored: "event_not_handled", event });

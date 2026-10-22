@@ -149,7 +149,12 @@ export async function mirrorNewestMessages(clientId: number, conversationId: str
     editedAt: toDate(m.editedAt),
   }));
   if (!rows.length) return 0;
-  const res = await prisma.zernioMessage.createMany({ data: rows, skipDuplicates: true });
+  // The webhook may already hold some of these under Zernio's own message ids: same thread,
+  // direction, time and text. Those are not inserted again.
+  const held = await prisma.zernioMessage.findMany({ where: { conversationId, sentAt: { in: rows.map((r) => r.sentAt) } }, select: { direction: true, sentAt: true, text: true } });
+  const seen = new Set(held.map((h) => `${h.direction}|${h.sentAt.getTime()}|${h.text ?? ""}`));
+  const fresh = rows.filter((r) => !seen.has(`${r.direction}|${r.sentAt.getTime()}|${r.text ?? ""}`));
+  const res = fresh.length ? await prisma.zernioMessage.createMany({ data: fresh, skipDuplicates: true }) : { count: 0 };
   const lastIn = rows.filter((r) => r.direction === "incoming").reduce<Date | null>((a, r) => later(a, r.sentAt), null);
   const lastOut = rows.filter((r) => r.direction === "outgoing").reduce<Date | null>((a, r) => later(a, r.sentAt), null);
   const existing = await prisma.zernioConversation.findUnique({ where: { id: conversationId }, select: { lastIncomingAt: true, lastOutgoingAt: true, lastMessageAt: true, participantName: true, participantId: true } });
@@ -246,6 +251,50 @@ export async function reconcileLight(clientId: number, budgetMs: number): Promis
   await prisma.zernioSyncState.upsert({ where: { clientId }, create: { clientId, phase: "live", lastReconcileAt: new Date() }, update: { lastReconcileAt: new Date() } });
   r.done = !r.budgetHit;
   return r;
+}
+
+// ── Fold webhook twins ───────────────────────────────────────────────────────
+// Until the webhook keyed conversations by the platform thread id, every active thread got a
+// second row under Zernio's 24-hex id (platformConversationId pointing at the real one) and every
+// message a second copy under it. Idempotent and cheap once clean: messages move to the twin
+// (copies the twin already holds are dropped), identity and timestamps merge into the twin, the
+// extra row goes. A webhook row without a twin is re-keyed to its platform id.
+export async function foldWebhookTwins(): Promise<{ moved: number; dropped: number; folded: number; rekeyed: number }> {
+  const TWIN = `c."platformConversationId" IS NOT NULL AND c."platformConversationId" <> c.id`;
+  const HAS_TWIN = `EXISTS (SELECT 1 FROM "ZernioConversation" t WHERE t.id = c."platformConversationId")`;
+  const dropped = await prisma.$executeRawUnsafe(`
+    DELETE FROM "ZernioMessage" m USING "ZernioConversation" c
+     WHERE m."conversationId" = c.id AND ${TWIN} AND ${HAS_TWIN}
+       AND EXISTS (SELECT 1 FROM "ZernioMessage" k WHERE k."conversationId" = c."platformConversationId"
+                     AND k.direction = m.direction AND k."sentAt" = m."sentAt" AND COALESCE(k.text, '') = COALESCE(m.text, ''))`);
+  const moved = await prisma.$executeRawUnsafe(`
+    UPDATE "ZernioMessage" m SET "conversationId" = c."platformConversationId" FROM "ZernioConversation" c
+     WHERE m."conversationId" = c.id AND ${TWIN} AND ${HAS_TWIN}`);
+  await prisma.$executeRawUnsafe(`
+    UPDATE "ZernioConversation" t SET
+      "lastIncomingAt" = GREATEST(t."lastIncomingAt", c."lastIncomingAt"),
+      "lastOutgoingAt" = GREATEST(t."lastOutgoingAt", c."lastOutgoingAt"),
+      "lastSeenAt" = GREATEST(t."lastSeenAt", c."lastSeenAt"),
+      "lastMessageAt" = GREATEST(t."lastMessageAt", c."lastMessageAt"),
+      "lastMessageText" = CASE WHEN c."lastMessageAt" IS NOT NULL AND (t."lastMessageAt" IS NULL OR c."lastMessageAt" > t."lastMessageAt") THEN COALESCE(c."lastMessageText", t."lastMessageText") ELSE t."lastMessageText" END,
+      "participantUsername" = COALESCE(t."participantUsername", c."participantUsername"),
+      "participantPicture" = COALESCE(t."participantPicture", c."participantPicture"),
+      "participantName" = CASE WHEN t."participantName" IS NULL OR trim(t."participantName") = '${PLACEHOLDER}' THEN COALESCE(c."participantName", t."participantName") ELSE t."participantName" END,
+      "updatedAt" = now()
+    FROM "ZernioConversation" c WHERE ${TWIN} AND c."platformConversationId" = t.id`);
+  const folded = await prisma.$executeRawUnsafe(`DELETE FROM "ZernioConversation" c WHERE ${TWIN} AND ${HAS_TWIN}`);
+  // No twin yet: the row itself becomes the platform-keyed one (messages follow, then the old row goes).
+  const rekeyed = await prisma.$executeRawUnsafe(`
+    INSERT INTO "ZernioConversation" ("id","clientId","accountId","platformConversationId","participantId","participantName","participantUsername","participantPicture","status","isGroup","url","lastMessageText","lastMessageAt","lastIncomingAt","lastOutgoingAt","lastSeenAt","zernioUnreadCount","igIsFollower","igIsFollowing","igFollowerCount","igIsVerified","igFetchedAt","syncedAt","createdAt","updatedAt")
+    SELECT c."platformConversationId", c."clientId", c."accountId", NULL, c."participantId", c."participantName", c."participantUsername", c."participantPicture", c.status, c."isGroup", c.url, c."lastMessageText", c."lastMessageAt", c."lastIncomingAt", c."lastOutgoingAt", c."lastSeenAt", c."zernioUnreadCount", c."igIsFollower", c."igIsFollowing", c."igFollowerCount", c."igIsVerified", c."igFetchedAt", c."syncedAt", c."createdAt", now()
+      FROM "ZernioConversation" c WHERE ${TWIN} AND NOT ${HAS_TWIN}
+    ON CONFLICT ("id") DO NOTHING`);
+  if (rekeyed) {
+    await prisma.$executeRawUnsafe(`UPDATE "ZernioMessage" m SET "conversationId" = c."platformConversationId" FROM "ZernioConversation" c WHERE m."conversationId" = c.id AND ${TWIN} AND ${HAS_TWIN}`);
+    await prisma.$executeRawUnsafe(`DELETE FROM "ZernioConversation" c WHERE ${TWIN} AND ${HAS_TWIN}`);
+  }
+  if (moved || dropped || folded || rekeyed) console.log(`[inbox-mirror] folded webhook twins: ${folded} rows folded, ${rekeyed} re-keyed, ${moved} messages moved, ${dropped} duplicate messages dropped`);
+  return { moved, dropped, folded, rekeyed };
 }
 
 // ── Prune (monthly): idempotent, logs what it removed ────────────────────────
